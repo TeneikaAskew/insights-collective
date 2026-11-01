@@ -355,6 +355,20 @@ export const CourseProgressOverview: React.FC<CourseProgressOverviewProps> = ({
               {certificate === 'unknown' && (certificateError ? ' Certificate status is unavailable right now.' : ' Checking certificate status…')}
             </p>
           )}
+          {/* T-10 r2 section 5: exactly all-done AND a known "no issued row" offers the EXISTING certificate-page
+              navigation. It never issues: the click only calls onViewCertificate (the page's navigate). Absent for an
+              incomplete snapshot and for an unknown certificate state. */}
+          {certificate === 'none' && progress!.isComplete && onViewCertificate && (
+            <Button
+              variant="outline"
+              onClick={onViewCertificate}
+              className="gap-2"
+              data-testid="certificate-check-status"
+            >
+              <Award className="h-4 w-4" />
+              Check certificate status
+            </Button>
+          )}
         </CardContent>
       </Card>
 

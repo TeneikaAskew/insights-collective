@@ -353,18 +353,88 @@ describe('CourseProgressOverview certificate matrix (T-10 r2)', () => {
     expect(rpcCalls()).not.toContain('check_course_completion');
   });
 
-  it('stored 100% without an issued row shows the stored-completion copy only', async () => {
-    setProgressHook({
-      data: {
-        modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 2, percent: 100, isComplete: true, itemIds: ['i1', 'i2'] }],
-        totalItems: 2, completedItems: 2, percent: 100, isComplete: true, doneItemIds: ['i1', 'i2'], eligibleItemIds: ['i1', 'i2'],
-      },
+  // T-10 r2 section 5: exact all-done + a KNOWN "no issued row" offers the existing certificate-page navigation.
+  const allDone = () => setProgressHook({
+    data: {
+      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 2, percent: 100, isComplete: true, itemIds: ['i1', 'i2'] }],
+      totalItems: 2, completedItems: 2, percent: 100, isComplete: true, doneItemIds: ['i1', 'i2'], eligibleItemIds: ['i1', 'i2'],
+    },
+  });
+  const checkButton = () => screen.queryByRole('button', { name: /check certificate status/i });
+  /** Every builder handed out, so a click can be shown to make zero writes. */
+  function recordBuilders(tables: Record<string, TableResult>) {
+    const made: any[] = [];
+    (mockSupabaseClient.from as Mock).mockImplementation((table: string) => {
+      const b = tableBuilder(tables[table] ?? { data: [], error: null });
+      made.push(b);
+      return b;
     });
-    mockTables({ ...successTables(), certificates: { data: [], error: null } });
-    render(<CourseProgressOverview courseId="course-1" studentId="student-1" />);
+    return made;
+  }
+  const WRITES = ['insert', 'update', 'delete', 'upsert'] as const;
+
+  it('stored 100% without an issued row: stored-completion copy plus Check certificate status, click navigates with zero writes', async () => {
+    allDone();
+    const builders = recordBuilders({ ...successTables(), certificates: { data: [], error: null } });
+    const onView = vi.fn();
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={onView} />);
     expect(await screen.findByTestId('certificate-status')).toHaveTextContent(/Every item is checked off\. A certificate depends on/);
+    const btn = await screen.findByRole('button', { name: /check certificate status/i });
     expect(viewButton()).toBeNull();
     expect(congrats()).toBeNull();
+
+    const fromBefore = (mockSupabaseClient.from as Mock).mock.calls.length;
+    const rpcBefore = (mockSupabaseClient.rpc as Mock).mock.calls.length;
+    btn.click();
+    // The action is the existing navigation callback, exactly once.
+    expect(onView).toHaveBeenCalledTimes(1);
+    await new Promise((r) => setTimeout(r, 20));
+    // Zero-write oracle: the click opens no table, calls no RPC (no issuance), and no builder ever wrote.
+    expect((mockSupabaseClient.from as Mock).mock.calls.length).toBe(fromBefore);
+    expect((mockSupabaseClient.rpc as Mock).mock.calls.length).toBe(rpcBefore);
+    for (const b of builders) for (const w of WRITES) expect(b[w]).not.toHaveBeenCalled();
+    expect(rpcCalls()).not.toContain('check_course_completion');
+  });
+
+  it('Check certificate status is absent when the snapshot is not all-done (known none)', async () => {
+    setProgressHook();
+    mockTables({ ...successTables(), certificates: { data: [], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={vi.fn()} />);
+    expect(await screen.findByTestId('certificate-status')).toHaveTextContent(/A certificate is issued once/);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(checkButton()).toBeNull();
+    expect(viewButton()).toBeNull();
+  });
+
+  it('Check certificate status is absent when all-done but the certificate read failed (unknown)', async () => {
+    allDone();
+    mockTables({ ...successTables(), certificates: { data: null, error: { message: 'permission denied' } } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={vi.fn()} />);
+    expect(await screen.findByText(/Certificate status is unavailable right now\./)).toBeInTheDocument();
+    expect(checkButton()).toBeNull();
+    expect(viewButton()).toBeNull();
+  });
+
+  it('Check certificate status is absent when all-done but the certificate read is in flight (unknown)', async () => {
+    allDone();
+    const pending = new Promise(() => {});
+    (mockSupabaseClient.from as Mock).mockImplementation((table: string) => {
+      if (table !== 'certificates') return tableBuilder(successTables()[table] ?? { data: [], error: null });
+      const b = tableBuilder({ data: [], error: null });
+      b.then = (f: any, r: any) => pending.then(f, r);
+      return b;
+    });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={vi.fn()} />);
+    expect(await screen.findByText(/Checking certificate status…/)).toBeInTheDocument();
+    expect(checkButton()).toBeNull();
+  });
+
+  it('all-done with an issued row shows View Certificate, not Check certificate status', async () => {
+    allDone();
+    mockTables({ ...successTables(), certificates: { data: [{ id: 'cert-1' }], error: null } });
+    render(<CourseProgressOverview courseId="course-1" studentId="student-1" onViewCertificate={vi.fn()} />);
+    expect(await screen.findByRole('button', { name: /view certificate/i })).toBeInTheDocument();
+    expect(checkButton()).toBeNull();
   });
 
   it('an unreadable certificate row is unknown: no View, no congratulations, says unavailable', async () => {

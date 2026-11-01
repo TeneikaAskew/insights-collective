@@ -109,6 +109,34 @@ describe('ModuleProgressCard (T-10 r2)', () => {
     expect(screen.getByText('2/3 items completed')).toBeInTheDocument();
   });
 
+  // r2 consolidated (B): the stored graded state survives a NULL grade; grade 0 is a real score.
+  const gradedCase = (sub: Record<string, unknown>) =>
+    stubDetails({ assignments: { data: [{ id: 'A1', points: 10, content_item_id: 'a1', submissions: [{ id: 's1', ...sub }] }] } });
+  const openDetails = async () => {
+    render(<ModuleProgressCard {...props} showDetails={true} />);
+    await userEvent.click(screen.getByRole('button', { name: /view details/i }));
+    return screen.findByTestId('assessment-a1');
+  };
+
+  it('graded with NULL grade and a submitted_at reads graded, score unavailable (not "Submitted, not graded")', async () => {
+    gradedCase({ workflow_state: 'graded', grade: null, submitted_at: '2026-11-01T00:00:00Z' });
+    const el = await openDetails();
+    expect(el).toHaveTextContent('Graded, score unavailable');
+    expect(el).not.toHaveTextContent(/Submitted, not graded|No submission/);
+  });
+
+  it('graded with NULL grade and NO submitted_at reads graded, score unavailable (not "No submission")', async () => {
+    gradedCase({ workflow_state: 'graded', grade: null, submitted_at: null });
+    const el = await openDetails();
+    expect(el).toHaveTextContent('Graded, score unavailable');
+    expect(el).not.toHaveTextContent(/Submitted, not graded|No submission/);
+  });
+
+  it('graded with grade 0 is a real score: Graded 0/10', async () => {
+    gradedCase({ workflow_state: 'graded', grade: 0, submitted_at: '2026-11-01T00:00:00Z' });
+    expect(await openDetails()).toHaveTextContent('Graded 0/10');
+  });
+
   it('renders the details error state with retry when a details query fails', async () => {
     stubDetails({ content_items: { data: null, error: { message: 'boom' } } });
     render(<ModuleProgressCard {...props} showDetails={true} />);

@@ -81,8 +81,13 @@ export function moduleBreakdown(
 /** Assessment evidence is its OWN fact, shown next to (never instead of) the stored-progress checkmark. */
 function assignmentStatus(a: any): string {
   const subs: any[] = a?.submissions || [];
-  const graded = subs.find((s) => s.workflow_state === 'graded' && s.grade != null);
-  if (graded) return a.points ? `Graded ${graded.grade}/${a.points}` : `Graded ${graded.grade}`;
+  // A stored 'graded' state is graded whatever the grade column holds: a NULL grade means the SCORE is unavailable,
+  // never that the work is ungraded or missing. A numeric grade (including 0) is shown as the score.
+  const graded = subs.find((s) => s.workflow_state === 'graded' && s.grade != null) ?? subs.find((s) => s.workflow_state === 'graded');
+  if (graded) {
+    if (graded.grade == null) return 'Graded, score unavailable';
+    return a.points ? `Graded ${graded.grade}/${a.points}` : `Graded ${graded.grade}`;
+  }
   if (subs.some((s) => s.workflow_state === 'submitted' || s.submitted_at)) return 'Submitted, not graded';
   return 'No submission';
 }
