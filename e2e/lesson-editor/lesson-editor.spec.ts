@@ -16,6 +16,10 @@
 // durable ambiguous Undo-to-base case (a send that may commit while the author returns to the base); storage-disabled
 // browsers; sign-out A -> B -> A; delayed-response schedules; existing student quiz HISTORY preservation; curriculum
 // rename/publish side actions.
+// Self-test overrides are refused at LOAD, before any worker, browser, owner change or fixture write can happen.
+if (process.env.LE_ALLOWED_ORIGINS !== undefined) throw new Error('LE_ALLOWED_ORIGINS is a self-test override; refused for the lesson-editor spec');
+if (process.env.LE_EGRESS_CONTROL !== undefined) throw new Error('LE_EGRESS_CONTROL is a self-test override; refused for the lesson-editor spec');
+if ('PGPASSWORD' in process.env) throw new Error('an external PGPASSWORD is refused; use LE_DB_PASSWORD_FILE (mode 600)');
 import { test, expect, CONTROL_OFF } from './egress-test';
 import type { Page, TestInfo, BrowserContext, Request, Locator } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
@@ -160,6 +164,61 @@ function observe(context: BrowserContext) {
   return { writes, calls, of, settle };
 }
 type Obs = ReturnType<typeof observe>;
+
+// ---------- A: one BROWSER clock for input, click and write start (performance.timeOrigin + now, valid across documents) ----------
+// Passive instrumentation: capture-phase listeners and a fetch wrapper that only records a timestamp and a bounded lesson label,
+// then calls the original fetch with the same arguments. Nothing is fulfilled, delayed or modified.
+type Mark = { kind: 'input' | 'click' | 'write'; t: number; lesson?: string };
+async function browserClock(context: BrowserContext) {
+  const marks: Mark[] = [];
+  await context.exposeBinding('__leMark', (_src, m: { kind: Mark['kind']; t: number; id?: string | null }) => {
+    marks.push({ kind: m.kind, t: m.t, ...(m.kind === 'write' ? { lesson: lessonLabel(m.id ?? null) } : {}) });
+  });
+  await context.addInitScript(() => {
+    const w = window as unknown as { __leMark: (m: unknown) => void };
+    const now = () => performance.timeOrigin + performance.now();
+    document.addEventListener('input', (e) => {
+      if ((e.target as HTMLElement | null)?.id === 'lesson-title') void w.__leMark({ kind: 'input', t: now() });
+    }, true);
+    document.addEventListener('click', () => void w.__leMark({ kind: 'click', t: now() }), true);
+    const orig = window.fetch;
+    window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
+      const t = now();
+      try {
+        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
+        const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+        if (method === 'PATCH' && url.pathname === '/rest/v1/content_items') void w.__leMark({ kind: 'write', t, id: (url.searchParams.get('id') ?? '').replace(/^eq\./, '') });
+      } catch {
+        /* observation only */
+      }
+      return orig.apply(this, [input, init] as Parameters<typeof fetch>);
+    };
+  });
+  /** Marks recorded since index `from`. */
+  const since = (from: number) => marks.slice(from);
+  return { marks, since };
+}
+/**
+ * A navigation-flush claim for one segment (marks since `from`): the last title input before the click and the click are
+ * < 800 ms apart (a PRECONDITION, not a persistence result), NO write for `lesson` left between that input and the click (else
+ * the debounce or an earlier write, not the navigation, sent it), and a NEW write for `lesson` started after the click and
+ * before the debounce could fire (input + 800 ms).
+ */
+function assertNavigationFlush(seg: Mark[], lesson: string, what: string) {
+  const click = seg.find((m) => m.kind === 'click');
+  expect(click, `${what}: PRECONDITION (not a persistence failure): a click was recorded`).toBeTruthy();
+  const input = seg.filter((m) => m.kind === 'input' && m.t <= click!.t).at(-1);
+  expect(input, `${what}: PRECONDITION (not a persistence failure): a title input preceded the click`).toBeTruthy();
+  const gap = click!.t - input!.t;
+  test.info().annotations.push({ type: `${what} input->click ms (browser clock)`, description: gap.toFixed(1) });
+  expect(gap, `${what}: PRECONDITION (not a persistence failure): input -> click inside the 800 ms debounce`).toBeLessThan(800);
+  const label = FIXTURE_IDS[lesson];
+  const firstInput = seg.find((m) => m.kind === 'input')!;
+  const early = seg.filter((m) => m.kind === 'write' && m.lesson === label && m.t >= firstInput.t && m.t < click!.t);
+  expect(early.length, `${what}: no ${label} write had already left before the navigation (else the flush is not shown)`).toBe(0);
+  const flushed = seg.filter((m) => m.kind === 'write' && m.lesson === label && m.t >= click!.t && m.t < input!.t + 800);
+  expect(flushed.length, `${what}: a NEW ${label} write started after the click and before the debounce could fire`).toBeGreaterThan(0);
+}
 const sha = (s: string | null) => createHash('sha256').update(s ?? '').digest('hex').slice(0, 16);
 const rowEvidence = (r: DbRow | null) => r && { id: FIXTURE_IDS[r.id] ?? '<other>', type: r.type, updated_at: r.updated_at, titleSha: sha(r.title), contentSha: sha(r.content) };
 
@@ -202,8 +261,12 @@ const record = async (page: Page, key: string): Promise<Record2 | null> => {
 async function captureVerified(
   page: Page, info: TestInfo, vp: string, shot: string, mode: Mode, obs: Obs,
   ui: { title?: string; status?: string; body?: string; heading?: string },
-  db: { lesson?: string; title?: string; notTitle?: string },
+  db: { lesson?: string; title?: string; notTitle?: string; contentContains?: string },
+  opts: { observedOnly?: boolean } = {},
 ) {
+  // A database read must assert something; an intermediate frame makes no database claim at all and is labelled so.
+  if (opts.observedOnly) expect(Object.keys(db), `${shot}: an observed-only frame carries no database claim`).toEqual([]);
+  else expect(db.lesson && (db.title !== undefined || db.notTitle !== undefined), `${shot}: a verified frame must assert database state`).toBeTruthy();
   if (ui.title !== undefined) await expect(title(page)).toHaveValue(ui.title);
   if (ui.status !== undefined) await expect(status(page)).toHaveAttribute('data-status', ui.status);
   if (ui.body !== undefined) await expect(editor(page)).toContainText(ui.body);
@@ -212,10 +275,12 @@ async function captureVerified(
   const row = db.lesson ? dbLesson(db.lesson) : null;
   if (db.title !== undefined) expect(row?.title, `${shot}: database agrees with the screen`).toBe(db.title);
   if (db.notTitle !== undefined) expect(row?.title, `${shot}: the unconfirmed draft is not in the database`).not.toBe(db.notTitle);
+  if (db.contentContains !== undefined) expect(row?.content, `${shot}: database body agrees with the screen`).toContain(db.contentContains);
   const name = `${LABELS.commit.slice(0, 12)}__${vp}__${shot}__retry${info.retry}`;
   await info.attach(`${name}.png`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   const entry = {
     tier: 'authentic isolated LOCAL stack (NOT mocked, NOT production, NOT the deployed backend)', faultInjection: mode, stubs: 0,
+    claim: opts.observedOnly ? 'intermediate frame: OBSERVED ONLY (UI asserted; no database claim; later asserts do not verify this pixel)' : 'UI and database verified before capture',
     commit: LABELS.commit, environment: LABELS.environment, viewport: vp, shot, path: new URL(page.url()).pathname,
     verified: { ui: Object.keys(ui), db: Object.keys(db) }, row: rowEvidence(row),
     api: obs.calls.map(({ method, path, status, lesson }) => ({ method, path, status, lesson })), capturedAt: new Date().toISOString(),
@@ -232,6 +297,7 @@ test.beforeAll(() => {
   for (const [k, v] of Object.entries(ENV)) expect(v, `LE_* ${k} must be set`).not.toBe('');
   expect(LOOPBACK(ENV.app), 'LE_APP_ORIGIN must be a loopback http origin').toBe(true);
   expect(LOOPBACK(ENV.api), 'LE_API_ORIGIN must be a loopback http origin').toBe(true);
+  expect(/^postgresql:\/\/[A-Za-z_][A-Za-z0-9_]*@(127\.0\.0\.1|localhost|\[::1\]):\d+\/[A-Za-z_][A-Za-z0-9_]*$/.test(ENV.db), 'LE_DB_URL must be password-free (LE_DB_PASSWORD_FILE carries the password)').toBe(true);
   // Private session files and public evidence never mix.
   expect(within(ENV.output, ENV.evidence) && within(ENV.report, ENV.evidence), 'output and report must be inside LE_EVIDENCE_DIR').toBe(true);
   expect(within(ENV.work, ENV.evidence) || within(ENV.evidence, ENV.work), 'private dir and evidence dir must be disjoint').toBe(false);
@@ -271,35 +337,31 @@ test.describe('owner, real backend and TipTap, desktop', () => {
     await info.attach('E1-db.json', { body: Buffer.from(JSON.stringify({ before: rowEvidence(before), stored: rowEvidence(stored) })), contentType: 'application/json' });
   });
 
-  test('E2 navigation within 800 ms of the last input: switch lesson and Preview both persist the edit', async ({ page, context }) => {
+  test('E2 navigation within 800 ms of the last input: switch lesson and Preview each flush the edit themselves', async ({ page, context }) => {
     const obs = observe(context);
+    const clock = await browserClock(context); // before the first document, so every input/click/write is on one clock
     await openLesson(page, A);
     // Navigation targets are resolved BEFORE the edit, so no DB read or lookup sits between input and click.
     const bTitle = dbLesson(B).title;
     const toB = outlineButton(page, bTitle);
     await expect(toB).toBeVisible();
-    const startedA = obs.of(A).length;
+    const m1 = clock.marks.length;
     await title(page).fill('E2 switch');
-    const t0 = Date.now();
     await toB.click();
-    const dt = Date.now() - t0;
-    expect(dt, 'input -> navigation inside the 800 ms save debounce').toBeLessThan(800);
-    test.info().annotations.push({ type: 'E2 switch input->click ms', description: String(dt) });
     await expect(title(page)).toHaveValue(bTitle);
     await obs.settle(A);
-    expect(obs.of(A).length, 'the switch itself sent the edit (flush), not a later debounce').toBeGreaterThan(startedA);
-    expect(obs.of(A).at(-1)!.startedAt - t0, 'the write left before the debounce could have fired').toBeLessThan(800);
+    assertNavigationFlush(clock.since(m1), A, 'E2 switch');
     expect(dbLesson(A).title).toBe('E2 switch');
 
     const toPreview = preview(page);
     await expect(toPreview).toBeVisible();
+    const m2 = clock.marks.length;
     await title(page).fill('E2 preview');
-    const t1 = Date.now();
     await toPreview.click();
-    const dt2 = Date.now() - t1;
-    expect(dt2, 'input -> Preview inside the 800 ms save debounce').toBeLessThan(800);
     await expect(page).toHaveURL(new RegExp(`/courses/${C1}/learn`), { timeout: 20_000 });
-    expect(dbLesson(B).title, 'saved before the navigation completed (the builder flushes, then navigates)').toBe('E2 preview');
+    expect(dbLesson(B).title, 'saved by the time the navigation completed (the builder flushes, then navigates)').toBe('E2 preview');
+    await obs.settle(B);
+    assertNavigationFlush(clock.since(m2), B, 'E2 preview');
     await page.goBack();
     await expect(page).toHaveURL(/\/builder/);
     await page.reload();
@@ -432,10 +494,16 @@ test.describe('owner, real backend and TipTap, desktop', () => {
     const before = quizHash();
     await openLesson(page, Q);
     await expect(page.locator('#lesson-type:visible')).toBeDisabled();
-    await title(page).fill(`Graded quiz (E8 ${Date.now() % 1000})`);
+    const requested = `Graded quiz (E8 ${Date.now() % 1000})`;
+    await title(page).fill(requested);
     await saved(page);
-    expect(dbLesson(Q).type).toBe('quiz');
+    const row = dbLesson(Q);
+    expect(row.title, 'the quiz lesson title edit was stored exactly (a dropped save would keep the old title)').toBe(requested);
+    expect(row.type).toBe('quiz');
     expect(quizHash(), 'quiz definition and questions unchanged').toBe(before);
+    await page.reload();
+    await expect(title(page), 'durable: the stored title is what a fresh document loads').toHaveValue(requested, { timeout: 30_000 });
+    await expect(page.locator('#lesson-type:visible')).toBeDisabled();
     test.info().annotations.push({ type: 'pending', description: 'existing student quiz HISTORY preservation and curriculum rename/publish side actions are NOT covered (no history canary in this fixture)' });
   });
 
@@ -478,7 +546,7 @@ for (const vp of VIEWPORTS) {
       await title(page).fill(savedTitle);
       await typeInBody(page, ` ${vp.name}`);
       await saved(page);
-      await captureVerified(page, info, vp.name, '02-saved', 'AUTHENTIC', obs, { title: savedTitle, status: 'saved', body: vp.name }, { lesson: B, title: savedTitle });
+      await captureVerified(page, info, vp.name, '02-saved', 'AUTHENTIC', obs, { title: savedTitle, status: 'saved', body: vp.name }, { lesson: B, title: savedTitle, contentContains: vp.name });
 
       const draft = `Offline at ${vp.name}`;
       await context.setOffline(true);
@@ -493,9 +561,9 @@ for (const vp of VIEWPORTS) {
       await context.setOffline(false);
       await page.goto(builder(B));
       await expect(page.getByTestId('lesson-recovered-notice').filter({ visible: true })).toBeVisible({ timeout: 30_000 });
-      await captureVerified(page, info, vp.name, '05-restored', 'DOCUMENT-LOSS', obs, { title: draft }, { lesson: B });
+      await captureVerified(page, info, vp.name, '05a-restored-observed', 'DOCUMENT-LOSS', obs, { title: draft }, {}, { observedOnly: true });
       await saved(page);
-      expect(dbLesson(B).title).toBe(draft);
+      await captureVerified(page, info, vp.name, '05b-restored-saved', 'DOCUMENT-LOSS', obs, { title: draft, status: 'saved' }, { lesson: B, title: draft });
 
       const tab2 = await context.newPage();
       await openLesson(tab2, B);

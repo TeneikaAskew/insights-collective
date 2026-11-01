@@ -40,15 +40,15 @@ let API, APP;
 try {
   API = apiOrigin(rawApi);
   APP = apiOrigin(rawApp); // same strict loopback-origin rule for the app the storage state is bound to
-} catch (e) {
-  refuse(e.message);
+} catch {
+  refuse('origin refused (strict loopback origin required)');
 }
 let anon, service;
 try {
   anon = readSecretFile(anonFile, 'anon key');
   service = readSecretFile(serviceFile, 'service key');
-} catch (e) {
-  refuse(e.message);
+} catch {
+  refuse('key file refused (mode-600 regular file required)');
 }
 if (existsSync(outDir)) refuse('output dir exists (never reused)');
 mkdirSync(outDir, { mode: 0o700 });
@@ -81,8 +81,8 @@ for (const p of LE_PERSONAS) {
       timeoutMs: 20000,
     });
     if (t.status !== 200) refuse(`sign in ${p}: HTTP ${t.status}`);
-  } catch (e) {
-    refuse(`${p}: ${e.message}`);
+  } catch {
+    refuse(`${p}: request failed (detail withheld)`);
   }
   const id = u.json?.id || u.json?.user?.id;
   const session = t.json;

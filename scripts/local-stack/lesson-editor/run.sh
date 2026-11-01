@@ -2,6 +2,10 @@
 # ABOUTME: Lesson-editor fixture runner for an ALREADY BOOTSTRAPPED isolated local stack. It never starts, stops or resets a
 # ABOUTME: stack and never touches a shared fixture; the harness pin and target checks run before anything else.
 #
+# <db url> is ALWAYS password-free: postgresql://<user>@<loopback host>:<port>/<db>. A password, when the stack needs one,
+# comes only from env LE_DB_PASSWORD_FILE (mode 600); psql then gets a private 0600 passfile through its environment, never
+# argv. An external PGPASSWORD is refused, as are the self-test-only LE_ALLOWED_ORIGINS and LE_EGRESS_CONTROL overrides.
+#
 #   run.sh setup <api origin> <app origin> <db url> <anon key file> <service key file> <private dir (absent)> <evidence dir (absent)>
 #        pin -> targets -> preflight.mjs (READ-ONLY; before any GoTrue admin POST) -> personas -> fixture.sql -> backend contract.
 #        The private dir (0700) holds the session files; the evidence dir holds only credential-free results. Neither may
@@ -14,8 +18,8 @@
 #
 # Not a shared runner: no globalSetup, no teardown, no truncation, no edits to e2e.yml. Integration into the shared workflow is
 # the T-09 owner's (see README.md). Secrets come only from mode-600 files and are never printed or passed as arguments.
-# Child stderr (psql, node) is NEVER printed: only this script's own labels, the lane's own fixed refusal messages, exit
-# statuses and byte counts (the T-09 stack-checks.sh "probe" rule).
+# Child stderr (psql, node) is NEVER printed, not even in part: only this script's own fixed texts, exit statuses and byte
+# counts (the T-09 stack-checks.sh "probe" rule). A known fixture refusal is reported as a fixed code chosen here.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../../.." && pwd)"
 umask 077
@@ -35,22 +39,47 @@ pin_harness() {
     [ "$got" = "$want" ] || refuse "$f is $got, not the pinned $want (re-check required by the lesson-editor lane)"
   done
 }
-# quiet <label> <cmd...>: runs a child with stderr withheld; on failure prints only lines carrying the lane's OWN fixed refusal
-# prefixes (raised by fixture.sql / this lane), then the exit status and the withheld byte count.
+# Fixed refusal codes for fixture.sql's own exceptions. Matching only SELECTS one of these texts; nothing from stderr is printed.
+CODES=(
+  "apply it only through|fixture refused: not applied through run.sh"
+  "non-synthetic auth user|fixture refused: non-synthetic auth user(s) present"
+  "is not an le-\\* local.test account|fixture refused: a persona is not an le-* local.test account"
+  "OTHER must differ from OWNER|fixture refused: OTHER equals OWNER"
+  "course C1 already exists|fixture refused: course C1 already exists"
+  "course owner mismatch|fixture refused: course owner mismatch"
+  "expected 6 content items|fixture refused: unexpected content item count"
+  "must start with a NULL updated_at|fixture refused: NULL-version lessons not NULL"
+  "quiz must have 2 questions|fixture refused: quiz question count"
+  "STUDENT is not a pure student|fixture refused: STUDENT role check"
+)
+# quiet <label> <cmd...>: runs a child with stderr withheld. On failure prints at most one fixed code from CODES, then the exit
+# status and the withheld byte count. Never any stderr-derived text.
 quiet() {
-  local label="$1"; shift; local e st
+  local label="$1"; shift; local e st c
   e=$(mktemp) || refuse "mktemp"
   "$@" 2>"$e"; st=$?
   if [ $st -ne 0 ]; then
-    grep -oE '(lesson-editor fixture refused|fixture): [A-Za-z0-9 ,.()*%_/-]{1,160}' "$e" | head -3 | sed 's/^/  /' >&2
+    for c in "${CODES[@]}"; do grep -qE "(lesson-editor fixture refused|fixture): .*${c%%|*}" "$e" && { echo "  ${c#*|}" >&2; break; }; done
     echo "FAIL le-run: $label exited $st (child stderr withheld: $(wc -c <"$e") bytes)" >&2
     rm -f "$e"; return $st
   fi
   rm -f "$e"
 }
-CLEAN=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE)   # libpq overrides removed
-psql() { command "${CLEAN[@]}" psql "$@"; }
-local_db() { node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "$1" >/dev/null 2>&1 || refuse "database is not loopback"; }
+CLEAN=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE -u PGPASSWORD -u PGUSER -u PGDATABASE)
+# Private passfile for this invocation (0700 dir, 0600 file), removed on every exit. Set by local_db.
+PF_DIR=""; ARMED_WORK=""
+on_exit() {
+  [ -n "$PF_DIR" ] && rm -rf -- "$PF_DIR"
+  if [ -n "$ARMED_WORK" ]; then rm -rf -- "$ARMED_WORK"; echo "le-run: private dir removed after a failed setup" >&2; fi
+}
+trap on_exit EXIT
+psql() { command "${CLEAN[@]}" PGPASSFILE="$PF_DIR/pgpass" psql -w "$@"; }   # -w: never prompt; fail closed
+local_db() {
+  node "$HERE/pgconn.mjs" check "$1" >/dev/null 2>&1 || refuse "database URL refused (loopback, password-free canonical postgresql://user@host:port/db required)"
+  [ -z "$PF_DIR" ] || return 0
+  PF_DIR=$(mktemp -d) || refuse "mktemp"
+  node "$HERE/pgconn.mjs" passfile "$1" "$PF_DIR/pgpass" >/dev/null 2>&1 || refuse "database password file refused (LE_DB_PASSWORD_FILE must be an absolute mode-600 file of one line)"
+}
 local_api() { node "$ROOT/scripts/local-stack/t09/api-http.mjs" check "$1" >/dev/null 2>&1 || refuse "origin refused (strict loopback origin required): $2"; }
 persona_id() { node -e 'try{const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const p=o[process.argv[2]];if(!p||!/^[0-9a-f-]{36}$/.test(p.id))process.exit(1);console.log(p.id)}catch{process.exit(1)}' "$1" "$2" 2>/dev/null; }
 abspath() { node -e 'console.log(require("path").resolve(process.argv[1]))' "$1"; }
@@ -59,33 +88,40 @@ COURSE=ed170000-0000-4000-8000-0000000000c1
 ACK='-c le.fixture_ack=isolated-local-stack'
 PRIVATE_NAMES='^(personas\.json|state-(OWNER|OTHER|STUDENT)\.json)$'
 
+[ -n "${PGPASSWORD+x}" ] && refuse "an external PGPASSWORD is refused; use LE_DB_PASSWORD_FILE (mode 600)"
+no_selftest_overrides() {
+  [ -z "${LE_ALLOWED_ORIGINS+x}" ] || refuse "LE_ALLOWED_ORIGINS is a self-test override and is refused here (nothing was written)"
+  [ -z "${LE_EGRESS_CONTROL+x}" ] || refuse "LE_EGRESS_CONTROL is a self-test override and is refused here (nothing was written)"
+}
 cmd="${1:-}"; shift || true
 case "$cmd" in
   setup)
     API="${1:?api origin}"; APP="${2:?app origin}"; DB="${3:?db url}"; ANON="${4:?anon key file}"; SERVICE="${5:?service key file}"
     WORK="$(abspath "${6:?private dir}")"; EVID="$(abspath "${7:?evidence dir}")"
     pin_harness
+    no_selftest_overrides
     local_db "$DB"; local_api "$API" api; local_api "$APP" app
     [ -e "$WORK" ] && refuse "private dir exists (never reused)"
     [ -e "$EVID" ] && refuse "evidence dir exists (never reused)"
     inside "$WORK" "$EVID" || inside "$EVID" "$WORK" && refuse "private and evidence dirs must not contain each other"
     quiet "preflight" node "$HERE/preflight.mjs" "$API" "$APP" "$DB" "$ANON" "$SERVICE" || refuse "preflight (read-only; nothing was written)"
     mkdir -m 700 "$EVID" || refuse "cannot create evidence dir"
-    trap 'rm -rf -- "$WORK"; echo "le-run: private dir removed after a failed setup" >&2' EXIT
+    ARMED_WORK="$WORK" 
     quiet "personas" node "$HERE/personas.mjs" "$API" "$ANON" "$SERVICE" "$APP" "$WORK" || refuse "personas"
     ids=""; for p in OWNER OTHER STUDENT; do i=$(persona_id "$WORK/personas.json" "$p") || refuse "personas file unreadable"; ids="$ids $i"; done
     read -r OWNER OTHER STUDENT <<<"$ids"
-    quiet "fixture" "${CLEAN[@]}" PGOPTIONS="$ACK" psql "$DB" -X -q -v owner="$OWNER" -v other="$OTHER" -v student="$STUDENT" \
+    PGOPTIONS="$ACK" quiet "fixture" psql "$DB" -X -q -v owner="$OWNER" -v other="$OTHER" -v student="$STUDENT" \
       -f "$HERE/fixture.sql" || refuse "fixture"
     quiet "backend contract" node "$HERE/backend-contract.mjs" "$API" "$ANON" "$WORK/personas.json" "$EVID/backend-contract.json" || refuse "backend contract"
-    trap - EXIT
+    ARMED_WORK=""
     echo "PASS le-run setup: read-only preflight, personas, fixture and LOCAL backend contract; sessions in the private dir only" ;;
   owner)
     DB="${1:?db url}"; WORK="${2:?private dir}"; WHO="${3:?OWNER or OTHER}"
+    no_selftest_overrides
     local_db "$DB"
     case "$WHO" in OWNER|OTHER) ;; *) refuse "owner must be OWNER or OTHER" ;; esac
     id=$(persona_id "$WORK/personas.json" "$WHO") || refuse "persona $WHO missing"
-    n=$(quiet "owner change" "${CLEAN[@]}" PGOPTIONS="$ACK" psql \
+    n=$(PGOPTIONS="$ACK" quiet "owner change" psql \
       "$DB" -X -qAt -v ON_ERROR_STOP=1 -v id="$id" -c "do \$\$ begin if current_setting('le.fixture_ack', true) is distinct from 'isolated-local-stack' then raise exception 'not acknowledged'; end if; end \$\$;" \
       -c "with u as (update public.courses set instructor_id = '$id' where id = '$COURSE' returning 1) select count(*) from u;") || refuse "owner change"
     [ "$n" = 1 ] || refuse "owner change touched an unexpected number of rows (expected exactly 1)"

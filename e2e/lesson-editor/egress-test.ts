@@ -15,7 +15,13 @@ if (!['', 'off', 'route-only', 'proxy-only'].includes(CONTROL)) throw new Error(
 export const CONTROL_OFF = CONTROL !== '';
 const PROXY_ON = CONTROL === '' || CONTROL === 'proxy-only';
 const ROUTE_ON = CONTROL === '' || CONTROL === 'route-only';
+// LE_ALLOWED_ORIGINS is the SELF-TEST's allowlist. It is refused whenever any lesson-editor target is configured, so the
+// authentic path's allowlist is always exactly LE_APP_ORIGIN + LE_API_ORIGIN (the spec also refuses it at load).
+const TARGET_VARS = ['LE_APP_ORIGIN', 'LE_API_ORIGIN', 'LE_DB_URL', 'LE_WORK_DIR', 'LE_EVIDENCE_DIR'];
 export function configuredOrigins(): string[] {
+  if (process.env.LE_ALLOWED_ORIGINS !== undefined && TARGET_VARS.some((k) => process.env[k] !== undefined)) {
+    throw new Error('LE_ALLOWED_ORIGINS (self-test allowlist) is refused when a lesson-editor target is configured');
+  }
   const list = process.env.LE_ALLOWED_ORIGINS ? process.env.LE_ALLOWED_ORIGINS.split(',') : [process.env.LE_APP_ORIGIN, process.env.LE_API_ORIGIN];
   return list.filter((o): o is string => Boolean(o));
 }

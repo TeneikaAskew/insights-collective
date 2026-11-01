@@ -13,16 +13,27 @@
 //   P4 app -> API: the served app's entry bundle names exactly this API origin and no hosted *.supabase.co project.
 // psql stderr and HTTP bodies are never printed; only labels, counts and exit statuses.
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
+import { checkDsn, childEnv, writePassfile } from './pgconn.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '../../..');
+// Private passfile (pgconn.mjs rule): the DSN in psql's argv is password-free; the secret path is only in the child env.
+let PF_DIR = '';
+const dropPassfile = () => {
+  if (PF_DIR) rmSync(PF_DIR, { recursive: true, force: true });
+  PF_DIR = '';
+};
+process.on('exit', dropPassfile);
 const fail = (m) => {
   console.log(`FAIL le-preflight: ${m}`);
   process.exit(1);
 };
+// Uncaught errors (e.g. from a JSON or fs call) are never printed: their text can carry child output.
+process.on('uncaughtException', () => fail('unexpected error (detail withheld)'));
 const ok = (m) => console.log(`ok le-preflight ${m}`);
 
 const [rawApi, rawApp, db, anonFile, serviceFile] = process.argv.slice(2);
@@ -34,27 +45,32 @@ let API, APP, anon, service;
 try {
   API = apiOrigin(rawApi);
   APP = apiOrigin(rawApp);
-} catch (e) {
-  fail(e.message);
+} catch {
+  fail('origin refused (strict loopback origin required)');
+}
+{
+  const c = checkDsn(db);
+  if (!c.ok) fail(`database URL refused: ${c.reason}`);
 }
 try {
-  execFileSync('node', [path.join(ROOT, 'scripts/local-db/assert-local-dsn.mjs'), db], { stdio: 'ignore' });
-} catch {
-  fail('database is not loopback');
+  PF_DIR = mkdtempSync(path.join(os.tmpdir(), 'le-pf-'));
+  writePassfile(db, path.join(PF_DIR, 'pgpass'));
+} catch (e) {
+  const fixed = e instanceof Error && /^(LE_DB_PASSWORD_FILE |an external PGPASSWORD)/.test(e.message);
+  fail(fixed ? e.message : 'database password file refused (detail withheld)');
 }
 try {
   anon = readSecretFile(anonFile, 'anon key');
   service = readSecretFile(serviceFile, 'service key');
-} catch (e) {
-  fail(e.message);
+} catch {
+  fail('key file refused (mode-600 regular file required)');
 }
 
 /** One read-only SQL query; returns trimmed stdout. stderr is withheld (byte count only). */
 function sql(label, query) {
-  const env = { ...process.env };
-  for (const k of ['PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PGPORT', 'PGPASSFILE']) delete env[k];
+  const env = childEnv(path.join(PF_DIR, 'pgpass'));
   try {
-    return execFileSync('psql', [db, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', 'begin read only', '-c', query, '-c', 'commit'], {
+    return execFileSync('psql', [db, '-w', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1', '-c', 'begin read only', '-c', query, '-c', 'commit'], {
       env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000,
     }).trim();
   } catch (e) {
@@ -114,7 +130,7 @@ try {
   courses = await request(API, 'GET', '/rest/v1/courses?select=id&limit=1', { headers: { ...svc, Prefer: 'count=exact' } });
   root = await request(API, 'GET', '/rest/v1/', { headers: { apikey: anon } });
 } catch (e) {
-  fail(`P3: ${e.message}`);
+  fail('P3: request failed (detail withheld)');
 }
 if (users.status !== 200 || courses.status !== 200 || root.status !== 200) fail(`P3: HTTP ${users.status}/${courses.status}/${root.status}`);
 const apiUsers = Number(users.headers.get('x-total-count') ?? users.json?.total ?? NaN);
@@ -133,8 +149,8 @@ ok(`P3 API matches DB: users ${dbUsers}, courses ${dbCourses}, ${exposed.length}
 let html;
 try {
   html = await request(APP, 'GET', '/', {});
-} catch (e) {
-  fail(`P4: ${e.message}`);
+} catch {
+  fail('P4: request failed (detail withheld)');
 }
 if (html.status !== 200) fail(`P4: app HTTP ${html.status}`);
 const srcs = [...html.text.matchAll(/<script[^>]+type="module"[^>]+src="(\/[^"]+\.js)"/g), ...html.text.matchAll(/<link[^>]+rel="modulepreload"[^>]+href="(\/[^"]+\.js)"/g)]
@@ -145,8 +161,8 @@ for (const s of srcs) {
   let r;
   try {
     r = await request(APP, 'GET', s, {});
-  } catch (e) {
-    fail(`P4: ${e.message}`);
+  } catch {
+    fail('P4: request failed (detail withheld)');
   }
   if (r.status !== 200) fail(`P4: bundle HTTP ${r.status}`);
   if (r.text.includes(API)) namesApi = true;
