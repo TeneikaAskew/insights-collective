@@ -39,8 +39,8 @@ const FAULT = (k: string) => `FAULT(${k})`;
 const RESULT = 'quiz-player-review';
 const ACTIVE = 'quiz-player-active';
 
-// Positive readiness (readiness.ts): the app's own course GET returned the expected synthetic course, then a mounted
-// player state is visible. Loading-marker absence alone is vacuous when the player never mounts (run 41359219343).
+// Positive readiness (readiness.ts): the app's own course GET returned the expected synthetic course, then the TARGET
+// item's heading and a ready player are visible together on the expected route. Loading-marker absence alone is vacuous.
 async function open(page: Page, nn: string) {
   await gotoReady(page, scenario(nn).url, `open-${nn}`);
 }
@@ -531,12 +531,12 @@ test.describe(FAULT('start-held-before-forward'), () => {
     expect(sent(net, 'start')).toHaveLength(1);
     expect(readLedger(a.quiz, 'R3-A-held').attempts).toEqual([]); // held before forward: nothing committed
     await nav(page, 'QLC R3 slow start B').click();
-    await expectMounted(page, 'R3-B');
+    await expectMounted(page, 'R3-B', { item: b.item });
     release();
     await expect.poll(() => settledAll(net, 'start'), { timeout: 15000 }).toBe(true);
     await expect(radio(page, 'Four')).not.toBeChecked();
     await nav(page, 'QLC R3 slow start A').click();
-    await expectMounted(page, 'R3-A');
+    await expectMounted(page, 'R3-A', { item: a.item });
     await page.waitForTimeout(2500); // any debounced write has fired
     await expect.poll(() => settledAll(net, 'write'), { timeout: 15000 }).toBe(true);
 

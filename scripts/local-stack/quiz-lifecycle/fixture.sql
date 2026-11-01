@@ -60,10 +60,11 @@ BEGIN
   UPDATE public.profiles SET first_name = 'QLC', last_name = 'Learner' WHERE id = v_learner;
   INSERT INTO public.user_roles (user_id, role) VALUES (v_learner, 'student') ON CONFLICT DO NOTHING;
 
-  -- Course: PUBLISHED. The intended journey is an enrolled learner opening a readable course: the snapshot's courses
-  -- SELECT policies admit only published courses (or instructors/admins), never enrollment, so an unpublished course
-  -- renders "Course not found" and the player never mounts (run 41359219343, H1). This is synthetic data on an
-  -- isolated local stack only; no policy, grant, RLS or quiz rule changes.
+  -- Course: PUBLISHED. The intended journey is an enrolled learner opening a readable course. The snapshot's courses
+  -- SELECT policies admit only published courses (or instructors/admins), never enrollment, so for an unpublished course
+  -- CourseLearn's course read returns no row and the page would show "Course not found" (H1: supported by source and a
+  -- LOCAL-SHIM check; run 41359219343 itself showed only sign-in success and a missing radio "Four"). Synthetic data on
+  -- an isolated local stack only; no policy, grant, RLS or quiz rule changes.
   INSERT INTO public.courses (id, title, description, category, level, published)
   VALUES (v_course, 'QLC Quiz Lifecycle (test fixture)', 'Synthetic course for the learner quiz lifecycle mode. Not for humans.',
           'analytics', 'beginner', true)
