@@ -64,26 +64,99 @@ export function diagnosticLine({ test, urlPath, attempts, last, transportFailure
 }
 
 /**
- * Bounded, SAFE capture for a sign-in that never left /login: one fixed-format line (allowlisted fields only) and one
- * viewport screenshot of the synthetic local login form with BOTH inputs masked. No trace, no DOM dump, no token, body
- * or header. The visible text is read only to test it against the fixed allowlist; the text itself is never written.
- * Files: <out>/login-diagnostics/<slug>.txt (0600) and <out>/screens/login-setup/<slug>-<sha>.png.
+ * Records the password-grant responses of one page. Each response is reduced to fixed fields in memory; the body is
+ * dropped. settle() waits (bounded) for every pending reduction, so a capture never sees attempts>0 with last=null or
+ * a stale last.
  */
-export async function captureLoginFailure(page, { out, sha, title, attempts, transportFailures, last }) {
+export function createGrantRecorder(page) {
+  const pending = new Set();
+  const state = { attempts: 0, transportFailures: 0, last: null };
+  const onResponse = (r) => {
+    if (!isPasswordGrant(r.request().method(), r.url())) return;
+    state.attempts += 1;
+    const n = state.attempts;
+    const p = (async () => {
+      let json = null;
+      try { json = await r.json(); } catch { json = null; }
+      const s = summarizeTokenResponse(r.status(), json);
+      if (n === state.attempts) state.last = s; // only the newest attempt's reduction is kept
+    })();
+    pending.add(p);
+    p.finally(() => pending.delete(p));
+  };
+  const onFailed = (r) => { if (isPasswordGrant(r.method(), r.url())) state.transportFailures += 1; };
+  page.on('response', onResponse);
+  page.on('requestfailed', onFailed);
+  return {
+    async settle(timeoutMs = 3000) {
+      let timer;
+      const all = Promise.allSettled([...pending]).then(() => true);
+      const out = await Promise.race([all, new Promise((r) => { timer = setTimeout(() => r(false), timeoutMs); })]);
+      clearTimeout(timer);
+      return { ...state, settled: out === true && pending.size === 0 };
+    },
+    detach() { page.off('response', onResponse); page.off('requestfailed', onFailed); },
+  };
+}
+
+// The exact static text of the approved synthetic login page. Any other visible text (the raw auth error message that
+// Login.tsx renders, a toast, anything reflected) is masked before the screenshot. Unknown text is masked, never shown.
+export const APPROVED_LOGIN_TEXT = Object.freeze([
+  'Insights Collective', 'Welcome back', 'Sign in to your Insights Collective account', 'Sign in with Google',
+  'Or continue with', 'OR CONTINUE WITH', 'Email', 'Password', 'Forgot password?', 'Sign In',
+  "Don't have an account?", 'Don’t have an account?', 'Create account',
+]);
+const REDACT_ATTR = 'data-qlc-redact';
+
+/**
+ * In the page: confirm this is the approved login page (the exact form controls exist) and mark every visible element
+ * whose own text is not in the static allowlist. Returns counts only; no text leaves the page.
+ */
+export async function prepareLoginPageForCapture(page, appOrigin) {
+  let u;
+  try { u = new URL(page.url()); } catch { return { approved: false, reason: 'url' }; }
+  if (u.pathname !== '/login' || (appOrigin && u.origin !== appOrigin)) return { approved: false, reason: 'not-login' };
+  return page.evaluate(({ allow, attr }) => {
+    const form = document.querySelector('#email') && document.querySelector('#password')
+      && [...document.querySelectorAll('button[type="submit"]')].some((b) => b.textContent.trim() === 'Sign In');
+    if (!form) return { approved: false, reason: 'form' };
+    const allowed = new Set(allow);
+    let redacted = 0;
+    const visible = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+    for (const el of document.body.querySelectorAll('*')) {
+      const own = [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+      if (!own || !visible(el) || allowed.has(own)) continue;
+      el.setAttribute(attr, '1'); redacted += 1;
+    }
+    return { approved: true, reason: 'ok', redacted };
+  }, { allow: [...APPROVED_LOGIN_TEXT], attr: REDACT_ATTR });
+}
+
+/**
+ * Bounded, SAFE capture for a sign-in that never left /login: one fixed-format line (allowlisted fields only) and, only
+ * on the approved login page, one viewport screenshot with BOTH inputs and EVERY non-allowlisted visible text masked.
+ * No trace, no DOM dump, no token, body or header. Files: <out>/login-diagnostics/<slug>.txt (0600) and
+ * <out>/screens/login-setup/<slug>-<sha>.png. The visible text is only tested against fixed allowlists, never written.
+ */
+export async function captureLoginFailure(page, { out, sha, title, recorder, appOrigin }) {
   const name = slug(title);
+  const r = await recorder.settle();
   let ui = ['none'];
   try { ui = matchUiMessages(await page.locator('body').innerText({ timeout: 2000 })); } catch { ui = ['unreadable']; }
-  const line = diagnosticLine({ test: title, urlPath: pathOnly(page.url()), attempts, last, transportFailures, ui });
+  const prep = await prepareLoginPageForCapture(page, appOrigin).catch(() => ({ approved: false, reason: 'evaluate' }));
+  const shot = prep.approved ? 'masked' : `withheld-${prep.reason}`;
+  const line = `${diagnosticLine({ test: title, urlPath: pathOnly(page.url()), attempts: r.attempts, last: r.last, transportFailures: r.transportFailures, ui })} reductions_settled=${r.settled ? 'true' : 'false'} screenshot=${shot}`;
   const dir = path.join(out, 'login-diagnostics');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   fs.writeFileSync(path.join(dir, `${name}.txt`), `${line}\n`, { mode: 0o600 });
+  if (!prep.approved) return line;
   const shots = path.join(out, 'screens', 'login-setup');
   fs.mkdirSync(shots, { recursive: true });
   const shaToken = /^[0-9a-z]{1,12}$/.test(String(sha)) ? sha : 'local';
   try {
     await page.screenshot({
-      path: path.join(shots, `${name}-${shaToken}.png`), fullPage: false,
-      mask: [page.locator('#email'), page.locator('#password')], maskColor: '#000000',
+      path: path.join(shots, `${name}-${shaToken}.png`), fullPage: false, animations: 'disabled',
+      mask: [page.locator('#email'), page.locator('#password'), page.locator(`[${REDACT_ATTR}]`)], maskColor: '#000000',
     });
   } catch {
     fs.writeFileSync(path.join(dir, `${name}.screenshot-failed.txt`), 'login-setup screenshot=failed\n', { mode: 0o600 });

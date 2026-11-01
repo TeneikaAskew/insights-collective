@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ABOUTME: LOCAL-SHIM self-test of the fixture against the schema snapshot on a disposable plain PostgreSQL, in a scratch
 # ABOUTME: database it creates fresh under a unique name, never adopts, and always drops (only that one) on exit.
-# Usage: sql-selftest.sh <canonical maintenance URI: postgresql://user[:pw]@127.0.0.1|localhost:<port>/postgres> <template db>
+# Usage: sql-selftest.sh <maintenance URI> <template db>; the URI is a canonical postgresql URI on host 127.0.0.1 or localhost with an explicit port and database "postgres" (optional user and password).
 # LOCAL-SHIM: plain PostgreSQL + scripts/local-db/supabase-shim.sql, NOT a Supabase stack (no GoTrue, PostgREST, Kong or
 # edge runtime; RLS exercised only through SET ROLE + request.jwt.claims). Never CI acceptance.
 #

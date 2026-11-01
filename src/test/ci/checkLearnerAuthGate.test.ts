@@ -61,11 +61,22 @@ describe('null-state inspector', () => {
 describe('sign-in probe', () => {
   it('passes only on 200 with a token and the EXPECTED learner id, printing booleans only', async () => {
     const ok = await probe({ api: 'http://127.0.0.1:1', anonKey: 'k', password: 'hunter2', fetchImpl: fetchOf(fakeRes(200, { access_token: 'SECRET', user: { id: EXPECTED_LEARNER_UID } })) });
-    expect(ok).toEqual({ ok: true, line: 'auth-probe method=POST path=/auth/v1/token grant=password status=200 error_code=none uid_present=true uid_match=true' });
+    expect(ok).toEqual({ ok: true, cls: 'pass', line: 'auth-probe method=POST path=/auth/v1/token grant=password status=200 error_code=none uid_present=true uid_match=true class=pass' });
     const other = await probe({ api: 'http://127.0.0.1:1', anonKey: 'k', password: 'hunter2', fetchImpl: fetchOf(fakeRes(200, { access_token: 'SECRET', user: { id: '9c000000-0000-4000-8000-0000000000ff' } })) });
     expect(other.ok).toBe(false);
-    expect(other.line).toContain('uid_present=true uid_match=false');
+    expect(other.line).toContain('uid_present=true uid_match=false class=diagnosis-only');
     for (const r of [ok, other]) expect(r.line).not.toMatch(LEAK);
+  });
+  it('only a 400 invalid_credentials or a 500 unexpected_failure is an auth rejection; everything else is diagnosis-only', async () => {
+    const run = (r: unknown) => probe({ api: 'http://127.0.0.1:1', anonKey: 'k', password: 'hunter2', fetchImpl: fetchOf(r) });
+    expect((await run(fakeRes(400, { error_code: 'invalid_credentials' }))).cls).toBe('auth-rejected');
+    expect((await run(fakeRes(500, { error_code: 'unexpected_failure' }))).cls).toBe('auth-rejected');
+    for (const r of [fakeRes(302, null), fakeRes(200, null, false), fakeRes(400, { error_code: 'email_not_confirmed' }), fakeRes(500, { error_code: 'other_thing' }), fakeRes(429, {}),
+      fakeRes(200, { access_token: 'SECRET', user: { id: '9c000000-0000-4000-8000-0000000000ff' } })]) {
+      expect((await run(r)).cls).toBe('diagnosis-only');
+    }
+    const t = await probe({ api: 'http://127.0.0.1:1', anonKey: 'k', password: 'hunter2', fetchImpl: (async () => { throw new Error('x'); }) as unknown as typeof fetch });
+    expect(t.cls).toBe('diagnosis-only');
   });
   it('classifies failures into fixed tokens', async () => {
     const run = (r: unknown) => probe({ api: 'http://127.0.0.1:1', anonKey: 'k', password: 'hunter2', fetchImpl: fetchOf(r) });
@@ -114,6 +125,15 @@ describe('login failure diagnostics', () => {
     expect(ui).toEqual(['Invalid login credentials']);
     const line = diagnosticLine({ test: 'F2 resume: same attempt hunter2?', urlPath: pathOnly('http://127.0.0.1:8080/login?next=SECRET'), attempts: 1, transportFailures: 0, last: summarizeTokenResponse(400, { error_code: 'invalid_credentials' }), ui });
     expect(line).toBe('login-setup test=f2-resume-same-attempt-hunter2 url_path=/login token_requests=1 transport_failures=0 method=POST path=/auth/v1/token grant=password last_status=400 error_code=invalid_credentials uid_present=false ui_message=invalid-login-credentials');
+  });
+});
+
+describe('auth gate control flow (fake components; no database, network or GoTrue)', () => {
+  it('blocks on every failed prerequisite and aligns only on a justified auth rejection', () => {
+    const r = spawnSync('bash', [path.join(ROOT, `${QLC}/tests/auth-gate-fake-selftest.sh`)], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    expect(r.stdout).toMatch(/PASS auth-gate fake selftest: \d+ cases/);
+    expect(r.stdout).not.toMatch(/^FAIL/m);
+    expect(r.status).toBe(0);
   });
 });
 

@@ -26,7 +26,7 @@ import { BROWSER_EGRESS_ARGS, exactBypassList } from '../../scripts/local-stack/
 // The confined modes launch ONLY the pinned Playwright headless shell; no system-browser fallback (run 41344646821).
 import { resolveHeadlessShell } from '../../scripts/local-stack/quiz-lifecycle/headless-shell.mjs';
 import {
-  captureLoginFailure, isPasswordGrant, summarizeTokenResponse, type TokenSummary,
+  captureLoginFailure, createGrantRecorder,
 } from '../../scripts/local-stack/quiz-lifecycle/login-diagnostics.mjs';
 
 export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
@@ -348,18 +348,8 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
     const password = process.env.E2E_TEST_PASSWORD;
     if (!password) throw new Error('learner: E2E_TEST_PASSWORD is unset');
     // Sign-in diagnostics (run 41353483766): only fixed fields of the password-grant response are kept (status, an
-    // allowlisted error code, user-id PRESENCE). The body is parsed in memory and dropped; nothing else is recorded.
-    let attempts = 0; let transportFailures = 0; let last: TokenSummary | null = null;
-    const onResponse = async (r: import('@playwright/test').Response) => {
-      if (!isPasswordGrant(r.request().method(), r.url())) return;
-      attempts += 1;
-      let json: unknown = null;
-      try { json = await r.json(); } catch { json = null; }
-      last = summarizeTokenResponse(r.status(), json);
-    };
-    const onFailed = (r: Request) => { if (isPasswordGrant(r.method(), r.url())) transportFailures += 1; };
-    page.on('response', onResponse);
-    page.on('requestfailed', onFailed);
+    // allowlisted error code, user-id PRESENCE); every pending reduction is awaited (bounded) before any capture.
+    const recorder = createGrantRecorder(page);
     await page.addInitScript(() => { try { window.localStorage.setItem('e2e:disable-tours', '1'); } catch { /* ignore */ } });
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.locator('#email').fill(LEARNER_EMAIL);
@@ -368,11 +358,10 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
     try {
       await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
     } catch (err) {
-      await captureLoginFailure(page, { out: OUT, sha: SHA, title: testInfo.title, attempts, transportFailures, last });
+      await captureLoginFailure(page, { out: OUT, sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
       throw err;
     } finally {
-      page.off('response', onResponse);
-      page.off('requestfailed', onFailed);
+      recorder.detach();
     }
     await use(page);
   },

@@ -2,8 +2,8 @@
 # ABOUTME: LOCAL-SHIM selftest of auth-gate.sh: real disposable PostgreSQL (scratch DB with supabase-shim.sql and one
 # ABOUTME: synthetic learner row) for the state/align SQL, plus a loopback GoTrue STUB for control flow. Never CI acceptance.
 # Usage: auth-gate-selftest.sh <canonical maintenance URI on 127.0.0.1 or localhost, database "postgres" (same form as sql-selftest.sh)>
-# Cases: OLD pass (no candidate), OLD fail then candidate pass, both fail (blocked), redirect, wrong user id, refusal on a
-# non-loopback API. Each case asserts the verdict line, the exit status, which phases ran, and that no stub secret, body
+# Cases: OLD pass (no candidate), justified OLD rejection then candidate pass, both rejected (blocked), redirect and wrong
+# user id (diagnosis-only: blocked, never aligned), refusal on a non-loopback API. Each case asserts the verdict line, the exit status, which phases ran, and that no stub secret, body
 # text, user id or password reached the output. Scratch DB: unique name, created fresh, always dropped (only that one).
 set -u
 umask 077
@@ -49,19 +49,21 @@ run_case() { # <name> <stub script> <expected exit> <expected verdict> [api over
   check "$1: no secret, body text, user id or password in output" '! printf "%s" "$out" | grep -qE "SECRETTOKEN|BODYTEXT|9c000000|$PW|stub-anon-key"'
   LAST="$out"
 }
-run_case old-pass 200 0 "auth-gate old=pass candidate=not-applied seed_causality=not-claimed ui=run"
+run_case old-pass 200 0 "auth-gate old=pass candidate=not-applied justification=na seed_causality=not-claimed ui=run"
 check "old-pass: candidate never ran" '! printf "%s" "$LAST" | grep -q "phase=candidate\|align"'
 check "old-pass: old-seed state shows the NULL shape" 'printf "%s" "$LAST" | grep -q "auth-state user_row=true .*phone_change_null=true .* phase=old-seed"'
 check "old-pass: health version token" 'printf "%s" "$LAST" | grep -qx "gotrue-health method=GET path=/auth/v1/health status=200 version=v2.999.0"'
-run_case old-fail-candidate-pass 400,200 0 "auth-gate old=fail candidate=pass seed_causality=consistent-not-proven ui=run"
-check "candidate: old probe line" 'printf "%s" "$LAST" | grep -qx "auth-probe method=POST path=/auth/v1/token grant=password status=400 error_code=invalid_credentials uid_present=false uid_match=false phase=old-seed"'
+run_case old-fail-candidate-pass 400,200 0 "auth-gate old=auth-rejected candidate=pass justification=null-columns seed_causality=consistent-not-proven ui=run"
+check "candidate: old probe line" 'printf "%s" "$LAST" | grep -qx "auth-probe method=POST path=/auth/v1/token grant=password status=400 error_code=invalid_credentials uid_present=false uid_match=false class=auth-rejected phase=old-seed"'
 check "candidate: align applied to exactly one row" 'printf "%s" "$LAST" | grep -qx "PASS align: exactly 1 learner row aligned to the shared auth-fixtures rule set"'
 check "candidate: state after align has no NULL token/timestamp column" 'printf "%s" "$LAST" | grep "phase=candidate" | grep "^auth-state" | grep -q "created_at_null=false updated_at_null=false confirmation_token_null=false recovery_token_null=false email_change_token_new_null=false email_change_null=false email_change_token_current_null=false phone_change_null=false phone_change_token_null=false reauthentication_token_null=false"'
-run_case both-fail 400,400 1 "auth-gate old=fail candidate=fail seed_causality=not-supported ui=blocked"
-run_case redirect 302 1 "auth-gate old=fail candidate=fail seed_causality=not-supported ui=blocked"
+run_case both-fail 400,400 1 "auth-gate old=auth-rejected candidate=fail justification=null-columns seed_causality=not-supported ui=blocked"
+run_case redirect 302 1 "auth-gate old=diagnosis-only candidate=not-applied justification=na seed_causality=not-claimed ui=blocked"
+check "redirect: no alignment (no password rewrite)" '! printf "%s" "$LAST" | grep -q "align"'
 check "redirect: classified" 'printf "%s" "$LAST" | grep -q "status=302 error_code=redirect"'
-run_case wrong-user 200w,200w 1 "auth-gate old=fail candidate=fail seed_causality=not-supported ui=blocked"
-check "wrong-user: uid present but no match" 'printf "%s" "$LAST" | grep -q "status=200 error_code=none uid_present=true uid_match=false phase=old-seed"'
-run_case non-loopback-api 200 2 "auth-gate old=refused candidate=not-applied seed_causality=not-claimed ui=blocked" "http://example.com:80"
+run_case wrong-user 200w,200w 1 "auth-gate old=diagnosis-only candidate=not-applied justification=na seed_causality=not-claimed ui=blocked"
+check "wrong-user: no alignment (no password rewrite)" '! printf "%s" "$LAST" | grep -q "align"'
+check "wrong-user: uid present but no match" 'printf "%s" "$LAST" | grep -q "status=200 error_code=none uid_present=true uid_match=false class=diagnosis-only phase=old-seed"'
+run_case non-loopback-api 200 2 "auth-gate old=health-failed candidate=not-applied justification=na seed_causality=not-claimed ui=blocked" "http://example.com:80"
 psql "$S_CONN" -At -c "select count(*) from auth.users" | grep -qx 1 && echo "ok   scratch holds exactly the one synthetic row" || { echo "FAIL row count"; fails=$((fails + 1)); }
 [ "$fails" -eq 0 ] && echo "PASS auth-gate selftest (LOCAL-SHIM + stub GoTrue; control flow only)" || { echo "FAIL auth-gate selftest: $fails"; exit 1; }
