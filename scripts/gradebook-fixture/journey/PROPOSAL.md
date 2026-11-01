@@ -3,7 +3,7 @@
 **Status:** a proposal plus local checks only. It is not run-ready.
 - Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack.
 - Nothing was dispatched, pushed or published. There are no production writes.
-- Receipt label: **123 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
+- Receipt label: **138 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
 
 **History:** 5d9714b (frozen) → bc65540 (r2, the 22:14Z review batch; its security holds, A and D are closed) → r3, the small oracle-only batch for the 22:48Z recheck (section 9). Every earlier commit and export is kept unchanged.
 
@@ -133,7 +133,7 @@ The journey never sends a write itself. Its only own reads are the response bodi
 | Command | Exit |
 |---|---|
 | `node scripts/gradebook-fixture/journey/tests/static-contract.mjs` | 0 PASS |
-| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` | 0, 123 ok |
+| `node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs` | 0, 138 ok |
 | `npx vitest run --config e2e/gradebook-roles/journey/vitest.journey.config.ts` | 0, 1/1 (mock) |
 | `npx tsc --noEmit -p tsconfig.json` and `npx tsc -b` | 0 / 0 |
 | Direct tsc over journey files, config and grading specs (scratch tsconfig in receipts) | 0 |
@@ -146,7 +146,7 @@ The journey never sends a write itself. Its only own reads are the response bodi
 The list runs used placeholder loopback env values. No server was listening, and nothing was contacted.
 
 ## 8. Not done and not claimed
-- The 123 selftest checks are helper, comparator, gate and static-contract behaviour on fakes and temp files. None is a journey execution.
+- The 138 selftest checks are helper, comparator, gate and static-contract behaviour on fakes and temp files. None is a journey execution.
 - No authentic evidence. Every journey case is **UNRUN**, and J4a is expected red.
 - Selectors and request shapes come from reading the source. None has met a rendered page or a live API.
 - The comparator ran on fakes only. No real witness exists.
@@ -159,3 +159,9 @@ The list runs used placeholder loopback env values. No server was listening, and
 3. **Run state**: the submission, attachment and certificate UUIDs, the 12-hex code, the full ISO `issued_at`, the object key shape and the exact key set are validated (`runStateFailures`) BEFORE the private file is written, and again on read. There is no `String()` coercion, so an absent value fails instead of becoming "undefined".
 4. **Observer**: logic moved into `observe-core.mjs` unchanged in meaning, plus an `ordered` option, and fake controls for start, terminal, pending, failed, duplicate, wrong query, foreign origin, other method, sibling prefix, order and stop().
 5. **Wording**: section 4 and the J2/session-setup comments are corrected; composed-r5 stays the acceptance target.
+
+## 10. r4 inherited-key fix (23:37Z review, P2)
+- `compare-witness.mjs`: `DECLARED_HASHES` is now a frozen null-prototype object, and membership is an own-key check (`isDeclared`). A `HASH toString`, `HASH constructor` or `HASH __proto__` line is now `W_HASH_UNDECLARED_*` on each side that carries it.
+- `observe-core.mjs`: query membership is an own-key check, so an unexpected `toString`, `constructor` or `__proto__` query key is an `OBS_NEAR_MISS` and not an exact match.
+- Selftest controls load the fcc606f versions from git. For each of the three names, the fcc606f comparator ACCEPTED it and the fcc606f observer MATCHED it. The new code refuses both. The full 21-scope positive, the allowed passthrough (`select`, `order`) and the null prototype plus freeze are kept as positives.
+- Unchanged: product, SQL, config and the 18 grading cases. The pre-existing BOM lint error in `instructor-writers.spec.ts:125` stays as it is and stays disclosed.

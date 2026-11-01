@@ -93,7 +93,7 @@ export function checkJourney(root) {
 
   // R10 the comparator's declared HASH inventory is exactly the set of scopes the witness SQL prints.
   const cmp = rd(`${sdir}/tests/compare-witness.mjs`);
-  const decl = (cmp.match(/DECLARED_HASHES = \{([\s\S]*?)\};/) || [, ''])[1];
+  const decl = (cmp.match(/DECLARED_HASHES = Object\.freeze\(Object\.assign\(Object\.create\(null\), \{([\s\S]*?)\}\)\);/) || [, ''])[1];
   const declNames = [...decl.matchAll(/([a-z_]+):\s*'(?:counted|single|guarded)'/g)].map((m) => m[1]).sort();
   const sqlNames = [...new Set([...rd(`${sdir}/witness-journey.sql`).matchAll(/^select 'HASH ([a-z_]+) /gm)].map((m) => m[1]))].sort();
   if (!declNames.length || JSON.stringify(declNames) !== JSON.stringify(sqlNames)) v.push('R10_HASH_INVENTORY compare-witness.mjs');

@@ -14,10 +14,12 @@ export const PASSTHROUGH = new Set(['select', 'columns', 'order', 'limit', 'offs
 const matchesPath = (u, spec) => (spec.path.endsWith('/') ? u.pathname.startsWith(spec.path) : u.pathname === spec.path);
 /** Same origin, method and path: a candidate. Exact query is checked separately so near-misses are counted, not hidden. */
 export const isCandidate = (c, spec, origin) => c.url.origin === origin && c.method === spec.method && matchesPath(c.url, spec);
+/** Own-key membership only: an inherited name (toString, constructor, __proto__) is never a named query key. */
+const ownKey = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 export function queryExact(c, spec) {
   const want = spec.query ?? {};
   for (const [k, v] of Object.entries(want)) if (c.url.searchParams.getAll(k).length !== 1 || c.url.searchParams.get(k) !== v) return false;
-  for (const k of new Set(c.url.searchParams.keys())) if (!(k in want) && !PASSTHROUGH.has(k)) return false;
+  for (const k of new Set(c.url.searchParams.keys())) if (!ownKey(want, k) && !PASSTHROUGH.has(k)) return false;
   return true;
 }
 

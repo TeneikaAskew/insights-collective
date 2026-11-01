@@ -19,14 +19,16 @@ export const REQUIRED_NONEMPTY = ['other_courses', 'other_modules', 'other_items
  *    counted  "<n> <md5>" with n >= 1, or "0 empty"
  *    single   "<md5>"                          (one-row hashes of the journey shell)
  *    guarded  counted, or "ABSENT" (table missing on this stack: FAILS) */
-export const DECLARED_HASHES = {
+export const DECLARED_HASHES = Object.freeze(Object.assign(Object.create(null), {
   other_courses: 'counted', other_enrollments: 'counted', other_progressions: 'counted', other_submissions: 'counted',
   other_attachments: 'counted', other_objects: 'counted', buckets: 'counted', other_certificates: 'counted',
   other_audit_events: 'counted', other_notifications: 'counted', other_modules: 'counted', other_items: 'counted',
   other_assignments: 'counted', quiz_submissions: 'counted', quiz_submission_answers: 'counted',
   grade_change_notifications: 'counted', certificate_verification_attempts: 'guarded', grades: 'counted',
   grade_history: 'counted', journey_course_rest: 'single', journey_modules_items_assignment: 'single',
-};
+}));
+/** Own-key membership only: inherited names such as toString, constructor or __proto__ are never declared scopes. */
+const isDeclared = (n) => Object.prototype.hasOwnProperty.call(DECLARED_HASHES, n);
 const MD5 = '[0-9a-f]{32}';
 const COUNTED = new RegExp(`^(?:[1-9][0-9]* ${MD5}|0 empty)$`);
 const SINGLE = new RegExp(`^${MD5}$`);
@@ -164,7 +166,7 @@ export function compareWitness(preText, postText, exp = {}) {
   const unprovenEmpty = [];
   for (const [side, w] of [['PRE', pre], ['POST', post]]) {
     for (const n of w.duplicateHashes) failures.push(`W_HASH_DUPLICATE_${side} ${n}`);
-    for (const n of w.hashes.keys()) if (!(n in DECLARED_HASHES)) failures.push(`W_HASH_UNDECLARED_${side} ${n}`);
+    for (const n of w.hashes.keys()) if (!isDeclared(n)) failures.push(`W_HASH_UNDECLARED_${side} ${n}`);
     for (const n of Object.keys(DECLARED_HASHES)) {
       if (!w.hashes.has(n)) failures.push(`W_HASH_MISSING_${side} ${n}`);
       else if (!hashWellFormed(DECLARED_HASHES[n], w.hashes.get(n))) failures.push(`W_HASH_MALFORMED_${side} ${n}`);

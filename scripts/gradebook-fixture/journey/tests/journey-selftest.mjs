@@ -179,6 +179,27 @@ try {
   { const t = fakeTarget(); const rec = createRecorder(t); rec.stop(); await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 201); ok('OBS requests after stop() are not recorded', rec.calls.length === 0); }
   { const t = fakeTarget(); const rec = createRecorder(t); const r = start(t, 'POST', `${O}/rest/v1/enrollments`); const before = settled(rec.calls, [SPEC], O); await finish(t, r, 201); ok('OBS settled() waits for the terminal event', before === false && settled(rec.calls, [SPEC], O) === true); }
 
+  // ---- Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses ----
+  const fccObsF = path.join(tmp, 'observe-core-fcc606f.mjs');
+  fs.writeFileSync(fccObsF, execFileSync('git', ['show', 'fcc606f:e2e/gradebook-roles/journey/observe-core.mjs'], { cwd: repo, encoding: 'utf8' }));
+  const fccObs = await import(fccObsF);
+  const fccCmpF = path.join(tmp, 'compare-witness-fcc606f.mjs');
+  fs.writeFileSync(fccCmpF, execFileSync('git', ['show', 'fcc606f:scripts/gradebook-fixture/journey/tests/compare-witness.mjs'], { cwd: repo, encoding: 'utf8' }));
+  const fccCmp = (await import(fccCmpF)).compareWitness;
+  for (const k of ['toString', 'constructor', '__proto__']) {
+    const hs = [...hashes, `HASH ${k} 0 empty`];
+    const pre = preWith(hs), post = postFake({ hashes: hs });
+    ok(`PROTO CMP OLD fcc606f accepted inherited scope name ${k}`, fccCmp(pre, post, expBoth).ok === true);
+    ok(`PROTO CMP NEW refuses inherited scope name ${k} on both sides`, has(C(pre, post), `W_HASH_UNDECLARED_PRE ${k}`) && C(pre, post).failures.includes(`W_HASH_UNDECLARED_POST ${k}`));
+    const url = `${O}/rest/v1/assignment_submissions?id=eq.a&${k}=x`;
+    const drive = async (core) => { const t = fakeTarget(); const rec = core.createRecorder(t); const r = start(t, 'PATCH', url); r._s = 200; t.emit('requestfinished', r); await tick(); rec.stop(); return core.evaluate(rec.calls, [Q], { origin: O }).failures; };
+    ok(`PROTO OBS OLD fcc606f matched an unexpected ${k} query key`, (await drive(fccObs)).length === 0);
+    ok(`PROTO OBS NEW reports ${k} query key as OBS_NEAR_MISS`, (await drive({ createRecorder, evaluate })).some((f) => f.startsWith('OBS_NEAR_MISS')));
+  }
+  ok('PROTO CMP full 21-scope positive still passes', C(preFake, postFake()).ok);
+  OBS('PROTO allowed passthrough (select, order) still passes', await obs(async (t) => { await finish(t, start(t, 'PATCH', `${O}/rest/v1/assignment_submissions?id=eq.a&select=id&order=id.asc`), 200); }, [Q]), null);
+  ok('PROTO DECLARED_HASHES has a null prototype and is frozen', Object.getPrototypeOf(DECLARED_HASHES) === null && Object.isFrozen(DECLARED_HASHES));
+
   // ---- Run-state validation before persistence (review r3 item 2) ----
   const PFX = 'submissions/9b6c0000-0000-4000-8000-000000000001/e2e00000-0000-4000-8000-000000000003/';
   const rs = { submissionId: randomUUID(), attachmentId: randomUUID(), attachmentKey: `${PFX}1730500000000-abc123.pdf`, certificate: { id: randomUUID(), code: 'A1B2C3D4E5F6', issuedAt: '2026-11-01T22:00:00.123456+00:00' } };
