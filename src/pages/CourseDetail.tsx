@@ -1105,13 +1105,14 @@ const CourseDetail = () => {
           return (
             <div className="space-y-8">
               {/* Dark hero */}
-              <section className="relative rounded-2xl overflow-hidden bg-foreground text-background p-8 md:p-12">
-                <div className="grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
+              <section className="relative rounded-2xl overflow-hidden bg-foreground text-background p-8 lg:p-12">
+                {/* Two columns only from lg: at md the course rail leaves ~480px, which put a 48px title in a ~184px column. */}
+                <div className="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-background/60 mb-4">
                       {course.category || 'Course'}{course.level ? ` · ${course.level}` : ''}
                     </p>
-                    <h1 className="font-display text-4xl md:text-5xl leading-tight mb-4">
+                    <h1 className="font-display text-4xl lg:text-5xl leading-tight mb-4">
                       {course.title}
                     </h1>
                     <p className="text-background/70 text-base md:text-lg leading-relaxed mb-6 max-w-xl">
@@ -1124,7 +1125,7 @@ const CourseDetail = () => {
                       <Link to={`/courses/${courseId}/learn`}>Continue learning</Link>
                     </Button>
                   </div>
-                  <div className="hidden md:block">
+                  <div className="hidden lg:block">
                     <div className="aspect-[16/10] rounded-xl overflow-hidden bg-background/10">
                       <CourseImage src={course.thumbnail} alt={course.title} />
                     </div>

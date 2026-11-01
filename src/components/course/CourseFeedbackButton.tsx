@@ -73,11 +73,14 @@ const CourseFeedbackButton: React.FC = () => {
       <Button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 shadow-lg rounded-full h-11 pl-4 pr-5 gap-2"
+        // Icon-only below lg keeps the floating button's footprint small where content is narrow; the aria-label
+        // keeps its accessible name when the text label is hidden.
+        aria-label="Feedback"
+        className="fixed bottom-5 right-5 z-40 shadow-lg rounded-full h-11 px-3.5 lg:pl-4 lg:pr-5 gap-2"
         data-testid="course-feedback-trigger"
       >
-        <MessageSquareWarning className="h-4 w-4" />
-        <span className="hidden sm:inline">Feedback</span>
+        <MessageSquareWarning className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden lg:inline">Feedback</span>
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
