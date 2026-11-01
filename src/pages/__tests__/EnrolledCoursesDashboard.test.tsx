@@ -8,6 +8,13 @@ import { createMockAuthProvider } from '@/test/mocks/authMocks';
 import { useAuth } from '@/contexts/AuthContext';
 import EnrolledCoursesDashboard from '@/pages/EnrolledCoursesDashboard';
 
+// Page visibility is controlled per test: the Notifications link must follow the same rule as the sidebar.
+const pageVisible = vi.hoisted(() => ({ fn: (_path: string): boolean => true }));
+vi.mock('@/contexts/PageVisibilityContext', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/contexts/PageVisibilityContext')>();
+  return { ...actual, usePageVisibility: () => ({ ...actual.usePageVisibility(), isPageVisible: (p: string) => pageVisible.fn(p) }) };
+});
+
 // Keep the page under test isolated from the app shell.
 vi.mock('@/components/layout/AppLayout', () => ({
   default: (props: { children?: React.ReactNode }) => props.children,
@@ -226,6 +233,73 @@ describe('EnrolledCoursesDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('No recent activity yet.')).toBeInTheDocument();
       expect(screen.getByText('No upcoming deadlines.')).toBeInTheDocument();
+    });
+  });
+
+  describe('search and notifications (UI gap plan items 1 and 2)', () => {
+    const second = {
+      ...enrollmentRow,
+      course_id: 'course-2',
+      courses: { ...enrollmentRow.courses, id: 'course-2', title: 'Machine Learning Basics', category: 'AI' },
+    };
+    const twoCourses = () => ({ ...successTables(), enrollments: { data: [enrollmentRow, second], error: null } });
+
+    beforeEach(() => { pageVisible.fn = () => true; });
+
+    it('a search that matches nothing says so, with the query, instead of "No Enrolled Courses"', async () => {
+      mockTables(twoCourses());
+      render(<EnrolledCoursesDashboard />);
+      await screen.findAllByText('Machine Learning Basics');
+      await userEvent.type(screen.getByRole('textbox', { name: 'Search your courses' }), 'zzz');
+      expect(screen.getByText('No courses match "zzz"')).toBeInTheDocument();
+      expect(screen.queryByText('No Enrolled Courses')).not.toBeInTheDocument();
+      expect(screen.queryByText(/Start your learning journey/)).not.toBeInTheDocument();
+    });
+
+    it('Clear search restores every enrolled course', async () => {
+      mockTables(twoCourses());
+      render(<EnrolledCoursesDashboard />);
+      await screen.findAllByText('Machine Learning Basics');
+      const box = screen.getByRole('textbox', { name: 'Search your courses' });
+      await userEvent.type(box, 'zzz');
+      await userEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+      expect(box).toHaveValue('');
+      expect(screen.getAllByText('Machine Learning Basics').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Intro to Data Analytics').length).toBeGreaterThan(0);
+      expect(screen.queryByText(/No courses match/)).not.toBeInTheDocument();
+    });
+
+    it('a query matching only the category keeps that course', async () => {
+      mockTables(twoCourses());
+      render(<EnrolledCoursesDashboard />);
+      await screen.findAllByText('Machine Learning Basics');
+      await userEvent.type(screen.getByRole('textbox', { name: 'Search your courses' }), 'ai');
+      expect(screen.getByRole('heading', { name: 'Machine Learning Basics' })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Intro to Data Analytics' })).not.toBeInTheDocument();
+    });
+
+    it('zero enrolments still shows "No Enrolled Courses", not the no-match state', async () => {
+      mockTables({ ...successTables(), enrollments: { data: [], error: null } });
+      render(<EnrolledCoursesDashboard />);
+      expect(await screen.findByText('No Enrolled Courses')).toBeInTheDocument();
+      expect(screen.queryByText(/No courses match/)).not.toBeInTheDocument();
+    });
+
+    it('Notifications is a link to the existing /notifications page', async () => {
+      mockTables(successTables());
+      render(<EnrolledCoursesDashboard />);
+      const link = await screen.findByRole('link', { name: 'Notifications' });
+      expect(link).toHaveAttribute('href', '/notifications');
+      expect(screen.queryByRole('button', { name: 'Notifications' })).not.toBeInTheDocument();
+    });
+
+    it('Notifications is not offered when /notifications is not visible to this user', async () => {
+      pageVisible.fn = (p) => p !== '/notifications';
+      mockTables(successTables());
+      render(<EnrolledCoursesDashboard />);
+      await screen.findAllByText('Intro to Data Analytics');
+      expect(screen.queryByRole('link', { name: 'Notifications' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Notifications' })).not.toBeInTheDocument();
     });
   });
 });
