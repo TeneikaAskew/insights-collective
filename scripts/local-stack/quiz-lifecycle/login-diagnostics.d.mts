@@ -16,7 +16,8 @@ export interface GrantRecorder {
 }
 export function createGrantRecorder(page: import('@playwright/test').Page): GrantRecorder;
 export const APPROVED_LOGIN_TEXT: readonly string[];
-export function prepareLoginPageForCapture(page: import('@playwright/test').Page, appOrigin?: string): Promise<{ approved: boolean; reason: string; redacted?: number }>;
+export function prepareLoginPageForCapture(page: import('@playwright/test').Page, appOrigin?: string): Promise<{ approved: boolean; reason: string; redacted?: number; token?: string }>;
+export function captureGuarded(page: import('@playwright/test').Page, prep: { token?: string }, file: string): Promise<'masked' | 'withheld-changed' | 'failed'>;
 export function captureLoginFailure(page: import('@playwright/test').Page, o: {
   out: string; sha: string; title: string; recorder: GrantRecorder; appOrigin?: string;
 }): Promise<string>;

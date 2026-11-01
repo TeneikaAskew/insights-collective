@@ -12,7 +12,7 @@
 #        exit 1 (class=auth-rejected)   -> the candidate is JUSTIFIED only if the OLD state shows the exact row present
 #                                          (user_row=true, email_matches=true) AND at least one column the candidate
 #                                          changes is NULL. Otherwise BLOCK (auth-rejected-unexplained).
-#        any other exit                 -> BLOCK (refused).
+#        exit 4 (internal error) or any other exit -> BLOCK (refused), no alignment.
 #   3. candidate: learner-auth-align.sh must exit 0; phase=candidate auth-state must exit 0; probe again:
 #        exit 0 -> UI may run, seed_causality=consistent-not-proven; exit 1 or 3 -> BLOCK; any other -> BLOCK (refused).
 # Exit 0 only when UI may run; 1 on a blocked diagnosis; 2 on a refusal or failed prerequisite. Last line = verdict.

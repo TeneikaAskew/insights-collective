@@ -109,14 +109,17 @@ export const APPROVED_LOGIN_TEXT = Object.freeze([
 const REDACT_ATTR = 'data-qlc-redact';
 
 /**
- * In the page: confirm this is the approved login page (the exact form controls exist) and mark every visible element
- * whose own text is not in the static allowlist. Returns counts only; no text leaves the page.
+ * In the page: confirm this is the approved login page (the exact form controls exist), mark every visible element
+ * whose own text is not in the static allowlist, and ARM A GUARD: a MutationObserver over the whole document plus a
+ * per-document token. Any DOM change after this point (a late error, a new toast, any new or changed text node) or a
+ * navigation makes the guard dirty, and the capture is then withheld. Returns counts only; no text leaves the page.
  */
 export async function prepareLoginPageForCapture(page, appOrigin) {
   let u;
   try { u = new URL(page.url()); } catch { return { approved: false, reason: 'url' }; }
   if (u.pathname !== '/login' || (appOrigin && u.origin !== appOrigin)) return { approved: false, reason: 'not-login' };
-  return page.evaluate(({ allow, attr }) => {
+  const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return page.evaluate(({ allow, attr, token }) => {
     const form = document.querySelector('#email') && document.querySelector('#password')
       && [...document.querySelectorAll('button[type="submit"]')].some((b) => b.textContent.trim() === 'Sign In');
     if (!form) return { approved: false, reason: 'form' };
@@ -128,38 +131,81 @@ export async function prepareLoginPageForCapture(page, appOrigin) {
       if (!own || !visible(el) || allowed.has(own)) continue;
       el.setAttribute(attr, '1'); redacted += 1;
     }
-    return { approved: true, reason: 'ok', redacted };
-  }, { allow: [...APPROVED_LOGIN_TEXT], attr: REDACT_ATTR });
+    // Playwright's own screenshot machinery (mask overlays, caret/animation styles) is the only change tolerated.
+    const pw = (n) => n && n.nodeType === 1 && (/^X-PW-/.test(n.tagName) || (n.tagName === 'STYLE' && /playwright/i.test(n.textContent || '')));
+    const guard = { token, dirty: 0 };
+    const obs = new MutationObserver((recs) => {
+      for (const r of recs) {
+        if (r.type === 'attributes' && r.attributeName === attr) continue;
+        // Playwright hides the caret by an inline style on the focused input; both inputs are masked in full anyway.
+        if (r.type === 'attributes' && r.attributeName === 'style' && (r.target.id === 'email' || r.target.id === 'password')) continue;
+        if (r.type === 'childList' && [...r.addedNodes, ...r.removedNodes].every(pw)) continue;
+        if (pw(r.target) || (r.target.parentNode && pw(r.target.parentNode))) continue;
+        guard.dirty += 1;
+      }
+    });
+    obs.observe(document, { subtree: true, childList: true, characterData: true, attributes: true });
+    window.addEventListener('pagehide', () => { guard.dirty += 1; });
+    window.__qlcCaptureGuard = guard;
+    return { approved: true, reason: 'ok', redacted, token };
+  }, { allow: [...APPROVED_LOGIN_TEXT], attr: REDACT_ATTR, token });
+}
+
+/**
+ * The capture boundary. The screenshot is taken to MEMORY; it reaches disk only if, after it was taken, the same
+ * document (token) is still loaded, no navigation happened and the guard saw no DOM change since prepare. Otherwise
+ * nothing is written and the caller records screenshot=withheld-changed. Returns 'masked' | 'withheld-changed' | 'failed'.
+ */
+export async function captureGuarded(page, prep, file) {
+  let navigated = false;
+  const onNav = (f) => { if (f === page.mainFrame()) navigated = true; };
+  page.on('framenavigated', onNav);
+  try {
+    let buf;
+    try {
+      buf = await page.screenshot({
+        fullPage: false, animations: 'disabled', caret: 'hide',
+        mask: [page.locator('#email'), page.locator('#password'), page.locator(`[${REDACT_ATTR}]`)], maskColor: '#000000',
+      });
+    } catch { return 'failed'; }
+    let after;
+    try { after = await page.evaluate(() => { const g = window.__qlcCaptureGuard; return g ? { token: g.token, dirty: g.dirty } : null; }); }
+    catch { after = null; }
+    if (navigated || !after || after.token !== prep.token || after.dirty !== 0) return 'withheld-changed';
+    fs.writeFileSync(file, buf, { mode: 0o600 });
+    return 'masked';
+  } finally {
+    page.off('framenavigated', onNav);
+  }
 }
 
 /**
  * Bounded, SAFE capture for a sign-in that never left /login: one fixed-format line (allowlisted fields only) and, only
- * on the approved login page, one viewport screenshot with BOTH inputs and EVERY non-allowlisted visible text masked.
- * No trace, no DOM dump, no token, body or header. Files: <out>/login-diagnostics/<slug>.txt (0600) and
- * <out>/screens/login-setup/<slug>-<sha>.png. The visible text is only tested against fixed allowlists, never written.
+ * when safety can be guaranteed, one viewport screenshot with BOTH inputs and EVERY non-allowlisted visible text masked.
+ * Withheld (no image) when: the reductions did not settle in time, the page is not the approved login page at the
+ * configured origin, or anything changed between prepare and the end of the screenshot. No trace, no DOM dump, no
+ * token, body or header. Files: <out>/login-diagnostics/<slug>.txt and <out>/screens/login-setup/<slug>-<sha>.png.
  */
 export async function captureLoginFailure(page, { out, sha, title, recorder, appOrigin }) {
   const name = slug(title);
   const r = await recorder.settle();
   let ui = ['none'];
   try { ui = matchUiMessages(await page.locator('body').innerText({ timeout: 2000 })); } catch { ui = ['unreadable']; }
-  const prep = await prepareLoginPageForCapture(page, appOrigin).catch(() => ({ approved: false, reason: 'evaluate' }));
-  const shot = prep.approved ? 'masked' : `withheld-${prep.reason}`;
-  const line = `${diagnosticLine({ test: title, urlPath: pathOnly(page.url()), attempts: r.attempts, last: r.last, transportFailures: r.transportFailures, ui })} reductions_settled=${r.settled ? 'true' : 'false'} screenshot=${shot}`;
   const dir = path.join(out, 'login-diagnostics');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(dir, `${name}.txt`), `${line}\n`, { mode: 0o600 });
-  if (!prep.approved) return line;
-  const shots = path.join(out, 'screens', 'login-setup');
-  fs.mkdirSync(shots, { recursive: true });
-  const shaToken = /^[0-9a-z]{1,12}$/.test(String(sha)) ? sha : 'local';
-  try {
-    await page.screenshot({
-      path: path.join(shots, `${name}-${shaToken}.png`), fullPage: false, animations: 'disabled',
-      mask: [page.locator('#email'), page.locator('#password'), page.locator(`[${REDACT_ATTR}]`)], maskColor: '#000000',
-    });
-  } catch {
-    fs.writeFileSync(path.join(dir, `${name}.screenshot-failed.txt`), 'login-setup screenshot=failed\n', { mode: 0o600 });
+  let shot;
+  if (!r.settled) shot = 'withheld-unsettled';
+  else {
+    const prep = await prepareLoginPageForCapture(page, appOrigin).catch(() => ({ approved: false, reason: 'evaluate' }));
+    if (!prep.approved) shot = `withheld-${prep.reason}`;
+    else {
+      const shots = path.join(out, 'screens', 'login-setup');
+      fs.mkdirSync(shots, { recursive: true });
+      const shaToken = /^[0-9a-z]{1,12}$/.test(String(sha)) ? sha : 'local';
+      shot = await captureGuarded(page, prep, path.join(shots, `${name}-${shaToken}.png`));
+    }
   }
+  const line = `${diagnosticLine({ test: title, urlPath: pathOnly(page.url()), attempts: r.attempts, last: r.last, transportFailures: r.transportFailures, ui })} reductions_settled=${r.settled ? 'true' : 'false'} screenshot=${shot}`;
+  fs.writeFileSync(path.join(dir, `${name}.txt`), `${line}\n`, { mode: 0o600 });
   return line;
 }

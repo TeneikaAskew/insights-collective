@@ -64,6 +64,7 @@ for e in 2 126 127 4; do
   case_ "OLD probe exit $e"    2 "auth-gate old=refused candidate=not-applied" "$O" FAKE_PROBE_OLD=$e
   case_ "NEW probe exit $e"    2 "auth-gate old=auth-rejected candidate=refused" "$C" FAKE_PROBE_OLD=1 FAKE_PROBE_NEW=$e
 done
+case_ "OLD probe internal error (exit 4) never aligns" 2 "auth-gate old=refused candidate=not-applied justification=na" "$O" FAKE_PROBE_OLD=4
 case_ "OLD diagnosis-only (exit 3) never aligns" 1 "auth-gate old=diagnosis-only candidate=not-applied justification=na seed_causality=not-claimed ui=blocked" "$O" FAKE_PROBE_OLD=3
 case_ "OLD auth-rejected, no NULL column: unexplained, no align" 1 "auth-gate old=auth-rejected candidate=not-applied justification=none seed_causality=not-claimed ui=blocked" "$O" FAKE_PROBE_OLD=1 FAKE_NULLS=false
 case_ "OLD auth-rejected, row absent: no align" 1 "auth-gate old=auth-rejected candidate=not-applied justification=none" "$O" FAKE_PROBE_OLD=1 FAKE_ROW=false

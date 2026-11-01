@@ -12,7 +12,8 @@
 // followed by PASS or FAIL. The response body, token, user id, headers and password are never printed or written.
 // uid_match is a boolean comparison of the returned user id with the fixture's EXPECTED learner id; the id is not printed.
 // Exit 0 only on HTTP 200 with a JSON access_token string and the EXPECTED user id (class=pass); 1 on an auth rejection
-// (class=auth-rejected, see isAuthRejection); 3 on any other failure (class=diagnosis-only); 2 on refusal.
+// (class=auth-rejected, see isAuthRejection); 3 on any other failure (class=diagnosis-only); 2 on refusal; 4 on an
+// unexpected internal error (never exit 1).
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -140,7 +141,9 @@ async function main() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((e) => {
-    console.log(e instanceof Refusal ? `REFUSED auth-probe: ${e.message}` : 'FAIL auth-probe: unexpected error (detail withheld)');
-    process.exit(e instanceof Refusal ? 2 : 1);
+    // An unexpected internal exception says nothing about the seed: it is NEVER exit 1 (auth-rejected, the only exit
+    // that may lead to alignment). Exit 4 = internal error, which the gate treats as a block with no alignment.
+    console.log(e instanceof Refusal ? `REFUSED auth-probe: ${e.message}` : 'FAIL auth-probe (internal-error): unexpected error (detail withheld)');
+    process.exit(e instanceof Refusal ? 2 : 4);
   });
 }

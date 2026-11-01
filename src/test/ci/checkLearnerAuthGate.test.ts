@@ -1,7 +1,8 @@
 // ABOUTME: Controls for the quiz-lifecycle learner auth gate: candidate alignment uses exactly the shared auth-fixtures
 // ABOUTME: rule set, probe/diagnostics print only fixed allowlisted fields, and the gate sits between fixture and browser.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
@@ -109,6 +110,26 @@ describe('sign-in probe', () => {
     const extra = spawnSync(process.execPath, [path.join(ROOT, `${QLC}/learner-auth-probe.mjs`), 'hunter2'], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
     expect(extra.status).toBe(2);
     expect(extra.stdout).toBe('REFUSED auth-probe: unexpected argument\n');
+  });
+});
+
+describe('probe internal exception (causal control)', () => {
+  it('an unexpected internal exception exits 4 (never 1, the only exit that may lead to alignment)', () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'probe-ctl-'));
+    const pre = path.join(dir, 'throwing-fetch.mjs');
+    // fetch resolves to a response whose status getter throws: an exception OUTSIDE the probe's own transport catch.
+    writeFileSync(pre, "globalThis.fetch = async () => ({ get status() { throw new Error('SECRET internal'); } });\n");
+    const r = spawnSync(process.execPath, ['--import', pre, path.join(ROOT, `${QLC}/learner-auth-probe.mjs`)], {
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH, VITE_SUPABASE_URL: 'http://127.0.0.1:59999', E2E_BASE_URL: 'http://127.0.0.1:59998',
+        E2E_RELAY_TARGET: 'http://127.0.0.1:59999', SUPABASE_DB_URL: ['postgresql', '://', 'pg@127.0.0.1:59997/postgres'].join(''),
+        VITE_SUPABASE_ANON_KEY: 'x'.repeat(30), E2E_TEST_PASSWORD: 'hunter2',
+      },
+    });
+    expect(r.stdout).toBe('FAIL auth-probe (internal-error): unexpected error (detail withheld)\n');
+    expect(r.status).toBe(4);
+    expect(r.stdout + r.stderr).not.toMatch(LEAK);
   });
 });
 
