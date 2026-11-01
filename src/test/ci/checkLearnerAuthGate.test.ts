@@ -174,6 +174,6 @@ describe('no-Edge job wiring', () => {
   it('stages the gate receipt and the login diagnostics directory', () => {
     const text = STEPS.map((s) => String(s.run ?? '')).join('\n');
     expect(text).toContain('"$E/qlc/checks-auth-gate.txt"');
-    expect(text).toContain('for d in ledger screens playwright login-diagnostics;');
+    expect(text).toContain('for d in ledger screens playwright login-diagnostics case-diagnostics;');
   });
 });

@@ -28,6 +28,7 @@ import { resolveHeadlessShell } from '../../scripts/local-stack/quiz-lifecycle/h
 import {
   captureLoginFailure, createGrantRecorder,
 } from '../../scripts/local-stack/quiz-lifecycle/login-diagnostics.mjs';
+import { captureCaseFailure, createCaseRecorder } from '../../scripts/local-stack/quiz-lifecycle/case-diagnostics.mjs';
 
 export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
 export const COURSE_ID = '9c000000-0000-4000-8000-000000000001';
@@ -350,6 +351,9 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
     // Sign-in diagnostics (run 41353483766): only fixed fields of the password-grant response are kept (status, an
     // allowlisted error code, user-id PRESENCE); every pending reduction is awaited (bounded) before any capture.
     const recorder = createGrantRecorder(page);
+    // Case diagnostics (run 41359219343): after sign-in, a failed case records ONE allowlisted line (player state,
+    // fixed heading, route shape, API status/code/row counts). No screenshot, DOM text, body or id.
+    const caseRecorder = createCaseRecorder(page);
     await page.addInitScript(() => { try { window.localStorage.setItem('e2e:disable-tours', '1'); } catch { /* ignore */ } });
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
     await page.locator('#email').fill(LEARNER_EMAIL);
@@ -363,7 +367,14 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
     } finally {
       recorder.detach();
     }
-    await use(page);
+    try {
+      await use(page);
+    } finally {
+      if (testInfo.status !== testInfo.expectedStatus) {
+        await captureCaseFailure(page, { out: OUT, title: testInfo.title, recorder: caseRecorder }).catch(() => undefined);
+      }
+      caseRecorder.detach();
+    }
   },
 
   snapshot: async ({ page }, use) => {
