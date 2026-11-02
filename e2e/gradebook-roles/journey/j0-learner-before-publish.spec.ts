@@ -37,7 +37,11 @@ test('J0b detail: the control course renders; the draft course read returns zero
       await page.goto(route.detail);
       await waitForPageLoad(page);
     });
-    await expect(page.getByText('Failed to load course')).toBeVisible();
+    // The page's error state (CourseErrorState: role=alert, AlertTitle heading). Not getByText: CourseDetail also raises a
+    // toast titled "Failed to load course" (plus Radix's announce copy), and the course sidebar and profile menu each raise
+    // an "Error" toast; use-toast keeps ONE toast (TOAST_LIMIT 1), so whether the matching toast is still on screen depends on
+    // which of the three 406 responses lands last, and a page-wide text match is then ambiguous (strict mode) or not.
+    await expect(page.getByRole('alert').filter({ has: page.getByRole('heading', { name: 'Failed to load course', exact: true }) })).toBeVisible();
     await expect(page.getByRole('button', { name: /Enroll for free/ })).toHaveCount(0);
     expect(rec.candidates({ method: 'POST', path: '/rest/v1/enrollments' }), 'no enrollment request started').toHaveLength(0);
   } finally { rec.stop(); }

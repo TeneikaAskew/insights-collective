@@ -321,6 +321,52 @@ try {
       JSON.stringify(evaluate(rec.calls, [NEW_WANT[1]], { origin: O }).failures) === JSON.stringify(['OBS_NEAR_MISS GET /rest/v1/courses']));
   }
 
+  // ---- J0b error-state locator (run 41490340024: J0b BODY SPEC getByText('Failed to load course') EXPECT_TO_BE_VISIBLE) ----
+  // MODEL controls in jsdom (no browser): Playwright's getByText(substring) resolves to the smallest elements whose normalized
+  // text contains the string (case-insensitive); toBeVisible is strict, so >1 element fails. This models that rule only; it is
+  // not a Playwright execution and does not recover the run's actual DOM.
+  stage = "J0b error-state locator (run 41490340024), jsdom model";
+  {
+    const { JSDOM } = await import('jsdom');
+    const norm = (t) => t.replace(/\s+/g, ' ').trim();
+    const byTextModel = (doc, text) => { const want = text.toLowerCase(); const hit = (el) => norm(el.textContent).toLowerCase().includes(want);
+      return [...doc.body.querySelectorAll('*')].filter((el) => hit(el) && ![...el.children].some(hit)); };
+    const roleOf = (el) => el.getAttribute('role') || (/^H[1-6]$/.test(el.tagName) ? 'heading' : '');
+    const newModel = (doc) => [...doc.body.querySelectorAll('*')].filter((el) => roleOf(el) === 'alert'
+      && [...el.querySelectorAll('*')].some((h) => roleOf(h) === 'heading' && norm(h.textContent) === 'Failed to load course'));
+    const ALERT = '<div role="alert"><svg></svg><h5>Failed to load course</h5><div><span>JSON object requested, multiple (or no) rows returned</span><button>Retry</button></div></div>';
+    const TOAST = (title, desc) => `<ol><li role="status"><div><div>${title}</div><div>${desc}</div></div><button>x</button></li></ol>`;
+    const ANNOUNCE = (title, desc) => `<span role="status" style="position:absolute;width:1px;height:1px;clip:rect(0,0,0,0)">Notification ${title} ${desc}</span>`;
+    const page = (body) => new JSDOM(`<!doctype html><body><nav>Courses</nav><main>${body}</main></body>`).window.document;
+    const V = {
+      detailToastLast: page(ALERT + TOAST('Failed to load course', 'JSON object requested') + ANNOUNCE('Failed to load course', 'JSON object requested')),
+      detailToastAfterAnnounce: page(ALERT + TOAST('Failed to load course', 'JSON object requested')),
+      sidebarToastLast: page(ALERT + TOAST('Error', 'There was a problem loading the course') + ANNOUNCE('Error', 'There was a problem loading the course')),
+      noToast: page(ALERT),
+    };
+    ok('J0B-LOC OLD getByText model: ambiguous (strict-mode failure) when CourseDetail\'s toast is the one kept (3 with announce, 2 after it), unique when a sidebar/profile "Error" toast is kept or none',
+      byTextModel(V.detailToastLast, 'Failed to load course').length === 3 && byTextModel(V.detailToastAfterAnnounce, 'Failed to load course').length === 2
+      && byTextModel(V.sidebarToastLast, 'Failed to load course').length === 1 && byTextModel(V.noToast, 'Failed to load course').length === 1);
+    ok('J0B-LOC NEW alert+heading model: exactly the error state in every toast order', Object.values(V).every((d) => newModel(d).length === 1 && newModel(d)[0].tagName === 'DIV'));
+    ok('J0B-LOC NEW negative: toast present but the page error state NOT rendered -> 0 (fails)', newModel(page(TOAST('Failed to load course', 'x') + ANNOUNCE('Failed to load course', 'x'))).length === 0);
+    ok('J0B-LOC NEW negative: error state with other copy ("Something went wrong") -> 0 (fails)', newModel(page(ALERT.replace('Failed to load course', 'Something went wrong'))).length === 0);
+    ok('J0B-LOC NEW negative: heading text only partially equal ("Failed to load course details") -> 0 (exact)', newModel(page(ALERT.replace('Failed to load course<', 'Failed to load course details<'))).length === 0);
+    ok('J0B-LOC NEW negative: the error state rendered twice -> 2 (strict fails)', newModel(page(ALERT + ALERT)).length === 2);
+    // Source pins for the traced contract (app source as checked out).
+    const src = (f) => fs.readFileSync(path.join(repo, f), 'utf8');
+    const cd = src('src/pages/CourseDetail.tsx'), ucd = src('src/hooks/useCourseData.ts'), ut = src('src/hooks/use-toast.tsx');
+    const ces = src('src/components/course/CourseErrorState.tsx'), al = src('src/components/ui/alert.tsx');
+    const rt = fs.readFileSync(path.join(repo, 'node_modules/@radix-ui/react-toast/dist/index.mjs'), 'utf8');
+    ok('J0B-LOC source pins: CourseDetail catch toasts "Failed to load course" AND its error branch renders CourseErrorState with that title; useCourseData toasts "Error"; TOAST_LIMIT 1; CourseErrorState is role=alert with AlertTitle; AlertTitle is h5; Radix toast role=status, 5s duration, 1s announce copy',
+      /toast\(\{\s*title: "Failed to load course"/.test(cd) && /<CourseErrorState\s+title="Failed to load course"/.test(cd)
+      && /toast\(\{\s*title: 'Error',\s*description: 'There was a problem loading the course'/.test(ucd)
+      && /^const TOAST_LIMIT = 1$/m.test(ut) && /role="alert"/.test(ces) && /<AlertTitle>\{title\}<\/AlertTitle>/.test(ces)
+      && /const AlertTitle[\s\S]{0,200}<h5/.test(al) && /role: "status"/.test(rt) && /duration = 5e3/.test(rt) && /setIsAnnounced\(true\), 1e3/.test(rt));
+    const spec = src('e2e/gradebook-roles/journey/j0-learner-before-publish.spec.ts');
+    ok('J0B-LOC spec: the error-state assertion is the alert+heading locator; no page-wide getByText(\'Failed to load course\') remains',
+      spec.includes("page.getByRole('alert').filter({ has: page.getByRole('heading', { name: 'Failed to load course', exact: true }) })") && !spec.includes("getByText('Failed to load course')"));
+  }
+
   // ---- Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses ----
   stage = "Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses";
   const fccObsF = path.join(tmp, 'observe-core-fcc606f.mjs');
