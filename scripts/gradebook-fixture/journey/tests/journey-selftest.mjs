@@ -25,8 +25,12 @@ const ok = (name, cond) => { if (cond) { pass++; console.log(`ok   ${name}`); } 
 const code = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e && e.code ? e.code : 'UNCODED'; } };
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jr-selftest-'));
+// Fixed, safe failure-stage diagnostics: an uncaught error is reported as the section label (a literal from this file)
+// plus the error's name, code and exit status only. Never its message or output, which can carry command output.
+let stage = 'setup', aborted = null;
 try {
   // ---- Gate 1: private session dir ----
+  stage = "Gate 1: private session dir";
   const good = fs.mkdtempSync(path.join(tmp, 'sess-')); fs.chmodSync(good, 0o700);
   ok('G1 fresh 0700 empty dir outside repo is accepted', code(() => assertPrivateSessionDir(good, { repoRoot: repo })) === 'ACCEPTED');
   ok('G1 relative path refused', code(() => assertPrivateSessionDir('rel/dir', { repoRoot: repo })) === 'JOURNEY_GATE1_E_NOT_ABSOLUTE');
@@ -88,9 +92,11 @@ try {
     ok('RACE readRaw: symlink, FIFO, directory and missing file each refuse SUMMARY_E_RAW', [path.join(good, 'raw-link.txt'), path.join(good, 'fifo.json'), path.join(good, 'dir.json'), path.join(good, 'nope.txt')].every((f) => RC(f) === 'SUMMARY_E_RAW') && RC(rp) === 'ACCEPTED'); }
 
   // ---- Gate 2 (diagnostics dir uses the same private-dir check under its own code prefix) ----
+  stage = "Gate 2 (diagnostics dir uses the same private-dir check under its own code prefix)";
   ok('G2 0755 diag dir refused with its own prefix', code(() => assertPrivateDir(wide, { repoRoot: repo, gate: 'JOURNEY_GATE2' })) === 'JOURNEY_GATE2_E_MODE');
 
   // ---- Gate 3: pairing proof consumer (shape and placement only; NOT trust) ----
+  stage = "Gate 3: pairing proof consumer (shape and placement only; NOT trust)";
   const sid = 'a'.repeat(32);
   const proofDir = fs.mkdtempSync(path.join(tmp, 'proof-')); fs.chmodSync(proofDir, 0o700);
   const sess = fs.mkdtempSync(path.join(tmp, 'sess3-')); fs.chmodSync(sess, 0o700);
@@ -133,7 +139,10 @@ try {
   ok('G3 unparsable refused', G3(bad) === 'JOURNEY_GATE3_E_PARSE');
 
   // ---- Pinned literals in the expected post equal what ids.ts produces ----
-  const lit = JSON.parse(execFileSync(process.execPath, ['--experimental-strip-types', '--no-warnings', '-e',
+  stage = "Pinned literals in the expected post equal what ids.ts produces";
+  // ids.ts is TypeScript. The job runs Node 20, which has no --experimental-strip-types (Node >= 22.6 only; run
+  // 41458822962 aborted here with "bad option"), so it is loaded through the repo's pinned tsx loader on every Node.
+  const lit = JSON.parse(execFileSync(process.execPath, ['--import', 'tsx', '--no-warnings', '-e',
     "import('./e2e/gradebook-roles/journey/ids.ts').then((m) => process.stdout.write(JSON.stringify({ size: m.UPLOAD.body().length, stored: m.STORED_FEEDBACK })))"], { cwd: repo, encoding: 'utf8' }));
   const expPost = fs.readFileSync(path.join(repo, 'scripts/gradebook-fixture/journey/expected-journey-post.txt'), 'utf8');
   const expBody = expPost.split('\n').filter((l) => !l.startsWith('#')).join('\n');
@@ -142,6 +151,7 @@ try {
   ok('LIT feedback md5 pinned on SUB', expBody.includes(`comments_md5=${md5} `));
 
   // ---- Witness comparator on fakes: a faithful fake PASSES; each defect FAILS with its own code ----
+  stage = "Witness comparator on fakes: a faithful fake PASSES; each defect FAILS with its own code";
   const ids = { enrollment: 0, prog_page: 0, prog_assignment: 0, submission: 0, attachment: 0, object: 0, certificate: 0, audit_download: 0, audit_grade: 0, notif_staff: 0, notif_receipt: 0, notif_grade: 0 };
   for (const k of Object.keys(ids)) ids[k] = randomUUID();
   const table = { enrollment: 'enrollments', prog_page: 'content_item_progressions', prog_assignment: 'content_item_progressions', submission: 'assignment_submissions', attachment: 'submission_attachments', object: 'storage.objects', certificate: 'certificates', audit_download: 'submission_audit_events', audit_grade: 'submission_audit_events', notif_staff: 'notifications', notif_receipt: 'notifications', notif_grade: 'notifications' };
@@ -204,6 +214,7 @@ try {
   ok(`CMP declared inventory equals the witness SQL (${sqlNames.length} scopes)`, sqlNames.length === 21 && JSON.stringify(sqlNames) === JSON.stringify(Object.keys(DECLARED_HASHES).sort()));
 
   // ---- Observer core on a fake emitter (helper behaviour only; NOT journey executions) ----
+  stage = "Observer core on a fake emitter (helper behaviour only; NOT journey executions)";
   const O = 'http://127.0.0.1:54321';
   const fakeTarget = () => new EventEmitter();
   const tick = () => new Promise((r) => setImmediate(r));
@@ -235,6 +246,7 @@ try {
   { const t = fakeTarget(); const rec = createRecorder(t); const r = start(t, 'POST', `${O}/rest/v1/enrollments`); const before = settled(rec.calls, [SPEC], O); await finish(t, r, 201); ok('OBS settled() waits for the terminal event', before === false && settled(rec.calls, [SPEC], O) === true); }
 
   // ---- Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses ----
+  stage = "Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses";
   const fccObsF = path.join(tmp, 'observe-core-fcc606f.mjs');
   fs.writeFileSync(fccObsF, execFileSync('git', ['show', 'fcc606f:e2e/gradebook-roles/journey/observe-core.mjs'], { cwd: repo, encoding: 'utf8' }));
   const fccObs = await import(fccObsF);
@@ -256,6 +268,7 @@ try {
   ok('PROTO DECLARED_HASHES has a null prototype and is frozen', Object.getPrototypeOf(DECLARED_HASHES) === null && Object.isFrozen(DECLARED_HASHES));
 
   // ---- Run-state validation before persistence (review r3 item 2) ----
+  stage = "Run-state validation before persistence (review r3 item 2)";
   const PFX = 'submissions/9b6c0000-0000-4000-8000-000000000001/e2e00000-0000-4000-8000-000000000003/';
   const rs = { submissionId: randomUUID(), attachmentId: randomUUID(), attachmentKey: `${PFX}1730500000000-abc123.pdf`, certificate: { id: randomUUID(), code: 'A1B2C3D4E5F6', issuedAt: '2026-11-01T22:00:00.123456+00:00' } };
   const RS = (name, s, code) => ok(`RS ${name}`, code === null ? runStateFailures(s, PFX).length === 0 : runStateFailures(s, PFX).includes(code));
@@ -271,6 +284,7 @@ try {
   RS('extra key refused', { ...rs, note: 'x' }, 'RS_KEYS');
 
   // ---- Gate 3 live recheck on a fake API (helper behaviour only; NOT a stack) ----
+  stage = "Gate 3 live recheck on a fake API (helper behaviour only; NOT a stack)";
   const API = 'http://127.0.0.1:54321';
   const RID = '11111111-2222-4333-8444-555555555555';
   /** fake fetch: serves `rows` for the carrier id and `other` for any other id; records every call */
@@ -302,6 +316,7 @@ try {
   ok('LIVE control id equal to the carrier or malformed refused', await LIVE(fakeApi({ rows: carrierRow() }), CTRL) === 'JOURNEY_GATE3_E_LIVE_CONTROL_ID' && await LIVE(fakeApi({ rows: carrierRow() }), 'x') === 'JOURNEY_GATE3_E_LIVE_CONTROL_ID');
 
   // ---- Pairing producer on a fake DSN + fake API (helper behaviour only; NOT a stack) ----
+  stage = "Pairing producer on a fake DSN + fake API (helper behaviour only; NOT a stack)";
   const fakeDb = ({ count = 0, inserted = 1, readBack = null } = {}) => {
     const st = { order: [], stored: null };
     return { st, db: {
@@ -334,6 +349,7 @@ try {
     ok('PAIR API reads carry no Authorization header (anon only)', a.calls.length === 2 && a.calls.every((c) => !Object.keys(c.init.headers).some((h) => h.toLowerCase() === 'authorization'))); }
 
   // ---- Shared helper pins and the D1 gate ----
+  stage = "Shared helper pins and the D1 gate";
   // Shared files delivered outside this branch's base (D1 module + fake, served-app verifier + its import).
   const NOT_IN_BASE = ['scripts/e2e/stack-ownership.mjs', 'scripts/e2e/fixtures/stack-ownership.fake.json', 'scripts/served-app/served-app-check.mjs', 'scripts/served-app/hermetic-dist.mjs'];
   const D1_PATHS = NOT_IN_BASE.filter((x) => !fs.existsSync(path.join(repo, x)));
@@ -350,6 +366,7 @@ try {
     fs.rmSync(path.join(root, 'e2e/support/chromium-executable.ts'));
     ok('PIN missing helper refused', pinFailures(root).includes('RUN_E_PIN e2e/support/chromium-executable.ts')); }
   // ---- D1 consumer on a fake verifyRecord (the shared module's contract), plus this lane's handle checks ----
+  stage = "D1 consumer on a fake verifyRecord (the shared module's contract), plus this lane's handle checks";
   const recDir = fs.mkdtempSync(path.join(tmp, 'so-')); fs.chmodSync(recDir, 0o700);
   const BOOT = '0'.repeat(64);
   const REC = { schema: 1, run_id: '1000000001', run_attempt: '1', pg_system_identifier: '7400000000000000001', api_origin: API, app_origin: 'http://127.0.0.1:4173', created_at: '2026-11-02T00:00:00.000Z', disposable: true, bootstrap_sha256: BOOT };
@@ -409,6 +426,7 @@ try {
   } else console.log('skip D1REAL (shared #154 module not in this tree; not counted)');
 
   // ---- Served-app gate (before the first write) ----
+  stage = "Served-app gate (before the first write)";
   { const root = fs.mkdtempSync(path.join(tmp, 'app-')); fs.mkdirSync(path.join(root, 'v'), { recursive: true });
     const src = "export async function verifyServedApp({ appOrigin }) { return appOrigin === 'http://127.0.0.1:4173' ? { ok: true } : { ok: false }; }\n";
     fs.writeFileSync(path.join(root, 'v/app.mjs'), src);
@@ -423,6 +441,7 @@ try {
     ok('GATES bootstrap digest is the reviewed constant and equals sha256 of the pinned bootstrap.sh in this tree; served-app verifier pinned in both places, with its import', EXPECTED_BOOTSTRAP_SHA256 === 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715' && bootstrapFileSha256(repo) === EXPECTED_BOOTSTRAP_SHA256 && HELPER_PINS['scripts/local-stack/bootstrap.sh'] === gitBlobId(fs.readFileSync(path.join(repo, 'scripts/local-stack/bootstrap.sh'))) && HELPER_PINS[SERVED_APP_VERIFIER.path] === SERVED_APP_VERIFIER.blob && typeof HELPER_PINS['scripts/served-app/hermetic-dist.mjs'] === 'string'); }
 
   // ---- Password-free psql (planning on fakes; a fake psql binary; no database) ----
+  stage = "Password-free psql (planning on fakes; a fake psql binary; no database)";
   const PW = 's3cr3t:PW\\x';
   const DSN = `postgresql://postgres:${encodeURIComponent(PW)}@127.0.0.1:54322/postgres`;
   const plan = planPsql(DSN, { SUPABASE_DB_URL: DSN, PGPASSWORD: 'zzz', PATH: '/bin' });
@@ -483,6 +502,7 @@ try {
     ok('PSQL include script refuses a quoted or spaced path and a non-plain value', (() => { try { includeScript("/a b.sql"); return false; } catch { /* expected */ } try { includeScript('/a.sql', { pairing: "x' \\! id" }); return false; } catch { return true; } })()); }
 
   // ---- Fixed summaries ----
+  stage = "Fixed summaries";
   ok('SUM playwright JSON becomes one count line; raw text never echoed', playwrightSummary(JSON.stringify({ stats: { expected: 11, unexpected: 1, flaky: 0, skipped: 0 }, errors: [{ message: 'MARKER secret http://x' }] }), '1') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1');
   const SUMC = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e.code; } };
   ok('SUM non-JSON or odd counts refused', SUMC(() => playwrightSummary('MARKER not json', '1')) === 'SUMMARY_E_PLAYWRIGHT_PARSE' && SUMC(() => playwrightSummary(JSON.stringify({ stats: { expected: '12', unexpected: 0, flaky: 0, skipped: 0 } }), '0')) === 'SUMMARY_E_PLAYWRIGHT_SHAPE');
@@ -490,6 +510,7 @@ try {
   ok('SUM a stray raw line (id, URL, message) in comparator output refused', SUMC(() => compareSummary('FAIL W_X\nERROR: MARKER at /tmp/x\nFAIL journey witness comparison\n')) === 'SUMMARY_E_COMPARE_LINE' && SUMC(() => compareSummary('FAIL W_X 9b6c0000-0000-4000-8000-000000000001\nFAIL journey witness comparison')) === 'SUMMARY_E_COMPARE_LINE');
 
   // ---- Screenshots: capture scan (shot-core) and export (shot-export), on fakes ----
+  stage = "Screenshots: capture scan (shot-core) and export (shot-export), on fakes";
   const pchunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t, 'latin1'), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc32(td)); return Buffer.concat([l, td, c]); };
   const PSIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdr = (w = 2, h = 1, depth = 8, color = 2) => { const b = Buffer.alloc(13); b.writeUInt32BE(w, 0); b.writeUInt32BE(h, 4); b[8] = depth; b[9] = color; return pchunk('IHDR', b); };
@@ -687,6 +708,7 @@ try {
       && SS(`${L('J9-other-shot')}\nSHOTS 1 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS('WITHHELD J4c-grades reason=BECAUSE\nSHOTS 0 captured 1 withheld of 16') === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\nSHOTS 0 captured 1 withheld of 16`) === 'SUMMARY_E_SHOTS_SHAPE' && SS(`${L('J4c-grades')}\nMARKER /tmp/x\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE'); }
 
   // ---- Runner, end to end on FAKES: a copy of the tree with fake psql/npx on PATH and an in-process fake API ----
+  stage = "Runner, end to end on FAKES: a copy of the tree with fake psql/npx on PATH and an in-process fake API";
   // The copy's ONLY edits: the two D1 pins and the two first-write gate constants point at selftest fakes. Every other
   // byte (runner, producer, private-psql, summaries, SQL, guards) is the real file. Nothing touches a database.
   const http = await import('node:http');
@@ -874,6 +896,7 @@ process.exit(bad?1:0);
   } finally { server.close(); }
 
   // ---- Runner refusals on THIS tree that need no stack ----
+  stage = "Runner refusals on THIS tree that need no stack";
   { const sandbox = fs.mkdtempSync(path.join(tmp, 'runner-')); fs.chmodSync(sandbox, 0o700);
     const runSh = path.join(repo, 'scripts/gradebook-fixture/journey/run-journey.sh');
     const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: sandbox, RUNNER_TEMP: sandbox };
@@ -887,6 +910,7 @@ process.exit(bad?1:0);
     ok('RUN existing evidence dir refused', r2.rc === 2 && r2.err.trim() === 'run-journey refused: RUN_E_OUT_EXISTS'); }
 
   // ---- Static contract: real tree PASS, each mutation FAILS its own rule ----
+  stage = "Static contract: real tree PASS, each mutation FAILS its own rule";
   const real = checkJourney(repo);
   ok(`SC real tree passes (${real.length ? real.join('; ') : 'no violations'})`, real.length === 0);
   const copyTree = () => {
@@ -1008,8 +1032,15 @@ process.exit(bad?1:0);
     const v = mutate(rel, fn);
     ok(`SC causal: ${name} -> ${rule}`, v.some((x) => x.startsWith(rule)));
   }
+} catch (e) {
+  const safe = (v) => String(v).replace(/[^A-Za-z0-9_.-]/g, '?').slice(0, 40);
+  aborted = `${safe(e?.name ?? 'Error')}${e?.code !== undefined ? ` code=${safe(e.code)}` : ''}${typeof e?.status === 'number' ? ` status=${e.status}` : ''}`;
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
+}
+if (aborted !== null) {
+  console.log(`FAIL journey selftest: ABORTED in stage ${JSON.stringify(stage)} (${aborted}) after ${pass} ok, ${fail} failed`);
+  process.exit(1);
 }
 console.log(`${fail === 0 ? 'PASS' : 'FAIL'} journey selftest: ${pass} ok, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
