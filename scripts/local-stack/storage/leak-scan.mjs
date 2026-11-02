@@ -17,9 +17,16 @@
 //
 // CLI: leak-scan.mjs <priv dir> <reference list file> <evidence dir>
 //   <reference list file>: NUL-separated repository-relative paths (git ls-files -z), read relative to the cwd.
-// Output: exactly "LEAKSCAN PASS", or one "LEAKSCAN FAIL <relative path> <P#>" line per hit (no matched text), then exit 1.
-// Unreadable or oversized evidence entries print "LEAKSCAN FAIL <relative path> UNSCANNABLE". Refusals print
-// "leak-scan refused: <CODE>" and exit 3.
+// Output (fixed categories only; no file name, path or matched text is ever printed):
+//   "LEAKSCAN PASS files=<n>"                          exit 0
+//   "LEAKSCAN FAIL <P1..P5> files=<n>"                 one line per field with hits
+//   "LEAKSCAN FAIL <CATEGORY> entries=<n>"             one line per unsafe-entry category (see ENTRY_CATEGORIES)
+//   then exit 1. Refusals print "leak-scan refused: <CODE>" and exit 3.
+// Reads: every evidence and reference file is opened once with O_NOFOLLOW|O_NONBLOCK and checked on the SAME descriptor
+// (regular file, this uid, size bound, bounded read, growth refused), the descriptor's resolved path must lie inside its
+// root (/proc/self/fd), and directories are walked by entry type without following links. This is the descriptor logic
+// of the qualified shot-export readHandle with two stated relaxations only: mode is not required to be 0600 (evidence
+// and checkout files are 0644) and an empty file is allowed (an empty receipt is a staging matter, not a leak).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -27,7 +34,13 @@ import { StorageError, parsePins, COURSE_BUCKETS } from './storage-core.mjs';
 import { assertPrivateDir, readPrivate, PINS_FILE } from './storage-job.mjs';
 
 export const MAX_SCAN_FILE = 64 * 1024 * 1024;
+export const MAX_SCAN_TOTAL = 512 * 1024 * 1024;
 export const MAX_REFERENCE_FILE = 8 * 1024 * 1024;
+export const MAX_REFLIST = 16 * 1024 * 1024;
+export const MAX_ENTRIES = 20000;
+export const MAX_DEPTH = 16;
+export const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+export const ENTRY_CATEGORIES = Object.freeze(['SYMLINK', 'SPECIAL', 'OVERSIZE', 'OUTSIDE_ROOT', 'RACE', 'NAME', 'UNREADABLE', 'LIMIT']);
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const refuse = (c) => { throw new StorageError(c); };
 
@@ -98,48 +111,118 @@ export function filterPublic(cands, referenceTexts) {
   return cands.filter((c) => !referenceTexts.some((t) => occurs(t, c)));
 }
 
-/** Scans named texts ([{ rel, text }] or { rel, unscannable: true }); returns the fixed output lines. */
-export function scanTexts(cands, entries) {
-  const lines = [];
-  for (const e of entries) {
-    if (e.unscannable) { lines.push(`LEAKSCAN FAIL ${e.rel} UNSCANNABLE`); continue; }
+/**
+ * Bounded read on one descriptor (see header). Returns { buf } or { cat } with a fixed ENTRY_CATEGORIES value.
+ * io and fdPath are injectable for deterministic race controls; production uses fs and /proc/self/fd.
+ */
+export function readBounded(file, max, rootReal, { io = fs, uid = typeof process.getuid === 'function' ? process.getuid() : -1, fdPath = (fd) => fs.readlinkSync(`/proc/self/fd/${fd}`) } = {}) {
+  let fd;
+  try { fd = io.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)); }
+  catch (e) { return { cat: e && e.code === 'ELOOP' ? 'SYMLINK' : 'UNREADABLE' }; }
+  let cat = null, buf = null;
+  try {
+    let real = null;
+    try { real = fdPath(fd); } catch { cat = 'OUTSIDE_ROOT'; }
+    if (!cat && !(typeof real === 'string' && real.startsWith(`${rootReal}/`))) cat = 'OUTSIDE_ROOT';
+    const st = cat ? null : io.fstatSync(fd);
+    if (cat) { /* reported below */ }
+    else if (!st.isFile()) cat = 'SPECIAL';
+    else if (uid >= 0 && st.uid !== uid) cat = 'UNREADABLE';
+    else if (st.size > max) cat = 'OVERSIZE';
+    else {
+      const cap = Buffer.alloc(Math.min(max, st.size) + 1);
+      let n = 0;
+      for (;;) {
+        const r = io.readSync(fd, cap, n, cap.length - n, null);
+        if (r === 0) break;
+        n += r;
+        if (n > st.size) { cat = 'RACE'; break; }
+      }
+      if (!cat && n !== st.size) cat = 'RACE';
+      if (!cat) buf = Buffer.from(cap.subarray(0, n));
+    }
+  } catch { cat = cat ?? 'UNREADABLE'; }
+  finally { try { io.closeSync(fd); } catch { cat = cat ?? 'UNREADABLE'; } }
+  return cat ? { cat } : { buf };
+}
+
+/**
+ * Walks root without following links. Returns { texts: [latin1 strings], cats: Map(category -> count) }. Names are never
+ * returned or printed; an unsafe name is counted as NAME and its entry is not opened.
+ */
+export function collect(root, opts = {}) {
+  const rootReal = fs.realpathSync(root);
+  const texts = [], cats = new Map();
+  const bump = (c) => cats.set(c, (cats.get(c) ?? 0) + 1);
+  let entries = 0, total = 0;
+  const walk = (rel, depth) => {
+    if (depth > MAX_DEPTH) { bump('LIMIT'); return; }
+    const abs = rel ? path.join(rootReal, rel) : rootReal;
+    let st;
+    try { st = fs.lstatSync(abs); } catch { bump('RACE'); return; }
+    if (!st.isDirectory()) { bump(st.isSymbolicLink() ? 'SYMLINK' : 'RACE'); return; }
+    let real;
+    try { real = fs.realpathSync(abs); } catch { bump('RACE'); return; }
+    if (real !== abs) { bump('OUTSIDE_ROOT'); return; }
+    let list;
+    try { list = fs.readdirSync(abs, { withFileTypes: true }); } catch { bump('UNREADABLE'); return; }
+    list.sort((x, y) => (x.name < y.name ? -1 : x.name > y.name ? 1 : 0));
+    for (const d of list) {
+      if (++entries > MAX_ENTRIES) { bump('LIMIT'); return; }
+      if (!SAFE_NAME.test(d.name)) { bump('NAME'); continue; }
+      const r = rel ? `${rel}/${d.name}` : d.name;
+      if (d.isDirectory()) { walk(r, depth + 1); continue; }
+      if (d.isSymbolicLink()) { bump('SYMLINK'); continue; }
+      if (!d.isFile()) { bump('SPECIAL'); continue; }
+      const got = readBounded(path.join(rootReal, r), MAX_SCAN_FILE, rootReal, opts);
+      if (got.cat) { bump(got.cat); continue; }
+      total += got.buf.length;
+      if (total > MAX_SCAN_TOTAL) { bump('LIMIT'); return; }
+      texts.push(got.buf.toString('latin1'));
+    }
+  };
+  walk('', 0);
+  return { texts, cats };
+}
+
+/** Fixed output lines from scanned texts and entry categories. */
+export function verdictLines(cands, texts, cats = new Map()) {
+  const per = new Map();
+  for (const t of texts) {
     const hit = new Set();
-    for (const c of cands) if (!hit.has(c.field) && occurs(e.text, c)) hit.add(c.field);
-    for (const f of [...hit].sort()) lines.push(`LEAKSCAN FAIL ${e.rel} ${f}`);
+    for (const c of cands) if (!hit.has(c.field) && occurs(t, c)) hit.add(c.field);
+    for (const f of hit) per.set(f, (per.get(f) ?? 0) + 1);
   }
-  return lines.length ? lines : ['LEAKSCAN PASS'];
+  const lines = [];
+  for (const f of ['P1', 'P2', 'P3', 'P4', 'P5']) if (per.has(f)) lines.push(`LEAKSCAN FAIL ${f} files=${per.get(f)}`);
+  for (const c of ENTRY_CATEGORIES) if (cats.get(c)) lines.push(`LEAKSCAN FAIL ${c} entries=${cats.get(c)}`);
+  return lines.length ? lines : [`LEAKSCAN PASS files=${texts.length}`];
 }
 
-/** Every regular file under dir (symlinks and special files are reported UNSCANNABLE, never followed). */
-export function collect(dir, rel = '') {
-  const out = [];
-  for (const d of fs.readdirSync(path.join(dir, rel), { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
-    const r = rel ? `${rel}/${d.name}` : d.name;
-    if (d.isDirectory()) { out.push(...collect(dir, r)); continue; }
-    if (!d.isFile()) { out.push({ rel: r, unscannable: true }); continue; }
-    const p = path.join(dir, r);
-    const st = fs.lstatSync(p);
-    if (st.size > MAX_SCAN_FILE) { out.push({ rel: r, unscannable: true }); continue; }
-    out.push({ rel: r, text: fs.readFileSync(p).toString('latin1') });
+/** Reference texts from a NUL list of repository-relative paths under cwd; unsafe or unreadable paths are skipped. */
+export function referenceTexts(refListFile, cwdReal, opts = {}) {
+  const lst = readBounded(refListFile, MAX_REFLIST, path.dirname(fs.realpathSync(refListFile)), opts);
+  if (lst.cat) refuse('ST_E_LEAKSCAN_REFS');
+  const refs = [];
+  for (const rel of lst.buf.toString('utf8').split('\0').filter(Boolean)) {
+    if (rel.startsWith('/') || rel.split('/').some((p) => p === '..' || p === '.' || p === '')) refuse('ST_E_LEAKSCAN_REFS');
+    const got = readBounded(path.join(cwdReal, rel), MAX_REFERENCE_FILE, cwdReal, opts);
+    if (!got.cat) refs.push(got.buf.toString('latin1')); // skipping a reference only keeps more candidates (stricter)
   }
-  return out;
+  if (refs.length === 0) refuse('ST_E_LEAKSCAN_REFS');
+  return refs;
 }
 
-export function run(privDir, refListFile, evidenceDir) {
+export function run(privDir, refListFile, evidenceDir, opts = {}) {
   const dir = assertPrivateDir(privDir);
   const pins = parsePins(readPrivate(dir, PINS_FILE));
   if (pins.source !== 'LIVE') refuse('ST_E_SOURCE');
-  const refs = [];
-  for (const rel of fs.readFileSync(refListFile, 'utf8').split('\0').filter(Boolean)) {
-    let st; try { st = fs.lstatSync(rel); } catch { continue; } // a tracked path absent from the checkout adds nothing
-    if (!st.isFile() || st.size > MAX_REFERENCE_FILE) continue;
-    refs.push(fs.readFileSync(rel).toString('latin1'));
-  }
-  if (refs.length === 0) refuse('ST_E_LEAKSCAN_REFS');
+  const refs = referenceTexts(refListFile, fs.realpathSync(process.cwd()), opts);
   // Candidates are compared in latin1 space on both sides, so UTF-8 bytes match byte for byte.
   const cands = filterPublic(candidates(pins).map((c) => ({ ...c, text: Buffer.from(c.text, 'utf8').toString('latin1') })), refs);
-  let ev; try { ev = collect(evidenceDir); } catch { refuse('ST_E_LEAKSCAN_EVIDENCE'); }
-  return scanTexts(cands, ev);
+  let ev;
+  try { const st = fs.lstatSync(evidenceDir); if (!st.isDirectory()) throw new Error('x'); ev = collect(evidenceDir, opts); } catch { refuse('ST_E_LEAKSCAN_EVIDENCE'); }
+  return verdictLines(cands, ev.texts, ev.cats);
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -148,7 +231,7 @@ if (isMain) {
     if (process.argv.length !== 5) refuse('ST_E_USAGE');
     const lines = run(...process.argv.slice(2));
     for (const l of lines) console.log(l);
-    process.exit(lines[0] === 'LEAKSCAN PASS' ? 0 : 1);
+    process.exit(lines[0].startsWith('LEAKSCAN PASS') ? 0 : 1);
   } catch (e) {
     console.error(`leak-scan refused: ${e instanceof StorageError ? e.code : 'ST_E_UNCLASSIFIED'}`);
     process.exit(3);
