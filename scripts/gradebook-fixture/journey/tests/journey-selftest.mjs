@@ -10,7 +10,8 @@ import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, readPrivat
 import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
 import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
 import { EventEmitter } from 'node:events';
-import { assertPairingProof } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
+import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
+import { producePairing, pinFailures, stackOwnershipFailures, HELPER_PINS, gitBlobId } from '../pairing-producer.mjs';
 import { checkJourney } from './static-contract.mjs';
 
 const repo = process.cwd();
@@ -55,8 +56,19 @@ try {
   const proofDir = fs.mkdtempSync(path.join(tmp, 'proof-')); fs.chmodSync(proofDir, 0o700);
   const sess = fs.mkdtempSync(path.join(tmp, 'sess3-')); fs.chmodSync(sess, 0o700);
   const proof = (obj, mode = 0o600, dir = proofDir) => { const f = path.join(dir, `proof-${Math.random().toString(16).slice(2)}.json`); fs.writeFileSync(f, JSON.stringify(obj)); fs.chmodSync(f, mode); return f; };
-  const base = { version: 1, stack_id: sid, db_read: sid, api_read: sid, produced_before_seed: true };
+  const CTRL = '9b6c0000-0000-4000-8000-000000000011';
+  const base = { version: 2, stack_id: sid, control_course_id: CTRL, db_read: PAIRING_PREFIX + sid, api_read: PAIRING_PREFIX + sid, journey_rows_before_pairing: 0 };
+  const v1 = { version: 1, stack_id: sid, db_read: sid, api_read: sid, produced_before_seed: true };
   const G3 = (f, o = { sessionDir: sess }) => code(() => assertPairingProof(f, o));
+  { // Causal: the published 1673a7e consumer accepted a caller-authored v1 file whose only order evidence is a boolean.
+    const oldF = path.join(tmp, 'e2e/gradebook-roles/journey/pairing-proof-1673a7e.mjs');
+    fs.mkdirSync(path.dirname(oldF), { recursive: true });
+    fs.writeFileSync(oldF, execFileSync('git', ['show', '1673a7e:e2e/gradebook-roles/journey/pairing-proof.mjs'], { cwd: repo, encoding: 'utf8' }).replace("from './private-dir.mjs'", `from '${path.join(repo, 'e2e/gradebook-roles/journey/private-dir.mjs')}'`));
+    const old = (await import(oldF)).assertPairingProof;
+    const f1 = proof(v1);
+    ok('G3 causal: OLD 1673a7e consumer ACCEPTED the boolean v1 proof', code(() => old(f1, { sessionDir: sess })) === 'ACCEPTED');
+    ok('G3 causal: NEW consumer refuses the same file', G3(f1) === 'JOURNEY_GATE3_E_VERSION');
+  }
   ok('G3 well-shaped proof in its own 0700 dir accepted (shape only)', G3(proof(base)) === 'ACCEPTED');
   ok('G3 no session dir given refused', G3(proof(base), null) === 'JOURNEY_GATE3_E_NO_SESSION_DIR');
   ok('G3 no proof refused (the current state: producer not built)', G3(undefined) === 'JOURNEY_GATE3_E_NO_PROOF');
@@ -68,11 +80,15 @@ try {
   ok('G3 proof dir 0755 refused', G3(proof(base, 0o600, openDir)) === 'JOURNEY_GATE3_E_PARENT');
   ok('G3 0644 proof refused', G3(proof(base, 0o644)) === 'JOURNEY_GATE3_E_MODE');
   ok('G3 other owner refused', G3(proof(base), { sessionDir: sess, uid: 999999 }) === 'JOURNEY_GATE3_E_OWNER');
-  ok('G3 API read differs refused', G3(proof({ ...base, api_read: 'b'.repeat(32) })) === 'JOURNEY_GATE3_E_API_MISMATCH');
-  ok('G3 DB read differs refused', G3(proof({ ...base, db_read: 'b'.repeat(32) })) === 'JOURNEY_GATE3_E_DB_MISMATCH');
-  ok('G3 produced after seed refused', G3(proof({ ...base, produced_before_seed: false })) === 'JOURNEY_GATE3_E_ORDER');
-  ok('G3 short stack id refused', G3(proof({ ...base, stack_id: 'abc', db_read: 'abc', api_read: 'abc' })) === 'JOURNEY_GATE3_E_STACK_ID');
-  ok('G3 wrong version refused', G3(proof({ ...base, version: 2 })) === 'JOURNEY_GATE3_E_VERSION');
+  ok('G3 API read differs refused', G3(proof({ ...base, api_read: PAIRING_PREFIX + 'b'.repeat(32) })) === 'JOURNEY_GATE3_E_API_MISMATCH');
+  ok('G3 DB read differs refused', G3(proof({ ...base, db_read: PAIRING_PREFIX + 'b'.repeat(32) })) === 'JOURNEY_GATE3_E_DB_MISMATCH');
+  ok('G3 bare nonce without the carrier prefix refused', G3(proof({ ...base, db_read: sid, api_read: sid })) === 'JOURNEY_GATE3_E_DB_MISMATCH');
+  ok('G3 journey rows seen before pairing refused (observed count, not a flag)', G3(proof({ ...base, journey_rows_before_pairing: 1 })) === 'JOURNEY_GATE3_E_ORDER');
+  ok('G3 count given as a boolean or string refused', G3(proof({ ...base, journey_rows_before_pairing: false })) === 'JOURNEY_GATE3_E_ORDER' && G3(proof({ ...base, journey_rows_before_pairing: '0' })) === 'JOURNEY_GATE3_E_ORDER');
+  ok('G3 other carrier row refused', G3(proof({ ...base, control_course_id: '9b6c0000-0000-4000-8000-000000000001' })) === 'JOURNEY_GATE3_E_CARRIER');
+  ok('G3 short stack id refused', G3(proof({ ...base, stack_id: 'abc', db_read: PAIRING_PREFIX + 'abc', api_read: PAIRING_PREFIX + 'abc' })) === 'JOURNEY_GATE3_E_STACK_ID');
+  ok('G3 v1 proof with the produced_before_seed boolean refused', G3(proof(v1)) === 'JOURNEY_GATE3_E_VERSION');
+  ok('G3 v2 carrying the old boolean as an extra field refused', G3(proof({ ...base, produced_before_seed: true })) === 'JOURNEY_GATE3_E_SHAPE');
   ok('G3 extra field refused', G3(proof({ ...base, note: 'x' })) === 'JOURNEY_GATE3_E_SHAPE');
   const bad = path.join(proofDir, 'bad.json'); fs.writeFileSync(bad, '{not json'); fs.chmodSync(bad, 0o600);
   ok('G3 unparsable refused', G3(bad) === 'JOURNEY_GATE3_E_PARSE');
@@ -215,6 +231,93 @@ try {
   RS('same id for submission and attachment refused', { ...rs, attachmentId: rs.submissionId }, 'RS_IDS_NOT_DISTINCT');
   RS('extra key refused', { ...rs, note: 'x' }, 'RS_KEYS');
 
+  // ---- Gate 3 live recheck on a fake API (helper behaviour only; NOT a stack) ----
+  const API = 'http://127.0.0.1:54321';
+  const RID = '11111111-2222-4333-8444-555555555555';
+  /** fake fetch: serves `rows` for the carrier id and `other` for any other id; records every call */
+  const fakeApi = ({ rows, other = [], status = 200, throws = false, bodyText = null } = {}) => {
+    const calls = [];
+    const f = async (url, init) => {
+      calls.push({ url, init });
+      if (throws) throw new Error('ECONNREFUSED secret-ish');
+      const id = new URL(url).searchParams.get('id');
+      const body = id === `eq.${CTRL}` ? rows : other;
+      return { status, json: async () => { if (bodyText !== null) throw new Error('bad json'); return body; } };
+    };
+    f.calls = calls; return f;
+  };
+  const carrierRow = (v = PAIRING_PREFIX + sid) => [{ id: CTRL, description: v }];
+  const LIVE = async (f, rid = RID) => { try { await assertLivePairing({ stack_id: sid, control_course_id: CTRL }, { apiOrigin: API, anonKey: 'anon', fetchImpl: f, randomId: rid }); return 'ACCEPTED'; } catch (e) { return e && e.code ? e.code : 'UNCODED'; } };
+  { const f = fakeApi({ rows: carrierRow() });
+    ok('LIVE carrier served with this nonce and filter honoured: accepted', await LIVE(f) === 'ACCEPTED');
+    ok('LIVE two GETs, exact carrier query then the random-id control', f.calls.length === 2 && f.calls[0].url === `${API}/rest/v1/courses?id=eq.${CTRL}&select=id,description` && f.calls[1].url === `${API}/rest/v1/courses?id=eq.${RID}&select=id,description`);
+    ok('LIVE anon key only: no Authorization header, GET, no redirects', f.calls.every((c) => c.init.method === 'GET' && c.init.redirect === 'error' && !Object.keys(c.init.headers).some((h) => h.toLowerCase() === 'authorization') && c.init.headers.apikey === 'anon')); }
+  ok('LIVE other nonce served: JOURNEY_GATE3_E_LIVE_MISMATCH', await LIVE(fakeApi({ rows: carrierRow(PAIRING_PREFIX + 'c'.repeat(32)) })) === 'JOURNEY_GATE3_E_LIVE_MISMATCH');
+  ok('LIVE carrier missing: JOURNEY_GATE3_E_LIVE_COUNT', await LIVE(fakeApi({ rows: [] })) === 'JOURNEY_GATE3_E_LIVE_COUNT');
+  ok('LIVE two rows: JOURNEY_GATE3_E_LIVE_COUNT', await LIVE(fakeApi({ rows: [...carrierRow(), ...carrierRow()] })) === 'JOURNEY_GATE3_E_LIVE_COUNT');
+  ok('LIVE extra column or other id: JOURNEY_GATE3_E_LIVE_SHAPE', await LIVE(fakeApi({ rows: [{ ...carrierRow()[0], title: 'x' }] })) === 'JOURNEY_GATE3_E_LIVE_SHAPE' && await LIVE(fakeApi({ rows: [{ id: RID, description: PAIRING_PREFIX + sid }] })) === 'JOURNEY_GATE3_E_LIVE_SHAPE');
+  ok('LIVE API ignores the filter: JOURNEY_GATE3_E_LIVE_NOT_FILTERING', await LIVE(fakeApi({ rows: carrierRow(), other: carrierRow() })) === 'JOURNEY_GATE3_E_LIVE_NOT_FILTERING');
+  ok('LIVE non-200: JOURNEY_GATE3_E_LIVE_STATUS', await LIVE(fakeApi({ rows: carrierRow(), status: 401 })) === 'JOURNEY_GATE3_E_LIVE_STATUS');
+  ok('LIVE transport error: fixed code, raw text dropped', await LIVE(fakeApi({ throws: true })) === 'JOURNEY_GATE3_E_LIVE_TRANSPORT');
+  ok('LIVE unparsable body: JOURNEY_GATE3_E_LIVE_PARSE', await LIVE(fakeApi({ rows: carrierRow(), bodyText: 'x' })) === 'JOURNEY_GATE3_E_LIVE_PARSE');
+  ok('LIVE control id equal to the carrier or malformed refused', await LIVE(fakeApi({ rows: carrierRow() }), CTRL) === 'JOURNEY_GATE3_E_LIVE_CONTROL_ID' && await LIVE(fakeApi({ rows: carrierRow() }), 'x') === 'JOURNEY_GATE3_E_LIVE_CONTROL_ID');
+
+  // ---- Pairing producer on a fake DSN + fake API (helper behaviour only; NOT a stack) ----
+  const fakeDb = ({ count = 0, inserted = 1, readBack = null } = {}) => {
+    const st = { order: [], stored: null };
+    return { st, db: {
+      async journeyRowCount() { st.order.push('precheck'); return count; },
+      async insertCarrier(v) { st.order.push('insert'); st.stored = v; return inserted; },
+      async readCarrier() { st.order.push('dbread'); return readBack ?? (st.stored === null ? [] : [st.stored]); },
+    } };
+  };
+  const PAIR = async (dbo, api, nonce = sid) => { const trace = []; try { const p = await producePairing({ db: dbo.db, fetchImpl: api, apiOrigin: API, anonKey: 'anon', nonce, randomId: RID, trace }); return { code: 'ACCEPTED', p, trace }; } catch (e) { return { code: e && e.code ? e.code : 'UNCODED', trace }; } };
+  { const d = fakeDb(); const r = await PAIR(d, fakeApi({ rows: carrierRow() }));
+    ok('PAIR happy path gives proof v2 built from the observed reads', r.code === 'ACCEPTED' && JSON.stringify(r.p) === JSON.stringify(base));
+    ok('PAIR order is precheck, insert, DSN readback, API readback', JSON.stringify(r.trace) === '["precheck","insert","dbread","apiread"]' && JSON.stringify(d.st.order) === '["precheck","insert","dbread"]');
+    ok('PAIR carrier written is the prefixed nonce', d.st.stored === PAIRING_PREFIX + sid);
+    const pf = path.join(fs.mkdtempSync(path.join(tmp, 'pp-')), 'pairing-proof.json'); fs.chmodSync(path.dirname(pf), 0o700);
+    writePrivateFile(path.dirname(pf), 'pairing-proof.json', JSON.stringify(r.p));
+    ok('PAIR produced proof is accepted by the v2 consumer', G3(pf) === 'ACCEPTED'); }
+  { const d = fakeDb({ count: 3 }); const r = await PAIR(d, fakeApi({ rows: carrierRow() }));
+    ok('PAIR used stack (journey rows before pairing): PAIR_E_USED_STACK, nothing inserted', r.code === 'PAIR_E_USED_STACK' && JSON.stringify(d.st.order) === '["precheck"]'); }
+  ok('PAIR precheck not a count: PAIR_E_PRECHECK', (await PAIR(fakeDb({ count: '0' }), fakeApi({ rows: carrierRow() }))).code === 'PAIR_E_PRECHECK');
+  { const d = fakeDb({ inserted: 0 }); const r = await PAIR(d, fakeApi({ rows: carrierRow() }));
+    ok('PAIR insert conflict (0 rows): PAIR_E_INSERT, no readback', r.code === 'PAIR_E_INSERT' && JSON.stringify(d.st.order) === '["precheck","insert"]'); }
+  ok('PAIR DSN readback differs: PAIR_E_DB_MISMATCH, API never called', await (async () => { const a = fakeApi({ rows: carrierRow() }); const r = await PAIR(fakeDb({ readBack: [PAIRING_PREFIX + 'd'.repeat(32)] }), a); return r.code === 'PAIR_E_DB_MISMATCH' && a.calls.length === 0; })());
+  ok('PAIR DSN readback two rows: PAIR_E_DB_MISMATCH', (await PAIR(fakeDb({ readBack: [PAIRING_PREFIX + sid, PAIRING_PREFIX + sid] }), fakeApi({ rows: carrierRow() }))).code === 'PAIR_E_DB_MISMATCH');
+  ok('PAIR API serves another value: PAIR_E_API_MISMATCH', (await PAIR(fakeDb(), fakeApi({ rows: carrierRow(PAIRING_PREFIX + 'e'.repeat(32)) }))).code === 'PAIR_E_API_MISMATCH');
+  ok('PAIR API row missing: PAIR_E_API_COUNT', (await PAIR(fakeDb(), fakeApi({ rows: [] }))).code === 'PAIR_E_API_COUNT');
+  ok('PAIR API not filtering: PAIR_E_API_NOT_FILTERING', (await PAIR(fakeDb(), fakeApi({ rows: carrierRow(), other: carrierRow() }))).code === 'PAIR_E_API_NOT_FILTERING');
+  ok('PAIR API 500: PAIR_E_API_STATUS', (await PAIR(fakeDb(), fakeApi({ rows: carrierRow(), status: 500 }))).code === 'PAIR_E_API_STATUS');
+  ok('PAIR weak nonce refused before any DB call', await (async () => { const d = fakeDb(); const r = await PAIR(d, fakeApi({ rows: carrierRow() }), 'abc'); return r.code === 'PAIR_E_NONCE' && d.st.order.length === 0; })());
+  { const a = fakeApi({ rows: carrierRow() }); await PAIR(fakeDb(), a);
+    ok('PAIR API reads carry no Authorization header (anon only)', a.calls.length === 2 && a.calls.every((c) => !Object.keys(c.init.headers).some((h) => h.toLowerCase() === 'authorization'))); }
+
+  // ---- Shared helper pins and the D1 gate ----
+  ok('PIN real tree: the 3 shared helpers equal their agreed blobs', pinFailures(repo).length === 0);
+  ok('PIN gitBlobId equals git hash-object', gitBlobId(fs.readFileSync(path.join(repo, 'scripts/e2e/assert-safe-target.mjs'))) === execFileSync('git', ['hash-object', 'scripts/e2e/assert-safe-target.mjs'], { cwd: repo, encoding: 'utf8' }).trim());
+  { const root = fs.mkdtempSync(path.join(tmp, 'pins-'));
+    for (const rel of Object.keys(HELPER_PINS)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.copyFileSync(path.join(repo, rel), path.join(root, rel)); }
+    ok('PIN unmodified copies pass', pinFailures(root).length === 0);
+    fs.appendFileSync(path.join(root, 'scripts/local-db/assert-local-dsn.mjs'), '\n');
+    ok('PIN one changed byte in a shared helper refused', JSON.stringify(pinFailures(root)) === '["RUN_E_PIN scripts/local-db/assert-local-dsn.mjs"]');
+    fs.rmSync(path.join(root, 'e2e/support/chromium-executable.ts'));
+    ok('PIN missing helper refused', pinFailures(root).includes('RUN_E_PIN e2e/support/chromium-executable.ts')); }
+  ok('D1 stack ownership refuses (record not defined by the shared owner yet)', JSON.stringify(stackOwnershipFailures({ STACK_OWNERSHIP_FILE: '/tmp/x.json', GITHUB_RUN_ID: '1' })) === '["RUN_E_D1_UNDEFINED"]');
+
+  // ---- Runner adapter refusals that need no stack (helper behaviour; the full run is UNEXECUTED) ----
+  { const sandbox = fs.mkdtempSync(path.join(tmp, 'runner-')); fs.chmodSync(sandbox, 0o700);
+    const runSh = path.join(repo, 'scripts/gradebook-fixture/journey/run-journey.sh');
+    const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: sandbox, RUNNER_TEMP: sandbox };
+    const run = (args, extra = {}) => { try { execFileSync('bash', [runSh, ...args], { env: { ...env, ...extra }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); return { rc: 0, err: '' }; } catch (e) { return { rc: e.status, err: String(e.stderr), out: String(e.stdout) }; } };
+    const r0 = run([]);
+    ok('RUN no evidence dir: RUN_E_USAGE, exit 2', r0.rc === 2 && r0.err.trim() === 'run-journey refused: RUN_E_USAGE');
+    const r1 = run([path.join(sandbox, 'out')]);
+    ok('RUN no local binding env: refused at the target guard (code only), nothing written', r1.rc === 3 && /^run-journey refused: RUN_E_(TARGET|BINDING|DSN)$/.test(r1.err.trim()) && fs.readdirSync(sandbox).length === 0);
+    const r2 = run([sandbox]);
+    ok('RUN existing evidence dir refused', r2.rc === 2 && r2.err.trim() === 'run-journey refused: RUN_E_OUT_EXISTS'); }
+
   // ---- Static contract: real tree PASS, each mutation FAILS its own rule ----
   const real = checkJourney(repo);
   ok(`SC real tree passes (${real.length ? real.join('; ') : 'no violations'})`, real.length === 0);
@@ -249,7 +352,24 @@ try {
     ['ts id drifts from the seed', `${J}/ids.ts`, (s) => s.replace("assignment: '9b6c0000-0000-4000-8000-000000000202'", "assignment: '9b6c0000-0000-4000-8000-000000000299'"), 'R5_TS_ID_NOT_SEEDED_299'],
     ['grading fixture id leaks into the journey', `${J}/j3-instructor-grade.spec.ts`, (s) => s + "\nconst g = '9b6b0000-0000-4000-8000-000000000302';\n", 'R5_GRADING_FIXTURE_ID'],
     ['hosted project ref appears', `${J}/ids.ts`, (s) => s + "\nexport const H = 'https://siuqvhscuiycvdrtiqsh.supabase.co';\n", 'R5_HOSTED_REF'],
-    ['gate 3 moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace('  assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });\n', '').replace("    if (res.status !== 200)", '    assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });\n    if (res.status !== 200)'), 'R6_GATES_AFTER_SIGNIN'],
+    ['gate 3 moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace('  const proof = assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });\n', '').replace("    if (res.status !== 200)", '    const proof = assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });\n    if (res.status !== 200)'), 'R6_GATES_AFTER_SIGNIN'],
+    ['live pairing recheck moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace("  await assertLivePairing(proof, { apiOrigin: api.origin, anonKey, randomId: randomUUID() });\n", '').replace("    if (res.status !== 200)", "    await assertLivePairing(proof, { apiOrigin: api.origin, anonKey, randomId: randomUUID() });\n    if (res.status !== 200)"), 'R6_LIVE_PAIRING_NOT_BEFORE_SIGNIN'],
+    ['live pairing recheck removed', `${J}/session-setup.ts`, (s) => s.replace("  await assertLivePairing(proof, { apiOrigin: api.origin, anonKey, randomId: randomUUID() });\n", ''), 'R6_LIVE_PAIRING_NOT_BEFORE_SIGNIN'],
+    ['consumer goes back to the boolean', `${J}/pairing-proof.mjs`, (s) => s.replace("if (p.journey_rows_before_pairing !== 0)", "if (p.produced_before_seed !== true)"), 'R6_PROOF_NOT_V2'],
+    ['live recheck sends a persona token', `${J}/pairing-proof.mjs`, (s) => s.replace("headers: { apikey: opts.anonKey,", "headers: { apikey: opts.anonKey, Authorization: 'Bearer x',"), 'R6_LIVE_PAIRING_PERSONA'],
+    ['seed inserts the carrier again', `${S}/seed-journey.sql`, (s) => s.replace('begin;', "begin;\ninsert into public.courses (id, title, description, category, level, published, status, instructor_id) values ('9b6c0000-0000-4000-8000-000000000011', 'Journey Control Course', 'x', 'data-science', 'beginner', true, 'published', 'e2e00000-0000-4000-8000-000000000002') on conflict (id) do nothing;"), 'R1_SEED_INSERTS_CARRIER'],
+    ['seed no longer bound to the pairing value', `${S}/seed-journey.sql`, (s) => s.replace("description = :'pairing' and ", ''), 'R1_SEED_NOT_BOUND_TO_PAIRING'],
+    ['pairing seed updates instead of inserting', `${S}/pairing-seed.sql`, (s) => s + "\nupdate public.courses set description = :'pairing' where id = '9b6c0000-0000-4000-8000-000000000011';\n", 'R1_PAIRING_NON_INSERT'],
+    ['pairing seed inserts a second row', `${S}/pairing-seed.sql`, (s) => s + "\ninsert into public.modules (id, course_id, title, week, position, published) values ('9b6c0000-0000-4000-8000-000000000012', '9b6c0000-0000-4000-8000-000000000011', 'm', 1, 1, true);\n", 'R1_PAIRING_NOT_CARRIER_ONLY'],
+    ['pairing seed overwrites on conflict', `${S}/pairing-seed.sql`, (s) => s.replace('on conflict (id) do nothing', "on conflict (id) do update set description = excluded.description"), 'R1_PAIRING_NON_INSERT'],
+    ['runner seeds before pairing', `${S}/run-journey.sh`, (s) => { const a = s.split('\n'); const i = a.findIndex((l) => l.includes('pairing-producer.mjs" pair')); const j = a.findIndex((l) => l.includes('pairing-producer.mjs" seed')); [a[i], a[j]] = [a[j], a[i]]; return a.join('\n'); }, 'R11_RUNNER_ORDER'],
+    ['runner checks D1 after composition', `${S}/run-journey.sh`, (s) => { const a = s.split('\n'); const i = a.findIndex((l) => l.includes('pairing-producer.mjs" ownership')); const [x] = a.splice(i, 1); const j = a.findIndex((l) => l.includes('refuse RUN_E_COMPOSITION')); a.splice(j + 1, 0, x); return a.join('\n'); }, 'R11_RUNNER_ORDER'],
+    ['runner drops the D1 gate', `${S}/run-journey.sh`, (s) => s.split('\n').filter((l) => !l.includes('pairing-producer.mjs" ownership')).join('\n'), 'R11_RUNNER_ORDER'],
+    ['runner traces commands', `${S}/run-journey.sh`, (s) => s.replace('set -euo pipefail', 'set -euxo pipefail\nset -x'), 'R11_RUNNER_NONCE_OR_TRACE'],
+    ['runner deletes outside its parent', `${S}/run-journey.sh`, (s) => s.replace('trap cleanup EXIT', 'trap cleanup EXIT\nrm -rf -- "$TMPROOT"'), 'R11_RUNNER_CLEANUP'],
+    ['producer reads the API before the DSN', `${S}/pairing-producer.mjs`, (s) => s.replace("  const rows = await o.db.readCarrier();\n", '').replace("  return { version: 2,", "  const rows = await o.db.readCarrier();\n  return { version: 2,"), 'R11_PRODUCER_ORDER'],
+    ['producer logs the carrier', `${S}/pairing-producer.mjs`, (s) => s.replace("  trace.push('insert');", "  console.log(carrier);\n  trace.push('insert');"), 'R11_PRODUCER_LOGS_NONCE'],
+    ['producer D1 starts accepting', `${S}/pairing-producer.mjs`, (s) => s.replace("return ['RUN_E_D1_UNDEFINED'];", 'return [];'), 'R11_PRODUCER_D1_NOT_REFUSING'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],
     ['error leaks the response body', `${J}/session-setup.ts`, (s) => s.replace('`JOURNEY_SETUP_E_SIGNIN_HTTP_${res.status}_${R}`', '`JOURNEY_SETUP_E_SIGNIN_HTTP ${await res.text()}`'), 'R6_UNSANITIZED_ERROR'],
     ['composition check moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace("  if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n", '').replace("    if (res.status !== 200)", "    if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n    if (res.status !== 200)"), 'R6_COMPOSITION_AFTER_SIGNIN'],

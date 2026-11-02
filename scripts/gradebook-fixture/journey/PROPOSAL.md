@@ -3,7 +3,7 @@
 **Status:** a proposal plus local checks only. It is not run-ready.
 - Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack.
 - Nothing was dispatched, pushed or published. There are no production writes.
-- Receipt label: **138 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
+- Receipt label: **197 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
 
 **History:** 5d9714b (frozen) → bc65540 (r2, the 22:14Z review batch; its security holds, A and D are closed) → r3, the small oracle-only batch for the 22:48Z recheck (section 9). Every earlier commit and export is kept unchanged.
 
@@ -19,11 +19,9 @@
 No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product source was edited.
 
 ## 1. Still BLOCKED (no shared-file edits in this lane)
-1. **Gate 3 producer and ordered pre-seed runner.**
-   - `pairing-proof.mjs` is a consumer of shape and placement only.
-   - The five values in a proof file are written by the caller, so they are NOT trusted current-run, API, DB or owner proof.
-   - Accepting a file only means "the shape is right".
-   - The producer and the order in which the runner calls it belong to the PR 134 thread.
+1. **Gate 3 producer and ordered runner: now a gradebook-owned adapter (section 11), runs still BLOCKED on D1.**
+   - `pairing-producer.mjs` + `run-journey.sh` produce proof v2 from observed DSN and anon-API reads; `pairing-proof.mjs` re-reads the carrier live before sign-in.
+   - Still missing: the shared owner's stack-ownership record (D1). Until it exists and is reviewed, `run-journey.sh` refuses with `RUN_E_D1_UNDEFINED` before any DB contact.
 2. **Shared owned-stack pairing** before seed and before the first persona request. Same owner.
 3. **Always-cleanup** of the session, proof and diagnostics dirs on every exit, plus an exact inventory of uploaded outputs. These belong to the runner.
 4. **Hermetic served-app contract** (f169429, editor CDN). Owned by the PR 134 thread.
@@ -165,3 +163,55 @@ The list runs used placeholder loopback env values. No server was listening, and
 - `observe-core.mjs`: query membership is an own-key check, so an unexpected `toString`, `constructor` or `__proto__` query key is an `OBS_NEAR_MISS` and not an exact match.
 - Selftest controls load the fcc606f versions from git. For each of the three names, the fcc606f comparator ACCEPTED it and the fcc606f observer MATCHED it. The new code refuses both. The full 21-scope positive, the allowed passthrough (`select`, `order`) and the null prototype plus freeze are kept as positives.
 - Unchanged: product, SQL, config and the 18 grading cases. The pre-existing BOM lint error in `instructor-writers.spec.ts:125` stays as it is and stays disclosed.
+
+## 11. Pairing producer and ordered runner adapter (T 23:53Z; file split agreed with the shared owner 23:56Z)
+**Ownership.** New owned files: `run-journey.sh`, `pairing-producer.mjs`, `pairing-seed.sql`. Changed owned files: `seed-journey.sql`, `pairing-proof.mjs`, `session-setup.ts`, the tests. Workflows, `scripts/e2e/**`, `e2e/support/**`, stack bootstrap, f169429 and job-level cleanup stay with the shared owner, who alone wires the adapter into a workflow.
+
+**Shared helpers reused unchanged.** Each is pinned by git blob id, and `pins` refuses on any drift:
+- `assert-safe-target.mjs`: d94b9d6d
+- `assert-local-dsn.mjs`: 9632c7b4
+- `chromium-executable.ts`: ce26c40e
+
+**Order (static contract R11):**
+1. pins
+2. `assert-safe-target --mutating`
+3. strict binding
+4. loopback DSN
+5. **D1** (always refuses for now)
+6. composition `composed-r5`
+7. a private parent dir with proof, session and diag children (the trap removes exactly that parent)
+8. **pair**
+9. **seed**
+10. witness pre
+11. the journey (setup: proof v2, then the live recheck, then sign-in)
+12. witness post
+13. compare
+14. exact evidence inventory
+
+**Pair** (`producePairing`, with injected DB and API):
+- P0: the DSN count of journey and control rows and objects must be 0.
+- P1: `pairing-seed.sql` inserts ONLY the published control course row (fixed id `...0011`), with description `gb-journey-pairing:<128-bit nonce>`. RETURNING must give exactly 1 row.
+- P2: the DSN readback equals the carrier.
+- P3: anon API `GET courses?id=eq.<control>&select=id,description` returns exactly that row. The apikey is sent with no Authorization header. A random-id query must return `[]`.
+- Proof v2 then holds only these observed values. `produced_before_seed` is gone, and v1 files are refused.
+- The nonce is set inside psql's own script input. It is never in argv or env, and never printed.
+
+**Seed binding.** `seed-journey.sql` no longer inserts the carrier. It refuses unless the carrier holds this run's value (`\gset` / `\if`).
+
+**What this proves:** at pairing time and again before sign-in, the API origin the browser uses serves the row that this run wrote through `SUPABASE_DB_URL`.
+
+**What it does NOT prove:** stack ownership or disposability (D1, the shared owner's `STACK_OWNERSHIP_FILE`, schema pending). A `disposable: true` field in that record would be a declaration, not proof. Its checkable parts are `GITHUB_RUN_ID` equality and a live PG `system_identifier` read.
+
+**Disclosed:** the carrier row precedes the proof by design. Every other fixture row, and every persona request, comes after it.
+
+**Fake controls in the selftest.** These are helper behaviour only, not journey executions:
+- LIVE (13): accept; exact URLs; anon-only headers; mismatch; count; shape; not filtering; status; transport; parse; control id.
+- PAIR (14): happy proof; order trace; carrier value; consumer accepts the produced proof; used stack with no insert; precheck type; insert conflict; DSN mismatch with no API call; two rows; API mismatch, count, filter and status; weak nonce before any DB call; no Authorization.
+- PIN and D1 (6).
+- RUN refusals that need no stack (3).
+- G3 v2 shape (8), plus the causal check: the OLD 1673a7e consumer ACCEPTED the boolean v1 file and the NEW one refuses it.
+- SC mutants for R1 pairing, R6 live and v2, and R11 order, trace, cleanup, logging and D1.
+
+**UNEXECUTED:**
+- `pairing-seed.sql`, the psql `\gset`/`\if` binding in `seed-journey.sql`, the real psql and fetch paths, and the trap on a full run. None has run against any database or stack.
+- `scripts/gradebook-fixture/tests/origin-guard-selftest.mjs` needs a Chromium build that this container lacks. It fails the same way on 1673a7e. It was not run.

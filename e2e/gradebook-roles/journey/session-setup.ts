@@ -1,5 +1,5 @@
 // ABOUTME: Session-only global setup for the journey lane (UNRUN proposal). Fail-closed order: strict local binding, gate 1
-// ABOUTME: private session dir, composition, gate 3 proof shape (separate dir); only then sign in e2e-instructor and e2e-member.
+// ABOUTME: private session dir, composition, gate 3 proof v2 + live API recheck; only then sign in e2e-instructor and e2e-member.
 //
 // Error boundary: every step runs inside stage(code, fn). A JourneyGateError passes through unchanged; ANY other failure
 // (launch, context, addInitScript, goto, storageState, fs write/chmod, JSON, fetch, browser.close) becomes that step's
@@ -12,7 +12,8 @@ import { chromiumExecutableOption } from '../../support/chromium-executable';
 import { assertStrictLocalBinding } from '../local-binding.mjs';
 import { newGuardedContext } from '../origin-guard.mjs';
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, JourneyGateError } from './private-dir.mjs';
-import { assertPairingProof } from './pairing-proof.mjs';
+import { assertPairingProof, assertLivePairing } from './pairing-proof.mjs';
+import { randomUUID } from 'node:crypto';
 
 const ROLES = {
   instructor: { email: 'e2e-instructor@insightscollective.org', env: 'E2E_INSTRUCTOR_PASSWORD' },
@@ -61,8 +62,10 @@ async function run(): Promise<void> {
   // passes on the baseline issuer, so it does not prove r5; r5 adds the final-evidence safeguards. The runner must export
   // what scripts/gradebook-fixture/composition.sql detected; anything else refuses.
   if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');
-  // Gate 3 (shape and placement only; see pairing-proof.mjs for why this is not trust). Before the first POST.
-  assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });
+  // Gate 3, before the first POST: proof v2 shape and placement, then a LIVE anon re-read of the carrier row through the
+  // same API origin the browser uses (see pairing-proof.mjs). Stack ownership itself is the runner's D1 gate.
+  const proof = assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: dir });
+  await assertLivePairing(proof, { apiOrigin: api.origin, anonKey, randomId: randomUUID() });
 
   for (const [role, who] of Object.entries(ROLES)) {
     const R = role.toUpperCase();

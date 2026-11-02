@@ -1,8 +1,8 @@
 -- ABOUTME: UNRUN PROPOSAL. Minimal seed for the no-quiz authentic UI journey: ONE draft course shell taught by e2e-instructor
 -- ABOUTME: (one page + one 10-point upload assignment) and ONE published control course (J0 positive control). Rest is UI-written.
 --
--- Applied only after gates 1 to 4 pass and only to an owned, disposable stack whose pairing proof was produced BEFORE
--- this file runs (e2e/gradebook-roles/journey/pairing-proof.mjs). Never against any hosted project.
+-- Applied only by run-journey.sh, after the pairing producer (pairing-producer.mjs) wrote and read back the carrier, and
+-- only with psql variable :pairing set to that value. Never against any hosted project.
 --
 -- What this file does NOT create, on purpose (the journey must create them through the app's own UI and the real
 -- API/Storage/RLS): course publication, enrollment, progression, submission, storage object, attachment, grade,
@@ -34,11 +34,19 @@ values ('9b6c0000-0000-4000-8000-000000000202', '9b6c0000-0000-4000-8000-0000000
 on conflict (id) do nothing;
 
 -- Published control course (J0's positive control: the catalog and detail routes render real data for this learner).
--- One published module and one published page; no assignment, no enrollment. It is never written to by the journey.
-insert into public.courses (id, title, description, category, level, published, status, instructor_id)
-values ('9b6c0000-0000-4000-8000-000000000011', 'Journey Control Course', 'Synthetic published control course for the journey',
-        'data-science', 'beginner', true, 'published', 'e2e00000-0000-4000-8000-000000000002')
-on conflict (id) do nothing;
+-- The course ROW itself is the pairing carrier and was inserted before this file by pairing-seed.sql (gate 3 producer);
+-- this file adds its one published module and one published page, and refuses unless the row carries THIS run's value.
+-- No assignment, no enrollment. It is never written to by the journey.
+\if :{?pairing}
+\else
+  do $$ begin raise exception 'JOURNEY SEED REFUSED: no pairing value was given to the seed'; end $$;
+\endif
+select count(*) = 1 as journey_paired from public.courses
+ where id = '9b6c0000-0000-4000-8000-000000000011' and description = :'pairing' and published = true \gset
+\if :journey_paired
+\else
+  do $$ begin raise exception 'JOURNEY SEED REFUSED: the control course is not paired to this run'; end $$;
+\endif
 insert into public.modules (id, course_id, title, week, position, published)
 values ('9b6c0000-0000-4000-8000-000000000012', '9b6c0000-0000-4000-8000-000000000011', 'Control module', 1, 1, true)
 on conflict (id) do nothing;
