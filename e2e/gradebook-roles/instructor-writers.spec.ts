@@ -122,7 +122,7 @@ test('W3 course gradebook: GB0 = 0 and GB7 = 7 by identity; every cell, total 14
   const stream = await (await dl).createReadStream();
   let csv = ''; for await (const c of stream) csv += c;
   await info.attach('gradebook.csv', { body: Buffer.from(csv), contentType: 'text/csv' });
-  const lines = csv.replace(/^﻿/, '').trim().split(/\r\n/).map((l) => l.split(','));
+  const lines = csv.replace(/^\uFEFF/, '').trim().split(/\r\n/).map((l) => l.split(','));
   const head = lines[0];
   const member = lines.filter((l) => l[0] === GB.memberId);
   expect(member, 'exactly one member row in CSV').toHaveLength(1);
