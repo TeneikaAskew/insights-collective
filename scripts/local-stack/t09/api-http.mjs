@@ -4,7 +4,7 @@
 //
 // Origin rule (uses the repository's fail-closed classifier, scripts/e2e/assert-safe-target.mjs classifyTarget):
 //   accepted only as   http://127.0.0.1:<port>  |  http://localhost:<port>  |  http://[::1]:<port>   (optionally one trailing /)
-//   refused: userinfo (http://127.0.0.1:54321@host.invalid parses to host.invalid WITH userinfo), any other host, https,
+//   refused: userinfo (a value whose "127.0.0.1:<port>" part sits before an at-sign parses to host.invalid WITH userinfo), any other host, https,
 //            a missing or non-numeric port, any path, query or fragment, encoded or whitespace hosts, unparseable values.
 //   The string is parsed by WHATWG URL, never prefix-matched, and the accepted value is re-serialized from its parts.
 // Redirects: fetch runs with redirect:'error' and any 3xx status is refused as well, so a credential header is sent to
