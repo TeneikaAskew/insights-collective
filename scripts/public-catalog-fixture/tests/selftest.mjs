@@ -2,7 +2,7 @@
 // ABOUTME: Stack-free self-test for the public-catalog lane: generated seed, INSERT-only and read-only SQL shapes, run-owned
 // ABOUTME: ids, guard refusals and one positive, and spec/config shapes (no login, no mocks, empty storage). Prints PASS/FAIL.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, chmodSync, mkdtempSync, symlinkSync, linkSync, mkdirSync, copyFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, chmodSync, mkdtempSync, symlinkSync, linkSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,13 @@ const codes = (env) => runGuards(env).map((e) => e.split(':')[0]);
 const has = (env, code) => codes(env).includes(code);
 say(JSON.stringify(codes(good)) === JSON.stringify(['PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER']), 'a fully valid environment is refused ONLY by BLOCKED_NO_PRODUCER (no reviewed producer exists)');
 say(has({ ...good, PUBLIC_ACCEPT_STACK_PROOF: undefined }, 'PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'guards refuse without a proof');
+{ const PROD = 'scripts/public-catalog-fixture/pairing-producer.mjs';
+  const pf = file('proof-trusted.json', JSON.stringify({ ...fields, producer: PROD }));
+  say(checkStackProof(pf, RUN) === null && JSON.stringify(codes({ ...good, PUBLIC_ACCEPT_STACK_PROOF: pf })) === '[]', 'a proof from the pinned pairing producer passes the consumer and the full guards on this tree');
+  const fakeRoot = mkdtempSync(path.join(tmpdir(), 'prod-')); mkdirSync(path.join(fakeRoot, path.dirname(PROD)), { recursive: true });
+  writeFileSync(path.join(fakeRoot, PROD), readFileSync(path.join(ROOT, PROD), 'utf8') + '// one byte more\n');
+  say(checkStackProof(pf, RUN, process.getuid(), fakeRoot)?.startsWith('PUBLIC_CATALOG_E_PRODUCER_PIN'), 'the same proof is refused (PRODUCER_PIN) when the producer file on disk is not the pinned bytes');
+  say(checkStackProof(pf, RUN, process.getuid(), mkdtempSync(path.join(tmpdir(), 'prod0-')))?.startsWith('PUBLIC_CATALOG_E_PRODUCER_PIN'), 'and refused (PRODUCER_PIN) when the producer file is absent'); }
 const link = path.join(tmp, 'proof-link.json'); symlinkSync(okProof, link);
 say(checkStackProof(link, RUN)?.startsWith('PUBLIC_CATALOG_E_NO_STACK_PROOF'), 'a symlinked proof is refused (O_NOFOLLOW)');
 say(checkStackProof(file('p644.json', JSON.stringify(fields), 0o644), RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a 0644 proof is refused');
@@ -98,7 +105,12 @@ for (const f of ['seed.sql', 'witness.sql', 'pre-stack.sql', 'rls-anon-read.sql'
 }
 say(/begin transaction read only;/.test(read('pre-stack.sql')) && !/FAIL/.test(read('pre-stack.sql')) && !/\|\| *'ok'|'\|ok'/.test(runsh), 'pre-stack.sql is a read-only diagnostic inventory and gates nothing (no ok/FAIL gate in run.sh)');
 const preC = await import('../pre-contract.mjs');
-say(Object.keys(preC.PRE_CONTRACT_PINS).length === 0 && preC.checkPreContract(ROOT)[0].startsWith('PUBLIC_CATALOG_E_BLOCKED_NO_PRE_CONTRACT'), 'the shared PRE contract is not integrated: BLOCKED_NO_PRE_CONTRACT (pin table empty, not filled from the expected list)');
+{ const pins = preC.PRE_CONTRACT_PINS; const keys = Object.keys(pins).sort();
+  say(JSON.stringify(keys) === JSON.stringify(Object.keys(preC.EXPECTED_T09_PRE).sort()) && keys.every((k) => /^[0-9a-f]{40}$/.test(pins[k]) && pins[k].startsWith(preC.EXPECTED_T09_PRE[k])), 'PRE_CONTRACT_PINS holds exactly the 4 T09 PRE files as full 40-hex blobs, each extending the named short id');
+  const onThis = preC.checkPreContract(ROOT); const haveAll = keys.every((k) => existsSync(path.join(ROOT, k)));
+  say(haveAll ? onThis.length === 0 : (onThis.length > 0 && onThis.every((e) => /^PUBLIC_CATALOG_E_HELPER_(ABSENT|DRIFT|NOT_FILE):/.test(e))), `on this tree the PRE gate ${haveAll ? 'passes (files present)' : 'refuses with ABSENT/DRIFT (the PRE files are not on this ref)'}`);
+  const tmpR = mkdtempSync(path.join(tmpdir(), 'pre-')); for (const k of keys) { mkdirSync(path.dirname(path.join(tmpR, k)), { recursive: true }); writeFileSync(path.join(tmpR, k), 'wrong bytes\n'); }
+  say(preC.checkPreContract(tmpR).length === 4 && preC.checkPreContract(tmpR).every((e) => e.startsWith('PUBLIC_CATALOG_E_HELPER_DRIFT')), 'wrong PRE bytes at every pinned path: 4 DRIFT refusals'); }
 say(/PUBLIC_CATALOG_E_PRE_CONTRACT/.test(runsh) && at('PUBLIC_CATALOG_E_PRE_CONTRACT') < at('step W0'), 'run.sh stops on the missing PRE contract before W0 and the seed');
 const sbc = read('served-build-check.mjs');
 say(/for \(const \[rel, want\] of Object\.entries\(prov\.files\)\)/.test(sbc) && /ASSET_HASH/.test(sbc) && /FOREIGN_REF/.test(sbc), 'served check fetches EVERY provenance file (lazy chunks and imported assets too), not only index references');

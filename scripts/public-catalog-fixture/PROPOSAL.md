@@ -30,7 +30,7 @@ No file in `scripts/local-stack`, `scripts/e2e`, `e2e/support`, the workflows or
 3. **Guards** (`guards.mjs`): loopback app and API origins; the shared guard (`assert-safe-target.mjs`, mutating); no `E2E_ISOLATED_TARGET_REF`; anon key; canonical DSN plus private passfile (`pgconn.mjs`); the proof consumer (`proof.mjs`).
 4. **Shared PRE contract** (`pre-contract.mjs`). This lane consumes the shared owner's reviewed owned-stack PRE contract and writes none of its own. The contract is the T09 one, which keeps pg_net and intercepts its queue: `scripts/local-stack/t09/egress-guard.sql` 4775946e, `egress-sentinels.sql` 5693cf5e, `egress-verify.sql` 17a9c24f and `stack-checks.sh` 9657af04. Those files are on c64a8fc (#140) and f2112ce, not on main.
    - Its scope is the DB's pg_net path only. It is "intercepted, not verified" and does not control runner or container egress.
-   - The pin table is EMPTY until a composed ref and a reviewed call order exist. Until then every run refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRE_CONTRACT`.
+   - The pin table now holds the 4 full T09 PRE blobs read from composed job #157 f0fbd1e7, whose call order T source-qualified at 04:24Z. On a ref without those exact files every run refuses (HELPER_ABSENT or HELPER_DRIFT). Before that the table was EMPTY and refused with `PUBLIC_CATALOG_E_BLOCKED_NO_PRE_CONTRACT`.
    - pg_net is never refused or uninstalled here.
    - `pre-stack.sql` is a read-only **diagnostic inventory** (extension versions, user-trigger count) written to evidence. It gates nothing: a prosrc pattern is not a transitive no-egress proof.
 5. **Served-asset provenance** (`served-build-check.mjs` + `served-provenance.mjs`).
@@ -59,7 +59,7 @@ No file in `scripts/local-stack`, `scripts/e2e`, `e2e/support`, the workflows or
    - The checks are decided on that descriptor: regular file, one link, this uid, mode exactly 0600, then a bounded read of at most 4 KiB.
    - Then come the run binding and the DB/API pairing.
    - The passfile uses the same reader.
-   - A correct shape alone is NOT ownership. `TRUSTED_PRODUCERS` is empty, so every real run refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER` until a reviewed producer's path and blob id are added.
+   - A correct shape alone is NOT ownership. `TRUSTED_PRODUCERS` holds only `scripts/public-catalog-fixture/pairing-producer.mjs` at blob b8a555ba9f15eee1b17f477ba8c477a6434fa4ec; any other producer refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER`, and a producer file whose bytes differ refuses with `PUBLIC_CATALOG_E_PRODUCER_PIN`. Pins are source qualification, not run approval.
 2. **The hermetic served-app contract (f169429) on the composed ref.** Build against the owned stack, derive the served directory with `HERMETIC-PROVENANCE.json` and serve it on loopback. Evidence is labelled "TEST-SERVED MODIFICATION: NOT production bytes".
 3. **Local avatar data for `/`.** CommunityShowcase hotlinks `i.pravatar.cc`, so A10 cannot pass. The fix is either a product change or a provenance-recorded test-served substitution, and either one needs its own review. This lane does not choose it and keeps no exception.
 4. **A runner job** on the composed ref. It stands up a fresh stack, passes the PG15 parity gate, exports `PUBLIC_ACCEPT_*` (including `RUN_ID`, `DB_PASSFILE`, `PRODUCT_DIST` and `SERVED_DIR`), runs `run.sh` and uploads only `$PUBLIC_ACCEPT_OUT/evidence`. It needs its own stack and its own run approval.

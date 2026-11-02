@@ -5,7 +5,8 @@ import { mkdtempSync, chmodSync, statSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { producePairing, writeProof, PairError, PAIRING_TAG_ID, PRODUCER } from '../pairing-producer.mjs';
-import { assessProofFields } from '../proof.mjs';
+import { assessProofFields, TRUSTED_PRODUCERS } from '../proof.mjs';
+import { gitBlobId } from '../helper-pins.mjs';
 import { runGuards } from '../guards.mjs';
 
 let bad = 0;
@@ -35,7 +36,9 @@ async function run(o) { const w = world(o); try { return { proof: await produceP
 const p = await run({});
 ok(p.proof && p.proof.stack_id === NONCE && p.proof.db_read === NONCE && p.proof.api_read === NONCE && p.proof.run_id === RUN && p.proof.produced_before_seed === true && p.proof.producer === PRODUCER, 'P1 positive: proof v2 carries only observed values');
 ok(JSON.stringify(p.w.args.trace) === JSON.stringify(['precheck', 'insert', 'dbread', 'apiread', 'filter']), 'P2 fixed order: precheck, insert, DSN read, anon API read, random-id filter control');
-ok(assessProofFields(p.proof, RUN)?.startsWith('PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER'), 'P3 the consumer accepts the fields and still refuses: TRUSTED_PRODUCERS is empty (BLOCKED)');
+ok(assessProofFields(p.proof, RUN) === null && TRUSTED_PRODUCERS[PRODUCER] === 'b8a555ba9f15eee1b17f477ba8c477a6434fa4ec' && Object.keys(TRUSTED_PRODUCERS).length === 1, 'P3 the consumer accepts the produced fields; TRUSTED_PRODUCERS holds only this producer at blob b8a555ba');
+ok(assessProofFields({ ...p.proof, producer: 'scripts/local-stack/stack-proof.mjs' }, RUN)?.startsWith('PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER'), 'P3b a proof naming any other producer is still BLOCKED_NO_PRODUCER');
+ok(gitBlobId(readFileSync(new URL('../pairing-producer.mjs', import.meta.url))) === TRUSTED_PRODUCERS[PRODUCER], 'P3c the producer file in this tree is exactly the pinned bytes');
 const h = p.w.calls.http;
 ok(h.length === 2 && h.every((c) => c.init.headers.apikey === KEY && c.init.headers.Authorization === `Bearer ${KEY}` && Object.keys(c.init.headers).sort().join() === 'Accept,Authorization,apikey'), 'P4 both API reads use the anon key only (no session, no service role)');
 ok(h.every((c) => !c.url.includes(NONCE)) && h[0].url.endsWith(`id=eq.${PAIRING_TAG_ID}`) && h[1].url.endsWith(`id=eq.${RANDOM}`), 'P5 the nonce never appears in a URL; the run-owned id and the random id are queried');

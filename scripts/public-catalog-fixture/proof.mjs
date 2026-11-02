@@ -1,18 +1,26 @@
 // ABOUTME: Owned-stack proof CONSUMER. Reads the proof through a no-follow descriptor and requires a regular, single-link file
 // ABOUTME: owned by this uid with mode exactly 0600, bound to this run and stack. A valid shape alone is NOT ownership.
 //
-// The trusted PRODUCER (a pre-seed step in the shared stack bootstrap that reads stack_id from the DB and through PostgREST
-// before anything is written) does not exist. TRUSTED_PRODUCERS is therefore empty and every real run is BLOCKED with
-// PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER, whatever the proof file says. Adding a producer is a reviewed change: its path and git
-// blob id go here.
+// TRUSTED_PRODUCERS maps a reviewed producer's repo path to its exact git blob. The only entry is this lane's pairing producer,
+// at the bytes source-qualified in #150 d751a683 and composed job #157 f0fbd1e7 (T 04:11Z and 04:24Z). A proof naming any
+// other producer is refused with PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER, and checkStackProof also refuses when the producer file
+// on disk is not those exact bytes (PUBLIC_CATALOG_E_PRODUCER_PIN). Changing the producer means a new reviewed pin here.
+// A pin is source qualification only: it is not a run approval.
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assessStat, readPrivateFile } from './private-file.mjs';
+import { checkHelperPins } from './helper-pins.mjs';
 
-export const TRUSTED_PRODUCERS = Object.freeze({});
+export const TRUSTED_PRODUCERS = Object.freeze({
+  'scripts/public-catalog-fixture/pairing-producer.mjs': 'b8a555ba9f15eee1b17f477ba8c477a6434fa4ec',
+});
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const P = {
   NO_PROOF: 'PUBLIC_CATALOG_E_NO_STACK_PROOF',
   BAD_FILE: 'PUBLIC_CATALOG_E_PROOF_FILE',
   BAD_FIELDS: 'PUBLIC_CATALOG_E_PROOF_FIELDS',
   BLOCKED: 'PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER',
+  PIN: 'PUBLIC_CATALOG_E_PRODUCER_PIN',
 };
 const HEX32 = /^[0-9a-f]{32}$/;
 
@@ -34,11 +42,14 @@ export function assessProofFields(p, runId) {
   return null;
 }
 
-export function checkStackProof(file, runId, uid = process.getuid()) {
+export function checkStackProof(file, runId, uid = process.getuid(), root = ROOT) {
   if (!file) return `${P.NO_PROOF}: PUBLIC_ACCEPT_STACK_PROOF is unset`;
   const r = readPrivateFile(file, { max: MAX_PROOF, privateMode: true, uid });
   if (r.error === 'OPEN') return `${P.NO_PROOF}: unopenable or a symlink`;
   if (r.error) return `${P.BAD_FILE}: ${r.error}`;
   let p; try { p = JSON.parse(r.buf.toString('utf8')); } catch { return `${P.BAD_FIELDS}: not JSON`; }
-  return assessProofFields(p, runId);
+  const bad = assessProofFields(p, runId);
+  if (bad) return bad;
+  if (checkHelperPins(root, { [p.producer]: TRUSTED_PRODUCERS[p.producer] }).length) return `${P.PIN}: producer file is not the pinned bytes`;
+  return null;
 }
