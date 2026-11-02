@@ -102,7 +102,7 @@ say(Object.keys(preC.PRE_CONTRACT_PINS).length === 0 && preC.checkPreContract(RO
 say(/PUBLIC_CATALOG_E_PRE_CONTRACT/.test(runsh) && at('PUBLIC_CATALOG_E_PRE_CONTRACT') < at('step W0'), 'run.sh stops on the missing PRE contract before W0 and the seed');
 const sbc = read('served-build-check.mjs');
 say(/for \(const \[rel, want\] of Object\.entries\(prov\.files\)\)/.test(sbc) && /ASSET_HASH/.test(sbc) && /FOREIGN_REF/.test(sbc), 'served check fetches EVERY provenance file (lazy chunks and imported assets too), not only index references');
-say(/every app-origin response is bound to the hermetic provenance/.test(specs) && /expectedHash\(prov, u\.pathname\)/.test(specs), 'specs bind every app-origin response the browser receives to the provenance');
+say(/every app-origin response is bound to the hermetic provenance/.test(specs) && /const want = expectedHash\(prov, p\);/.test(read('response-binding.mjs')), 'specs bind every app-origin response the browser receives to the provenance (oracle in response-binding.mjs)');
 const sp = await import('../served-provenance.mjs');
 const fakeProv = { served_index_sha256: 'i'.repeat(64), files: { 'index.html': 'p'.repeat(64), 'assets/a.js': 'a'.repeat(64) } };
 say(sp.expectedHash(fakeProv, '/assets/a.js') === 'a'.repeat(64) && sp.expectedHash(fakeProv, '/') === 'i'.repeat(64) && sp.expectedHash(fakeProv, '/courses/x') === 'i'.repeat(64)
@@ -120,4 +120,10 @@ say(!/proxy:\s*\{/.test(cfg) && /EXCLUDE 127\.0\.0\.1/.test(cfg), 'config: no ow
 say(/'desktop'/.test(cfg) && /'tablet'/.test(cfg) && /'mobile'/.test(cfg), 'config: desktop, tablet and mobile projects');
 const cls = execFileSync('node', [path.join(HERE, 'probe-classifier-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(cls), 'probe classifier fake controls pass (see probe-classifier-controls.mjs)');
+const sup = readFileSync(path.join(ROOT, 'e2e/public-catalog/support.ts'), 'utf8');
+say(/createResponseBinder\(context,/.test(sup) && !/page\.on\('response'/.test(sup) && !/Promise\.all\(bindings\)/.test(sup), 'support: response binding is context-wide via createResponseBinder, not a page-only growing Promise.all');
+say(/finally \{[\s\S]*?binder\.freeze\(BINDING_SETTLE_MS\)[\s\S]*?\}/.test(sup) && sup.indexOf('binder.freeze(') < sup.indexOf("expect({ unfinished"), 'support: freeze runs in finally (use failure too) and before every assertion');
+say(/toEqual\(\{ unfinished: 0, timedOut: false, late: 0 \}\)/.test(sup) && /frozen\.failed/.test(sup), 'support: an incomplete capture or a failed app request is a refusal');
+const rb = execFileSync('node', [path.join(HERE, 'response-binding-controls.mjs')], { encoding: 'utf8' });
+say(/^ALL PASS$/m.test(rb), 'response-binding OLD/NEW controls pass (see response-binding-controls.mjs)');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

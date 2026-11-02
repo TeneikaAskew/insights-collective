@@ -1,11 +1,13 @@
 // ABOUTME: Shared fixture for the anonymous public-catalog specs on top of the qualified lesson-editor egress boundary (imported
 // ABOUTME: as-is, blob-pinned): fails on any foreign attempt and on page errors, and exposes the API's real course responses.
-import type { Page, Response } from '@playwright/test';
+import type { Page, Request, Response } from '@playwright/test';
 import { test as boundaryTest, expect } from '../lesson-editor/egress-test';
 // @ts-expect-error: plain ESM data module without type declarations
 import { COURSES, MODULES } from '../../scripts/public-catalog-fixture/fixtures.mjs';
 // @ts-expect-error: plain ESM helper without type declarations
-import { loadProvenance, expectedHash, sha256 } from '../../scripts/public-catalog-fixture/served-provenance.mjs';
+import { loadProvenance } from '../../scripts/public-catalog-fixture/served-provenance.mjs';
+// @ts-expect-error: plain ESM helper without type declarations
+import { createResponseBinder } from '../../scripts/public-catalog-fixture/response-binding.mjs';
 
 export type FixtureCourse = { id: string; title: string; category: string; estimated_hours: number | null; duration: number | null; published: boolean; status: string; created_at: string; visibility: string };
 export const FIXTURE: FixtureCourse[] = COURSES;
@@ -36,37 +38,48 @@ function provenance() {
   return PROV!;
 }
 
+/** Bounded drain for the response-binding boundary. An unanswered app request or an unfinished body reduction at this
+ *  deadline makes the frozen result INCOMPLETE, which is a refusal, never a pass. */
+export const BINDING_SETTLE_MS = 5000;
+
 export const test = boundaryTest.extend<Fixtures>({
-  net: async ({ page, baseURL, boundary }, use) => {
+  net: async ({ context, page, baseURL, boundary }, use) => {
     void boundary; // the auto boundary fixture is installed first and fails the test on any violation
     const allowed = new Set([new URL(baseURL!).origin, API_ORIGIN]);
     const prov = provenance();
     const appOrigin = new URL(baseURL!).origin;
     const net = { requests: [] as string[], offOrigin: [] as string[], courseResponses: [] as Response[], unbound: [] as string[] };
-    const bindings: Promise<void>[] = [];
     const errors: string[] = [];
-    page.on('request', (r) => {
-      const u = new URL(r.url());
+    // Capture boundary: CONTEXT-wide (every page, popup and secondary page), attached before the spec navigates.
+    const binder = createResponseBinder(context, { appOrigin, prov });
+    const onRequest = (r: Request) => {
       if (/^(data|blob|about):/.test(r.url())) return;
+      const u = new URL(r.url());
       net.requests.push(`${r.method()} ${u.origin}${u.pathname}`);
       if (!allowed.has(u.origin)) net.offOrigin.push(u.origin);
-    });
-    page.on('response', (r) => {
+    };
+    const onResponse = (r: Response) => {
       const u = new URL(r.url());
       if (u.origin === API_ORIGIN && u.pathname === '/rest/v1/courses' && r.request().method() === 'GET') net.courseResponses.push(r);
-      if (u.origin === appOrigin) {
-        bindings.push((async () => {
-          const want = expectedHash(prov, u.pathname);
-          let got = '';
-          try { got = r.status() === 200 ? sha256(await r.body()) : `status-${r.status()}`; } catch { got = 'unreadable'; }
-          if (!want || got !== want) net.unbound.push(u.pathname);
-        })());
-      }
-    });
-    page.on('pageerror', () => errors.push('pageerror'));
-    await use(net);
-    await Promise.all(bindings);
-    expect(net.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]);
+    };
+    const onPageError = () => errors.push('pageerror');
+    const onPage = (p: Page) => p.on('pageerror', onPageError);
+    context.on('request', onRequest); context.on('response', onResponse); context.on('page', onPage);
+    page.on('pageerror', onPageError);
+    let frozen: Awaited<ReturnType<typeof binder.freeze>>;
+    try {
+      await use(net);
+    } finally {
+      // Runs on use() failure too: drain, close intake, detach every listener, freeze, before any assertion reads it.
+      frozen = await binder.freeze(BINDING_SETTLE_MS);
+      context.off('request', onRequest); context.off('response', onResponse); context.off('page', onPage);
+      page.off('pageerror', onPageError);
+    }
+    net.unbound.push(...frozen.unbound);
+    expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },
+      'the response-binding capture settled completely inside its bound (incomplete is a refusal)').toEqual({ unfinished: 0, timedOut: false, late: 0 });
+    expect(frozen.failed, 'no app-origin request failed without a response').toEqual([]);
+    expect(frozen.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]);
     expect(net.offOrigin, 'no foreign request attempt').toEqual([]);
     expect(errors, 'no uncaught page errors').toEqual([]);
   },
