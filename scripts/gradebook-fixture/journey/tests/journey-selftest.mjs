@@ -5,7 +5,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync as execFileSyncRaw } from 'node:child_process';
+// Every child's stderr is CAPTURED (piped onto the error object), never mirrored to this process's output; a call that
+// sets its own stdio keeps it. The abort line below never prints captured output either.
+const execFileSync = (cmd, args, opts = {}) => execFileSyncRaw(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, readPrivateJson } from '../../../../e2e/gradebook-roles/journey/private-dir.mjs';
 import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
 import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
@@ -25,8 +28,12 @@ const ok = (name, cond) => { if (cond) { pass++; console.log(`ok   ${name}`); } 
 const code = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e && e.code ? e.code : 'UNCODED'; } };
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jr-selftest-'));
-// Fixed, safe failure-stage diagnostics: an uncaught error is reported as the section label (a literal from this file)
-// plus the error's name, code and exit status only. Never its message or output, which can carry command output.
+// Fixed, safe failure-stage diagnostics: an uncaught error is reported as the section label (a literal from this file),
+// the error's name and code mapped onto FIXED lists (anything else prints OTHER), and a bounded numeric exit status.
+// Never its message, stack, stdout or stderr, and never a free-form name or code.
+const ABORT_NAMES = new Set(['Error', 'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'AssertionError']);
+const ABORT_CODES = new Set(['ENOENT', 'EACCES', 'EPERM', 'EEXIST', 'ENOTDIR', 'EISDIR', 'ELOOP', 'ENOTEMPTY', 'EAGAIN',
+  'ETIMEDOUT', 'ENOBUFS', 'ERR_MODULE_NOT_FOUND', 'ERR_INVALID_ARG_TYPE', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER']);
 let stage, aborted = null; // stage is set by the first statement inside try
 try {
   // ---- Gate 1: private session dir ----
@@ -1033,8 +1040,10 @@ process.exit(bad?1:0);
     ok(`SC causal: ${name} -> ${rule}`, v.some((x) => x.startsWith(rule)));
   }
 } catch (e) {
-  const safe = (v) => String(v).replace(/[^A-Za-z0-9_.-]/g, '?').slice(0, 40);
-  aborted = `${safe(e?.name ?? 'Error')}${e?.code !== undefined ? ` code=${safe(e.code)}` : ''}${typeof e?.status === 'number' ? ` status=${e.status}` : ''}`;
+  const name = e instanceof Error && ABORT_NAMES.has(e.name) ? e.name : 'OTHER';
+  const code = e?.code === undefined ? '' : ` code=${ABORT_CODES.has(e.code) ? e.code : 'OTHER'}`;
+  const status = Number.isInteger(e?.status) && e.status >= 0 && e.status <= 255 ? ` status=${e.status}` : '';
+  aborted = `${name}${code}${status}`;
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
