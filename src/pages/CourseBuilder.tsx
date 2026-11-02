@@ -31,6 +31,7 @@ import {
 } from '@/components/course/builder/teachable/NewCourseWizard';
 import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
 import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
+import { applyIdOrder, createReorderSequencer } from '@/components/course/builder/reorderReconcile';
 import {
   LessonSaveQueue,
   getSharedLessonSaveQueue,
@@ -101,6 +102,10 @@ const CourseBuilder = () => {
 
   const [course, setCourse] = useState<BuilderCourse | null>(null);
   const [modules, setModules] = useState<BuilderModule[]>([]);
+  // Latest committed modules, read by the reorder handlers to capture the order they replace.
+  const modulesRef = useRef(modules);
+  modulesRef.current = modules;
+  const reorderSeq = useRef(createReorderSequencer()).current;
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -555,32 +560,56 @@ const CourseBuilder = () => {
     [toast],
   );
 
+  // The section leaves the list only after the service confirmed that exactly this row was deleted;
+  // a zero-row delete (RLS-hidden or already gone) throws and the section stays.
   const deleteSection = useCallback(
     async (id: string) => {
       try {
         await CanvasContentService.deleteModule(id);
         setModules((prev) => prev.filter((m) => m.id !== id));
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Section not deleted', description: err.message, variant: 'destructive' });
       }
     },
     [toast],
   );
 
+  // Optimistic reorder. If the RPC fails, the latest reorder in this scope puts back the order the
+  // server reports (or, if that read fails too, the order it replaced). An older failure never
+  // undoes a newer reorder.
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      setModules((prev) => {
-        const byId = new Map(prev.map((m) => [m.id, m] as const));
-        return ordered.map((id) => byId.get(id) as BuilderModule);
-      });
+      const scope = 'sections';
+      const seq = reorderSeq.begin(scope);
+      const before = modulesRef.current.map((m) => m.id);
+      setModules((prev) => applyIdOrder(prev, ordered));
       try {
         await CanvasContentService.reorderModules(courseId, ordered);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        if (!reorderSeq.isLatest(scope, seq)) {
+          toast({ title: 'Sections not reordered', description: err.message, variant: 'destructive' });
+          return;
+        }
+        let serverOrder: string[] | null = null;
+        try {
+          serverOrder = (await CanvasContentService.getModules(courseId)).map((m) => m.id);
+        } catch {
+          serverOrder = null;
+        }
+        if (reorderSeq.isLatest(scope, seq)) {
+          setModules((prev) => applyIdOrder(prev, serverOrder ?? before));
+        }
+        toast({
+          title: 'Sections not reordered',
+          description: `${err.message} ${
+            serverOrder ? 'The saved order was reloaded.' : 'The previous order was restored; reload to check the saved order.'
+          }`,
+          variant: 'destructive',
+        });
       }
     },
-    [courseId, toast],
+    [courseId, toast, reorderSeq],
   );
 
   const addLesson = useCallback(
@@ -624,6 +653,7 @@ const CourseBuilder = () => {
   const deleteLesson = useCallback(
     async (id: string) => {
       try {
+        // Throws on a zero-row delete, so a lesson that is still stored keeps its place and its draft.
         await CanvasContentService.deleteContentItem(id);
         saveQueue.forget(id);
         setModules((prev) =>
@@ -631,7 +661,7 @@ const CourseBuilder = () => {
         );
         if (selectedLessonId === id) setSelectedLessonId(null);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Lesson not deleted', description: err.message, variant: 'destructive' });
       }
     },
     [selectedLessonId, toast, saveQueue],
@@ -667,22 +697,41 @@ const CourseBuilder = () => {
     [toast, saveQueue],
   );
 
+  // Same reconcile rule as reorderSections, scoped to one section's lessons.
   const reorderLessons = useCallback(
     async (moduleId: string, ordered: string[]) => {
-      setModules((prev) =>
-        prev.map((m) => {
-          if (m.id !== moduleId) return m;
-          const byId = new Map(m.items.map((i) => [i.id, i] as const));
-          return { ...m, items: ordered.map((id) => byId.get(id) as ContentItem) };
-        }),
-      );
+      const scope = `lessons:${moduleId}`;
+      const seq = reorderSeq.begin(scope);
+      const before = (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id);
+      const setLessonOrder = (order: string[]) =>
+        setModules((prev) =>
+          prev.map((m) => (m.id === moduleId ? { ...m, items: applyIdOrder(m.items, order) } : m)),
+        );
+      setLessonOrder(ordered);
       try {
         await CanvasContentService.reorderContentItems(moduleId, ordered);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        if (!reorderSeq.isLatest(scope, seq)) {
+          toast({ title: 'Lessons not reordered', description: err.message, variant: 'destructive' });
+          return;
+        }
+        let serverOrder: string[] | null = null;
+        try {
+          serverOrder = (await CanvasContentService.getContentItems(moduleId)).map((i) => i.id);
+        } catch {
+          serverOrder = null;
+        }
+        if (reorderSeq.isLatest(scope, seq)) setLessonOrder(serverOrder ?? before);
+        toast({
+          title: 'Lessons not reordered',
+          description: `${err.message} ${
+            serverOrder ? 'The saved order was reloaded.' : 'The previous order was restored; reload to check the saved order.'
+          }`,
+          variant: 'destructive',
+        });
       }
     },
-    [toast],
+    [toast, reorderSeq],
   );
 
   const handleAddContentTile = useCallback(

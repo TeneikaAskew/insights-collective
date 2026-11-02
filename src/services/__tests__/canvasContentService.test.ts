@@ -2,7 +2,7 @@
 // ABOUTME: Tests CRUD operations for content items, assignments, quizzes, and progress tracking
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CanvasContentService } from '../canvasContentService';
+import { CanvasContentService, DeleteNotAppliedError } from '../canvasContentService';
 import { mockSupabaseClient, supabaseError, getQueryBuilder } from '@/test/mocks/supabase';
 
 describe('CanvasContentService', () => {
@@ -124,24 +124,51 @@ describe('CanvasContentService', () => {
       expect(result.title).toBe('Updated Title');
     });
 
-    it('should delete a content item', async () => {
-      mockSupabaseClient.from().delete().eq.mockResolvedValue({
+    it('should delete a content item, asking for the deleted id back', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({
+        data: [{ id: '1' }],
         error: null
       });
 
       await expect(
         CanvasContentService.deleteContentItem('1')
-      ).resolves.not.toThrow();
+      ).resolves.toBeUndefined();
+      expect(mockSupabaseClient.from().select).toHaveBeenCalledWith('id');
     });
 
-    it('should reorder content items', async () => {
-      mockSupabaseClient.from().upsert.mockResolvedValue({
-        error: null
+    it('rejects a content item delete that removed no row (RLS-hidden or already gone)', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({ data: [], error: null });
+
+      await expect(CanvasContentService.deleteContentItem('1')).rejects.toBeInstanceOf(DeleteNotAppliedError);
+    });
+
+    it('rejects a module delete that removed no row', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({ data: [], error: null });
+
+      await expect(CanvasContentService.deleteModule('m1')).rejects.toMatchObject({
+        code: 'DELETE_NOT_APPLIED',
+        kind: 'section',
       });
+    });
+
+    it('should reorder content items through the reorder_content_items RPC', async () => {
+      (mockSupabaseClient.rpc as any).mockResolvedValue({ data: null, error: null });
 
       await expect(
         CanvasContentService.reorderContentItems('m1', ['i1', 'i2', 'i3'])
-      ).resolves.not.toThrow();
+      ).resolves.toBeUndefined();
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('reorder_content_items', {
+        p_module_id: 'm1',
+        p_item_ids: ['i1', 'i2', 'i3'],
+      });
+    });
+
+    it('rejects when the reorder RPC fails', async () => {
+      (mockSupabaseClient.rpc as any).mockResolvedValue(supabaseError('permission denied'));
+
+      await expect(
+        CanvasContentService.reorderContentItems('m1', ['i1'])
+      ).rejects.toMatchObject({ message: 'permission denied' });
     });
   });
 
@@ -392,7 +419,7 @@ describe('CanvasContentService', () => {
     });
 
     it('deleteContentItem rejects when the delete fails', async () => {
-      mockSupabaseClient.from().delete().eq.mockResolvedValue(
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue(
         supabaseError('db down')
       );
 
