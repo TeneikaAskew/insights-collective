@@ -126,4 +126,10 @@ say(/finally \{[\s\S]*?binder\.freeze\(BINDING_SETTLE_MS\)[\s\S]*?\}/.test(sup) 
 say(/toEqual\(\{ unfinished: 0, timedOut: false, late: 0 \}\)/.test(sup) && /frozen\.failed/.test(sup), 'support: an incomplete capture or a failed app request is a refusal');
 const rb = execFileSync('node', [path.join(HERE, 'response-binding-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(rb), 'response-binding OLD/NEW controls pass (see response-binding-controls.mjs)');
+say(at('step ownership') > at('step hermetic') && at('step ownership') < at('step W0') && /d1-ownership\.mjs" verify/.test(runsh), 'run.sh verifies the D1 ownership record after hermetic verify and before W0 and any write');
+say(at('m.SERVED_APP_PINS') > at('step hermetic') && at('m.SERVED_APP_PINS') < at('avatar-fixture.mjs" verify') && at('m.SERVED_APP_PINS') < at('hermetic-dist.mjs" verify'), 'run.sh pins the served-app helpers before executing either of them');
+say(/EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715'/.test(read('d1-ownership.mjs')), 'D1: the reviewed bootstrap digest is hardcoded in lane source');
+say(/target outside|AVATAR_SUB_TARGET/.test(read('served-provenance.mjs')) && /assets\\\/\[A-Za-z0-9\._-\]\+\\\.js\$/.test(read('served-provenance.mjs')), 'avatar: substitutions may target only assets/*.js (never index.html)');
+const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });
+say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

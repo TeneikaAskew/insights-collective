@@ -63,7 +63,8 @@ export const test = boundaryTest.extend<Fixtures>({
       if (u.origin === API_ORIGIN && u.pathname === '/rest/v1/courses' && r.request().method() === 'GET') net.courseResponses.push(r);
     };
     const onPageError = () => errors.push('pageerror');
-    const onPage = (p: Page) => p.on('pageerror', onPageError);
+    const extraPages: Page[] = [];
+    const onPage = (p: Page) => { extraPages.push(p); p.on('pageerror', onPageError); };
     context.on('request', onRequest); context.on('response', onResponse); context.on('page', onPage);
     page.on('pageerror', onPageError);
     let frozen: Awaited<ReturnType<typeof binder.freeze>>;
@@ -74,6 +75,7 @@ export const test = boundaryTest.extend<Fixtures>({
       frozen = await binder.freeze(BINDING_SETTLE_MS);
       context.off('request', onRequest); context.off('response', onResponse); context.off('page', onPage);
       page.off('pageerror', onPageError);
+      for (const p of extraPages) p.off('pageerror', onPageError);
     }
     net.unbound.push(...frozen.unbound);
     expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },

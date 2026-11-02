@@ -5,7 +5,8 @@
 # Order, each step fails closed with a fixed code and prints no raw output:
 #   helper pins -> guards (targets, canonical DSN + private passfile, anon key, proof consumer) -> shared PRE contract (BLOCKED:
 #   not integrated) -> diagnostic inventory ->
-#   served-asset provenance -> hermetic verify -> W0 (must be pristine) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
+#   served-asset provenance -> served-app pins + hermetic verify (+ avatar-fixture verify when PUBLIC_ACCEPT_AVATAR_FIXTURE=1)
+#   -> D1 ownership verify (#154 record, reviewed bootstrap, live sysid) -> W0 (must be pristine) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
 #   failure or mismatch STOPS here, before any write probe) -> anon probe -> W3 (must equal W1).
 # Output contract:
 #   $PUBLIC_ACCEPT_OUT/evidence/  sanitized, allowlisted files only; the ONLY directory a runner may upload.
@@ -38,7 +39,19 @@ step pre-contract; node --input-type=module -e "import('$HERE/pre-contract.mjs')
 step inventory; psqlx -f "$HERE/pre-stack.sql" > "$EV/pre-stack-inventory.txt" 2>/dev/null || die PUBLIC_CATALOG_E_INVENTORY_QUERY  # diagnostic, gates nothing
 step served;    node "$HERE/served-build-check.mjs" > "$PRIV/served.txt" 2>&1 || { codes "$PRIV/served.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SERVED; }
 step hermetic;  { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "${PUBLIC_ACCEPT_PRODUCT_DIST:-}" ] && [ -n "${PUBLIC_ACCEPT_SERVED_DIR:-}" ]; } || die PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT
-                node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_SERVED_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY
+                node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT', m.SERVED_APP_PINS); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/served-app-pins.txt" \
+                  || { codes "$PRIV/served-app-pins.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SERVED_APP_PINS; }
+                if [ "${PUBLIC_ACCEPT_AVATAR_FIXTURE:-}" = 1 ]; then
+                  # Served dir = the avatar-fixture copy; the hermetic copy it derives from is verified first, then the fixture.
+                  [ -n "${PUBLIC_ACCEPT_HERMETIC_DIR:-}" ] || die PUBLIC_CATALOG_E_NO_HERMETIC_DIR
+                  node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_HERMETIC_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY
+                  node "$ROOT/scripts/served-app/avatar-fixture.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_HERMETIC_DIR" "$PUBLIC_ACCEPT_SERVED_DIR" > "$PRIV/avatar.txt" 2>&1 || die PUBLIC_CATALOG_E_AVATAR_VERIFY
+                else
+                  node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_SERVED_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY
+                fi
+step ownership; SYSID="$(psqlx -c 'select system_identifier::text from pg_control_system()' 2>/dev/null)" || die PUBLIC_CATALOG_E_D1_LIVE_READ
+                printf '%s' "$SYSID" | node "$HERE/d1-ownership.mjs" verify > "$PRIV/d1.txt" 2>&1 || { codes "$PRIV/d1.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_D1; }
+                unset SYSID
 step W0;        psqlx -f "$HERE/witness.sql" > "$EV/W0.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
                 grep -qx 'public.courses|0|empty' "$EV/W0.txt" && grep -qx 'public.modules|0|empty' "$EV/W0.txt" || die PUBLIC_CATALOG_E_NOT_PRISTINE
 step seed;      psqlx -f "$HERE/seed.sql" > "$PRIV/seed.txt" 2>&1 || { codes "$PRIV/seed.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SEED; }

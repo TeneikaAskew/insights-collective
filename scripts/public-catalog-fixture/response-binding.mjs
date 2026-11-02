@@ -7,8 +7,10 @@
 //   requestfailed  it leaves in-flight and is recorded as FAILED (no bytes were delivered)
 //   freeze(ms)     drains until BOTH sets are empty, re-checking after every settle because a job may start while another
 //                  is awaited; stops at the deadline. Then intake CLOSES and listeners are DETACHED. The result is a deep,
-//                  frozen copy, ordered by request sequence. Anything still pending/in flight at the deadline, or any event
-//                  after close, makes the result INCOMPLETE, which callers must treat as a refusal, never as PASS.
+//                  frozen copy, ordered by request sequence. Anything still pending/in flight at the deadline makes the
+//                  result INCOMPLETE, which callers must treat as a refusal, never as PASS. After detach no new event is
+//                  received; only a reduction that was already pending can still finish, and it is dropped and counted as
+//                  late (lateCount()), never written into the frozen result. Evidence covers traffic THROUGH the boundary.
 // Reductions keep only the URL path, a fixed verdict and the status; never a body, header or query.
 import { createHash } from 'node:crypto';
 import { expectedHash } from './served-provenance.mjs';
