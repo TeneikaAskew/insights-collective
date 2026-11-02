@@ -4,7 +4,7 @@
 //   node run-summary.mjs playwright <raw report.json> <exit code> [<private diag dir>]
 //                                                                  -> PLAYWRIGHT exit=<n> expected=<n> ... global_errors=<n>
 //                                                                     GLOBAL first=<code> where=<place> diag=<code> diag_class=<name> diags=<n>
-//                                                                     CASE <id> status=<S> stage=<G> where=<W> line=<n> cat=<C> obs=<O> errors=<n> all=<G.W.n.C,...>  (x12)
+//                                                                     CASE <id> status=<S> stage=<G> where=<W> line=<n> cat=<C> obs=<O> errors=<n> all=<G.W.n.C,...> attempts=<n>  (x12)
 //                                                                     CASES known=<n> unknown=<n>
 //   node run-summary.mjs compare <raw comparator stdout>            -> the comparator's lines, each matched to a fixed grammar
 //   node run-summary.mjs shots <raw shot-export stdout>             -> the export manifest, each line matched to its grammar
@@ -83,7 +83,17 @@ export const CASES = Object.freeze([
   ['J2b', 'jr-2-learner-submit'], ['J2c', 'jr-2-learner-submit'], ['J3a', 'jr-3-instructor-grade'], ['J3b', 'jr-3-instructor-grade'],
   ['J4a', 'jr-4-learner-readback'], ['J4b', 'jr-4-learner-readback'], ['J4c', 'jr-4-learner-readback'], ['J4d', 'jr-4-learner-readback'],
 ]);
-const STATUS = { passed: 'PASSED', failed: 'FAILED', timedOut: 'TIMEDOUT', skipped: 'SKIPPED', interrupted: 'INTERRUPTED' };
+// Maps, not object literals: a report value such as "constructor" or "__proto__" must not resolve an inherited member.
+const STATUS = new Map([['passed', 'PASSED'], ['failed', 'FAILED'], ['timedOut', 'TIMEDOUT'], ['skipped', 'SKIPPED'], ['interrupted', 'INTERRUPTED']]);
+// Explicit matcher allowlist (the matchers the journey, its helpers and fixtures use, plus the common locator states). A
+// matcher-shaped name that is not listed is OTHER: the category is never built from report text.
+const MATCHERS = new Map([
+  ['toBe', 'TO_BE'], ['toBeChecked', 'TO_BE_CHECKED'], ['toBeDisabled', 'TO_BE_DISABLED'], ['toBeEnabled', 'TO_BE_ENABLED'],
+  ['toBeGreaterThan', 'TO_BE_GREATER_THAN'], ['toBeHidden', 'TO_BE_HIDDEN'], ['toBeNull', 'TO_BE_NULL'], ['toBeTruthy', 'TO_BE_TRUTHY'],
+  ['toBeVisible', 'TO_BE_VISIBLE'], ['toContain', 'TO_CONTAIN'], ['toContainText', 'TO_CONTAIN_TEXT'], ['toEqual', 'TO_EQUAL'],
+  ['toHaveCount', 'TO_HAVE_COUNT'], ['toHaveLength', 'TO_HAVE_LENGTH'], ['toHaveText', 'TO_HAVE_TEXT'], ['toHaveURL', 'TO_HAVE_URL'],
+  ['toHaveValue', 'TO_HAVE_VALUE'], ['toMatch', 'TO_MATCH'],
+]);
 // Known files a case error can point at. line=<n> is printed only for these (a source line, never data).
 const CASE_FILES = [
   ...SPEC_FILES.map((f) => [f, 'SPEC']),
@@ -99,7 +109,7 @@ const OBS_PATHS = {
   '/rest/v1/rpc/log_submission_file_access': 'RPC_LOG_SUBMISSION_FILE_ACCESS', '/rest/v1/submission_attachments': 'SUBMISSION_ATTACHMENTS',
 };
 const OBS_CODES = ['OBS_NEAR_MISS', 'OBS_COUNT', 'OBS_PENDING', 'OBS_FAILED', 'OBS_STATUS', 'OBS_ORDER'];
-const obsPath = (p) => OBS_PATHS[p] ?? (p.startsWith('/storage/v1/object/course-documents/') ? 'STORAGE_COURSE_DOCUMENTS' : 'OTHER');
+const obsPath = (p) => (Object.hasOwn(OBS_PATHS, p) ? OBS_PATHS[p] : null) ?? (p.startsWith('/storage/v1/object/course-documents/') ? 'STORAGE_COURSE_DOCUMENTS' : 'OTHER');
 /** Fixed tokens from the observe failure list in the message: code, method, path name, and the trailing number (a count or an HTTP status). */
 function obsTokens(msg) {
   const out = [];
@@ -118,7 +128,7 @@ function caseCategory(msg) {
   const first = lines[0];
   let m = null;
   for (const l of lines) { m = /^(?:Error: )?expect\((?:locator|page|received|value)\)\.(not\.)?(to[A-Z][A-Za-z]{1,30})\(/.exec(l.trim()); if (m) break; }
-  if (m) return `EXPECT_${m[1] ? 'NOT_' : ''}${m[2].replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase()}`;
+  if (m) return MATCHERS.has(m[2]) ? `EXPECT_${m[1] ? 'NOT_' : ''}${MATCHERS.get(m[2])}` : 'OTHER';
   if (/^Test timeout of [0-9]{1,7}ms exceeded/.test(first)) return 'TEST_TIMEOUT';
   if (/^(?:Error: )?(?:locator|page)\.[a-zA-Z]{2,24}: Timeout [0-9]{1,7}ms exceeded/.test(first) || /^TimeoutError\b/.test(first)) return 'ACTION_TIMEOUT';
   if (/^(?:Error: )?(?:page|locator)\.[a-zA-Z]{2,24}: (?:net::ERR_|Navigation)/.test(first)) return 'NAVIGATION';
@@ -129,7 +139,23 @@ function caseCategory(msg) {
 // Stage of one error, from where it points: the test body, the screenshot capture, or a fixture teardown assertion (the
 // origin guard and the console fixture assert only after the test body returns). A spec line that calls shot() is CAPTURE;
 // the repo's own source line is read only to test that, and nothing from it is printed.
-const STAGE_OF = { SPEC: 'BODY', OBSERVE: 'BODY', ORACLE: 'BODY', HELPER: 'BODY', SHOT: 'CAPTURE', FIXTURE_ORIGIN: 'TEARDOWN', FIXTURE_CONSOLE: 'TEARDOWN' };
+const STAGE_OF = new Map([['SPEC', 'BODY'], ['OBSERVE', 'BODY'], ['ORACLE', 'BODY'], ['HELPER', 'BODY'], ['SHOT', 'CAPTURE']]);
+// Fixture files: only the declared line ranges are named. SETUP = the fixture's own lines before use(); TEARDOWN = the exact
+// post-use assertion statements. Any other line (the use() line itself, listener removal, past EOF, missing) is UNKNOWN.
+// The selftest pins these ranges against the checked-out source, so a fixture edit that moves them fails there first.
+export const FIXTURE_RANGES = Object.freeze({
+  // guarded-test.ts: 8 fixture start, 9 installOriginGuard, 10 use(blocked), 11 expect(blocked).toEqual([]).
+  FIXTURE_ORIGIN: { SETUP: [[8, 9]], TEARDOWN: [[11, 11]] },
+  // console-errors.fixture.ts: 381 fixture start .. 461 before use(errors) at 462; post-use assertions: relay bypass 470-476,
+  // structural Supabase issues 493-500, console errors 508-511.
+  FIXTURE_CONSOLE: { SETUP: [[381, 461]], TEARDOWN: [[470, 476], [493, 500], [508, 511]] },
+});
+function fixtureStage(where, line) {
+  const r = FIXTURE_RANGES[where];
+  if (!line) return 'UNKNOWN';
+  for (const k of ['SETUP', 'TEARDOWN']) if (r[k].some(([a, b]) => line >= a && line <= b)) return k;
+  return 'UNKNOWN';
+}
 const srcCache = new Map();
 const srcLines = (file) => {
   if (!srcCache.has(file)) { let t = null; try { t = fs.readFileSync(file, 'utf8').split('\n'); } catch { /* unknown stays UNKNOWN */ } srcCache.set(file, t); }
@@ -159,7 +185,8 @@ function errorParts(e0, root) {
   const line = hit && Number.isInteger(loc.line) && loc.line > 0 && loc.line < 10000 ? loc.line : 0;
   const msg = typeof e.message === 'string' ? e.message : '';
   const cat = msg ? caseCategory(msg) : 'NONE';
-  let stage = STAGE_OF[where] ?? 'UNKNOWN';
+  let stage = STAGE_OF.has(where) ? STAGE_OF.get(where) : 'UNKNOWN';
+  if (where === 'FIXTURE_ORIGIN' || where === 'FIXTURE_CONSOLE') stage = fixtureStage(where, line);
   if (where === 'SPEC') stage = line ? specLineIsShot(path.join(root, hit[0]), line) : 'UNKNOWN';
   if (where === 'OBSERVE' && hit[0].endsWith('observe.ts')) stage = line ? observeStage(path.join(root, hit[0]), line) : 'UNKNOWN';
   if (cat === 'TEST_TIMEOUT' && where === 'NONE') stage = 'TIMEOUT';
@@ -167,18 +194,20 @@ function errorParts(e0, root) {
 }
 function caseLine(id, tests, root) {
   const empty = 'stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE';
-  if (tests.length === 0) return `CASE ${id} status=ABSENT ${empty}`;
-  if (tests.length > 1) return `CASE ${id} status=DUPLICATE ${empty}`;
+  if (tests.length === 0) return `CASE ${id} status=ABSENT ${empty} attempts=0`;
+  if (tests.length > 1) return `CASE ${id} status=DUPLICATE ${empty} attempts=0`;
   const results = Array.isArray(tests[0].results) ? tests[0].results : [];
   const r = results.length ? results[results.length - 1] : null;
-  const status = r ? (STATUS[r.status] ?? 'OTHER') : 'NORESULT';
+  const status = r ? (typeof r.status === 'string' && STATUS.has(r.status) ? STATUS.get(r.status) : 'OTHER') : 'NORESULT';
   const errs = r && Array.isArray(r.errors) ? r.errors : [];
-  if (!errs.length) return `CASE ${id} status=${status} ${empty}`;
+  // status and errors are the LAST attempt's (retries are 0 in this config); attempts counts all results, never aggregates.
+  const att = ` attempts=${Math.min(results.length, 9)}`;
+  if (!errs.length) return `CASE ${id} status=${status} ${empty}${att}`;
   // Every error, not just the first (a body failure can be followed by a teardown failure): up to 4, in report order.
   const parts = errs.slice(0, 4).map((e) => errorParts(e, root));
   const f = parts[0];
   const all = parts.map((p) => `${p.stage}.${p.where}.${p.line}.${p.cat}`).join(',') + (errs.length > 4 ? ',MORE' : '');
-  return `CASE ${id} status=${status} stage=${f.stage} where=${f.where} line=${f.line} cat=${f.cat} obs=${f.obs} errors=${Math.min(errs.length, 99)} all=${all}`;
+  return `CASE ${id} status=${status} stage=${f.stage} where=${f.where} line=${f.line} cat=${f.cat} obs=${f.obs} errors=${Math.min(errs.length, 99)} all=${all}${att}`;
 }
 /** Every test in the report with its project name and title (titles are only matched, never printed). */
 function reportTests(j) {

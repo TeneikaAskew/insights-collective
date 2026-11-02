@@ -8,7 +8,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync as execFileSyncRaw } from 'node:child_process';
 // Every child's stderr is CAPTURED (piped onto the error object), never mirrored to this process's output; a call that
 // sets its own stdio keeps it. The abort line below never prints captured output either.
-const ABSENT12 = ['J0a', 'J0b', 'J1', 'J2a', 'J2b', 'J2c', 'J3a', 'J3b', 'J4a', 'J4b', 'J4c', 'J4d'].map((i) => `CASE ${i} status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE`).concat(['CASES known=0 unknown=0']).join('\n');
+const ABSENT12 = ['J0a', 'J0b', 'J1', 'J2a', 'J2b', 'J2c', 'J3a', 'J3b', 'J4a', 'J4b', 'J4c', 'J4d'].map((i) => `CASE ${i} status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0`).concat(['CASES known=0 unknown=0']).join('\n');
 const execFileSync = (cmd, args, opts = {}) => execFileSyncRaw(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, readPrivateJson } from '../../../../e2e/gradebook-roles/journey/private-dir.mjs';
 import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
@@ -17,7 +17,7 @@ import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
-import { playwrightSummary, compareSummary, shotsSummary, readRaw, GLOBAL_CODES, globalCode } from '../run-summary.mjs';
+import { playwrightSummary, compareSummary, shotsSummary, readRaw, GLOBAL_CODES, globalCode, FIXTURE_RANGES } from '../run-summary.mjs';
 import { blockedCode, kindOf, classOf, entryClass, BLOCKED_CODE_RE, BLOCKED_PREFIX, KINDS, CLASSES, ROLES as B_ROLES, PHASES as B_PHASES } from '../../../../e2e/gradebook-roles/journey/blocked-class.mjs';
 import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
@@ -525,28 +525,28 @@ try {
     const vis = { message: "Error: expect(locator).toBeVisible() failed\n\nLocator: getByRole('heading', { name: 'MARKER control' })\nExpected: visible\nTimeout: 5000ms", location: loc('e2e/gradebook-roles/journey/j0-learner-before-publish.spec.ts', 24) };
     const run1 = sum(ids.map((id) => (id === 'J0a' ? T(id, 'passed') : id === 'J0b' ? T(id, 'failed', [vis]) : T(id, 'skipped'))));
     ok('CASE the 41479414128 shape: J0a passed, J0b failed at its spec line with a fixed matcher class, 10 skipped; nothing echoed',
-      run1[0] === 'CASE J0a status=PASSED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE' && run1[1] === 'CASE J0b status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_TO_BE_VISIBLE obs=NONE errors=1 all=BODY.SPEC.24.EXPECT_TO_BE_VISIBLE'
-      && run1.slice(2, 12).every((l, i) => l === `CASE ${ids[i + 2]} status=SKIPPED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE`) && run1[12] === 'CASES known=12 unknown=0' && run1.length === 13 && !run1.join('\n').includes('MARKER'));
+      run1[0] === 'CASE J0a status=PASSED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=1' && run1[1] === 'CASE J0b status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_TO_BE_VISIBLE obs=NONE errors=1 all=BODY.SPEC.24.EXPECT_TO_BE_VISIBLE attempts=1'
+      && run1.slice(2, 12).every((l, i) => l === `CASE ${ids[i + 2]} status=SKIPPED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=1`) && run1[12] === 'CASES known=12 unknown=0' && run1.length === 13 && !run1.join('\n').includes('MARKER'));
     const obsErr = { message: 'Error: request-level expectations (fixed codes)\n\nexpect(received).toEqual(expected) // deep equality\n\n- Expected  - 0\n+ Received  + 4\n\n- Array []\n+ Array [\n+   "OBS_STATUS GET /rest/v1/courses 200",\n+   "OBS_COUNT POST /storage/v1/object/course-documents/MARKER-uid/1-x.pdf 0",\n+   "OBS_NEAR_MISS GET /rest/v1/MARKER_table",\n+   "OBS_MARKER GET /rest/v1/courses",\n+ ]', location: loc('e2e/gradebook-roles/journey/observe.ts', 46) };
     const run2 = sum([T('J0a', 'passed'), T('J0b', 'failed', [obsErr])]);
     ok('CASE an observe failure (custom message first): matcher found, OBS tokens as code:method:fixed path name:number; unknown path/code OTHER; nothing echoed',
-      run2[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=OBS_STATUS:GET:COURSES:200,OBS_COUNT:POST:STORAGE_COURSE_DOCUMENTS:0,OBS_NEAR_MISS:GET:OTHER,OTHER errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL' && !run2.join('\n').includes('MARKER'));
+      run2[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=OBS_STATUS:GET:COURSES:200,OBS_COUNT:POST:STORAGE_COURSE_DOCUMENTS:0,OBS_NEAR_MISS:GET:OTHER,OTHER errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL attempts=1' && !run2.join('\n').includes('MARKER'));
     const guardErr = { message: 'Error: requests to non-approved origins (each was blocked before it was sent)\n\nexpect(received).toEqual(expected) // deep equality\n\n+   Object {\n+     "kind": "image",\n+     "origin": "https://MARKER.example",', location: loc('e2e/gradebook-roles/guarded-test.ts', 11) };
     const conErr = { message: 'Error: Test "J0b MARKER" produced 2 console error(s):\n  • MARKER one\n  • expect(MARKER).toBe(\n\nexpect(received).toHaveLength(expected)\n\nExpected length: 0', location: loc('e2e/fixtures/console-errors.fixture.ts', 508) };
     const run3 = sum([T('J0a', 'failed', [guardErr, conErr]), T('J0b', 'failed', [conErr])]);
     ok('CASE fixture failures are named by fixture and source line (origin guard, console), first error classified, count kept; nothing echoed',
-      run3[0] === 'CASE J0a status=FAILED stage=TEARDOWN where=FIXTURE_ORIGIN line=11 cat=EXPECT_TO_EQUAL obs=NONE errors=2 all=TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL,TEARDOWN.FIXTURE_CONSOLE.508.EXPECT_TO_HAVE_LENGTH' && run3[1] === 'CASE J0b status=FAILED stage=TEARDOWN where=FIXTURE_CONSOLE line=508 cat=EXPECT_TO_HAVE_LENGTH obs=NONE errors=1 all=TEARDOWN.FIXTURE_CONSOLE.508.EXPECT_TO_HAVE_LENGTH' && !run3.join('\n').includes('MARKER'));
+      run3[0] === 'CASE J0a status=FAILED stage=TEARDOWN where=FIXTURE_ORIGIN line=11 cat=EXPECT_TO_EQUAL obs=NONE errors=2 all=TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL,TEARDOWN.FIXTURE_CONSOLE.508.EXPECT_TO_HAVE_LENGTH attempts=1' && run3[1] === 'CASE J0b status=FAILED stage=TEARDOWN where=FIXTURE_CONSOLE line=508 cat=EXPECT_TO_HAVE_LENGTH obs=NONE errors=1 all=TEARDOWN.FIXTURE_CONSOLE.508.EXPECT_TO_HAVE_LENGTH attempts=1' && !run3.join('\n').includes('MARKER'));
     const run4 = sum([T('J0a', 'timedOut', [{ message: 'Test timeout of 60000ms exceeded.' }]), T('J0b', 'failed', [{ message: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://MARKER/', location: { file: '/elsewhere/MARKER.ts', line: 7 } }]),
       T('J1', 'failed', [{ message: 'MARKER free text', location: loc('e2e/gradebook-roles/journey/j1-instructor-publish.spec.ts', 'MARKER') }]), T('J2a', 'interrupted'), T('J2b', 'MARKER-status'),
       T('J3a', 'passed'), T('J3a', 'passed'), T('J9z', 'passed'), T('J4a', 'passed', [], { project: 'MARKER-project' }), { title: 'J4b x', tests: [{ projectName: PROJ.J4b }] }]);
     ok('CASE timeout, navigation, unknown file (line 0), non-integer line, interrupted, unknown status, duplicate, absent, unknown title/project counted; nothing echoed',
-      run4[0] === 'CASE J0a status=TIMEDOUT stage=TIMEOUT where=NONE line=0 cat=TEST_TIMEOUT obs=NONE errors=1 all=TIMEOUT.NONE.0.TEST_TIMEOUT' && run4[1] === 'CASE J0b status=FAILED stage=UNKNOWN where=OTHER line=0 cat=NAVIGATION obs=NONE errors=1 all=UNKNOWN.OTHER.0.NAVIGATION'
-      && run4[2] === 'CASE J1 status=FAILED stage=UNKNOWN where=SPEC line=0 cat=OTHER obs=NONE errors=1 all=UNKNOWN.SPEC.0.OTHER' && run4[3] === 'CASE J2a status=INTERRUPTED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE'
-      && run4[4] === 'CASE J2b status=OTHER stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE' && run4[5] === 'CASE J2c status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE'
-      && run4[6] === 'CASE J3a status=DUPLICATE stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE' && run4[8] === 'CASE J4a status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE'
-      && run4[9] === 'CASE J4b status=NORESULT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE' && run4[12] === 'CASES known=8 unknown=2' && !run4.join('\n').includes('MARKER'));
+      run4[0] === 'CASE J0a status=TIMEDOUT stage=TIMEOUT where=NONE line=0 cat=TEST_TIMEOUT obs=NONE errors=1 all=TIMEOUT.NONE.0.TEST_TIMEOUT attempts=1' && run4[1] === 'CASE J0b status=FAILED stage=UNKNOWN where=OTHER line=0 cat=NAVIGATION obs=NONE errors=1 all=UNKNOWN.OTHER.0.NAVIGATION attempts=1'
+      && run4[2] === 'CASE J1 status=FAILED stage=UNKNOWN where=SPEC line=0 cat=OTHER obs=NONE errors=1 all=UNKNOWN.SPEC.0.OTHER attempts=1' && run4[3] === 'CASE J2a status=INTERRUPTED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=1'
+      && run4[4] === 'CASE J2b status=OTHER stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=1' && run4[5] === 'CASE J2c status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0'
+      && run4[6] === 'CASE J3a status=DUPLICATE stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0' && run4[8] === 'CASE J4a status=ABSENT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0'
+      && run4[9] === 'CASE J4b status=NORESULT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0' && run4[12] === 'CASES known=8 unknown=2' && !run4.join('\n').includes('MARKER'));
     ok('CASE a journey code is staged only when it is a listed code; a code-shaped unlisted value stages JOURNEY_CODE',
-      sum([T('J0a', 'failed', [{ message: 'JourneyGateError: JOURNEY_SETUP_E_BINDING' }]), T('J0b', 'failed', [{ message: 'Error: JOURNEY_E_MARKER_SECRET' }])]).slice(0, 2).join('|') === 'CASE J0a status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_SETUP_E_BINDING obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_SETUP_E_BINDING|CASE J0b status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_CODE obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_CODE');
+      sum([T('J0a', 'failed', [{ message: 'JourneyGateError: JOURNEY_SETUP_E_BINDING' }]), T('J0b', 'failed', [{ message: 'Error: JOURNEY_E_MARKER_SECRET' }])]).slice(0, 2).join('|') === 'CASE J0a status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_SETUP_E_BINDING obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_SETUP_E_BINDING attempts=1|CASE J0b status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_CODE obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_CODE attempts=1');
     // CAPTURE and body-then-teardown against the REAL J0 spec (root = this checkout): line 36 is J0b's shot() call, line 24 a body assertion.
     const RR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..');
     const sumR = (specs) => playwrightSummary(JSON.stringify({ stats: { expected: 0, unexpected: 2, flaky: 0, skipped: 10 }, errors: [], suites: [{ title: 'j0', specs }] }), '1', '', RR).split('\n').slice(2);
@@ -556,19 +556,52 @@ try {
       T('J0b', 'failed', [{ message: 'Error: page.screenshot: Timeout 5000ms exceeded. MARKER', location: at(J0S, 36) }, { message: 'Error: x\n\nexpect(received).toEqual(expected) // MARKER', location: at('e2e/gradebook-roles/guarded-test.ts', 11) }]),
       T('J1', 'failed', [vis, vis, vis, vis, vis].map((e) => ({ ...e, location: at(J0S, 24) })))]);
     ok('CASE capture is named whether the error points at shot-core or at the spec line that calls shot(); a later teardown error is listed too; >4 errors marked MORE; nothing echoed',
-      run5[0] === 'CASE J0a status=FAILED stage=CAPTURE where=SHOT line=40 cat=JOURNEY_CODE obs=NONE errors=1 all=CAPTURE.SHOT.40.JOURNEY_CODE'
-      && run5[1] === 'CASE J0b status=FAILED stage=CAPTURE where=SPEC line=36 cat=ACTION_TIMEOUT obs=NONE errors=2 all=CAPTURE.SPEC.36.ACTION_TIMEOUT,TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL'
-      && run5[2] === `CASE J1 status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_TO_BE_VISIBLE obs=NONE errors=5 all=${Array(4).fill('BODY.SPEC.24.EXPECT_TO_BE_VISIBLE').join(',')},MORE`
+      run5[0] === 'CASE J0a status=FAILED stage=CAPTURE where=SHOT line=40 cat=JOURNEY_CODE obs=NONE errors=1 all=CAPTURE.SHOT.40.JOURNEY_CODE attempts=1'
+      && run5[1] === 'CASE J0b status=FAILED stage=CAPTURE where=SPEC line=36 cat=ACTION_TIMEOUT obs=NONE errors=2 all=CAPTURE.SPEC.36.ACTION_TIMEOUT,TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL attempts=1'
+      && run5[2] === `CASE J1 status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_TO_BE_VISIBLE obs=NONE errors=5 all=${Array(4).fill('BODY.SPEC.24.EXPECT_TO_BE_VISIBLE').join(',')},MORE attempts=1`
       && !run5.join('\n').includes('MARKER'));
     const run7 = sumR([T('J0a', 'failed', [{ message: 'Error: page.screenshot: Timeout 9ms exceeded.', location: at('e2e/gradebook-roles/journey/observe.ts', 120) }]),
       T('J0b', 'failed', [{ message: 'Error: x\n\nexpect(received).toEqual(expected)', location: at('e2e/gradebook-roles/journey/observe.ts', 46) }])]);
     ok('CASE observe.ts: a line inside the shot() wrapper is CAPTURE, a call-expectation line is BODY',
-      run7[0] === 'CASE J0a status=FAILED stage=CAPTURE where=OBSERVE line=120 cat=ACTION_TIMEOUT obs=NONE errors=1 all=CAPTURE.OBSERVE.120.ACTION_TIMEOUT'
-      && run7[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=NONE errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL');
+      run7[0] === 'CASE J0a status=FAILED stage=CAPTURE where=OBSERVE line=120 cat=ACTION_TIMEOUT obs=NONE errors=1 all=CAPTURE.OBSERVE.120.ACTION_TIMEOUT attempts=1'
+      && run7[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=NONE errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL attempts=1');
     const run6 = sumR([T('J0b', 'failed', [{ message: 'Error: x', location: at(J0S, 9999) }])]);
-    ok('CASE a spec line past the end of the file is stage UNKNOWN, never guessed', run6[1] === 'CASE J0b status=FAILED stage=UNKNOWN where=SPEC line=9999 cat=OTHER obs=NONE errors=1 all=UNKNOWN.SPEC.9999.OTHER');
-    const all = [run1, run2, run3, run4, run5, run6, run7].flat();
-    ok('CASE every staged line matches the fixed grammar', all.every((l) => /^(?:CASE J[0-4][a-d]? status=[A-Z]+ stage=(?:NONE|BODY|CAPTURE|TEARDOWN|TIMEOUT|UNKNOWN) where=[A-Z_]+ line=\d{1,4} cat=[A-Z_]+ obs=(?:NONE|(?:[A-Z_]+(?::[A-Z_0-9]+)*)(?:,[A-Z_]+(?::[A-Z_0-9]+)*)*) errors=\d{1,2} all=(?:NONE|[A-Z]+\.[A-Z_]+\.\d{1,4}\.[A-Z_]+(?:,[A-Z]+\.[A-Z_]+\.\d{1,4}\.[A-Z_]+){0,3}(?:,MORE)?)|CASES known=\d+ unknown=\d+)$/.test(l)));
+    ok('CASE a spec line past the end of the file is stage UNKNOWN, never guessed', run6[1] === 'CASE J0b status=FAILED stage=UNKNOWN where=SPEC line=9999 cat=OTHER obs=NONE errors=1 all=UNKNOWN.SPEC.9999.OTHER attempts=1');
+    // r2 (T 16:39): (1) explicit matcher allowlist, (2) own-key status lookup, (3) fixture stage only inside declared ranges.
+    const m1 = (msg) => ({ message: msg, location: at(J0S, 24) });
+    const run8 = sumR([T('J0a', 'failed', [m1('Error: x\n\nexpect(received).toSecretMarker(expected)'), m1('expect(locator).not.toSecretMarkerTwo(x)'), m1('expect(received).toString()')]),
+      T('J0b', 'failed', [m1('expect(locator).not.toBeVisible()'), m1('expect(received).toHaveURL(x)')])]);
+    ok('CASE r2 a matcher-shaped name outside the allowlist is OTHER in cat and all= (no name echoed); listed matchers keep their fixed category',
+      run8[0] === 'CASE J0a status=FAILED stage=BODY where=SPEC line=24 cat=OTHER obs=NONE errors=3 all=BODY.SPEC.24.OTHER,BODY.SPEC.24.OTHER,BODY.SPEC.24.OTHER attempts=1'
+      && run8[1] === 'CASE J0b status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_NOT_TO_BE_VISIBLE obs=NONE errors=2 all=BODY.SPEC.24.EXPECT_NOT_TO_BE_VISIBLE,BODY.SPEC.24.EXPECT_TO_HAVE_URL attempts=1'
+      && !/SECRET|MARKER|STRING/.test(run8.join('\n')));
+    const ST = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf', 'PASSED'];
+    const run9 = sumR(ST.map((st, i) => ({ title: `${['J0a', 'J0b', 'J1', 'J2a', 'J2b', 'J2c'][i]} x`, tests: [{ projectName: PROJ[['J0a', 'J0b', 'J1', 'J2a', 'J2b', 'J2c'][i]], results: [{ status: st, errors: [] }] }] }))
+      .concat([{ title: 'J3a x', tests: [{ projectName: PROJ.J3a, results: [{ status: { toString: () => 'passed' }, errors: [] }] }] }]));
+    ok('CASE r2 inherited names (constructor, __proto__, toString, hasOwnProperty, valueOf), a non-reporter value and a non-string status are OTHER',
+      run9.slice(0, 7).every((l) => / status=OTHER stage=NONE /.test(l)) && run9.length === 13);
+    const fx = (where, f, line) => sumR([T('J0a', 'failed', [{ message: 'expect(received).toEqual(expected)', location: line === undefined ? { file: path.join(RR, f) } : at(f, line) }])])[0].split(' ')[3];
+    const GT = 'e2e/gradebook-roles/guarded-test.ts', CF = 'e2e/fixtures/console-errors.fixture.ts';
+    ok('CASE r2 origin guard: line 9 (install, before use) SETUP, 10 (use) UNKNOWN, 11 (post-use assertion) TEARDOWN, 12/past EOF/missing UNKNOWN',
+      [9, 10, 11, 12, 99999, undefined].map((n) => fx('FIXTURE_ORIGIN', GT, n)).join(',') === 'stage=SETUP,stage=UNKNOWN,stage=TEARDOWN,stage=UNKNOWN,stage=UNKNOWN,stage=UNKNOWN');
+    ok('CASE r2 console fixture: pre-use SETUP, use() line UNKNOWN, each post-use assertion statement TEARDOWN, other post-use lines and missing UNKNOWN',
+      [381, 440, 461, 462, 463, 466, 470, 476, 480, 493, 500, 508, 511, 513, 380, undefined].map((n) => fx('FIXTURE_CONSOLE', CF, n)).join(',')
+        === 'stage=SETUP,stage=SETUP,stage=SETUP,stage=UNKNOWN,stage=UNKNOWN,stage=UNKNOWN,stage=TEARDOWN,stage=TEARDOWN,stage=UNKNOWN,stage=TEARDOWN,stage=TEARDOWN,stage=TEARDOWN,stage=TEARDOWN,stage=UNKNOWN,stage=UNKNOWN,stage=UNKNOWN');
+    {
+      const src = (f) => fs.readFileSync(path.join(RR, f), 'utf8').split('\n');
+      const g = src(GT), c = src(CF);
+      const R = FIXTURE_RANGES;
+      ok('CASE r2 declared fixture ranges are pinned to the checked-out source (install 9, use 10, assert 11; console start, use, each expect( ... ).toHaveLength(0); statement)',
+        /installOriginGuard\(/.test(g[8]) && /^\s*await use\(blocked\);$/.test(g[9]) && /^\s*expect\(blocked,/.test(g[10]) && R.FIXTURE_ORIGIN.SETUP[0][0] === 8 && /originGuard: \[async/.test(g[7])
+        && /async \(\{ page \}, use, testInfo\) => \{$/.test(c[R.FIXTURE_CONSOLE.SETUP[0][0] - 1]) && /^\s*await use\(errors\);$/.test(c[R.FIXTURE_CONSOLE.SETUP[0][1]])
+        && c.filter((l) => /\buse\(/.test(l)).length === 1
+        && R.FIXTURE_CONSOLE.TEARDOWN.every(([a, b]) => c[a - 1].trim() === 'expect(' && c[b - 1].trim() === ').toHaveLength(0);')
+        && R.FIXTURE_CONSOLE.TEARDOWN.length === c.filter((l) => l.trim() === ').toHaveLength(0);').length);
+    }
+    const run10 = sumR([{ title: 'J0a x', tests: [{ projectName: PROJ.J0a, results: [{ status: 'failed', errors: [vis] }, { status: 'passed', errors: [] }] }] }]);
+    ok('CASE r2 the LAST attempt is labelled (never an aggregate); attempts counts results', run10[0] === 'CASE J0a status=PASSED stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=2');
+    const all = [run1, run2, run3, run4, run5, run6, run7, run8, run9, run10].flat();
+    ok('CASE every staged line matches the fixed grammar', all.every((l) => /^(?:CASE J[0-4][a-d]? status=[A-Z]+ stage=(?:NONE|BODY|CAPTURE|TEARDOWN|TIMEOUT|UNKNOWN) where=[A-Z_]+ line=\d{1,4} cat=[A-Z_]+ obs=(?:NONE|(?:[A-Z_]+(?::[A-Z_0-9]+)*)(?:,[A-Z_]+(?::[A-Z_0-9]+)*)*) errors=\d{1,2} all=(?:NONE|[A-Z]+\.[A-Z_]+\.\d{1,4}\.[A-Z_]+(?:,[A-Z]+\.[A-Z_]+\.\d{1,4}\.[A-Z_]+){0,3}(?:,MORE)?) attempts=\d|CASES known=\d+ unknown=\d+)$/.test(l)));
   }
   { // Global-error classification: fixed code/place/class lists only; message, stack, path and diag message never echoed.
     const R0 = '/r00t';
@@ -953,7 +986,7 @@ process.exit(bad?1:0);
     'composition.txt': (s) => s === 'COMPOSITION composed-r5\n',
     'pairing.txt': (s) => s === 'PASS pairing: carrier written through the DSN, read back through the DSN and the anon API\n',
     'seed.txt': (s) => s === `${SEED_PASS}\n`,
-    'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\nGLOBAL first=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) where=(?:NONE|SETUP|SPEC|CONFIG|OTHER) diag=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) diag_class=[A-Za-z]+ diags=\d+\n(?:CASE J[0-4][a-d]? status=[A-Z]+ stage=[A-Z]+ where=[A-Z_]+ line=\d+ cat=[A-Z_]+ obs=[A-Z0-9_:,]+ errors=\d+ all=[A-Z0-9_.,]+\n){12}CASES known=\d+ unknown=\d+\n$/.test(s),
+    'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\nGLOBAL first=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) where=(?:NONE|SETUP|SPEC|CONFIG|OTHER) diag=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) diag_class=[A-Za-z]+ diags=\d+\n(?:CASE J[0-4][a-d]? status=[A-Z]+ stage=[A-Z]+ where=[A-Z_]+ line=\d+ cat=[A-Z_]+ obs=[A-Z0-9_:,]+ errors=\d+ all=[A-Z0-9_.,]+ attempts=\d\n){12}CASES known=\d+ unknown=\d+\n$/.test(s),
     'compare.txt': (s) => { try { compareSummary(s); return true; } catch { return false; } },
     'screenshots.txt': (s) => { try { shotsSummary(s, SHOT_NAMES, WITHHELD_REASONS); return true; } catch { return false; } },
     'screenshots': () => true, // checked below against its manifest
