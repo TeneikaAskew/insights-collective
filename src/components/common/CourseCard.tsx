@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Heart, Clock, TrendingUp, Award, Target } from 'lucide-react';
+import { formatEstimatedHours } from '@/lib/estimatedTime';
 import { Course } from '@/types';
 import { CourseDifficulty } from '@/types/course';
 import { useAuth } from '@/contexts/AuthContext';
@@ -245,13 +246,13 @@ const CourseCard: React.FC<CourseCardProps> = ({
             })()}
 
             {(() => {
-              const hours = (course as any).estimated_hours || (course as any).estimatedHours;
+              const hours = formatEstimatedHours((course as any).estimated_hours || (course as any).estimatedHours);
               if (!hours) return null;
-              
+
               return (
                 <Badge variant="outline" className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  {hours.toFixed(1)} hours
+                  <span className="sr-only">Estimated time: </span>{hours}
                 </Badge>
               );
             })()}
@@ -259,20 +260,13 @@ const CourseCard: React.FC<CourseCardProps> = ({
 
           {(() => {
             const difficulty = (course as any).difficulty_level || (course as any).difficultyLevel;
-            const rawDuration = course.duration as unknown;
-            // Format bare numbers as "N lessons" so students don't see an orphan "8" on the dashboard card.
-            const durationLabel =
-              typeof rawDuration === 'number'
-                ? `${rawDuration} lesson${rawDuration === 1 ? '' : 's'}`
-                : typeof rawDuration === 'string' && /^\d+$/.test(rawDuration.trim())
-                  ? `${rawDuration} lesson${rawDuration.trim() === '1' ? '' : 's'}`
-                  : (rawDuration as string | undefined);
+            // Legacy `duration` has no defined unit, so it is not shown. It used to be relabelled "N lessons", but
+            // it is a hand-typed number, not a count of lesson rows. Estimated time is shown above from estimated_hours.
             const showLevel = course.level && !difficulty;
-            if (!showLevel && !durationLabel) return null;
+            if (!showLevel) return null;
             return (
               <div className="flex justify-between items-center text-sm">
-                {showLevel ? <span className="text-primary">{course.level}</span> : <span />}
-                {durationLabel ? <span className="text-muted-foreground">{durationLabel}</span> : null}
+                <span className="text-primary">{course.level}</span>
               </div>
             );
           })()}
