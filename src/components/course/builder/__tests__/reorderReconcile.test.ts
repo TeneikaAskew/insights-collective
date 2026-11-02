@@ -71,4 +71,44 @@ describe('createReorderCoordinator', () => {
     expect(h1.sends).toEqual(['b,a,c']);
     expect(h2.sends).toEqual(['c,b,a']);
   });
+
+  it('T1 a queued request is sent through its own send, not the first request\'s', async () => {
+    const c = createReorderCoordinator();
+    const calls: string[] = [];
+    let release!: () => void;
+    const mk = (target: string, gate?: Promise<void>) => ({
+      current: () => ['x'],
+      apply: () => undefined,
+      send: async (o: string[]) => {
+        calls.push(`${target}:${o.join(',')}`);
+        if (gate) await gate;
+      },
+      reload: async () => ['x'],
+      onFailed: vi.fn(),
+    });
+    const p = c.request('s', ['a1'], mk('A', new Promise<void>((r) => (release = r))));
+    void c.request('s', ['b1'], mk('B'));
+    release();
+    await p;
+    expect(calls).toEqual(['A:a1', 'B:b1']);
+  });
+
+  it('T2 a failed queued request reconciles through its own reload and apply', async () => {
+    const c = createReorderCoordinator();
+    const seen: string[] = [];
+    const mk = (target: string, ok: boolean) => ({
+      current: () => ['x'],
+      apply: (o: string[]) => seen.push(`${target}:apply:${o.join(',')}`),
+      send: async () => {
+        if (!ok) throw new Error('no');
+      },
+      reload: async () => (seen.push(`${target}:reload`), [`${target}-server`]),
+      onFailed: () => seen.push(`${target}:failed`),
+    });
+    const p = c.request('s', ['a1'], mk('A', true));
+    void c.request('s', ['b1'], mk('B', false));
+    await p;
+    expect(seen.filter((x) => !x.endsWith('a1') && !x.endsWith('b1'))).toEqual(['B:reload', 'B:apply:B-server', 'B:failed']);
+  });
 });
+

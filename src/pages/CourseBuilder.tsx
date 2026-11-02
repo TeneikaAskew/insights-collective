@@ -538,7 +538,8 @@ const CourseBuilder = () => {
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      await reorders.request('sections', ordered, {
+      // Scope per course: a reorder for another course never shares this queue or its send.
+      await reorders.request(`sections:${courseId}`, ordered, {
         current: () => modulesRef.current.map((m) => m.id),
         apply: (order) => setModules((prev) => applyIdOrder(prev, order)),
         send: (order) => CanvasContentService.reorderModules(courseId, order),
