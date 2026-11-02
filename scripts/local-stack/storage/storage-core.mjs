@@ -210,7 +210,9 @@ export function stockPreconditions(live, stock) {
   if (live.source !== 'LIVE' || stock.source !== 'STOCK') refuse('ST_E_SOURCE');
   if (stock.policies.size !== 0) refuse('ST_E_STOCK_POLICIES');
   for (const t of TABLES) if (stock.rls.get(t) !== live.rls.get(t)) refuse('ST_E_RLS');
-  for (const b of COURSE_BUCKETS) if (stock.buckets.get(b).public) refuse('ST_E_BUCKET_PUBLIC');
+  // Fixed public bucket ids only (repository constants): which course bucket(s) are public, in COURSE_BUCKETS order.
+  const pub = COURSE_BUCKETS.filter((b) => stock.buckets.get(b).public).map((b) => b.slice('course-'.length).toUpperCase());
+  if (pub.length) refuse(`ST_E_BUCKET_PUBLIC_${pub.join('_')}`);
   checkDependencies(live, stock);
   return 'S1 PASS stock_policies=0 rls=live buckets_private=3 helpers=5 grant_deps=present';
 }

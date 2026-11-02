@@ -35,7 +35,7 @@ function stockText({ policies = '', bucketPublic = false, limitsFromLive = false
   for (const t of S.TABLES) L.push(`RLS\t${t}\t${live.rls.get(t)}`.replace(/\t(t|f)(t|f)$/, '\t$1\t$2'));
   for (const id of S.COURSE_BUCKETS) {
     const v = live.buckets.get(id);
-    L.push(limitsFromLive ? `BUCKET\t${id}\tf\t${v.size ?? 'NULL'}\t${v.mimes ? b64(v.mimes.join(',')) : 'NULL'}` : `BUCKET\t${id}\t${bucketPublic && id === 'course-documents' ? 't' : 'f'}\tNULL\tNULL`);
+    L.push(limitsFromLive ? `BUCKET\t${id}\tf\t${v.size ?? 'NULL'}\t${v.mimes ? b64(v.mimes.join(',')) : 'NULL'}` : `BUCKET\t${id}\t${[].concat(bucketPublic === true ? ['course-documents'] : bucketPublic || []).includes(id) ? 't' : 'f'}\tNULL\tNULL`);
   }
   for (const g of live.grants) L.push(`GRANT\t${g}`);
   if (extraGrant) L.push(extraGrant);
@@ -231,7 +231,9 @@ await t('JOB happy path: S1, S2, S3, S4 all PASS in order; residue and catalog a
   for (let i = 0; i < 8; i++) eq(pc.slice(i * 3, i * 3 + 3).join(','), `${pc[i * 3]},residue,capture`);
 });
 await t('JOB S1 refuses stock with storage policies (before any write)', async () => { const r = await runAll({ stockCapture: stockText({ policies: livePolicyLines }) }); eq(r.err, 'ST_E_STOCK_POLICIES'); eq(r.calls.includes('mirror'), false); });
-await t('JOB S1 refuses a public course bucket (never overwritten)', async () => { const r = await runAll({ stockCapture: stockText({ bucketPublic: true }) }); eq(r.err, 'ST_E_BUCKET_PUBLIC'); eq(r.calls.includes('mirror'), false); });
+await t('JOB S1 refuses a public course bucket (never overwritten)', async () => { const r = await runAll({ stockCapture: stockText({ bucketPublic: true }) }); eq(r.err, 'ST_E_BUCKET_PUBLIC_DOCUMENTS'); eq(r.calls.includes('mirror'), false); });
+await t('JOB S1 names only public course bucket ids, fixed order (images)', async () => { const r = await runAll({ stockCapture: stockText({ bucketPublic: ['course-images'] }) }); eq(r.err, 'ST_E_BUCKET_PUBLIC_IMAGES'); eq(r.calls.includes('mirror'), false); });
+await t('JOB S1 names every public course bucket (images+videos)', async () => { const r = await runAll({ stockCapture: stockText({ bucketPublic: ['course-videos', 'course-images'] }) }); eq(r.err, 'ST_E_BUCKET_PUBLIC_IMAGES_VIDEOS'); eq(r.calls.includes('mirror'), false); });
 await t('JOB S1 refuses a helper definition drift', async () => { const r = await runAll({ stockCapture: stockText({ helperDef: { has_role: 'f'.repeat(32) } }) }); eq(r.err, 'ST_E_HELPER'); });
 await t('JOB S1 refuses a missing API grant dependency', async () => { const r = await runAll({ stockCapture: stockText().split('\n').filter((l) => l !== 'GRANT\tstorage.objects\tauthenticated\tINSERT').join('\n') }); eq(r.err, 'ST_E_GRANT_DEP'); });
 await t('JOB S2 PRE guard re-verify failure refuses before S3', async () => { const r = await runAll({ guardFails: true }); eq(r.err, 'ST_PSQL_E_EXIT'); eq(r.calls.indexOf('mirror') < r.calls.indexOf('guard'), true); eq(r.out.some((l) => l.startsWith('S3')), false); });

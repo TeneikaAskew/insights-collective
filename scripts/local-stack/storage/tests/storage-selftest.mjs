@@ -117,7 +117,13 @@ t('SHAPE refuses a missing zero-policy guard', () => refuses('ST_E_MIRROR_SHAPE'
 t('S1 PASS on a matching zero-policy stock', () => eq(S.stockPreconditions(live0(), stock0()).startsWith('S1 PASS'), true));
 t('S1 refuses stock policies present', () => refuses('ST_E_STOCK_POLICIES', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK')))));
 t('S1 refuses RLS differing from LIVE', () => refuses('ST_E_RLS', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], rls: ['RLS\tstorage.objects\tt\tf', 'RLS\tstorage.buckets\tf\tf'] })))));
-t('S1 refuses a public course bucket locally', () => refuses('ST_E_BUCKET_PUBLIC', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], bucket: { 'course-images': 'BUCKET\tcourse-images\tt\tNULL\tNULL' } })))));
+t('S1 refuses a public course bucket locally', () => refuses('ST_E_BUCKET_PUBLIC_IMAGES', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], bucket: { 'course-images': 'BUCKET\tcourse-images\tt\tNULL\tNULL' } })))));
+t('S1 names all three when every course bucket is public', () => refuses('ST_E_BUCKET_PUBLIC_DOCUMENTS_IMAGES_VIDEOS', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], bucket: Object.fromEntries(S.COURSE_BUCKETS.map((b) => [b, `BUCKET\t${b}\tt\tNULL\tNULL`])) })))));
+t('localize.sql creates the three course buckets private (the S1 stock precondition)', () => {
+  const sql = fs.readFileSync(new URL('../../localize.sql', import.meta.url), 'utf8');
+  const rows = [...sql.matchAll(/\('(course-[a-z]+)','\1', (true|false)\)/g)].map((m) => `${m[1]}=${m[2]}`);
+  if (rows.join(' ') !== 'course-documents=false course-images=false course-videos=false') throw new Error(`localize buckets: ${rows.join(' ')}`);
+});
 t('S1 refuses a helper definition change', () => refuses('ST_E_HELPER', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], funcs: stockFuncs({ has_role: { def: md('9') } }) })))));
 t('S1 refuses a helper identity-args change', () => refuses('ST_E_HELPER', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], funcs: stockFuncs({ get_user_roles: { args: 'other uuid' } }) })))));
 t('S1 refuses a helper losing SECURITY DEFINER', () => refuses('ST_E_HELPER', () => S.stockPreconditions(live0(), S.parsePins(pins('STOCK', { policies: [], funcs: stockFuncs({ has_admin_access: { sd: 'f' } }) })))));
