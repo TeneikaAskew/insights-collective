@@ -94,10 +94,25 @@ jobs:
         #                             vitest fixture: fixed synthetic strings written
         #                             into a fresh mkdtemp directory; no network data
         #                             (one exact file, approved 2026-11-01)
+        #   e2e/quiz-lifecycle/session.fixture.ts
+        #                             explicit local-DB-to-disk evidence writer for the isolated learner-quiz
+        #                             lane. Sources: a fixed read-only SQL file (scripts/local-stack/quiz-
+        #                             lifecycle/ledger.sql, SESSION READ ONLY) scoped to one synthetic learner
+        #                             and quiz on the run-owned loopback stack, plus the fixed output of
+        #                             revoke-access.sh and a per-test egress violation count. Rows are kept
+        #                             only by a /^[AWPEGC]\t/ PREFIX filter; that is not a full grammar, and
+        #                             W rows carry DB-derived answer JSON verbatim. Output root is
+        #                             QLC_EVIDENCE_DIR (runner temp) under fixed names (ledger/<label>.tsv,
+        #                             checks/revoke-access.txt, egress.txt). Not network-response sanitization
+        #   src/test/ci/caseDiagnostics.test.ts, src/test/ci/checkLearnerAuthGate.test.ts,
+        #   src/test/ci/checkT09StageContract.test.ts, src/test/ci/gbJobHolds.test.ts
+        #                             vitest fixtures: fixed synthetic strings (fake psql/node/rm shims, fake
+        #                             fetch preload, 'fake-key', placeholder files) into fresh mkdtemp dirs; no
+        #                             network data
         #
         # mkdirSync is deliberately not matched: creating a directory puts no data on
         # disk, and matching it would only force e2e/global-setup.ts onto this list.
-        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|src/test/ci/checkLocalTarget\.test\.ts$)'
+        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|e2e/quiz-lifecycle/session\.fixture\.ts$|src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds)\.test\.ts$)'
 
         hits=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
           | grep -vE "$ALLOWED" \
