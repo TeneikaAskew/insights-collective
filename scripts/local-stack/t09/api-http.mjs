@@ -11,7 +11,7 @@
 //   exactly one origin and is never replayed elsewhere.
 // CLI: api-http.mjs check <url>              exit 0 if acceptable (prints the canonical origin), else exit 2
 //      api-http.mjs ready <url> <anon file>  bounded readiness poll of GET /rest/v1/ (20 x 1 s), exit 0 when HTTP 200
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { classifyTarget } from '../../e2e/assert-safe-target.mjs';
@@ -36,10 +36,14 @@ export function apiOrigin(raw) {
 
 /** Reads a credential file that must be a regular, non-empty, mode-600 file. Value is never printed. */
 export function readSecretFile(f, label) {
-  const st = statSync(f);
-  if (!st.isFile() || st.size === 0) throw new Error(`${label} file missing or empty`);
-  if ((st.mode & 0o077) !== 0) throw new Error(`${label} file is not mode 600`);
-  return readFileSync(f, 'utf8').trim();
+  // One handle for every check and the read (no check-then-use by path); O_NONBLOCK so a FIFO is refused, not waited on.
+  const fd = openSync(f, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.size === 0) throw new Error(`${label} file missing or empty`);
+    if ((st.mode & 0o077) !== 0) throw new Error(`${label} file is not mode 600`);
+    return readFileSync(fd, 'utf8').trim();
+  } finally { closeSync(fd); }
 }
 
 /**

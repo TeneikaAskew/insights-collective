@@ -8,7 +8,7 @@
 //   certificate in course H) and HG (genuine pre-migration history in H). history-hash.sql seeds H for HC and HG by id.
 //   Passwords: 24 random bytes per persona, generated here, sent only in a request body over the validated origin; never on a
 //   command line, in the environment, in a file or in output. Output: {"A":{"id","token"},...}, written 0600.
-import { existsSync, writeFileSync, chmodSync, statSync } from 'node:fs';
+import { existsSync, writeFileSync, openSync, fchmodSync, fstatSync, closeSync, constants } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { apiOrigin, readSecretFile, request } from './api-http.mjs';
 
@@ -49,6 +49,10 @@ for (const p of PERSONAS) {
   result[p] = { id, token };
   console.log(`persona ${p}: created via local GoTrue admin API (setup) and signed in by password grant; token kept in the 0600 persona file`);
 }
-writeFileSync(out, JSON.stringify(result), { mode: 0o600, flag: 'wx' });
-chmodSync(out, 0o600);
-if ((statSync(out).mode & 0o777) !== 0o600) refuse('persona file is not mode 600');
+// Create (exclusive, no symlink follow), write, chmod and verify on one handle (no check-then-use by path).
+const ofd = openSync(out, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+try {
+  writeFileSync(ofd, JSON.stringify(result));
+  fchmodSync(ofd, 0o600);
+  if ((fstatSync(ofd).mode & 0o777) !== 0o600) refuse('persona file is not mode 600');
+} finally { closeSync(ofd); }

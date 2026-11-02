@@ -7,15 +7,19 @@
 // Masked: every value whose key names a key, secret, password, token or JWT, the whole DB_URL, the password inside any
 // URL's userinfo, and every value shaped like a JWT. Masks are emitted before anything is written to GITHUB_ENV, so no
 // later step can echo an unmasked value. The status file itself is deleted by the caller right after this exits.
-import { readFileSync, appendFileSync, statSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, appendFileSync, writeFileSync, existsSync, mkdirSync, openSync, fstatSync, closeSync, constants } from 'node:fs';
 
 const [file, envFile, keyDir] = process.argv.slice(2);
 if (!file || !envFile) { console.error('usage: export-status.mjs <status file> <GITHUB_ENV>'); process.exit(2); }
-const mode = statSync(file).mode & 0o777;
-if (mode & 0o077) { console.error(`export-status: status file mode ${mode.toString(8)} is readable by others; refusing`); process.exit(2); }
+// Mode check and read on one handle (no check-then-use by path).
+const sfd = openSync(file, constants.O_RDONLY | constants.O_NONBLOCK);
+const mode = fstatSync(sfd).mode & 0o777;
+if (mode & 0o077) { closeSync(sfd); console.error(`export-status: status file mode ${mode.toString(8)} is readable by others; refusing`); process.exit(2); }
+const statusText = readFileSync(sfd, 'utf8');
+closeSync(sfd);
 
 const kv = {};
-for (const line of readFileSync(file, 'utf8').split('\n')) {
+for (const line of statusText.split('\n')) {
   const m = line.match(/^([A-Z][A-Z0-9_]*)="?(.*?)"?$/);
   if (m) kv[m[1]] = m[2];
 }

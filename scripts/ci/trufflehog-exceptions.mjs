@@ -12,7 +12,6 @@
 // Output is fixed text plus counts and 12-hex identity digests. No scanner-provided field (commit, path, detector name,
 // message, Raw, RawV2, Redacted, ExtraData, ...) is ever printed; exception ids come from the reviewed file, not the scan.
 import fs from 'node:fs';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
