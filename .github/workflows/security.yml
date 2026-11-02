@@ -272,21 +272,15 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: TruffleHog Secret Scan
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        # base/head must name two DIFFERENT commits or TruffleHog aborts with
-        # "BASE and HEAD commits are the same. TruffleHog won't scan anything."
-        # `base: default_branch` + `head: HEAD` collide on every push to main,
-        # which is what this job was doing. Diff the range the event actually
-        # describes instead: the pushed range on push, the PR range on
-        # pull_request. On the weekly schedule there is no range, so both stay
-        # empty and TruffleHog scans the full history (fetch-depth: 0 above).
-        #
-        # The first push to a new branch (develop is a push target) reports
-        # `before` as the all-zero SHA. That is nonempty, so the action would
-        # hand it to --since-commit and git would fail to resolve it; treat it
-        # as "no range" and fall through to a full scan.
-        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && github.event.before || '' }}
-        head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'push' && github.sha || '' }}
+    - name: Official TruffleHog action equality guard (wrapper mirrors scripts/ci/vendor/trufflehog-action.yml)
+      run: node scripts/ci/check-trufflehog-action.mjs
+    - name: TruffleHog Secret Scan (gated; exact approved exceptions only)
+      env:
+        # Range rules unchanged: the PR range on pull_request, the pushed range on push (an all-zero `before` means
+        # no base), and no range on schedule/dispatch (full history; fetch-depth: 0 above). BASE == HEAD is refused
+        # exactly as the official action refuses it (scripts/ci/vendor/trufflehog-action.yml).
+        BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && github.event.before || '' }}
+        HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'push' && github.sha || '' }}
+      # The wrapper keeps raw scanner output in a private 0700 dir under RUNNER_TEMP, gates it, prints counts and
+      # identity digests only, and removes the dir on every exit path. Nothing is uploaded.
+      run: bash scripts/ci/trufflehog-scan.sh
