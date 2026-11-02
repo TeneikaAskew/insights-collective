@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SHOT_NAMES, WITHHELD_REASONS } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { BLOCKED_CODE_RE } from '../../../e2e/gradebook-roles/journey/blocked-class.mjs';
 
 export class SummaryError extends Error {
   /** @param {string} code */
@@ -43,11 +44,11 @@ export const GLOBAL_CODES = new Set([
 ]);
 const SIGNIN_HTTP = /^JOURNEY_SETUP_E_SIGNIN_HTTP_[1-5][0-9]{2}_(?:INSTRUCTOR|MEMBER)$/;
 /** @param {unknown} c */
-export const globalCode = (c) => (typeof c === 'string' && (GLOBAL_CODES.has(c) || SIGNIN_HTTP.test(c)) ? c : 'OTHER');
+export const globalCode = (c) => (typeof c === 'string' && (GLOBAL_CODES.has(c) || SIGNIN_HTTP.test(c) || BLOCKED_CODE_RE.test(c)) ? c : 'OTHER');
 const DIAG_CLASSES = new Set(['Error', 'TypeError', 'RangeError', 'SyntaxError', 'ReferenceError', 'TimeoutError', 'AbortError', 'JourneyGateError']);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '../../..');
-const SETUP_FILES = ['session-setup.ts', 'private-dir.mjs', 'pairing-proof.mjs'].map((f) => `e2e/gradebook-roles/journey/${f}`)
+const SETUP_FILES = ['session-setup.ts', 'private-dir.mjs', 'pairing-proof.mjs', 'blocked-class.mjs'].map((f) => `e2e/gradebook-roles/journey/${f}`)
   .concat(['e2e/gradebook-roles/local-binding.mjs', 'e2e/gradebook-roles/origin-guard.mjs', 'e2e/support/chromium-executable.ts']);
 const SPEC_FILES = ['j0-learner-before-publish', 'j1-instructor-publish', 'j2-learner-enroll-submit', 'j3-instructor-grade',
   'j4-learner-readback-certificate'].map((f) => `e2e/gradebook-roles/journey/${f}.spec.ts`);
@@ -96,7 +97,7 @@ export function playwrightSummary(text, exit, diagDir = '', root = ROOT) {
   if (errs.length) {
     const e = errs[0];
     const line = e && typeof e === 'object' && typeof e.message === 'string' ? e.message.split('\n')[0] : '';
-    const m = /^JourneyGateError: ([A-Z0-9_]{1,80})$/.exec(line);
+    const m = /^JourneyGateError: ([A-Z0-9_]{1,120})$/.exec(line);
     first = m ? globalCode(m[1]) : 'OTHER';
     where = wherePlace(e && typeof e === 'object' ? e.location : null, root);
   }

@@ -17,6 +17,7 @@ import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
 import { playwrightSummary, compareSummary, shotsSummary, readRaw, GLOBAL_CODES, globalCode } from '../run-summary.mjs';
+import { blockedCode, kindOf, classOf, entryClass, BLOCKED_CODE_RE, BLOCKED_PREFIX, KINDS, CLASSES, ROLES as B_ROLES, PHASES as B_PHASES } from '../../../../e2e/gradebook-roles/journey/blocked-class.mjs';
 import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
@@ -542,6 +543,42 @@ try {
     ok(`SUMG every one of the ${thrown.size} codes thrown or recorded by the setup chain is staged as itself (none falls to OTHER)`, thrown.size > 60 && missing.length === 0);
     ok('SUMG the fixed list holds only upper-case gate codes', [...GLOBAL_CODES].every((c) => /^JOURNEY_(?:SETUP|GATE[123])_E_[A-Z0-9_]+$/.test(c)));
     ok('SUMG session-setup.ts never writes to stdout (the JSON report shares it)', !/process\.stdout|console\.(log|info|debug|table|dir)\(/.test(fs.readFileSync(path.join(repo, 'e2e/gradebook-roles/journey/session-setup.ts'), 'utf8')));
+  }
+  { // Blocked-list classification (blocked-class.mjs): fixed enums only; hostile markers never leave; non-foreign kept apart.
+    const AP = ['http://127.0.0.1:8080', 'http://127.0.0.1:54321'];
+    const code = (blocked, role = 'INSTRUCTOR', phase = 'SETTLE') => blockedCode({ role, phase, blocked, approved: AP });
+    const P = `${BLOCKED_PREFIX}_INSTRUCTOR_SETTLE_`;
+    ok('BLK a listed host: image from pravatar.cc', code([{ origin: 'https://i.pravatar.cc', kind: 'image' }]) === `${P}IMAGE_PRAVATAR_N1`);
+    ok('BLK hostile markers in host, subdomain trick, port, path, query, userinfo and kind never leave (fixed values only)', (() => {
+      const cases = [
+        [{ origin: 'https://MARKER-secret.example', kind: 'script' }, `${P}SCRIPT_PUBLIC_OTHER_N1`],
+        [{ origin: 'https://fonts.googleapis.com.MARKER.example', kind: 'stylesheet' }, `${P}STYLESHEET_PUBLIC_OTHER_N1`],
+        [{ origin: 'https://xgooglefonts.googleapis.com', kind: 'font' }, `${P}FONT_PUBLIC_OTHER_N1`],
+        [{ origin: 'https://MARKER:pw@fonts.gstatic.com:8443/MARKER?token=MARKER#MARKER', kind: 'font' }, `${P}FONT_FONTS_GSTATIC_N1`],
+        [{ origin: 'https://db.MARKERREF.supabase.co', kind: 'fetch' }, `${P}FETCH_SUPABASE_CO_N1`],
+        [{ origin: 'https://www.googletagmanager.com', kind: 'MARKER kind' }, `${P}OTHER_GOOGLETAGMANAGER_N1`],
+        [{ origin: 'https://cdn.gpteng.co', kind: 'script-redirect' }, `${P}SCRIPT_REDIRECT_GPTENG_N1`],
+        [{ origin: 'https://evil.example', kind: 'websocket' }, `${P}WEBSOCKET_PUBLIC_OTHER_N1`],
+        [{ origin: 'ftp://MARKER.example', kind: 'other' }, `${P}OTHER_NON_HTTP_SCHEME_N1`],
+      ];
+      return cases.every(([e, want]) => { const c = code([e]); return c === want && !/MARKER|secret|token|8443|pw/i.test(c); });
+    })());
+    ok('BLK loopback under another spelling or port is not "foreign": LOOPBACK_OTHER_SPELLING / LOOPBACK_OTHER_PORT', code([{ origin: 'http://localhost:54321', kind: 'fetch' }]) === `${P}FETCH_LOOPBACK_OTHER_SPELLING_N1` && code([{ origin: 'http://127.0.0.1:9999', kind: 'xhr' }]) === `${P}XHR_LOOPBACK_OTHER_PORT_N1` && code([{ origin: 'http://[::1]:8080', kind: 'document' }]) === `${P}DOCUMENT_LOOPBACK_OTHER_SPELLING_N1`);
+    ok('BLK the three non-foreign guard records keep their own kind and never get a host class', code([{ origin: 'redirect-unresolvable', kind: 'document' }]) === `${P}REDIRECT_UNRESOLVABLE_NONE_N1` && code([{ origin: 'unparseable', kind: 'image' }]) === `${P}UNPARSEABLE_NONE_N1` && code([{ origin: 'http://127.0.0.1:54321', kind: 'redirect-on-POST' }]) === `${P}REDIRECT_ON_WRITE_APP_OR_API_N1` && code([{ origin: 'https://MARKER.example', kind: 'redirect-on-PATCH' }]) === `${P}REDIRECT_ON_WRITE_APP_OR_API_N1`);
+    ok('BLK only the FIRST entry is classified; count is bounded N1..N9', code([{ origin: 'https://www.youtube.com', kind: 'media' }, { origin: 'https://i.pravatar.cc', kind: 'image' }]) === `${P}MEDIA_YOUTUBE_N2` && code(Array.from({ length: 40 }, () => ({ origin: 'https://vimeo.com', kind: 'document' }))) === `${P}DOCUMENT_VIMEO_N9`);
+    ok('BLK role and phase are fixed enums; anything else, an empty list, or malformed input gives the bare code, never a throw', code([{ origin: 'https://x.example', kind: 'image' }], 'MEMBER', 'GOTO') === `${BLOCKED_PREFIX}_MEMBER_GOTO_IMAGE_PUBLIC_OTHER_N1` && code([{ origin: 'https://x.example', kind: 'image' }], 'MARKER', 'SETTLE') === BLOCKED_PREFIX && code([{ origin: 'https://x.example', kind: 'image' }], 'MEMBER', 'MARKER') === BLOCKED_PREFIX && code([]) === BLOCKED_PREFIX && blockedCode({}) === BLOCKED_PREFIX && blockedCode(null) === BLOCKED_PREFIX && code([null]) === `${P}OTHER_NONE_N1` && code([{ origin: 42, kind: 7 }]) === `${P}OTHER_NONE_N1`);
+    ok('BLK every role x phase x kind x class combination round-trips through the staged grammar and the summary allowlist', (() => {
+      for (const r of B_ROLES) for (const ph of B_PHASES) for (const k of KINDS) for (const c of CLASSES) for (const n of [1, 9]) {
+        const x = `${BLOCKED_PREFIX}_${r}_${ph}_${k}_${c}_N${n}`; if (!BLOCKED_CODE_RE.test(x) || globalCode(x) !== x) return false;
+      }
+      return globalCode(BLOCKED_PREFIX) === BLOCKED_PREFIX && globalCode(`${P}IMAGE_PRAVATAR_N0`) === 'OTHER' && globalCode(`${P}IMAGE_MARKER_N1`) === 'OTHER' && globalCode(`${P}IMAGE_PRAVATAR_N1_MARKER`) === 'OTHER';
+    })());
+    ok('BLK the summary stages a classified code at place SETUP (blocked-class.mjs location counts as setup)', playwrightSummary(JSON.stringify({ stats: { expected: 0, unexpected: 0, flaky: 0, skipped: 0 }, errors: [{ message: `JourneyGateError: ${P}IMAGE_PRAVATAR_N3`, location: { file: '/r00t/e2e/gradebook-roles/journey/session-setup.ts' } }] }), '1', '', '/r00t').split('\n')[1] === `GLOBAL first=${P}IMAGE_PRAVATAR_N3 where=SETUP diag=NONE diag_class=NONE diags=0`);
+    ok('BLK helpers: kindOf/classOf/entryClass are total on junk', kindOf(undefined) === 'OTHER' && classOf(undefined, AP) === 'NONE' && classOf('not a url', AP) === 'NONE' && entryClass(undefined, AP).cls !== undefined);
+    const setupSrc = fs.readFileSync(path.join(repo, 'e2e/gradebook-roles/journey/session-setup.ts'), 'utf8');
+    ok('BLK session-setup: guard call and approved origins unchanged; refusal still on any blocked entry, after storageState; code only from blockedCode', setupSrc.includes('newGuardedContext(browser, [app.origin, api.origin])') && /if \(blocked\.length\) \{[\s\S]{0,400}throw new JourneyGateError\(blockedCode\(\{ role: R, phase, blocked: \[\.\.\.blocked\], approved: \[app\.origin, api\.origin\] \}\)\)/.test(setupSrc) && setupSrc.indexOf('context.storageState()') < setupSrc.indexOf('if (blocked.length)'));
+    const guardSrc = fs.readFileSync(path.join(repo, 'e2e/gradebook-roles/origin-guard.mjs'), 'utf8');
+    ok('BLK origin guard file is byte-identical to its 9b69177 blob (pinned; not relaxed)', createHash('sha1').update(`blob ${Buffer.byteLength(guardSrc)}\0`).update(guardSrc).digest('hex') === '25332b129959bbae5d020c439e56b0cbbae46510');
   }
   ok('SUM empty report, and a report behind stray stdout, refuse with their own codes', SUMC(() => playwrightSummary('', '1')) === 'SUMMARY_E_PLAYWRIGHT_EMPTY' && SUMC(() => playwrightSummary('\n  \n', '1')) === 'SUMMARY_E_PLAYWRIGHT_EMPTY' && SUMC(() => playwrightSummary('[journey setup] MARKER\n{"stats":{}}', '0')) === 'SUMMARY_E_PLAYWRIGHT_POLLUTED' && SUMC(() => playwrightSummary('MARKER\n{not json', '0')) === 'SUMMARY_E_PLAYWRIGHT_PARSE');
   ok('SUM non-JSON or odd counts refused', SUMC(() => playwrightSummary('MARKER not json', '1')) === 'SUMMARY_E_PLAYWRIGHT_PARSE' && SUMC(() => playwrightSummary(JSON.stringify({ stats: { expected: '12', unexpected: 0, flaky: 0, skipped: 0 } }), '0')) === 'SUMMARY_E_PLAYWRIGHT_SHAPE');
