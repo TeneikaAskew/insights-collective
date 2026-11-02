@@ -44,31 +44,64 @@ export const SHOT_PLAN = Object.freeze({
   'J4c-progress': ['jr-4-learner-readback', 'progress'],
   'J4d-certificate': ['jr-4-learner-readback', 'certificate'],
 });
-/** Withheld by rule, never captured: the catalog page lists the published control course that carries the pairing value. */
+/** Withheld by rule, never captured: the catalog lists the control course (the pairing carrier). CourseList cards do not
+ *  display `description` (search only), so this is a conservative choice, not an observed nonce. */
 export const WITHHOLD_ALWAYS = Object.freeze({ 'J0a-catalog-before-publish': 'CARRIER_ROUTE' });
 export const WITHHELD_REASONS = Object.freeze(['CARRIER_ROUTE', 'INCOMPLETE', 'PERSONA', 'ROUTE', 'UNSUPPORTED_SURFACE', 'DIRTY_BEFORE',
   'NAVIGATED', 'MUTATED', 'CHANGED', 'DIRTY_AFTER']);
 
 /**
  * In-page capture-window guard (read-only: it observes, it never writes to the page or the network). 'arm' records a
- * token on this document and counts DOM mutations and input/change events; 'read' returns the token seen (null on a new
- * document) and the count, and disconnects. Passed to page.evaluate verbatim; the static contract pins its body.
+ * token on this document and counts DOM mutations and input/change/pagehide/beforeunload events; 'read' drains pending
+ * mutation records, returns the token seen (null on a new document) and the count, and fully detaches: observer
+ * disconnected, every listener removed, state dropped. Passed to page.evaluate verbatim; the static contract pins its body.
  */
 export function SHOT_GUARD([op, token]) {
   const w = /** @type {any} */ (globalThis);
+  const EVENTS = ['input', 'change', 'pagehide', 'beforeunload'];
   if (op === 'arm') {
-    const st = { token, n: 0, obs: null };
-    const bump = () => { st.n += 1; };
+    const st = { token, n: 0, obs: null, bump: null };
+    st.bump = () => { st.n += 1; };
     st.obs = new MutationObserver((recs) => { st.n += recs.length; });
     st.obs.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
-    for (const ev of ['input', 'change', 'pagehide', 'beforeunload']) w.addEventListener(ev, bump, true);
+    for (const ev of EVENTS) w.addEventListener(ev, st.bump, true);
     w.__gbShotGuard = st;
     return token;
   }
   const st = w.__gbShotGuard;
   if (!st) return { token: null, n: -1 };
-  if (st.obs) st.obs.disconnect();
+  st.n += st.obs.takeRecords().length;
+  st.obs.disconnect();
+  for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);
+  delete w.__gbShotGuard;
   return { token: st.token, n: st.n };
+}
+
+/**
+ * The capture window, in a fixed order (drv wraps the page; fakes drive every gap). The navigation listener and the
+ * guard are armed BEFORE the first sample and stay armed through the AFTER sample, so a change in either gap
+ * (sample/screenshot or screenshot/sample) is counted. The guard is read (drained and detached) LAST, in finally, on
+ * success and on any exception; then the navigation listener is removed. Any exception, or a guard that cannot be
+ * read, makes the observation incomplete and drops the buffer.
+ * drv = { watchNav(onMainFrameNav) -> unwatch, guard(op, token), sample(), screenshot() }
+ * @returns {Promise<{ png: Buffer | null, obs: Record<string, unknown> }>}
+ */
+export async function captureShot(drv, base, armed, secrets) {
+  let navigations = 0, png = null, before = null, after = null, guard = null, failed = false;
+  const unwatch = drv.watchNav(() => { navigations += 1; });
+  try {
+    await drv.guard('arm', armed);
+    before = await drv.sample();
+    if (scanPage(before.texts, secrets).length === 0) {            // a dirty page is never captured
+      png = await drv.screenshot();
+      after = await drv.sample();
+    } else after = before;
+  } catch { failed = true; } finally {
+    try { guard = await drv.guard('read', armed); } catch { failed = true; }
+    unwatch();
+  }
+  if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };
+  return { png, obs: { ...base, before, after, armed, guard, navigations, incomplete: false } };
 }
 
 const sameSample = (a, b) => JSON.stringify(a) === JSON.stringify(b);

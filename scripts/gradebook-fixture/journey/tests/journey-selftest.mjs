@@ -14,7 +14,7 @@ import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
 import { playwrightSummary, compareSummary, shotsSummary } from '../run-summary.mjs';
-import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
 import { checkJourney } from './static-contract.mjs';
@@ -492,18 +492,81 @@ try {
   ok('SHOTDECIDE dirty before (never captured) or dirty after: withheld DIRTY_BEFORE / DIRTY_AFTER', DS('J4c-grades', cleanObs({ before: samp({ texts: [`x ${NONCE}`, '', '', '', ''] }) })) === '{"write":false,"reason":"DIRTY_BEFORE"}' && DS('J4c-grades', cleanObs({ before: samp({ texts: ['a', 'member-pw-654321', '', '', ''] }), after: samp({ texts: ['a', 'member-pw-654321', '', '', ''] }) })) === '{"write":false,"reason":"DIRTY_BEFORE"}');
   ok('SHOTDECIDE incomplete checks (exception mid-window, missing sample or guard): withheld INCOMPLETE', DS('J4c-grades', cleanObs({ incomplete: true })) === '{"write":false,"reason":"INCOMPLETE"}' && DS('J4c-grades', { ...cleanObs(), after: undefined }) === '{"write":false,"reason":"INCOMPLETE"}' && DS('J4c-grades', { ...cleanObs(), guard: undefined }) === '{"write":false,"reason":"INCOMPLETE"}');
   ok('SHOTDECIDE every plan entry names a journey persona project and a route key', Object.values(SHOT_PLAN).every(([p, k]) => /^jr-[0-4]-/.test(p) && /^[a-z-]+$/.test(k)) && Object.keys(SHOT_PLAN).join() === SHOT_NAMES.join());
-  // The in-page guard, executed in a real DOM (jsdom): it sees mutations, input events and a replaced document.
+  // The in-page guard and the capture window, executed in a real DOM (jsdom) with the real SHOT_GUARD and captureShot.
   { const { JSDOM } = await import('jsdom');
-    const run = async (fn) => { const dom = new JSDOM('<!doctype html><body><p id="t">Grades</p><input id="i" value=""></body>', { runScripts: 'outside-only' });
-      const g = dom.window; const call = (args) => { const prev = { d: globalThis.document, g: globalThis.__gbShotGuard, M: globalThis.MutationObserver, a: globalThis.addEventListener };
-        globalThis.document = g.document; globalThis.MutationObserver = g.MutationObserver; globalThis.addEventListener = g.addEventListener.bind(g); globalThis.__gbShotGuard = g.__gbShotGuard;
-        try { return SHOT_GUARD(args); } finally { g.__gbShotGuard = globalThis.__gbShotGuard; Object.assign(globalThis, { document: prev.d, __gbShotGuard: prev.g, MutationObserver: prev.M, addEventListener: prev.a }); } };
-      call(['arm', 'tok']); await fn(g); await new Promise((r) => setTimeout(r, 0)); return call(['read', 'tok']); };
-    ok('SHOTGUARD real DOM: unchanged page reads back the same token and 0 events', JSON.stringify(await run(() => {})) === '{"token":"tok","n":0}');
-    ok('SHOTGUARD real DOM: a secret written then reverted during the window is counted', (await run((w) => { const t = w.document.getElementById('t'); t.textContent = `x ${NONCE}`; t.textContent = 'Grades'; })).n >= 2);
-    ok('SHOTGUARD real DOM: a field value change (input event) is counted', (await run((w) => { const i = w.document.getElementById('i'); i.value = 'x'; i.dispatchEvent(new w.Event('input', { bubbles: true })); })).n >= 1);
-    { const dom = new JSDOM('<!doctype html><body></body>'); const prev = globalThis.document; globalThis.document = dom.window.document; delete globalThis.__gbShotGuard;
-      const r = SHOT_GUARD(['read', 'tok']); globalThis.document = prev;
+    const PAGE = '<!doctype html><html><head><title>Insights</title></head><body><p id="t">Grades</p><input id="i" value=""></body></html>';
+    const mkPage = (html = PAGE) => { const dom = new JSDOM(html, { url: `${APPO}${PATH_OF.grades}` }); const g = dom.window; const live = {};
+      const add = g.addEventListener.bind(g), rem = g.removeEventListener.bind(g);
+      g.addEventListener = (t, f, c) => { live[t] = (live[t] || 0) + 1; add(t, f, c); };
+      g.removeEventListener = (t, f, c) => { live[t] = (live[t] || 0) - 1; rem(t, f, c); };
+      return { g, live, detached: () => Object.values(live).every((n) => n === 0) && !('__gbShotGuard' in g) }; };
+    const inWin = (g, fn) => { const K = ['document', 'MutationObserver', 'addEventListener', 'removeEventListener', '__gbShotGuard']; const prev = {}; for (const k of K) prev[k] = globalThis[k];
+      globalThis.document = g.document; globalThis.MutationObserver = g.MutationObserver; globalThis.addEventListener = g.addEventListener; globalThis.removeEventListener = g.removeEventListener;
+      if ('__gbShotGuard' in g) globalThis.__gbShotGuard = g.__gbShotGuard; else delete globalThis.__gbShotGuard;
+      try { return fn(); } finally { if ('__gbShotGuard' in globalThis) g.__gbShotGuard = globalThis.__gbShotGuard; else delete g.__gbShotGuard; for (const k of K) { if (prev[k] === undefined) delete globalThis[k]; else globalThis[k] = prev[k]; } } };
+    const tick = () => new Promise((r) => setTimeout(r, 0));
+    // A page driver over jsdom. hooks[`${when}:${step}#${k}`] runs in the gap before/after the k-th call of a step.
+    const mkDrv = (pg, hooks = {}) => { const log = [], navs = new Set(), seen = {};
+      const at = async (when, step) => { const k = `${when}:${step}#${seen[step] || 0}`; if (hooks[k]) { await hooks[k](pg.g, () => { for (const cb of navs) cb(); }); await tick(); } };
+      const run = async (step, fn) => { seen[step] = (seen[step] || 0) + 1; await at('pre', step); log.push(step); const r = await fn(); await at('post', step); return r; };
+      const d = () => pg.g.document;
+      return { log, navs,
+        watchNav: (cb) => { log.push('watch'); navs.add(cb); return () => { log.push('unwatch'); navs.delete(cb); }; },
+        guard: (op, t) => run(op, () => inWin(pg.g, () => SHOT_GUARD([op, t]))),
+        sample: () => run('sample', () => ({ url: pg.g.location.href, texts: [d().body.textContent, d().documentElement.outerHTML, [...d().querySelectorAll('input, textarea, select')].map((x) => x.value).join('\n'), d().title, pg.g.location.href],
+          images: [...d().querySelectorAll('img')].map((x) => x.getAttribute('src') ?? ''), surfaces: d().querySelectorAll('iframe, canvas, video, embed, object').length })),
+        screenshot: () => run('screenshot', () => (d().body.textContent.includes(NONCE) ? mkPng(pchunk('tEXt', Buffer.from(`painted ${NONCE}`))) : mkPng())) }; };
+    const base = { project: 'jr-4-learner-readback', expectedPath: PATH_OF.grades, appOrigin: APPO, apiOrigin: APIO };
+    const cap = async (hooks, html) => { const pg = mkPage(html); const drv = mkDrv(pg, hooks); const r = await captureShot(drv, base, 'k'.repeat(32), SECRETS);
+      return { ...r, log: drv.log.join(','), pg, d: DS('J4c-grades', r.obs), navsLeft: drv.navs.size, leaked: !!r.png && r.png.includes(Buffer.from(NONCE)) }; };
+    // The 945246b orchestration (sample -> arm -> screenshot -> read -> sample; read only disconnected the observer), kept
+    // here ONLY as the causal reference for the gap controls below.
+    const OLD_GUARD = ([op, token]) => { const w = globalThis; if (op === 'arm') { const st = { token, n: 0, obs: null }; const bump = () => { st.n += 1; };
+      st.obs = new MutationObserver((recs) => { st.n += recs.length; }); st.obs.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+      for (const ev of ['input', 'change', 'pagehide', 'beforeunload']) w.addEventListener(ev, bump, true); w.__gbShotGuard = st; return token; }
+      const st = w.__gbShotGuard; if (!st) return { token: null, n: -1 }; if (st.obs) st.obs.disconnect(); return { token: st.token, n: st.n }; };
+    const oldCap = async (hooks) => { const pg = mkPage(); const drv = mkDrv(pg, hooks); drv.guard = (op, t) => (async () => { const k = op; return inWin(pg.g, () => OLD_GUARD([k, t])); })();
+      let navigations = 0; const before = await drv.sample(); const un = drv.watchNav(() => { navigations += 1; }); await drv.guard('arm', 'k'.repeat(32)); const png = await drv.screenshot();
+      const guard = await drv.guard('read', 'k'.repeat(32)); un(); await hooks['old:read-sample']?.(pg.g); await tick(); const after = await drv.sample();
+      const obs = { ...base, before, after, armed: 'k'.repeat(32), guard, navigations, incomplete: false };
+      return { d: DS('J4c-grades', obs), leaked: png.includes(Buffer.from(NONCE)), detached: pg.detached() }; };
+    const put = (g) => { g.document.getElementById('t').textContent = `x ${NONCE}`; };
+    const unput = (g) => { g.document.getElementById('t').textContent = 'Grades'; };
+
+    const pos = await cap({});
+    ok('SHOTWINDOW unchanged legitimate positive: write, order watch,arm,sample,screenshot,sample,read,unwatch, fully detached', pos.d === '{"write":true}' && pos.log === 'watch,arm,sample,screenshot,sample,read,unwatch' && pos.pg.detached() && pos.navsLeft === 0 && Buffer.isBuffer(pos.png));
+    // T's exact case: clean BEFORE -> secret inserted -> screenshot shows it -> secret removed before AFTER.
+    const oldT = await oldCap({ 'post:sample#1': put, 'old:read-sample': unput });
+    const newT = await cap({ 'post:sample#1': put, 'pre:sample#2': unput });
+    ok('SHOTWINDOW causal: the 945246b order WRITES a screenshot that painted the nonce (secret in both gaps)', oldT.d === '{"write":true}' && oldT.leaked);
+    ok('SHOTWINDOW the same case now: the screenshot painted it, the guard counted it, withheld MUTATED', newT.leaked && newT.d === '{"write":false,"reason":"MUTATED"}' && newT.pg.detached());
+    ok('SHOTWINDOW the 945246b read left input/change/pagehide/beforeunload listeners attached (reference)', oldT.detached === false);
+    const gapA = await cap({ 'post:sample#1': put, 'post:screenshot#1': unput });
+    ok('SHOTWINDOW gap sample->screenshot: inserted after the first sample, removed after the capture: withheld MUTATED', gapA.leaked && gapA.d === '{"write":false,"reason":"MUTATED"}');
+    const gapB = await cap({ 'post:screenshot#1': put, 'post:sample#2': unput });
+    ok('SHOTWINDOW gap screenshot->sample->read: inserted after the capture, removed after the AFTER sample, before the read: withheld MUTATED', gapB.d === '{"write":false,"reason":"MUTATED"}');
+    const pend = await cap({ 'pre:read#1': (g) => { put(g); unput(g); } });
+    ok('SHOTWINDOW a change still pending when the guard is read is drained (takeRecords): withheld MUTATED', pend.d === '{"write":false,"reason":"MUTATED"}');
+    const fld = await cap({ 'post:sample#1': (g) => { const x = g.document.getElementById('i'); x.value = 'typed'; x.dispatchEvent(new g.Event('input', { bubbles: true })); } });
+    ok('SHOTWINDOW a field value change between the samples is withheld (input event counted)', fld.d === '{"write":false,"reason":"MUTATED"}');
+    const navA = await cap({ 'post:sample#1': (g, nav) => nav() }), navB = await cap({ 'pre:read#1': (g, nav) => nav() }), navC = await cap({ 'pre:sample#1': (g, nav) => nav() });
+    ok('SHOTWINDOW a main-frame navigation before the first sample, in a capture gap, or before the read: withheld NAVIGATED', [navA, navB, navC].every((x) => x.d === '{"write":false,"reason":"NAVIGATED"}' && x.navsLeft === 0));
+    const dirty = await cap({}, PAGE.replace('Grades</p>', `Grades ${NONCE}</p>`));
+    ok('SHOTWINDOW a dirty first sample is never captured (no screenshot call), withheld DIRTY_BEFORE, detached', dirty.d === '{"write":false,"reason":"DIRTY_BEFORE"}' && !dirty.log.includes('screenshot') && dirty.log.endsWith('read,unwatch') && dirty.pg.detached());
+    const boom = () => { throw new Error('x'); };
+    const exS = await cap({ 'pre:screenshot#1': boom }), exP = await cap({ 'pre:sample#1': boom }), exP2 = await cap({ 'pre:sample#2': boom }), exA = await cap({ 'post:arm#1': boom });
+    ok('SHOTWINDOW an exception in the screenshot or either sample: no buffer, INCOMPLETE, guard read and listeners detached', [exS, exP, exP2, exA].every((x) => x.png === null && x.d === '{"write":false,"reason":"INCOMPLETE"}' && x.log.endsWith('read,unwatch') && x.pg.detached() && x.navsLeft === 0));
+    const exR = await cap({ 'pre:read#1': boom });
+    ok('SHOTWINDOW an exception reading the guard: no buffer, INCOMPLETE, navigation listener still removed', exR.png === null && exR.d === '{"write":false,"reason":"INCOMPLETE"}' && exR.log.endsWith('unwatch') && exR.navsLeft === 0);
+    const exArm = await cap({ 'pre:arm#1': boom });
+    ok('SHOTWINDOW an exception before the guard is armed: read still attempted (no state), INCOMPLETE', exArm.png === null && exArm.d === '{"write":false,"reason":"INCOMPLETE"}' && exArm.log === 'watch,read,unwatch' && exArm.pg.detached());
+    // The guard alone.
+    const gRun = async (fn) => { const pg = mkPage(); inWin(pg.g, () => SHOT_GUARD(['arm', 'tok'])); await fn(pg.g); const r = inWin(pg.g, () => SHOT_GUARD(['read', 'tok'])); return { r, pg }; };
+    const g0 = await gRun(async () => { await tick(); });
+    ok('SHOTGUARD real DOM: unchanged page reads back the same token and 0 events, then is fully detached', JSON.stringify(g0.r) === '{"token":"tok","n":0}' && g0.pg.detached());
+    ok('SHOTGUARD real DOM: a secret written then reverted (not yet delivered to the observer) is counted', (await gRun((w) => { put(w); unput(w); })).r.n >= 2);
+    ok('SHOTGUARD real DOM: a field value change (input event) is counted', (await gRun(async (w) => { const x = w.document.getElementById('i'); x.value = 'x'; x.dispatchEvent(new w.Event('input', { bubbles: true })); await tick(); })).r.n >= 1);
+    { const pg = mkPage(); const r = inWin(pg.g, () => SHOT_GUARD(['read', 'tok']));
       ok('SHOTGUARD a replaced document (no guard state) reads token null', r.token === null && r.n === -1); } }
   { const d = shotDir(); const png = mkPng();
     const r1 = writeShot(d, 'J4c-grades', png, cleanObs(), SECRETS);
@@ -859,11 +922,17 @@ process.exit(bad?1:0);
     ['hermetic-dist import unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace(/  'scripts\/served-app\/hermetic-dist\.mjs': '[0-9a-f]{40}',\n/, ''), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['appverify skips the pin re-check', `${S}/pairing-producer.mjs`, (s) => s.replace("  if (cmd === 'appverify') {\n    const f = pinFailures(root);", "  if (cmd === 'appverify') {\n    const f = [];"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
-    ['shot() captures without the pre-scan gate', `${J}/observe.ts`, (s) => s.replace('    if (scanPage(before.texts, secrets).length === 0) {          // a dirty page is never captured', '    {'), 'R12_SHOT_UNSCANNED'],
-    ['shot() drops the capture-window guard', `${J}/observe.ts`, (s) => s.replace("      await page.evaluate(SHOT_GUARD, ['arm', armed]);\n", ''), 'R12_SHOT_UNSCANNED'],
-    ['shot() keeps the buffer after an exception', `${J}/observe.ts`, (s) => s.replace('    png = null;\n', ''), 'R12_SHOT_UNSCANNED'],
+    ['captureShot captures without the pre-scan gate', `${J}/shot-core.mjs`, (s) => s.replace('    if (scanPage(before.texts, secrets).length === 0) {            // a dirty page is never captured', '    {'), 'R12_SHOT_WINDOW'],
+    ['captureShot samples BEFORE arming the guard (the 945246b order)', `${J}/shot-core.mjs`, (s) => s.replace("    await drv.guard('arm', armed);\n    before = await drv.sample();", "    before = await drv.sample();\n    await drv.guard('arm', armed);"), 'R12_SHOT_WINDOW'],
+    ['captureShot reads the guard BEFORE the after sample', `${J}/shot-core.mjs`, (s) => s.replace("      after = await drv.sample();\n", "      guard = await drv.guard('read', armed);\n      after = await drv.sample();\n"), 'R12_SHOT_WINDOW'],
+    ['captureShot watches navigation only after the first sample', `${J}/shot-core.mjs`, (s) => s.replace("  const unwatch = drv.watchNav(() => { navigations += 1; });\n  try {\n    await drv.guard('arm', armed);\n    before = await drv.sample();", "  let unwatch = () => {};\n  try {\n    await drv.guard('arm', armed);\n    before = await drv.sample();\n    unwatch = drv.watchNav(() => { navigations += 1; });"), 'R12_SHOT_WINDOW'],
+    ['captureShot skips the guard read on an exception (no finally)', `${J}/shot-core.mjs`, (s) => s.replace("  } catch { failed = true; } finally {\n    try { guard = await drv.guard('read', armed); } catch { failed = true; }\n    unwatch();\n  }", "    guard = await drv.guard('read', armed);\n    unwatch();\n  } catch { failed = true; }"), 'R12_SHOT_WINDOW'],
+    ['captureShot keeps the buffer after an exception', `${J}/shot-core.mjs`, (s) => s.replace('  if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };', '  if (failed || !guard) return { png, obs: { ...base, incomplete: true } };'), 'R12_SHOT_WINDOW'],
+    ['guard read only disconnects the observer (the 945246b read)', `${J}/shot-core.mjs`, (s) => s.replace('  for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);\n', ''), 'R12_SHOT_GUARD_DETACH'],
+    ['guard read drops pending mutation records', `${J}/shot-core.mjs`, (s) => s.replace('  st.n += st.obs.takeRecords().length;\n', ''), 'R12_SHOT_GUARD_DETACH'],
+    ['shot() bypasses captureShot with its own screenshot', `${J}/observe.ts`, (s) => s.replace("  const { png, obs } = await captureShot(drv, base, randomBytes(16).toString('hex'), secrets);", "  const png = await page.screenshot({ fullPage: true, animations: 'disabled' }); const obs = { ...base, incomplete: true };"), 'R12_SHOT_UNSCANNED'],
     ['shot() attaches the raw capture again', `${J}/observe.ts`, (s) => s.replace('  writeShot(dir, name, png, obs, secrets);\n}', "  await info.attach(`${name}.png`, { body: png ?? Buffer.alloc(0), contentType: 'image/png' });\n  writeShot(dir, name, png, obs, secrets);\n}"), 'R12_SHOT_UNSCANNED'],
-    ['a second page script appears', `${J}/observe.ts`, (s) => s.replace("      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);", "      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);\n      await page.evaluate(() => 1);"), 'R3_EVALUATE'],
+    ['a second page script appears', `${J}/observe.ts`, (s) => s.replace("    sample: () => sample(page),", "    sample: () => sample(page),\n    x: () => page.evaluate(() => 1),"), 'R3_EVALUATE'],
     ['decision skips the mutation check', `${J}/shot-core.mjs`, (s) => s.replace("  if (obs.guard.n !== 0) return no('MUTATED');\n", ''), 'R12_SHOT_DECISION'],
     ['decision skips the route check', `${J}/shot-core.mjs`, (s) => s.replace(/  if \(u\.origin !== obs\.appOrigin.*\n/, ''), 'R12_SHOT_DECISION'],
     ['J0a no longer withheld by rule', `${J}/shot-core.mjs`, (s) => s.replace("export const WITHHOLD_ALWAYS = Object.freeze({ 'J0a-catalog-before-publish': 'CARRIER_ROUTE' });", 'export const WITHHOLD_ALWAYS = Object.freeze({});'), 'R12_SHOT_DECISION'],

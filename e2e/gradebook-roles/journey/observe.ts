@@ -6,7 +6,7 @@ import { BINDING } from '../fixture';
 import { SUBMISSION_PREFIX, J, route } from './ids';
 import { readPrivateJson, writePrivateFile } from './private-dir.mjs';
 import { createRecorder, evaluate, isCandidate, runStateFailures, settled } from './observe-core.mjs';
-import { SHOT_GUARD, SHOT_PLAN, WITHHOLD_ALWAYS, scanPage, shotSecrets, writeShot } from './shot-core.mjs';
+import { SHOT_GUARD, SHOT_PLAN, WITHHOLD_ALWAYS, captureShot, shotSecrets, writeShot } from './shot-core.mjs';
 import { randomBytes } from 'node:crypto';
 import { assertPairingProof } from './pairing-proof.mjs';
 
@@ -113,26 +113,12 @@ export async function shot(page: Page, info: TestInfo, name: string) {
   const plan = SHOT_PLAN[name as keyof typeof SHOT_PLAN];
   const base = { project: info.project.name, expectedPath: plan ? SHOT_PATH[plan[1]] : '', appOrigin: BINDING.app.origin, apiOrigin: BINDING.api.origin };
   if (!plan || WITHHOLD_ALWAYS[name as keyof typeof WITHHOLD_ALWAYS]) { writeShot(dir, name, null, { ...base, incomplete: true }, secrets); return; }
-  let png: Buffer | null = null;
-  let obs: Record<string, unknown> = { ...base, incomplete: true };
-  let navigations = 0;
-  const onNav = (f: { parentFrame(): unknown }) => { if (!f.parentFrame()) navigations += 1; };
-  try {
-    const before = await sample(page);
-    obs = { ...base, before, after: before, guard: { token: null, n: 0 }, armed: '', navigations: 0, incomplete: false };
-    if (scanPage(before.texts, secrets).length === 0) {          // a dirty page is never captured
-      const armed = randomBytes(16).toString('hex');
-      page.on('framenavigated', onNav);
-      await page.evaluate(SHOT_GUARD, ['arm', armed]);
-      png = await page.screenshot({ fullPage: true, animations: 'disabled' });
-      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);
-      page.off('framenavigated', onNav);
-      obs = { ...obs, armed, guard, navigations, after: await sample(page) };
-    }
-  } catch {
-    page.off('framenavigated', onNav);
-    obs = { ...base, incomplete: true };
-    png = null;
-  }
+  const drv = {
+    watchNav: (cb: () => void) => { const on = (f: { parentFrame(): unknown }) => { if (!f.parentFrame()) cb(); }; page.on('framenavigated', on); return () => { page.off('framenavigated', on); }; },
+    guard: (op: string, token: string) => page.evaluate(SHOT_GUARD, [op, token] as [string, string]),
+    sample: () => sample(page),
+    screenshot: () => page.screenshot({ fullPage: true, animations: 'disabled' }),
+  };
+  const { png, obs } = await captureShot(drv, base, randomBytes(16).toString('hex'), secrets);
   writeShot(dir, name, png, obs, secrets);
 }
