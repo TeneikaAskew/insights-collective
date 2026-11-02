@@ -65,14 +65,25 @@ export function buildRecord({ runId, runAttempt, systemIdentifier, apiOrigin, ap
 /** Reads and parses the file with mode and size limits. Returns { ok, code, reason?, record? }. */
 export function readRecord(file) {
   if (!file) return { ok: false, code: 'SO_ABSENT', reason: 'unset' };
-  let st;
-  try { st = fs.lstatSync(file); } catch { return { ok: false, code: 'SO_ABSENT', reason: 'missing' }; }
-  if (!st.isFile()) return { ok: false, code: 'SO_ABSENT', reason: 'not_regular_file' };
-  if ((st.mode & 0o777) !== 0o600) return { ok: false, code: 'SO_MODE', reason: 'not_0600' };
-  if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return { ok: false, code: 'SO_MODE', reason: 'owner' };
-  if (st.size > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' };
+  // One descriptor for every check and the read (no check-then-use race): O_NOFOLLOW refuses a symlink at open, and
+  // fstat/read act on the opened inode, so the file cannot be swapped between the checks and the read.
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
+  catch (e) { return { ok: false, code: 'SO_ABSENT', reason: e && e.code === 'ELOOP' ? 'not_regular_file' : 'missing' }; }
   let record;
-  try { record = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return { ok: false, code: 'SO_PARSE', reason: 'json' }; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile()) return { ok: false, code: 'SO_ABSENT', reason: 'not_regular_file' };
+    if ((st.mode & 0o777) !== 0o600) return { ok: false, code: 'SO_MODE', reason: 'not_0600' };
+    if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return { ok: false, code: 'SO_MODE', reason: 'owner' };
+    if (st.size > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' };
+    const buf = Buffer.alloc(MAX_BYTES + 1);
+    const n = fs.readSync(fd, buf, 0, MAX_BYTES + 1, 0);
+    if (n > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' }; // grew after fstat
+    try { record = JSON.parse(buf.subarray(0, n).toString('utf8')); } catch { return { ok: false, code: 'SO_PARSE', reason: 'json' }; }
+  } finally {
+    fs.closeSync(fd);
+  }
   const bad = schemaProblem(record);
   if (bad) return { ok: false, code: 'SO_SCHEMA', reason: bad };
   return { ok: true, code: 'SO_OK', record };
