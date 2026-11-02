@@ -40,8 +40,12 @@ export function createRecorder(target, opts = {}) {
   };
   const onFin = async (req) => {
     const c = byReq.get(req); if (!c) return;
-    let r = null;
-    try { r = await req.response(); c.status = r ? r.status() : null; } catch { c.status = null; }
+    let r = null, failedRead = false;
+    try { r = await req.response(); } catch { failedRead = true; }
+    // Frozen after stop(): a response that arrives after the recorder stopped writes nothing (no status, no body read,
+    // not terminal); the call keeps the pending snapshot it had at stop().
+    if (stopped) return;
+    try { c.status = failedRead || !r ? null : r.status(); } catch { c.status = null; }
     // DIAGNOSTIC ONLY: a Storage error response is reduced to fixed categories before the call is terminal; the body text
     // is a local value that is never stored, returned or logged. The read is raced against a fixed deadline, so a body that
     // never arrives gives TIMEOUT (a rejected read gives UNREADABLE) and the call still becomes terminal with its HTTP

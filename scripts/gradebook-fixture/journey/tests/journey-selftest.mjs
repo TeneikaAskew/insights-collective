@@ -327,6 +327,18 @@ try {
       ok('STCAT the 4096 bound is UTF-8 bytes after the read: multibyte text under 4096 UTF-16 units but over 4096 bytes is OVERSIZE; under the byte bound it parses',
         big.length < 4096 && new TextEncoder().encode(big).length > 4096 && JSON.stringify(storageCategory(big)) === '{"err":"OVERSIZE","code":"NA","msg":"NA","status":"NA"}'
         && new TextEncoder().encode(small).length <= 4096 && JSON.stringify(storageCategory(small)) === '{"err":"UNAUTHORIZED","code":"ABSENT","msg":"OTHER","status":"403"}'); }
+    { const mk = (url) => { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 40 }); const resp = defer(); let reads = 0;
+        const req = { url: () => url, method: () => 'POST', response: () => resp.p }; t.emit('request', req); t.emit('requestfinished', req); return { t, rec, resp, req, reads: () => reads, body: { status: () => 400, text: async () => { reads += 1; return RLSBODY; } } }; };
+      const a = mk(SUP); await new Promise((x) => setTimeout(x, 5)); a.rec.stop(); const snapA = JSON.stringify({ ...a.rec.calls[0], req: null });
+      a.resp.res(a.body); await new Promise((x) => setTimeout(x, 80));
+      const b = mk(SUP); await new Promise((x) => setTimeout(x, 5)); b.rec.stop(); const snapB = JSON.stringify({ ...b.rec.calls[0], req: null });
+      b.resp.rej(new Error('MARKER')); await new Promise((x) => setTimeout(x, 30));
+      const c2 = mk(`${O}/rest/v1/enrollments`); await new Promise((x) => setTimeout(x, 5)); c2.rec.stop(); const snapC = JSON.stringify({ ...c2.rec.calls[0], req: null });
+      c2.resp.res({ status: () => 201 }); await new Promise((x) => setTimeout(x, 30));
+      ok('STREC delayed response then stop(): the late Storage 400 writes no status, starts no body read (0 reads) and leaves the pending snapshot unchanged',
+        a.reads() === 0 && JSON.stringify({ ...a.rec.calls[0], req: null }) === snapA && a.rec.calls[0].status === null && a.rec.calls[0].done === false);
+      ok('STREC delayed response that REJECTS after stop(): the catch path writes nothing either (snapshot unchanged)', JSON.stringify({ ...b.rec.calls[0], req: null }) === snapB);
+      ok('STREC delayed non-Storage response after stop(): no status write, still pending', JSON.stringify({ ...c2.rec.calls[0], req: null }) === snapC && c2.rec.calls[0].done === false); }
     ok('STCAT TIMEOUT is in the exported fixed list', STORAGE_ERR_NAMES.includes('TIMEOUT')); }
 
   // ---- J0b course-read oracle (run 41486270908): OLD 69e5f4b one-reader oracle vs NEW three-reader + declared sibling ----
