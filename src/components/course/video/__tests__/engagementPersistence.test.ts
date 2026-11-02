@@ -192,7 +192,8 @@ describe('engagement persistence contract (default service)', () => {
 
   // Pin of a disclosed limitation, NOT a control.
   it('DISCLOSED LIMIT: a lost-response write that another writer changes before the retry IS applied twice', async () => {
-    // Pins the residual risk named in applyEngagementDeltas; only a server-side atomic increment removes it.
+    // Pins the residual risk named in applyEngagementDeltas. An atomic increment alone would not remove it;
+    // that needs durable idempotency/dedup or equivalent reconciliation (out of scope).
     const first = reporterFor('u1', 'v1');
     let lose = true;
     db.failAfterCommit = (op) => op.kind === 'insert' && lose && !(lose = false);

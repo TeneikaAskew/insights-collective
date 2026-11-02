@@ -137,6 +137,31 @@ describe('WatchProgressTracker', () => {
       expect(playedSeconds).toBeLessThanOrEqual(100 + 1.5);
     });
 
+    // Recheck residual on 0b9ce25: each play refilled the slack and each stop discarded the budget.
+    it('keeps the slack cumulative across repeated play/pause with no wall time', () => {
+      const { tracker } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 100 });
+      for (let p = 0; p < 60; p += 1) {
+        tracker.handle({ type: 'play', position: p });
+        tracker.handle({ type: 'pause', position: p + 1 });
+      }
+      const snap = tracker.snapshot();
+      expect(snap.playedSeconds).toBeLessThanOrEqual(1.5);
+      expect(snap.coveredSeconds).toBeLessThanOrEqual(1.5);
+      expect(snap.playCount).toBe(60);
+    });
+
+    it('keeps the slack cumulative across play/ended/play cycles with no wall time', () => {
+      const { tracker } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 100 });
+      for (let p = 0; p < 30; p += 1) {
+        tracker.handle({ type: 'play', position: p });
+        tracker.handle({ type: 'timeupdate', position: p + 0.5 });
+        tracker.handle({ type: 'ended', position: p + 1 });
+      }
+      expect(tracker.snapshot().playedSeconds).toBeLessThanOrEqual(1.5);
+    });
+
     it('scales the budget by playback rate', () => {
       const { tracker, tick } = clockTracker();
       tracker.handle({ type: 'ready', duration: 600 });

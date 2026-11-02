@@ -59,9 +59,10 @@ interface Batch {
  * next pause/ended, the next progress tick after flushIntervalMs, a page hide,
  * retry(), or dispose(). There is no timer.
  *
- * What this does NOT guarantee (needs a server-side atomic increment, out of
- * scope): an uncertain write that committed and was then changed by another
- * writer before the retry is applied twice; see applyEngagementDeltas.
+ * What this does NOT guarantee: an uncertain write that committed and was
+ * then changed by another writer before the retry is applied twice; see
+ * applyEngagementDeltas. An atomic increment alone would not fix that; it
+ * needs durable idempotency/dedup or equivalent reconciliation (out of scope).
  */
 export class WatchReporter {
   readonly tracker: WatchProgressTracker;

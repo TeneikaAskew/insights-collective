@@ -263,9 +263,11 @@ class VideoAnalyticsService {
    *   totals it tried to write. Retrying the same batch with that as
    *   expectTarget skips the write when the row already holds it.
    *
-   * Not covered, because only a server-side atomic increment could cover it:
-   * an uncertain write that DID commit and was then changed again by another
-   * writer before the retry is applied twice. completion_percentage is passed
+   * Not covered: an uncertain write that DID commit and was then changed again
+   * by another writer before the retry is applied twice. A server-side atomic
+   * increment alone would not remove this (a blind retry would still add the
+   * batch again); it needs a durable idempotency/dedup contract or equivalent
+   * reconciliation, which is out of scope here. completion_percentage is passed
    * through only when given (the table auto-completes at >= 90 on UPDATE).
    */
   async applyEngagementDeltas(

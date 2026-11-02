@@ -35,7 +35,10 @@ export interface WatchTrackerOptions {
    * Slack for coarse or jittery provider ticks. Watched time is paid from a
    * budget that only grows with wall time while playing (elapsed x rate); at
    * most this much unspent budget carries between ticks, so it is a one-off
-   * allowance, not a per-event one. A forward jump the budget cannot cover is
+   * allowance, not a per-event one. The budget is kept across play/pause
+   * transitions: starting or stopping playback never refills or resets it,
+   * so the slack is cumulative for the whole tracker, not per play. A
+   * forward jump the budget cannot cover is
    * not credited, and one larger than this slack is counted as a seek.
    */
   jumpToleranceSeconds?: number;
@@ -68,13 +71,15 @@ export class WatchProgressTracker {
   private hasEnded = false;
   private lastTickAt: number | null = null;
   /** Seconds of playback that wall time has paid for and that have not been credited yet. */
-  private budget = 0;
+  private budget: number;
   private counts = { play: 0, pause: 0, seek: 0 };
   private readonly tolerance: number;
   private readonly now: () => number;
 
   constructor(options: WatchTrackerOptions = {}) {
     this.tolerance = options.jumpToleranceSeconds ?? 1.5;
+    // One slack for the tracker's lifetime; only wall time while playing adds to it.
+    this.budget = this.tolerance;
     this.now = options.now ?? (() => Date.now());
   }
 
@@ -99,7 +104,6 @@ export class WatchProgressTracker {
         this.hasEnded = false;
         this.moveTo(event.position, false);
         this.lastTickAt = this.now();
-        this.budget = this.tolerance;
         return;
       case 'pause':
         // Pauses while not playing (before any play, or repeated) earn nothing and count nothing.
@@ -168,7 +172,6 @@ export class WatchProgressTracker {
   private stop() {
     this.isPlaying = false;
     this.lastTickAt = null;
-    this.budget = 0;
   }
 
   /** Add the wall time since the last tick to the budget; unspent budget carries over only up to the slack. */
