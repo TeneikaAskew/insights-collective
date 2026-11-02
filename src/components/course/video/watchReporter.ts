@@ -1,7 +1,12 @@
 // ABOUTME: Batches WatchProgressTracker output into videoAnalyticsService.applyEngagementDeltas writes.
 // ABOUTME: Never marks completion; sends coverage percent only when explicitly enabled.
 
-import type { ApplyDeltasOptions, EngagementDeltas, EngagementTotals } from '@/services/videoAnalyticsService';
+import type {
+  ApplyDeltasOptions,
+  EngagementDeltas,
+  EngagementTotals,
+  KeyedEngagementBatch,
+} from '@/services/videoAnalyticsService';
 import { WatchProgressTracker, type PlaybackEvent, type WatchSnapshot } from './watchProgress';
 
 /** The one service method the reporter needs; the real default is videoAnalyticsService. */
@@ -12,7 +17,17 @@ export interface EngagementSink {
     deltas: EngagementDeltas,
     options?: ApplyDeltasOptions,
   ): Promise<unknown>;
+  /** Keyed apply-once path (PROPOSAL; see docs/lms/wp09-r3-idempotency.md). Required only in 'keyed' mode. */
+  applyEngagementBatch?(userId: string, contentItemId: string, batch: KeyedEngagementBatch): Promise<unknown>;
 }
+
+/** 'cas' is the c5b7caf contract (default). 'keyed' needs the proposed RPC, which is not deployed anywhere. */
+export type PersistenceMode = 'cas' | 'keyed';
+
+const randomSessionId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 export type ReportStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -32,6 +47,14 @@ export interface WatchReporterOptions {
   now?: () => number;
   tracker?: WatchProgressTracker;
   onStatus?: (status: ReportStatus, error?: unknown) => void;
+  /**
+   * Fixed for the reporter's lifetime. A batch first sent keyed is only ever
+   * retried keyed (never re-routed to the CAS path), because its outcome can
+   * only be resolved by the server's (session, seq) marker.
+   */
+  persistence?: PersistenceMode;
+  /** Keyed mode: one id per reporter instance; defaults to crypto.randomUUID(). */
+  makeSessionId?: () => string;
 }
 
 /** Duck-typed EngagementWriteUncertainError: the write may have committed; it carries what it tried to write. */
@@ -44,6 +67,8 @@ function attemptedTargetOf(error: unknown): EngagementTotals | null {
 }
 
 interface Batch {
+  /** Keyed mode: the seq this batch was first sent with; retries reuse it. Null in CAS mode. */
+  seq: number | null;
   deltas: EngagementDeltas;
   /** Set after a write whose outcome is unknown; lets the service skip it if it did commit. */
   expectTarget: EngagementTotals | null;
@@ -75,11 +100,23 @@ export class WatchReporter {
   private flushAgain = false;
   private status: ReportStatus = 'idle';
   private disposed = false;
+  /** Set when the signed-in learner no longer matches userId: nothing is ever sent again. */
+  private retired = false;
+  private lastSeq = 0;
+  readonly persistence: PersistenceMode;
+  /** Keyed mode only; null in CAS mode. */
+  readonly sessionId: string | null;
 
   constructor(options: WatchReporterOptions) {
     this.opts = { flushIntervalMs: 15000, reportCoveragePercent: false, ...options };
     this.tracker = options.tracker ?? new WatchProgressTracker({ now: options.now });
     this.lastFlushAt = this.now();
+    this.persistence = options.persistence ?? 'cas';
+    this.sessionId = this.persistence === 'keyed' ? (options.makeSessionId ?? randomSessionId)() : null;
+  }
+
+  get isRetired(): boolean {
+    return this.retired;
   }
 
   get currentStatus(): ReportStatus {
@@ -123,29 +160,29 @@ export class WatchReporter {
 
   /** True while a frozen retry batch or newer progress is unconfirmed. */
   get hasPending(): boolean {
+    if (this.retired) return false;
     return this.retryBatch !== null || this.pendingUpdate() !== null;
   }
 
   /** Write the frozen retry batch if there is one, else whatever is new. */
   flush(): Promise<void> {
+    if (this.retired) return Promise.resolve();
     if (this.inFlight) {
       this.flushAgain = true;
       return this.inFlight;
     }
+    // Later progress is held until the frozen batch is acknowledged.
     let batch = this.retryBatch;
     if (!batch) {
       const deltas = this.pendingUpdate();
       if (!deltas) return Promise.resolve();
-      batch = { deltas, expectTarget: null };
+      batch = { seq: this.persistence === 'keyed' ? ++this.lastSeq : null, deltas, expectTarget: null };
     }
     const attempt = batch;
 
     this.lastFlushAt = this.now();
     this.setStatus('saving');
-    const { userId, contentItemId, sink } = this.opts;
-    const options: ApplyDeltasOptions = attempt.expectTarget ? { expectTarget: attempt.expectTarget } : {};
-    this.inFlight = sink
-      .applyEngagementDeltas(userId, contentItemId, attempt.deltas, options)
+    this.inFlight = this.send(attempt)
       .then(() => {
         // Only what this write carried is confirmed; fractions and newer progress stay pending.
         this.sent = this.afterBatch(attempt.deltas);
@@ -153,9 +190,17 @@ export class WatchReporter {
         this.setStatus('saved');
       })
       .catch((error) => {
+        if ((error as { name?: string } | null)?.name === 'EngagementIdentityMismatchError') {
+          // Recorded for a learner who is no longer signed in: drop it, never replay it under anyone else.
+          this.retired = true;
+          this.disposed = true;
+          this.retryBatch = null;
+          this.setStatus('error', error);
+          return;
+        }
         const target = attemptedTargetOf(error);
         // An uncertain write may have committed: remember what it tried to write so the retry can be skipped.
-        this.retryBatch = { deltas: attempt.deltas, expectTarget: target ?? attempt.expectTarget };
+        this.retryBatch = { seq: attempt.seq, deltas: attempt.deltas, expectTarget: target ?? attempt.expectTarget };
         this.setStatus('error', error);
       })
       .finally(() => {
@@ -166,6 +211,22 @@ export class WatchReporter {
         }
       });
     return this.inFlight;
+  }
+
+  private send(attempt: Batch): Promise<unknown> {
+    const { userId, contentItemId, sink } = this.opts;
+    if (this.persistence === 'keyed') {
+      if (!sink.applyEngagementBatch) {
+        return Promise.reject(new Error('Keyed persistence is not available; the batch stays queued (never re-routed to CAS)'));
+      }
+      return sink.applyEngagementBatch(userId, contentItemId, {
+        sessionId: this.sessionId as string,
+        seq: attempt.seq as number,
+        deltas: attempt.deltas,
+      });
+    }
+    const options: ApplyDeltasOptions = attempt.expectTarget ? { expectTarget: attempt.expectTarget } : {};
+    return sink.applyEngagementDeltas(userId, contentItemId, attempt.deltas, options);
   }
 
   /** Try again now (the UI's retry button). */

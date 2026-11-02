@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { accessibleVideoName, resolveEmbed } from './embedSource';
 import { adapterFor } from './providerAdapters';
-import { WatchReporter, type EngagementSink, type ReportStatus } from './watchReporter';
+import { WatchReporter, type EngagementSink, type PersistenceMode, type ReportStatus } from './watchReporter';
 
 const FRAME_ALLOW =
   'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
@@ -27,6 +27,8 @@ export interface TrackedVideoPlayerProps {
   flushIntervalMs?: number;
   allowFullscreen?: boolean;
   className?: string;
+  /** 'cas' (default) or 'keyed' (needs the proposed, undeployed RPC; see docs/lms/wp09-r3-idempotency.md). */
+  persistence?: PersistenceMode;
 }
 
 /** Retries are event driven (see WatchReporter); the text says exactly what triggers one. */
@@ -59,6 +61,7 @@ export function TrackedVideoPlayer({
   flushIntervalMs,
   allowFullscreen = true,
   className,
+  persistence = 'cas',
 }: TrackedVideoPlayerProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const reporterRef = useRef<WatchReporter | null>(null);
@@ -99,6 +102,7 @@ export function TrackedVideoPlayer({
       sink,
       reportCoveragePercent,
       flushIntervalMs,
+      persistence,
       onStatus: (next) => {
         if (active) setStatus(next);
       },
@@ -116,7 +120,7 @@ export function TrackedVideoPlayer({
       detach();
       void reporter.dispose();
     };
-  }, [resolved, loaded, tracking, userId, contentItemId, sink, reportCoveragePercent, flushIntervalMs]);
+  }, [resolved, loaded, tracking, userId, contentItemId, sink, reportCoveragePercent, flushIntervalMs, persistence]);
 
   if (!resolved) {
     return (

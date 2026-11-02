@@ -106,6 +106,34 @@ export class EngagementConflictError extends Error {
   }
 }
 
+
+/**
+ * One keyed batch for the PROPOSED apply-once RPC (docs/lms/wp09-r3-idempotency.md).
+ * The same (sessionId, seq) must always carry the same deltas.
+ */
+export interface KeyedEngagementBatch {
+  sessionId: string;
+  seq: number;
+  deltas: EngagementDeltas;
+}
+
+export interface KeyedApplyResult {
+  outcome: 'applied' | 'already-applied';
+  totals: EngagementTotals;
+}
+
+/**
+ * The signed-in learner is not the learner the batch was recorded for (sign-out,
+ * account switch). The batch was NOT sent and must never be sent: replaying it
+ * would credit the new learner.
+ */
+export class EngagementIdentityMismatchError extends Error {
+  constructor() {
+    super('Signed-in user does not match the recorded viewer; batch not sent');
+    this.name = 'EngagementIdentityMismatchError';
+  }
+}
+
 const TOTAL_KEYS = ['watch_time', 'play_count', 'pause_count', 'seek_count'] as const;
 const TOTAL_COLUMNS = 'watch_time, play_count, pause_count, seek_count' as const;
 
@@ -335,6 +363,43 @@ class VideoAnalyticsService {
       // Matched no row: another writer changed it after the read. Re-read and retry.
     }
     throw new EngagementConflictError();
+  }
+
+  /**
+   * PROPOSAL PATH, NOT DEPLOYED: calls apply_video_engagement_batch, which does
+   * not exist in any database yet. Keyed apply-once: a retry of the same
+   * (sessionId, seq) is acknowledged without being applied again, so every
+   * failure here is safe to retry with the identical batch.
+   *
+   * Refuses (without calling) when the signed-in user is not `userId`, and
+   * passes userId as p_expected_user_id so the server can refuse the same race.
+   */
+  async applyEngagementBatch(
+    userId: string,
+    contentItemId: string,
+    batch: KeyedEngagementBatch
+  ): Promise<KeyedApplyResult> {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData?.session?.user?.id !== userId) throw new EngagementIdentityMismatchError();
+
+    const d = batch.deltas;
+    const { data, error } = await (supabase.rpc as any)('apply_video_engagement_batch', {
+      p_expected_user_id: userId,
+      p_content_item_id: contentItemId,
+      p_session_id: batch.sessionId,
+      p_seq: batch.seq,
+      p_watch_delta: wholeDelta(d.watchTimeDelta),
+      p_play_delta: wholeDelta(d.playCountDelta),
+      p_pause_delta: wholeDelta(d.pauseCountDelta),
+      p_seek_delta: wholeDelta(d.seekCountDelta),
+      p_last_position: d.lastPosition === undefined ? null : Math.max(0, Math.floor(d.lastPosition)),
+      p_video_duration: d.videoDuration === undefined ? null : Math.round(d.videoDuration),
+      p_playback_speed: d.playbackSpeed ?? null,
+    });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('apply_video_engagement_batch returned no row');
+    return { outcome: row.applied ? 'applied' : 'already-applied', totals: totalsOf(row) };
   }
 
   /**

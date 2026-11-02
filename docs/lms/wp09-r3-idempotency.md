@@ -2,8 +2,16 @@
 
 Status: **PROPOSAL.** Nothing here is applied, committed as a migration, or wired.
 - Branch: `claude/wp09-r3-idempotency-design`, based on #164 head `c5b7caf`. #164 itself stays frozen at `c5b7caf`.
-- Evidence tier: fake-model only (jsdom/vitest). No DB, RPC, RLS, provider or browser evidence exists for this design.
-- The current #164 qualification (unwired, model tier) is unchanged by this document.
+- Evidence tier: fake only (jsdom/vitest). That covers the in-memory contract model and the real client over a fake RPC (§5). No DB, RPC, RLS, provider or browser evidence exists for this design.
+- The current #164 qualification (unwired, model tier) is unchanged by this document. **#164 stays integration-blocked** until an actual contract is qualified.
+
+**Review status (2026-11-02 23:50Z).** The high-water contract is *conditionally* qualified. It is not #164 integration closure. The conditions, which this document now treats as requirements:
+1. **Immutable same-key payload.** A given `(session_id, seq)` always carries the identical deltas.
+2. **Sequential acknowledgement.** seq k+1 is never sent before seq k is acknowledged.
+3. **Stable learner.** A session belongs to exactly one learner. A batch is never sent under a different signed-in user.
+4. **Retained, transactional markers.** The marker and the increment commit together, and markers are kept for as long as any retry of their session is admissible (see Rollback in §3).
+
+The draft `SECURITY DEFINER` access predicate (R-1, R-3 in §6) is still open and is not runnable as written.
 
 ## 1. The three failures this must close
 
@@ -13,7 +21,7 @@ All three are reproduced as executable fakes in `src/components/course/video/__t
 |---|---|---|---|
 | F1 | A batch whose write committed but whose response was lost is applied twice when another writer changes the row before the retry. | The retry recognises its own commit only by comparing totals (`expectTarget`). Any intervening writer breaks that comparison. | watch_time 13, expected 8 |
 | F2 | A batch that never committed is dropped when another writer happens to bring the row to exactly the totals it attempted. | The same totals comparison gives a false "already applied". | watch_time 5, expected 10 |
-| F3 | Under sustained same-key writes (several reporters, remounts, tabs), a batch can fail to apply at all. | Client compare-and-set gives up after 3 rounds (`EngagementConflictError`). This is liveness, not corruption. | `'error'`, expected `'saved'` |
+| F3 | Under sustained same-key writes (several reporters, remounts, tabs), a batch can fail to apply at all. This is shown only as a fake liveness case: one preceding writer before each CAS update. | Client compare-and-set gives up after 3 rounds (`EngagementConflictError`). This is liveness, not corruption. | `'error'`, expected `'saved'` |
 
 The common cause is that the server keeps no durable record of *which batch* it applied. Totals cannot identify a batch, and nothing short of a durable per-batch marker can.
 
@@ -36,7 +44,13 @@ The common cause is that the server keeps no durable record of *which batch* it 
 **Why this closes each failure exactly.** Given the client guarantee above, `seq <= last_seq` holds exactly when "this session's batch seq already committed".
 - **F1:** the retry carries a seq that is `<= last_seq`, so it is skipped regardless of what other sessions wrote.
 - **F2:** an uncommitted seq is `> last_seq`, so it is applied regardless of the totals.
-- **F3:** the increment happens inside one statement under a row lock. There is no client compare-and-set to lose.
+- **F3 (design claim, not proven).** There is no client compare-and-set to lose. In SQL the waits would be:
+  - **Same session:** two calls wait on the session row lock (`select ... for update` on `video_engagement_sessions`). They only overlap if condition 2 is broken.
+  - **Different sessions on the same learner and video:** they do not share a session row. They serialise on the `video_analytics` row lock taken by `insert ... on conflict do update`, which waits instead of failing.
+  - **Lock order:** every call locks the session row first, then the analytics row, so two calls of this function cannot deadlock each other.
+  - **Other writers:** the legacy `updateEngagement` path still does read-then-write on the analytics row. It can still lose its own increments, as it can today.
+  - **What the fake shows, and what it does not:** the F3 model test is one preceding writer plus indivisible JavaScript. It does **not** demonstrate SQL liveness under sustained contention, lock timeouts or statement timeouts. Only the isolated SQL tier (§5) can.
+- **Not covered: restart and outbox durability.** Unacknowledged batches live in memory. A reload, crash or closed tab loses that progress. It never duplicates it. There is no durable outbox, and adding one would need its own design.
 
 **Why a high-water mark instead of a row per batch.** Ordering per session is guaranteed, so one integer per session is a complete dedup record. Storage is one row per viewing session, instead of one row per 15 s batch.
 
@@ -71,6 +85,7 @@ create policy "own sessions readable" on public.video_engagement_sessions
 -- No insert/update/delete policies: rows are written only inside the RPC below.
 
 create or replace function public.apply_video_engagement_batch(
+  p_expected_user_id uuid,        -- client's recorded learner; refused unless = auth.uid() (condition 3)
   p_content_item_id uuid,
   p_session_id      uuid,
   p_seq             integer,
@@ -92,6 +107,11 @@ declare
   v_last integer;
 begin
   if v_user is null then raise exception 'not authenticated' using errcode = '28000'; end if;
+  if p_expected_user_id is distinct from v_user then
+    raise exception 'expected user mismatch' using errcode = '42501';
+  end if;
+  -- OPEN (R-1/R-3): the content-visibility predicate for a SECURITY DEFINER body is not written.
+  -- This draft is NOT runnable as an access-controlled function until it is.
   if p_seq < 1 or least(p_watch_delta, p_play_delta, p_pause_delta, p_seek_delta) < 0 then
     raise exception 'invalid batch' using errcode = '22023';
   end if;
@@ -132,33 +152,40 @@ begin
   select true, u.watch_time, u.play_count, u.pause_count, u.seek_count from upserted u;
 end $$;
 
-revoke all on function public.apply_video_engagement_batch(uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) from public, anon;
-grant execute on function public.apply_video_engagement_batch(uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) to authenticated;
+revoke all on function public.apply_video_engagement_batch(uuid, uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) from public, anon;
+grant execute on function public.apply_video_engagement_batch(uuid, uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) to authenticated;
 ```
 
 **Existing objects this touches**
 - `public.video_analytics`, as written by the RPC. Its schema is **unchanged**. It already has `UNIQUE(user_id, content_item_id)`, which the upsert relies on.
 - The trigger `trigger_update_video_analytics_timestamp` calls `update_video_analytics_timestamp()`. It is BEFORE UPDATE only.
-  - It still fires on the `do update` path and sets `updated_at` and `last_watched_at`.
-  - The RPC never sets `completion_percentage`, so the trigger cannot newly auto-complete. Completion policy stays undecided, as in #164.
-  - The insert path does not fire it. This is the same as today's `getOrCreateAnalytics`.
+  - It fires on **every** UPDATE of the row, including the RPC's `do update` path. It sets `updated_at` and `last_watched_at`.
+  - **Leaving out `completion_percentage` does NOT prove the RPC never completes a video.** The trigger's rule is: if the row's `completion_percentage >= 90` and `completed = false`, set `completed = true`. It applies to the row *as it stands*, whatever the UPDATE changed. So:
+    - **Low-percentage row** (below 90, the normal case): the RPC leaves `completion_percentage` unchanged, so the RPC update cannot complete it.
+    - **Edge-state row** (already at least 90 and still `completed = false`, from a legacy or other writer): **any** update completes it, whether from this RPC, `updateEngagement`, or anything else. That is existing behaviour, and the RPC inherits it unchanged.
+  - The trigger is **not changed** by this proposal. Completion policy stays undecided, as in #164.
+  - The SQL tier must test both the low-percentage and edge-state cases (§5).
+  - The insert path does not fire the trigger. This is the same as today's `getOrCreateAnalytics`.
 - Existing `video_analytics` policies (`20251006_video_analytics_and_discussions.sql:262-285`) are **not changed**.
 - `getOrCreateAnalytics`, `updateEngagement`, `get_student_video_progress` and every reader are untouched.
 
-**Rollback**
-- Drop the function, then drop `video_engagement_sessions`.
-- `video_analytics` keeps the counts already applied. They are correct, because they were applied once each.
-- The client falls back to `applyEngagementDeltas`, which still exists (see §4).
+**Rollback (retains the identity and marker guarantee, or blocks)**
+- **Never drop markers and then send unresolved keyed batches down the CAS path.** A batch first sent keyed has an outcome that only its `(session_id, seq)` marker can resolve. Routing it through CAS (`expectTarget` totals) would bring back F1 and F2 for exactly the batches whose outcome is unknown.
+  - The client enforces this: `persistence` is fixed per reporter, and a keyed reporter whose RPC is unavailable keeps the batch frozen and shows an error. It never re-routes the batch (tested in §5).
+- **Disabling** means stopping *new* sessions from using keyed mode, by client config. Reporters that already exist keep retrying keyed. If the RPC is unavailable, they **block**: the batch stays queued and the status is error.
+- **Removing** the function or the table is allowed only after the retry window is closed. That means no live keyed session can still retry, for example after a published client version that refuses keyed mode, plus the longest page lifetime the team accepts. Until then, the markers stay.
+- **No pruning of `video_engagement_sessions` while any retry of its session is admissible.** Any future retention rule needs the same window argument.
+- `video_analytics` keeps the counts already applied. They are correct, because each was applied once.
 - No data rewrite is needed in either direction.
 
-## 4. Client changes (owned files only; not on this branch yet)
+## 4. Client changes (owned files only; implemented on this branch behind `persistence: 'keyed'`, default `'cas'`)
 
 | File | Change |
 |---|---|
-| `src/services/videoAnalyticsService.ts` | Add `applyEngagementBatch(contentItemId, {sessionId, seq, deltas})`, which calls `supabase.rpc('apply_video_engagement_batch', ...)` and maps the result to `{outcome: 'applied' \| 'already-applied', totals}`. Any error is a plain retryable failure, because retrying the same key is now safe. Keep `applyEngagementDeltas` unchanged as the pre-migration path. |
-| `src/components/course/video/watchReporter.ts` | Add a `sessionId` (injectable generator, default `crypto.randomUUID`) and a `seq` counter. `Batch` gains `seq`. A retry reuses it; a new batch increments it. The sink becomes `applyEngagementBatch`, behind an option that defaults to the current CAS sink until the migration is approved and applied. `expectTarget` handling is removed on the keyed path. |
-| `src/components/course/video/TrackedVideoPlayer.tsx` | No behaviour change. It passes through an optional sink mode for tests. |
-| `src/components/course/video/__tests__/*` | Turn the `it.fails` current-contract cases into real-client tests over an RPC fake. |
+| `src/services/videoAnalyticsService.ts` | Adds `applyEngagementBatch(userId, contentItemId, {sessionId, seq, deltas})`. It first checks the local auth session: if the signed-in user is not `userId`, it throws `EngagementIdentityMismatchError` **without calling**. It then calls `supabase.rpc('apply_video_engagement_batch', {p_expected_user_id: userId, ...})` and maps the result to `{outcome: 'applied' \| 'already-applied', totals}`. It never sends `completion_percentage`. `applyEngagementDeltas` is unchanged. |
+| `src/components/course/video/watchReporter.ts` | `persistence: 'cas' \| 'keyed'` is fixed per reporter. Keyed mode adds `sessionId` (injectable, default `crypto.randomUUID`) and a `seq`. A frozen batch keeps its seq and deltas, and later progress waits for its acknowledgement. An identity mismatch **retires** the reporter: the batch is dropped, nothing is ever sent again, and `hasPending` is false. Keyed mode never falls back to CAS. |
+| `src/components/course/video/TrackedVideoPlayer.tsx` | Adds an optional `persistence` prop (default `'cas'`), passed to the reporter. There is no other behaviour change. |
+| `src/components/course/video/__tests__/keyedPersistence.test.tsx` | The real reporter, service and player over the RPC fake (§5). |
 
 Not touched: LessonViewer, CourseLearn, the unified canvas editor, the sanitizer, workflows, `e2e/support` and `scripts/e2e`. Wiring stays in the PR134 lane.
 
@@ -169,7 +196,21 @@ Not touched: LessonViewer, CourseLearn, the unified canvas editor, the sanitizer
 - 5 tests pass against `ProposedBatchLedgerModel` with `KeyedWriterModel`, an in-memory model of §2 (`__tests__/support/`): the same F1, F2 and F3, plus remount-as-new-session and same-session retry-ack.
 - **The model is not the SQL.** It proves the contract is sufficient, not that the proposed function implements it.
 
-**Next tier, once the real client lands (still fake).** Replace the model writer with the real `WatchReporter` and service over an RPC fake that implements §2. The three current `it.fails` flip to `it`, and a mutation that drops `seq` from the retry must re-open F1.
+**Real-client fake-RPC tier (this branch, runnable now).** File: `keyedPersistence.test.tsx`. It runs the real `WatchReporter`, the real `videoAnalyticsService.applyEngagementBatch` and the real `TrackedVideoPlayer` over `__tests__/support/fakeKeyedRpc.ts`, which puts the §2 model behind `supabase.rpc` and a switchable `auth.getSession`. The 8 controls:
+1. An unknown-commit retry resends the identical session, seq and payload, and is applied once, checked on all four counters.
+2. Later progress is held until the frozen batch is acknowledged, and is then sent as the next seq.
+3. F1 is checked on all four counters, with exact call identity across the retry.
+4. F2 is checked on all four counters; the retry reuses seq 1.
+5. A real player remount gets a new session, so seq 1 is not treated as a duplicate.
+6. Two tabs get isolated sessions.
+7. After an account switch, a retired reporter replays nothing under the new learner: zero calls, and no rows for either learner.
+8. Keyed mode never re-routes to CAS.
+
+Mutations, receipts in the export:
+- Changing the seq on retry re-opens F1.
+- Removing the identity check makes the switched-account control fail.
+
+The `it.fails` cases in `r3IdempotencyModel.test.ts` stay as they are, because they document the **CAS** contract, which is still the default.
 
 **Isolated SQL/API tier (needs explicit scoped approval; run through the PR134 lane's qualified isolated runner, never production).**
 1. Apply the proposed migration to the isolated stack only.
@@ -177,7 +218,11 @@ Not touched: LessonViewer, CourseLearn, the unified canvas editor, the sanitizer
    - call seq 1 twice and assert one increment and `applied = false` on the second;
    - call seq 2 with a lost response (abort after commit) and retry, and assert one increment;
    - run two sessions concurrently with 50 batches each and assert exact sums with no errors;
-   - assert the BEFORE UPDATE trigger still sets `last_watched_at` and does not set `completed`.
+   - assert the BEFORE UPDATE trigger still sets `last_watched_at`;
+   - assert a low-percentage row is not completed by the RPC;
+   - assert an edge-state row (`completion_percentage >= 90`, `completed = false`) **is** completed by the RPC's update, exactly as by any other update. This preserves the existing semantics; it is not a new rule;
+   - call with `p_expected_user_id` set to another user and assert it is refused;
+   - run sustained concurrent sessions with a statement timeout set, and record waits and timeouts. This is the actual F3 liveness evidence the fake cannot give.
 3. As a second learner, check that they cannot read or advance the first learner's session rows, and cannot write for another `user_id`.
 4. As anon, check that execute is denied.
 5. Roll back: drop the objects, then confirm the `video_analytics` rows and counts are unchanged.
