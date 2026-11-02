@@ -254,6 +254,73 @@ try {
   { const t = fakeTarget(); const rec = createRecorder(t); rec.stop(); await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 201); ok('OBS requests after stop() are not recorded', rec.calls.length === 0); }
   { const t = fakeTarget(); const rec = createRecorder(t); const r = start(t, 'POST', `${O}/rest/v1/enrollments`); const before = settled(rec.calls, [SPEC], O); await finish(t, r, 201); ok('OBS settled() waits for the terminal event', before === false && settled(rec.calls, [SPEC], O) === true); }
 
+  // ---- J0b course-read oracle (run 41486270908): OLD 69e5f4b one-reader oracle vs NEW three-reader + declared sibling ----
+  stage = "J0b course-read oracle (run 41486270908): OLD 69e5f4b vs NEW";
+  {
+    const oldObsF = path.join(tmp, 'observe-core-69e5f4b.mjs');
+    fs.writeFileSync(oldObsF, execFileSync('git', ['show', '69e5f4b64329d405661c2d95ec19b9c6f310ec0e:e2e/gradebook-roles/journey/observe-core.mjs'], { cwd: repo, encoding: 'utf8' }));
+    const oldObs = await import(oldObsF);
+    const DRAFT = '11111111-1111-4111-8111-111111111111', CTRL = '22222222-2222-4222-8222-222222222222';
+    const SEL = 'select=*%2Cinstructor%3Aprofiles%21instructor_id%28id%2Cfirst_name%2Clast_name%2Cavatar_url%29';
+    const draftUrl = `${O}/rest/v1/courses?${SEL}&id=eq.${DRAFT}`;
+    const pubUrl = `${O}/rest/v1/courses?select=id%2Ctitle%2Cdescription&published=eq.true&order=created_at.desc`;
+    const OLD_WANT = [{ spec: { method: 'GET', path: '/rest/v1/courses', query: { id: `eq.${DRAFT}` } }, count: 1, status: [406] }];
+    const NEW_WANT = [{ spec: { method: 'GET', path: '/rest/v1/courses', query: { id: `eq.${DRAFT}` } }, count: 3, status: [406] },
+      { spec: { method: 'GET', path: '/rest/v1/courses', query: { published: 'eq.true' } }, count: 1, status: [200] }];
+    // The source-traced detail-route traffic: CourseDetail, CourseSidebar, ProfileMenu (3 identical draft reads, 406 each) and
+    // SiteSearch's published list (200). Order interleaved as mounts would.
+    const traffic = (o = {}) => async (t) => {
+      const rs = [];
+      const n = o.draftReads ?? 3;
+      for (let i = 0; i < n; i++) rs.push([start(t, 'GET', o.draftUrl ?? draftUrl), (o.draftStatus ?? [])[i] ?? 406]);
+      if (o.pub !== false) rs.push([start(t, 'GET', o.pubUrl ?? pubUrl), o.pubStatus ?? 200]);
+      for (const u of o.extra ?? []) rs.push([start(t, 'GET', u), 200]);
+      for (const [r, st] of rs) await finish(t, r, st);
+    };
+    const run = async (core, want, o) => { const t = fakeTarget(); const rec = core.createRecorder(t); await traffic(o)(t); rec.stop(); return core.evaluate(rec.calls, want, { origin: O }).failures; };
+    const oldF = await run(oldObs, OLD_WANT, {});
+    ok('J0B OLD 69e5f4b oracle on the traced traffic reproduces the run receipt exactly: NEAR_MISS GET courses + COUNT 3, no STATUS',
+      JSON.stringify(oldF) === JSON.stringify(['OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_COUNT GET /rest/v1/courses 3']));
+    ok('J0B NEW core with the OLD one-reader spec still fails the same way (the core change alone fixes nothing)',
+      JSON.stringify(await run({ createRecorder, evaluate }, OLD_WANT, {})) === JSON.stringify(oldF));
+    ok('J0B OLD core with the NEW spec: the declared published read is still a near miss of the draft read (core change is needed)',
+      JSON.stringify(await run(oldObs, NEW_WANT, {})) === JSON.stringify(['OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_NEAR_MISS GET /rest/v1/courses']));
+    const NEW = (o) => run({ createRecorder, evaluate }, NEW_WANT, o);
+    ok('J0B NEW core + NEW spec on the traced traffic: pass', (await NEW({})).length === 0);
+    const neg = async (name, o, want) => { const f = await NEW(o); ok(`J0B NEW negative: ${name}`, JSON.stringify(f) === JSON.stringify(want)); };
+    await neg('2 draft reads (a reader missing) is OBS_COUNT 2', { draftReads: 2 }, ['OBS_COUNT GET /rest/v1/courses 2']);
+    await neg('4 draft reads (an extra reader or a retry) is OBS_COUNT 4', { draftReads: 4 }, ['OBS_COUNT GET /rest/v1/courses 4']);
+    await neg('one draft read answered 200 (draft visible) is OBS_STATUS 200', { draftStatus: [406, 200, 406] }, ['OBS_STATUS GET /rest/v1/courses 200']);
+    await neg('published list absent is OBS_COUNT 0 on the sibling', { pub: false }, ['OBS_COUNT GET /rest/v1/courses 0']);
+    await neg('published list answered 500 is OBS_STATUS on the sibling', { pubStatus: 500 }, ['OBS_STATUS GET /rest/v1/courses 500']);
+    await neg('an undeclared courses read (control id) is still OBS_NEAR_MISS on BOTH expectations', { extra: [`${O}/rest/v1/courses?${SEL}&id=eq.${CTRL}`] }, ['OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_NEAR_MISS GET /rest/v1/courses']);
+    await neg('a published read with an extra filter key is a near miss of both, and the sibling count drops to 0',
+      { pubUrl: `${O}/rest/v1/courses?select=id&published=eq.true&id=eq.${DRAFT}` }, ['OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_COUNT GET /rest/v1/courses 0']);
+    await neg('draft reads with an extra filter key (e.g. published=eq.false) are near misses, count 0',
+      { draftUrl: `${O}/rest/v1/courses?${SEL}&id=eq.${DRAFT}&published=eq.false` }, ['OBS_NEAR_MISS GET /rest/v1/courses', 'OBS_COUNT GET /rest/v1/courses 0', 'OBS_NEAR_MISS GET /rest/v1/courses']);
+    await neg('a draft read on a foreign origin is not counted (OBS_COUNT 2)', { extra: [`http://127.0.0.1:9999/rest/v1/courses?${SEL}&id=eq.${DRAFT}`], draftReads: 2 }, ['OBS_COUNT GET /rest/v1/courses 2']);
+    // The traced contract, pinned to the checked-out app source: the course readers on /courses/:id and the published list.
+    {
+      const src = (f) => fs.readFileSync(path.join(repo, f), 'utf8');
+      const cd = src('src/pages/CourseDetail.tsx'), ucd = src('src/hooks/useCourseData.ts'), sb = src('src/components/course/CourseSidebar.tsx');
+      const pm = src('src/components/layout/ProfileMenu.tsx'), nav = src('src/components/layout/Navbar.tsx'), lay = src('src/components/course/CourseLayout.tsx');
+      const ss = src('src/components/search/SiteSearch.tsx'), upc = src('src/hooks/usePublishedCourses.ts');
+      const courseReads = (t) => (t.match(/\.from\('courses'\)/g) || []).length;
+      ok('J0B source pins: CourseDetail reads the course once (.eq id, .single); useCourseData reads it once (.eq id, .single); CourseSidebar and ProfileMenu each call useCourseData once; CourseLayout renders Navbar and CourseSidebar once; Navbar renders ProfileMenu and SiteSearch once; SiteSearch reads only usePublishedCourses (published=eq.true)',
+        courseReads(cd) === 1 && /from\('courses'\)[\s\S]{0,400}?\.eq\('id', courseId\)\s*\.single\(\)/.test(cd)
+        && courseReads(ucd) === 1 && /from\('courses'\)[\s\S]{0,300}?\.eq\('id', courseId\)\s*\.single\(\)/.test(ucd)
+        && (sb.match(/useCourseData\(/g) || []).length === 1 && courseReads(sb) === 0 && (pm.match(/useCourseData\(/g) || []).length === 1 && courseReads(pm) === 0
+        && (lay.match(/<CourseSidebar \/>/g) || []).length === 1 && (lay.match(/<Navbar \/>/g) || []).length === 1
+        && (nav.match(/<ProfileMenu \/>/g) || []).length === 1 && (nav.match(/<SiteSearch \/>/g) || []).length === 1
+        && courseReads(ss) === 0 && (ss.match(/usePublishedCourses\(\)/g) || []).length === 1
+        && courseReads(upc) === 1 && /\.eq\('published', true\)/.test(upc));
+    }
+    // A sibling declared in the set exempts ONLY its exact matches; a single-expectation set exempts nothing (unchanged).
+    const t = fakeTarget(); const rec = createRecorder(t); await traffic({})(t); rec.stop();
+    ok('J0B NEW core: with only the published expectation, the draft reads are near misses (no blanket exemption)',
+      JSON.stringify(evaluate(rec.calls, [NEW_WANT[1]], { origin: O }).failures) === JSON.stringify(['OBS_NEAR_MISS GET /rest/v1/courses']));
+  }
+
   // ---- Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses ----
   stage = "Inherited-key controls (review r4 P2): OLD fcc606f accepted, NEW refuses";
   const fccObsF = path.join(tmp, 'observe-core-fcc606f.mjs');
@@ -547,17 +614,19 @@ try {
       && run4[9] === 'CASE J4b status=NORESULT stage=NONE where=NONE line=0 cat=NONE obs=NONE errors=0 all=NONE attempts=0' && run4[12] === 'CASES known=8 unknown=2' && !run4.join('\n').includes('MARKER'));
     ok('CASE a journey code is staged only when it is a listed code; a code-shaped unlisted value stages JOURNEY_CODE',
       sum([T('J0a', 'failed', [{ message: 'JourneyGateError: JOURNEY_SETUP_E_BINDING' }]), T('J0b', 'failed', [{ message: 'Error: JOURNEY_E_MARKER_SECRET' }])]).slice(0, 2).join('|') === 'CASE J0a status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_SETUP_E_BINDING obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_SETUP_E_BINDING attempts=1|CASE J0b status=FAILED stage=UNKNOWN where=NONE line=0 cat=JOURNEY_CODE obs=NONE errors=1 all=UNKNOWN.NONE.0.JOURNEY_CODE attempts=1');
-    // CAPTURE and body-then-teardown against the REAL J0 spec (root = this checkout): line 36 is J0b's shot() call, line 24 a body assertion.
+    // CAPTURE and body-then-teardown against the REAL J0 spec (root = this checkout): J0B_SHOT is J0b's shot() call, line 24 a body assertion.
     const RR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..');
     const sumR = (specs) => playwrightSummary(JSON.stringify({ stats: { expected: 0, unexpected: 2, flaky: 0, skipped: 10 }, errors: [], suites: [{ title: 'j0', specs }] }), '1', '', RR).split('\n').slice(2);
     const at = (f, line) => ({ file: path.join(RR, f), line, column: 3 });
     const J0S = 'e2e/gradebook-roles/journey/j0-learner-before-publish.spec.ts';
+    // J0b's shot() call line, read from the checked-out spec (it moves when the spec body above it changes).
+    const J0B_SHOT = fs.readFileSync(path.join(RR, J0S), 'utf8').split('\n').findIndex((l) => /await shot\(page, info, 'J0b-/.test(l)) + 1;
     const run5 = sumR([T('J0a', 'failed', [{ message: 'Error: SHOT_E_MARKER', location: at('e2e/gradebook-roles/journey/shot-core.mjs', 40) }]),
-      T('J0b', 'failed', [{ message: 'Error: page.screenshot: Timeout 5000ms exceeded. MARKER', location: at(J0S, 36) }, { message: 'Error: x\n\nexpect(received).toEqual(expected) // MARKER', location: at('e2e/gradebook-roles/guarded-test.ts', 11) }]),
+      T('J0b', 'failed', [{ message: 'Error: page.screenshot: Timeout 5000ms exceeded. MARKER', location: at(J0S, J0B_SHOT) }, { message: 'Error: x\n\nexpect(received).toEqual(expected) // MARKER', location: at('e2e/gradebook-roles/guarded-test.ts', 11) }]),
       T('J1', 'failed', [vis, vis, vis, vis, vis].map((e) => ({ ...e, location: at(J0S, 24) })))]);
     ok('CASE capture is named whether the error points at shot-core or at the spec line that calls shot(); a later teardown error is listed too; >4 errors marked MORE; nothing echoed',
       run5[0] === 'CASE J0a status=FAILED stage=CAPTURE where=SHOT line=40 cat=JOURNEY_CODE obs=NONE errors=1 all=CAPTURE.SHOT.40.JOURNEY_CODE attempts=1'
-      && run5[1] === 'CASE J0b status=FAILED stage=CAPTURE where=SPEC line=36 cat=ACTION_TIMEOUT obs=NONE errors=2 all=CAPTURE.SPEC.36.ACTION_TIMEOUT,TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL attempts=1'
+      && run5[1] === `CASE J0b status=FAILED stage=CAPTURE where=SPEC line=${J0B_SHOT} cat=ACTION_TIMEOUT obs=NONE errors=2 all=CAPTURE.SPEC.${J0B_SHOT}.ACTION_TIMEOUT,TEARDOWN.FIXTURE_ORIGIN.11.EXPECT_TO_EQUAL attempts=1`
       && run5[2] === `CASE J1 status=FAILED stage=BODY where=SPEC line=24 cat=EXPECT_TO_BE_VISIBLE obs=NONE errors=5 all=${Array(4).fill('BODY.SPEC.24.EXPECT_TO_BE_VISIBLE').join(',')},MORE attempts=1`
       && !run5.join('\n').includes('MARKER'));
     const run7 = sumR([T('J0a', 'failed', [{ message: 'Error: page.screenshot: Timeout 9ms exceeded.', location: at('e2e/gradebook-roles/journey/observe.ts', 120) }]),

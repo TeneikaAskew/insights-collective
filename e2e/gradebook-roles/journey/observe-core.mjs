@@ -57,18 +57,22 @@ export function settled(calls, want, origin) {
 }
 
 /**
- * Verdict for one action. Codes: OBS_NEAR_MISS (same origin+method+path, other query), OBS_COUNT (started count differs),
+ * Verdict for one action. Codes: OBS_NEAR_MISS (same origin+method+path, other query, and not an exact match of another
+ * expectation in the same set), OBS_COUNT (started count differs),
  * OBS_PENDING (never reached a terminal event), OBS_FAILED (requestfailed), OBS_STATUS (terminal status not allowed),
  * OBS_ORDER (with ordered: the first exact start of each expectation is not in the declared order).
  * @param {Call[]} calls @param {Expect[]} want @param {{ origin: string, ordered?: boolean }} opts
  */
 export function evaluate(calls, want, opts) {
   const failures = [];
+  // A call that exactly matches ANOTHER expectation declared in the same set is that expectation's call (counted, status-
+  // checked and pending-checked there), not a near miss of this one. Any other same-origin/method/path call still is.
+  const declaredElsewhere = (c, self) => want.some((o) => o !== self && isCandidate(c, o.spec, opts.origin) && queryExact(c, o.spec));
   const matched = want.map((w) => {
     const label = `${w.spec.method} ${w.spec.path}`;
     const cands = calls.filter((c) => isCandidate(c, w.spec, opts.origin));
     const exact = cands.filter((c) => queryExact(c, w.spec));
-    if (cands.length !== exact.length) failures.push(`OBS_NEAR_MISS ${label}`);
+    if (cands.some((c) => !queryExact(c, w.spec) && !declaredElsewhere(c, w))) failures.push(`OBS_NEAR_MISS ${label}`);
     if (exact.length !== (w.count ?? 1)) failures.push(`OBS_COUNT ${label} ${exact.length}`);
     for (const c of exact) {
       if (!c.done) failures.push(`OBS_PENDING ${label}`);

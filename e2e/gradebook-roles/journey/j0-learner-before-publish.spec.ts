@@ -6,7 +6,7 @@
 import { test, expect } from '../guarded-test';
 import { waitForPageLoad } from '../../fixtures/page-helpers';
 import { J, route } from './ids';
-import { expectCalls, recordCalls, shot } from './observe';
+import { expectCallSet, recordCalls, shot } from './observe';
 
 // Independent read-only checks: one failing does not skip the other.
 
@@ -25,10 +25,18 @@ test('J0b detail: the control course renders; the draft course read returns zero
 
   const rec = recordCalls(page);
   try {
-    await expectCalls(page, { method: 'GET', path: '/rest/v1/courses', query: { id: `eq.${J.course}` } }, async () => {
+    // The detail route mounts THREE independent readers of the course row, each the same request (select course + instructor,
+    // id=eq.<course>, .single(), so zero visible rows is HTTP 406): CourseDetail.fetchCourseData, CourseSidebar
+    // (CourseLayout) via useCourseData, and ProfileMenu (Navbar) via useCourseData. Each mounts once, so exactly 3, each 406.
+    // The Navbar's SiteSearch also reads the published-course list (published=eq.true): declared here, so that read is
+    // counted and status-checked as itself instead of being an undeclared near miss of the draft read.
+    await expectCallSet(page, [
+      { spec: { method: 'GET', path: '/rest/v1/courses', query: { id: `eq.${J.course}` } }, count: 3, status: [406] },
+      { spec: { method: 'GET', path: '/rest/v1/courses', query: { published: 'eq.true' } }, count: 1, status: [200] },
+    ], async () => {
       await page.goto(route.detail);
       await waitForPageLoad(page);
-    }, { count: 1, status: [406] });
+    });
     await expect(page.getByText('Failed to load course')).toBeVisible();
     await expect(page.getByRole('button', { name: /Enroll for free/ })).toHaveCount(0);
     expect(rec.candidates({ method: 'POST', path: '/rest/v1/enrollments' }), 'no enrollment request started').toHaveLength(0);
