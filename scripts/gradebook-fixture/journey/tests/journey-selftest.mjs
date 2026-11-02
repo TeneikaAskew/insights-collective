@@ -54,24 +54,32 @@ try {
   ok('G1 0644 state file refused', code(() => readPrivateJson(good, 'loose.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
   // CodeQL js/file-system-race (c18dd51 private-dir.mjs:63, run-summary.mjs:77): check and read now share ONE descriptor.
   { const real = fs.fstatSync, realL = fs.lstatSync;
+    // Fixture files are created 0600 on one handle (exclusive, no follow); the swap is a rename over the checked path.
+    const put600 = (file, body) => { const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+      try { fs.fchmodSync(fd, 0o600); fs.writeSync(fd, body); } finally { fs.closeSync(fd); } };
     const swapAfter = (file, key, body) => { fs[key] = function (...a) { const r = (key === 'fstatSync' ? real : realL).apply(fs, a); fs[key] = key === 'fstatSync' ? real : realL;
-      const t = `${file}.swap`; fs.writeFileSync(t, body, { mode: 0o600 }); fs.chmodSync(t, 0o600); fs.renameSync(t, file); return r; }; };
-    const sp = path.join(good, 'swap.json'); fs.writeFileSync(sp, '{"checked":true}', { mode: 0o600 }); fs.chmodSync(sp, 0o600);
+      const t = `${file}.swap`; put600(t, body); fs.renameSync(t, file); return r; }; };
+    const sp = path.join(good, 'swap.json'); put600(sp, '{"checked":true}');
     swapAfter(sp, 'fstatSync', '{"swapped":true}');
     let got; try { got = JSON.stringify(readPrivateJson(good, 'swap.json')); } finally { fs.fstatSync = real; }
     ok('RACE readPrivateJson: the file is replaced right after the check; the bytes returned are the checked file', got === '{"checked":true}');
-    // Causal reference: the c18dd51 shape (lstat the path, then read the path) returns the replacement under the same swap.
-    const oldRead = (p) => { const st = fs.lstatSync(p); if (st.isSymbolicLink() || !st.isFile() || (st.mode & 0o777) !== 0o600) throw new Error('mode'); return JSON.parse(fs.readFileSync(p, 'utf8')); };
-    fs.writeFileSync(sp, '{"checked":true}', { mode: 0o600 }); swapAfter(sp, 'lstatSync', '{"swapped":true}');
-    let old; try { old = JSON.stringify(oldRead(sp)); } finally { fs.lstatSync = realL; }
-    ok('RACE causal: the c18dd51 lstat-then-read shape returns the swapped file', old === '{"swapped":true}');
+    // Causal reference: the exact c18dd51 private-dir.mjs bytes (git blob 9aee287e), loaded from the object store into a
+    // private temp dir, return the replacement under the same swap. No copy of the racy shape lives in this tree; without
+    // the blob (a shallow clone) the reference is skipped and not counted.
+    let oldMod = null;
+    try { const src = execFileSync('git', ['cat-file', 'blob', '9aee287e0cac194a8872da1fc6c93feb9943082a'], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      const od = fs.mkdtempSync(path.join(tmp, 'c18-')); put600(path.join(od, 'private-dir.mjs'), src); oldMod = await import(path.join(od, 'private-dir.mjs')); } catch { oldMod = null; }
+    if (oldMod) { fs.rmSync(sp); put600(sp, '{"checked":true}'); swapAfter(sp, 'lstatSync', '{"swapped":true}');
+      let old; try { old = JSON.stringify(oldMod.readPrivateJson(good, 'swap.json')); } finally { fs.lstatSync = realL; }
+      ok('RACE causal: the c18dd51 readPrivateJson bytes return the swapped file under the same swap', old === '{"swapped":true}'); }
+    else console.log('skip RACE causal (c18dd51 blob 9aee287e not in this clone; not counted)');
     fs.symlinkSync(sp, path.join(good, 'link.json'));
     ok('RACE readPrivateJson: a symlink to a valid 0600 file is refused (O_NOFOLLOW)', code(() => readPrivateJson(good, 'link.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
     execFileSync('mkfifo', [path.join(good, 'fifo.json')]); fs.chmodSync(path.join(good, 'fifo.json'), 0o600);
     ok('RACE readPrivateJson: a FIFO is refused without blocking', code(() => readPrivateJson(good, 'fifo.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
     fs.mkdirSync(path.join(good, 'dir.json'), { mode: 0o700 });
     ok('RACE readPrivateJson: a directory is refused', code(() => readPrivateJson(good, 'dir.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
-    const rp = path.join(good, 'raw.txt'); fs.writeFileSync(rp, 'checked raw\n');
+    const rp = path.join(good, 'raw.txt'); put600(rp, 'checked raw\n');
     swapAfter(rp, 'fstatSync', 'swapped raw\n');
     let raw; try { raw = readRaw(rp); } finally { fs.fstatSync = real; }
     ok('RACE readRaw: the file is replaced right after the check; the text returned is the checked file', raw === 'checked raw\n');
