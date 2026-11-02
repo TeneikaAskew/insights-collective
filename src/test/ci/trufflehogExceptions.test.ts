@@ -14,7 +14,10 @@ const ROOT = path.resolve(__dirname, '../../..');
 const EX_TEXT = fs.readFileSync(path.join(ROOT, 'scripts/ci/trufflehog-exceptions.json'), 'utf8');
 const EX = loadExceptions(EX_TEXT);
 const BENIGN = { commit: 'b2aadfcd1bf001a6afbaa2544de465fa7dd23f3f', file: 'scripts/local-stack/t09/api-http.mjs', line: 7 };
-// Test-only approval record: proves the mechanism; it is NOT approval of the proposal (the real file stays PENDING).
+// The committed entry carries the actual approval record (user 2026-11-02T12:08:50Z, relayed by T 13:01:47Z).
+// PENDING_FIXTURE keeps the inactive state under test; APPROVED_FIXTURE is a test-only record for the mechanism.
+const PENDING_FIXTURE = { ...JSON.parse(EX_TEXT), exceptions: [{ ...JSON.parse(EX_TEXT).exceptions[0], reviewed: 'PENDING' }] };
+const EX_PENDING = loadExceptions(JSON.stringify(PENDING_FIXTURE));
 const APPROVED_FIXTURE = { ...JSON.parse(EX_TEXT), exceptions: [{ ...JSON.parse(EX_TEXT).exceptions[0],
   reviewed: { approvedBy: 'TEST-FIXTURE', approvedAt: '2000-01-01T00:00:00Z', approvalRef: 'TEST-FIXTURE-NOT-AN-APPROVAL' } }] };
 const EX_APPROVED = loadExceptions(JSON.stringify(APPROVED_FIXTURE));
@@ -36,12 +39,19 @@ const ev = (stdout: string[], o: { stderr?: string[]; exit?: number; ex?: unknow
   evaluate({ stdoutLines: stdout, stderrLines: o.stderr ?? okLogs, exitCode: o.exit ?? (stdout.some((l) => l.trim()) ? 183 : 0), exceptions: o.ex ?? EX });
 
 describe('exceptions file and approval provenance', () => {
-  it('holds exactly one exact unverified identity, and it is PENDING (inactive)', () => {
+  it('holds exactly one exact unverified identity, carrying the actual approval record', () => {
     expect(EX).toHaveLength(1);
-    expect(EX[0]).toMatchObject({ ...BENIGN, detector: 'URI', verified: false, reviewed: 'PENDING', state: 'pending' });
+    expect(EX[0]).toMatchObject({ ...BENIGN, detector: 'URI', verified: false, state: 'approved' });
+    expect(EX[0].reviewed.approvedAt).toBe('2026-11-02T12:08:50Z');
+    expect(EX[0].reviewed.approvalRef).toContain('c1059c5 and a040281');
+  });
+  it('the committed approval excepts only that exact unverified identity', () => {
+    expect(ev([finding()]).code).toBe(0);
+    expect(ev([finding({ line: 8 })]).code).toBe(1);
+    expect(ev([finding({ verified: true })]).code).toBe(1);
   });
   it('PENDING does not except: the benign finding still FAILS the gate', () => {
-    const r = ev([finding()]);
+    const r = ev([finding()], { ex: EX_PENDING });
     expect(r.code).toBe(1);
     expect(r.pending).toEqual(['T09-API-HTTP-REFUSED-USERINFO-EXAMPLE']);
     expect(report(r).join('\n')).toContain('NOT approved (PENDING)');
@@ -196,7 +206,7 @@ describe('actual security.yml step with a fake docker (no download, no real scan
     'pull-fail': [[], [], 0],
   };
   let n = 0;
-  const runStep = (mode: string, o: { base?: string; head?: string; docker?: boolean; approved?: boolean; shallow?: boolean; silentGate?: boolean } = {}) => {
+  const runStep = (mode: string, o: { base?: string; head?: string; docker?: boolean; approved?: boolean; pending?: boolean; shallow?: boolean; silentGate?: boolean } = {}) => {
     n += 1;
     const rt = fs.mkdtempSync(path.join(tmp, 'rt-'));
     const logf = path.join(tmp, `log-${n}`);
@@ -213,12 +223,13 @@ describe('actual security.yml step with a fake docker (no download, no real scan
       fs.symlinkSync(path.join(ROOT, 'scripts'), path.join(cwd, 'scripts'));
     }
     const [out, err, rc] = MODES[mode];
-    const script = o.approved ? `export TH_EXCEPTIONS=<(printf '%s' "$APPROVED_JSON")\n${scan.run}` : scan.run;
+    const script = o.approved ? `export TH_EXCEPTIONS=<(printf '%s' "$APPROVED_JSON")\n${scan.run}`
+      : o.pending ? `export TH_EXCEPTIONS=<(printf '%s' "$PENDING_JSON")\n${scan.run}` : scan.run;
     const r = spawnSync('bash', ['-c', script], {
       cwd, encoding: 'utf8',
       env: { PATH: pathDir, HOME: tmp, RUNNER_TEMP: rt, BASE: o.base ?? '', HEAD: o.head ?? '', FAKE_LOG: logf,
         FAKE_OUT: out.join('\n'), FAKE_ERR: err.join('\n'), FAKE_RC: String(rc), FAKE_PULL_FAIL: mode === 'pull-fail' ? '1' : '',
-        APPROVED_JSON: JSON.stringify(APPROVED_FIXTURE) },
+        APPROVED_JSON: JSON.stringify(APPROVED_FIXTURE), PENDING_JSON: JSON.stringify(PENDING_FIXTURE) },
     });
     const calls = fs.existsSync(logf) ? fs.readFileSync(logf, 'utf8') : '';
     return { status: r.status, out: r.stdout + r.stderr, calls, leftover: fs.readdirSync(rt) };
@@ -239,7 +250,8 @@ describe('actual security.yml step with a fake docker (no download, no real scan
     ['valid empty scan (schedule: full history)', 'valid-empty', {}, 0],
     ['other finding', 'other', { base: c1, head: c2 }, 1],
     ['verified finding', 'verified', { base: c1, head: c2 }, 1],
-    ['benign finding with the PENDING exception', 'benign', { base: c1, head: c2 }, 1],
+    ['benign finding with the PENDING exception', 'benign', { base: c1, head: c2, pending: true }, 1],
+    ['benign finding with the committed approved exception', 'benign', { base: c1, head: c2 }, 0],
     ['benign finding with an approved fixture', 'benign', { base: c1, head: c2, approved: true }, 0],
     ['error log', 'error-log', {}, 2],
     ['fatal log, exit 1', 'fatal-log', {}, 2],

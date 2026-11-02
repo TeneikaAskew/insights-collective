@@ -9,7 +9,11 @@
       "detector": "URI",
       "verified": false,
       "reason": "Comment documenting an input the loopback origin check REFUSES (userinfo trick). The matched 'password' is the port number of a loopback example in a comment; no credential. Unverified. Rewritten without a URI literal in bd7c4dd; this entry would cover only the historical commit that remains in scanned ranges.",
-      "reviewed": "PENDING"
+      "reviewed": {
+        "approvedBy": "project user (approval relayed by T in the shared-runner thread)",
+        "approvedAt": "2026-11-02T12:08:50Z",
+        "approvalRef": "user 2026-11-02T12:08:50Z, relayed by T 2026-11-02T13:01:47Z (hearth cmsg_0161a6sw9tncsLHMok9eFhCjAymSY5soMTSCUEootTa3KU): approves #156 proposals c1059c5 and a040281"
+      }
     }
   ]
 }

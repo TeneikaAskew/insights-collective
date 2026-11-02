@@ -109,6 +109,7 @@ jobs:
         #                             vitest fixtures: fixed synthetic strings (fake psql/node/rm shims, fake
         #                             fetch preload, 'fake-key', placeholder files) into fresh mkdtemp dirs; no
         #                             network data
+        #   (the five entries above approved 2026-11-02: user 12:08:50Z, relayed by T 13:01:47Z; proposal c1059c5)
         #
         # mkdirSync is deliberately not matched: creating a directory puts no data on
         # disk, and matching it would only force e2e/global-setup.ts onto this list.
