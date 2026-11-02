@@ -25,9 +25,9 @@ export const HELPER_PINS = Object.freeze(Object.assign(Object.create(null), {
   'scripts/e2e/assert-safe-target.mjs': 'd94b9d6d9744bc7ebcf59bb5cd9bf9df52cf9ada',
   'scripts/local-db/assert-local-dsn.mjs': '9632c7b40dc7a7a739f97342592085f975c58913',
   'e2e/support/chromium-executable.ts': 'ce26c40ebdc6e7893a7bcd502f71fe0bf136dd45',
-  // D1 (shared owner, local commit 242cc88 on 637bae9 on main 32ccf7d, 2026-11-02 00:12Z). Until it is in this branch's
+  // D1 (shared owner, draft #154 head 9fa71e4 on main 32ccf7d, 2026-11-02 00:19Z). Until it is in this branch's
   // base, these two are absent and `pins` refuses, so the adapter cannot run.
-  'scripts/e2e/stack-ownership.mjs': 'afa9ebd812d57a03c52f3d67477e5dd6190fc40f',
+  'scripts/e2e/stack-ownership.mjs': '3875d202ca248991cc8be8448430d469d1a6d396',
   'scripts/e2e/fixtures/stack-ownership.fake.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a',
 }));
 export const D1_MODULE = 'scripts/e2e/stack-ownership.mjs';
@@ -54,7 +54,7 @@ export function pinFailures(root) {
 
 const DIGITS = /^[0-9]{1,20}$/;
 /**
- * D1 consumer. The shared module's verifyRecord (242cc88) checks the record (schema v1, exact 0600 + caller-owned), the
+ * D1 consumer. The shared module's verifyRecord (#154 9fa71e4) checks the record (schema v1, exact 0600 + caller-owned), the
  * run id and attempt, the expected api/app origins and the LIVE pg system identifier. This lane keeps its own copies of
  * the mode, attempt and origin checks (defence in depth, and they ran first when the shared module lacked them). `disposable: true` is a declaration
  * by the bootstrap and is never treated as proof here.
@@ -66,8 +66,11 @@ export function stackOwnershipFailures(o) {
   if (!o || typeof o.verifyRecord !== 'function') return ['RUN_E_D1_MODULE'];
   if (!DIGITS.test(String(o.runAttempt ?? ''))) return ['RUN_E_D1_NO_ATTEMPT'];
   if (o.file) {
-    let st;
-    try { st = fs.lstatSync(o.file); } catch { st = null; }
+    // One no-follow descriptor, fstat on it (no check-then-use by path). A symlink or missing file is left to the shared
+    // verifier, which reports SO_ABSENT.
+    let fd = null, st = null;
+    try { fd = fs.openSync(o.file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0)); st = fs.fstatSync(fd); } catch { st = null; }
+    finally { if (fd !== null) { try { fs.closeSync(fd); } catch { /* closing a read-only descriptor cannot change the verdict */ } } }
     const uid = o.uid ?? (typeof process.getuid === 'function' ? process.getuid() : -1);
     if (st && st.isFile() && ((st.mode & 0o777) !== 0o600 || (uid >= 0 && st.uid !== uid))) return ['RUN_E_D1_MODE_EXACT'];
   }

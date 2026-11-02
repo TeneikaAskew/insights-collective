@@ -21,7 +21,7 @@ No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product 
 ## 1. Still BLOCKED (no shared-file edits in this lane)
 1. **Gate 3 producer and ordered runner: now a gradebook-owned adapter (section 11), runs still BLOCKED on D1.**
    - `pairing-producer.mjs` + `run-journey.sh` produce proof v2 from observed DSN and anon-API reads; `pairing-proof.mjs` re-reads the carrier live before sign-in.
-   - D1 consumer wired (section 12) to the shared owner's `scripts/e2e/stack-ownership.mjs` (local commit 242cc88 on 637bae9, NOT in this branch's base). While it is absent, step 0 pins refuse, so the adapter cannot run.
+   - D1 consumer wired (section 12) to the shared owner's `scripts/e2e/stack-ownership.mjs` (draft #154 head 9fa71e4, NOT in this branch's base). While it is absent, step 0 pins refuse, so the adapter cannot run.
 2. **Shared owned-stack pairing** before seed and before the first persona request. Same owner.
 3. **Always-cleanup** of the session, proof and diagnostics dirs on every exit, plus an exact inventory of uploaded outputs. These belong to the runner.
 4. **Hermetic served-app contract** (f169429, editor CDN). Owned by the PR 134 thread.
@@ -216,8 +216,8 @@ The list runs used placeholder loopback env values. No server was listening, and
 - `pairing-seed.sql`, the psql `\gset`/`\if` binding in `seed-journey.sql`, the real psql and fetch paths, and the trap on a full run. None has run against any database or stack.
 - `scripts/gradebook-fixture/tests/origin-guard-selftest.mjs` needs a Chromium build that this container lacks. It fails the same way on 1673a7e. It was not run.
 
-## 12. D1 stack-ownership consumer (shared schema v1, module 242cc88 afa9ebd8, 2026-11-02 00:12Z)
-- **Pins.** `scripts/e2e/stack-ownership.mjs` (afa9ebd8, re-pinned from 2bddca98 after the shared owner took this lane's three findings) and its fake fixture (f1c384ec) join the three helpers. Neither file is in this branch: they live in the shared owner's local commits 637bae9 + 242cc88 on main 32ccf7d, which are not pushed. Until that commit is in the base, `pins` refuses with `RUN_E_PIN`.
+## 12. D1 stack-ownership consumer (shared schema v1, module 3875d202 at draft #154 head 9fa71e4, 2026-11-02 00:19Z)
+- **Pins.** `scripts/e2e/stack-ownership.mjs` (3875d202; history 2bddca98 at 637bae9, then afa9ebd8 at 242cc88 with this lane's three findings, then 3875d202 at 9fa71e4 with a single O_NOFOLLOW descriptor read after a CodeQL fs-race alert) and its fake fixture (f1c384ec) join the three helpers. Neither file is in this branch: they live on the shared owner's draft #154 (branch claude/e2e-stack-ownership-record, head 9fa71e4, on main 32ccf7d), which is not merged into this branch. Until that commit is in the base, `pins` refuses with `RUN_E_PIN`.
 - **Order.** Step 2 runs after the guards and before composition and every fixture read or write.
   - Its only DB contact is `select system_identifier from pg_control_system()`, read through this lane's guarded DSN.
   - The module is re-pinned immediately before it is imported.
@@ -236,5 +236,5 @@ The list runs used placeholder loopback env values. No server was listening, and
 - **`disposable: true` is never proof.** It is the bootstrap's declaration. A refused verify with `disposable: true` still refuses.
 - **Controls.**
   - 12 fake-verifier checks (D1).
-  - 10 checks against the real shared module (D1REAL), run with the 637bae9 and 242cc88 patches applied in a scratch worktree. They are SKIPPED, and not counted, in the tree as pushed.
+  - 10 checks against the real shared module (D1REAL), run with the two #154 files at 9fa71e4 checked out into a scratch worktree. This lane's own mode check also uses one O_NOFOLLOW descriptor and fstat. They are SKIPPED, and not counted, in the tree as pushed.
   - Static contract R11 covers the origin checks, the exact mode, `SO_OK`, no use of `disposable`, and the pins.

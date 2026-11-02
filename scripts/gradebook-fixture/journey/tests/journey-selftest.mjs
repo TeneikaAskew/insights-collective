@@ -411,7 +411,7 @@ try {
     ['producer D1 drops the API origin check', `${S}/pairing-producer.mjs`, (s) => s.replace("if (!record || record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];", ''), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 trusts disposable', `${S}/pairing-producer.mjs`, (s) => s.replace("  const record = r.record;", "  const record = r.record;\n  if (record && record.disposable === true) return [];"), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 accepts ok without SO_OK', `${S}/pairing-producer.mjs`, (s) => s.replace("r.ok !== true || r.code !== 'SO_OK'", "r.ok !== true"), 'R11_PRODUCER_D1_WEAK'],
-    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': 'afa9ebd812d57a03c52f3d67477e5dd6190fc40f',", ''), 'R11_D1_NOT_PINNED'],
+    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': '3875d202ca248991cc8be8448430d469d1a6d396',", ''), 'R11_D1_NOT_PINNED'],
     ['runner hides the D1 refusal code', `${S}/run-journey.sh`, (s) => s.replace('ownership >&2 || refuse RUN_E_D1 5', 'ownership >/dev/null || true'), 'R11_RUNNER_NO_D1'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],
     ['error leaks the response body', `${J}/session-setup.ts`, (s) => s.replace('`JOURNEY_SETUP_E_SIGNIN_HTTP_${res.status}_${R}`', '`JOURNEY_SETUP_E_SIGNIN_HTTP ${await res.text()}`'), 'R6_UNSANITIZED_ERROR'],

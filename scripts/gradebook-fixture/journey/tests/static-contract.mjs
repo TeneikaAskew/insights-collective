@@ -126,7 +126,7 @@ export function checkJourney(root) {
   if (/console\.(log|error|warn|info)\([^)]*(nonce|carrier|stack_id|description)/.test(prod)) v.push('R11_PRODUCER_LOGS_NONCE pairing-producer.mjs');
   const d1 = prod.slice(prod.indexOf('export function stackOwnershipFailures'), prod.indexOf('export async function producePairing'));
   if (!/record\.api_origin !== o\.apiOrigin/.test(d1) || !/record\.app_origin !== o\.appOrigin/.test(d1) || !/\(st\.mode & 0o777\) !== 0o600/.test(d1) || !/r\.ok !== true \|\| r\.code !== 'SO_OK'/.test(d1) || !/apiOrigin: o\.apiOrigin, appOrigin: o\.appOrigin \}\)/.test(d1) || /disposable/.test(d1)) v.push('R11_PRODUCER_D1_WEAK pairing-producer.mjs');
-  if (!/'scripts\/e2e\/stack-ownership\.mjs': 'afa9ebd812d57a03c52f3d67477e5dd6190fc40f'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
+  if (!/'scripts\/e2e\/stack-ownership\.mjs': '3875d202ca248991cc8be8448430d469d1a6d396'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
 
   return v;
 }
