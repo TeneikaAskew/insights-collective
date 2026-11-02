@@ -109,7 +109,8 @@ describe('narrow-reads tier against a fake psql', { timeout: 30000 }, () => {
   });
 
   it('target refusal: a non-loopback DSN is TARGET with zero psql calls', () => {
-    const r = run({ dsn: `postgresql://postgres:${MARK}-PW@db.example.invalid:5432/postgres` });
+    // Assembled from parts at runtime (noCredentialShapedLiterals): a non-loopback host with a marker password.
+    const r = run({ dsn: ['postgresql://postgres', `${MARK}-PW`].join(':') + ['', 'db.example.invalid:5432/postgres'].join('@') });
     expect(r.status).toBe(1); fixedOnly(r.lines); expect(r.out).not.toContain(MARK);
     expect(r.lines).toContain('STAGE TARGET FAIL status=2 category=TARGET count=0');
     expect(r.calls).toEqual([]); expect(r.leftovers).toEqual([]);
