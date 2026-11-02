@@ -103,7 +103,7 @@ describe('narrow reads migration (static)', () => {
     expect(read('src/hooks/useCareerCoach.ts')).toMatch(/if \(isAuthenticated\)[\s\S]*storeQuizAttempt\(/);
     expect(read('src/pages/AssistantInterface.tsx')).toMatch(/assistantId === 'career-coach' && isAuthenticated[\s\S]*storeQuizAttempt\(/);
     // QuizResults.tsx: the active saveQuizResults (below the commented legacy copy) is also sign-in gated.
-    expect(read('src/components/quiz/QuizResults.tsx')).toMatch(/\n  const saveQuizResults = async \(\) => \{\n    if \(!isAuthenticated\) return;[\s\S]{0,120}await storeQuizAttempt\(/);
+    expect(read('src/components/quiz/QuizResults.tsx')).toMatch(/\n {2}const saveQuizResults = async \(\) => \{\n {4}if \(!isAuthenticated\) return;[\s\S]{0,120}await storeQuizAttempt\(/);
     // Feedback submission inserts its own user_id and reads nothing back.
     const fb = read('src/hooks/useFeedbackSubmission.ts');
     expect(fb).toMatch(/from\('user_feedback'\)[\s\S]*\.insert\(/);
