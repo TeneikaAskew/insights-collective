@@ -1033,6 +1033,7 @@ jobs:
           scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$GB_EVIDENCE/checks/noedge-probes-selftest.txt"
           npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkGradebookJourneyJob.test.ts 2>&1 | tail -6 | tee "$GB_EVIDENCE/checks/d1-selftest.txt"
           node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs 2>&1 | tail -3 | tee "$GB_EVIDENCE/checks/journey-selftest.txt"
+          node scripts/served-app/tests/served-app-check-selftest.mjs | tee "$GB_EVIDENCE/checks/served-app-check-selftest.txt"
 
       - name: Prepare workdir (no functions are served in this job)
         id: gb_prep
@@ -1111,6 +1112,14 @@ jobs:
           cmp -s "$RUNNER_TEMP/preview-index.html" "$GB_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
           echo "preview serving the TEST-SERVED copy"
 
+      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs) re-runs hermetic verify on dist and
+      # this copy and compares the live index bytes, on every call. It is given the copy's path, never a verdict.
+      - name: Served-app gate receipt (hermetic verify plus live index bytes, the same checks the adapter re-runs)
+        run: |
+          set -o pipefail
+          echo "HERMETIC_SERVED_DIR=$GB_SERVED" >> "$GITHUB_ENV"
+          HERMETIC_SERVED_DIR="$GB_SERVED" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$GB_EVIDENCE/checks/served-app-check.txt"
+
       # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
       # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
       # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
@@ -1143,19 +1152,19 @@ jobs:
       - name: Pin the headless shell (package-declared revision; refuses before any carrier write or browser launch)
         run: node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt | tee "$GB_EVIDENCE/checks/headless-shell.txt"
 
-      # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), composed-r5,
-      # private dirs, pairing carrier, seed, witness, the five journey projects, witness, exact compare and inventory.
+      # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), served-app gate,
+      # composed-r5, private dirs, pairing carrier, seed, witness, the five journey projects, witness, compare, 5-file inventory.
       - name: Gradebook journey adapter (gradebook-owned run-journey.sh)
         run: |
           set -o pipefail
           scripts/gradebook-fixture/journey/run-journey.sh "$RUNNER_TEMP/gb-journey-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/journey.txt"
-      - name: Copy the adapter's inventoried evidence (exactly its seven files)
+      - name: Copy the adapter's inventoried evidence (exactly its five files)
         if: always() && steps.gb_d1.outcome == 'success'
         run: |
           O="$RUNNER_TEMP/gb-journey-out"
           [ -d "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
           mkdir -p "$GB_EVIDENCE/journey"
-          for f in compare.txt composition.txt pairing.txt playwright.txt seed.txt witness-post.txt witness-pre.txt; do [ -f "$O/$f" ] && cp "$O/$f" "$GB_EVIDENCE/journey/$f"; done
+          for f in compare.txt composition.txt pairing.txt playwright-summary.txt seed.txt; do [ -f "$O/$f" ] && cp "$O/$f" "$GB_EVIDENCE/journey/$f"; done
           ls -A "$GB_EVIDENCE/journey"
 
       - name: No Edge runtime container exists (read-only; after the journey)
@@ -1201,7 +1210,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/headless-shell.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright.txt" "$E/journey/seed.txt" "$E/journey/witness-pre.txt" "$E/journey/witness-post.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/headless-shell.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

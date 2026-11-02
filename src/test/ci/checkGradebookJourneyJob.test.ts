@@ -54,6 +54,17 @@ describe('gradebook-journey job (proposal)', () => {
     }
     expect(at(/seed-auth\.sh/)).toBeLessThan(at(/run-journey\.sh/));
   });
+  it('gives the adapter's served-app gate the verified copy and records it live before D1; copies exactly the 5-file inventory', () => {
+    const gate = at(/served-app-check\.mjs "\$E2E_BASE_URL"/);
+    expect(gate).toBeGreaterThan(at(/cmp -s "\$RUNNER_TEMP\/preview-index\.html"/));
+    expect(gate).toBeLessThan(all(/stack-ownership\.mjs write/)[0]);
+    expect(runOf(S[gate])).toMatch(/echo "HERMETIC_SERVED_DIR=\$GB_SERVED" >> "\$GITHUB_ENV"/);
+    expect(runOf(S[at(/served-app-check-selftest\.mjs/)])).toMatch(/served-app-check-selftest/);
+    const copy = runOf(byName(S, "Copy the adapter's inventoried evidence"));
+    expect(copy).toMatch(/for f in compare\.txt composition\.txt pairing\.txt playwright-summary\.txt seed\.txt; do/);
+    const adapter = readFileSync(path.join(ROOT, 'scripts/gradebook-fixture/journey/run-journey.sh'), 'utf8');
+    expect(adapter).toContain('= "compare.txt composition.txt pairing.txt playwright-summary.txt seed.txt " ]');
+  });
   it('pins the reviewed bootstrap digest as a constant equal to the checked-out bootstrap.sh, and the writer refuses otherwise', () => {
     const want = createHash('sha256').update(readFileSync(path.join(ROOT, 'scripts/local-stack/bootstrap.sh'))).digest('hex');
     expect(GB.env.GB_D1_BOOTSTRAP_SHA256).toBe(want);
