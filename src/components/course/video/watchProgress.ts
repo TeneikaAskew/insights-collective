@@ -4,11 +4,11 @@
 /** Events a provider adapter reports. Positions and durations are in seconds. */
 export type PlaybackEvent =
   | { type: 'ready'; duration?: number | null }
-  | { type: 'play'; position: number }
-  | { type: 'pause'; position: number }
+  | { type: 'play'; position?: number | null }
+  | { type: 'pause'; position?: number | null }
   | { type: 'timeupdate'; position: number; duration?: number | null }
   | { type: 'seeked'; position: number }
-  | { type: 'ended'; position: number }
+  | { type: 'ended'; position?: number | null }
   | { type: 'ratechange'; rate: number };
 
 export interface WatchSnapshot {
@@ -32,9 +32,11 @@ export interface WatchSnapshot {
 
 export interface WatchTrackerOptions {
   /**
-   * A timeupdate jump larger than (wall time elapsed x rate) + this many
-   * seconds is treated as a seek rather than playback. Covers coarse
-   * provider tick intervals without crediting scrubbing as viewing.
+   * Slack for coarse or jittery provider ticks. Watched time is paid from a
+   * budget that only grows with wall time while playing (elapsed x rate); at
+   * most this much unspent budget carries between ticks, so it is a one-off
+   * allowance, not a per-event one. A forward jump the budget cannot cover is
+   * not credited, and one larger than this slack is counted as a seek.
    */
   jumpToleranceSeconds?: number;
   /** Clock for wall time, injectable for tests. */
@@ -65,6 +67,8 @@ export class WatchProgressTracker {
   private isPlaying = false;
   private hasEnded = false;
   private lastTickAt: number | null = null;
+  /** Seconds of playback that wall time has paid for and that have not been credited yet. */
+  private budget = 0;
   private counts = { play: 0, pause: 0, seek: 0 };
   private readonly tolerance: number;
   private readonly now: () => number;
@@ -80,20 +84,32 @@ export class WatchProgressTracker {
         this.setDuration(event.duration);
         return;
       case 'ratechange':
+        // Settle the time played at the old rate before switching.
+        if (this.isPlaying) this.accrue();
         if (finite(event.rate) && event.rate > 0) this.rate = event.rate;
         return;
       case 'play':
-        if (!this.isPlaying) this.counts.play += 1;
+        if (this.isPlaying) {
+          // A repeated play report is a progress tick, not a new play.
+          this.advance(event.position);
+          return;
+        }
+        this.counts.play += 1;
         this.isPlaying = true;
         this.hasEnded = false;
         this.moveTo(event.position, false);
         this.lastTickAt = this.now();
+        this.budget = this.tolerance;
         return;
       case 'pause':
+        // Pauses while not playing (before any play, or repeated) earn nothing and count nothing.
+        if (!this.isPlaying) {
+          this.moveTo(event.position, false);
+          return;
+        }
         this.advance(event.position);
-        if (this.isPlaying) this.counts.pause += 1;
-        this.isPlaying = false;
-        this.lastTickAt = null;
+        this.counts.pause += 1;
+        this.stop();
         return;
       case 'timeupdate':
         this.setDuration(event.duration);
@@ -101,14 +117,14 @@ export class WatchProgressTracker {
         else this.moveTo(event.position, false);
         return;
       case 'seeked':
+        if (this.isPlaying) this.accrue();
         this.moveTo(event.position, true);
-        if (this.isPlaying) this.lastTickAt = this.now();
         return;
       case 'ended':
-        this.advance(event.position);
-        this.isPlaying = false;
+        if (this.isPlaying) this.advance(event.position);
+        else this.moveTo(event.position, false);
+        this.stop();
         this.hasEnded = true;
-        this.lastTickAt = null;
         return;
     }
   }
@@ -142,30 +158,42 @@ export class WatchProgressTracker {
   }
 
   /** Jump without crediting time. Counts a seek only when asked and the jump is real. */
-  private moveTo(position: number, isSeek: boolean) {
+  private moveTo(position: number | null | undefined, isSeek: boolean) {
     if (!finite(position)) return;
     const next = this.clamp(position);
     if (isSeek && Math.abs(next - this.position) > 0.25) this.counts.seek += 1;
     this.position = next;
   }
 
-  /** Credit playback from the last position to `position` if it is plausible playback. */
-  private advance(position: number) {
-    if (!finite(position)) return;
-    const next = this.clamp(position);
-    const delta = next - this.position;
+  private stop() {
+    this.isPlaying = false;
+    this.lastTickAt = null;
+    this.budget = 0;
+  }
+
+  /** Add the wall time since the last tick to the budget; unspent budget carries over only up to the slack. */
+  private accrue() {
     const at = this.now();
     const elapsed = this.lastTickAt === null ? 0 : Math.max(0, (at - this.lastTickAt) / 1000);
-    const plausible = elapsed * this.rate + this.tolerance;
+    this.budget = Math.min(this.budget, this.tolerance) + elapsed * this.rate;
+    this.lastTickAt = at;
+  }
 
-    if (delta > 0 && delta <= plausible) {
+  /** Credit playback from the last position to `position`, paid from the wall-time budget. Only called while playing. */
+  private advance(position: number | null | undefined) {
+    if (!finite(position)) return;
+    this.accrue();
+    const next = this.clamp(position);
+    const delta = next - this.position;
+
+    if (delta > 0 && delta <= this.budget) {
       this.intervals = mergeInterval(this.intervals, [this.position, next]);
       this.played += delta;
+      this.budget -= delta;
     } else if (Math.abs(delta) > this.tolerance) {
       // A forward jump faster than real time, or any backward jump, is a seek.
       this.counts.seek += 1;
     }
     this.position = next;
-    if (this.lastTickAt !== null) this.lastTickAt = at;
   }
 }

@@ -6,8 +6,11 @@ import { vimeoAdapter, youtubeAdapter } from '../providerAdapters';
 import type { PlaybackEvent } from '../watchProgress';
 
 const frames: HTMLIFrameElement[] = [];
-function makeFrame() {
+const YT_FRAME = 'https://www.youtube.com/embed/dQw4w9WgXcQ?enablejsapi=1';
+const VIMEO_FRAME = 'https://player.vimeo.com/video/76979871';
+function makeFrame(src = YT_FRAME) {
   const frame = document.createElement('iframe');
+  frame.src = src;
   document.body.appendChild(frame);
   frames.push(frame);
   return frame;
@@ -66,6 +69,35 @@ describe('youtubeAdapter', () => {
     post(frame, 'https://www.youtube.com', JSON.stringify({ event: 'infoDelivery', info: { currentTime: 'x' } }));
     expect(events).toEqual([]);
   });
+
+  it('listens to the frame\'s own privacy-enhanced origin, and only to it', () => {
+    const frame = makeFrame('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&enablejsapi=1');
+    const sent = vi.spyOn(frame.contentWindow!, 'postMessage');
+    const events: PlaybackEvent[] = [];
+    youtubeAdapter.attach(frame, (e) => events.push(e));
+    expect(sent).toHaveBeenCalledWith(expect.stringContaining('"event":"listening"'), 'https://www.youtube-nocookie.com');
+    post(frame, 'https://www.youtube.com', JSON.stringify({ event: 'onStateChange', info: 1 }));
+    expect(events).toEqual([]);
+    post(frame, 'https://www.youtube-nocookie.com', JSON.stringify({ event: 'onStateChange', info: 1 }));
+    expect(events).toEqual([{ type: 'play', position: null }]);
+  });
+
+  it('keeps the stored embed URL and its params, adding only the JS API switch', () => {
+    expect(
+      youtubeAdapter.frameSrc('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=30', 'https://app.example'),
+    ).toBe('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&start=30&enablejsapi=1&origin=https%3A%2F%2Fapp.example');
+  });
+
+  it('attaches nothing to a frame outside the allowed provider origins', () => {
+    const frame = makeFrame('https://evil.example/embed/x');
+    const sent = vi.spyOn(frame.contentWindow!, 'postMessage');
+    const events: PlaybackEvent[] = [];
+    youtubeAdapter.attach(frame, (e) => events.push(e));
+    vimeoAdapter.attach(frame, (e) => events.push(e));
+    post(frame, 'https://evil.example', JSON.stringify({ event: 'onStateChange', info: 1 }));
+    expect(sent).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
+  });
 });
 
 describe('vimeoAdapter', () => {
@@ -73,7 +105,7 @@ describe('vimeoAdapter', () => {
     expect(vimeoAdapter.frameSrc('https://player.vimeo.com/video/76979871?h=8272103f6e', 'https://app.example')).toBe(
       'https://player.vimeo.com/video/76979871?h=8272103f6e',
     );
-    const frame = makeFrame();
+    const frame = makeFrame(VIMEO_FRAME);
     const sent = vi.spyOn(frame.contentWindow!, 'postMessage');
     const events: PlaybackEvent[] = [];
     vimeoAdapter.attach(frame, (e) => events.push(e));
@@ -100,7 +132,7 @@ describe('vimeoAdapter', () => {
   });
 
   it('ignores messages not from player.vimeo.com and the frame window', () => {
-    const frame = makeFrame();
+    const frame = makeFrame(VIMEO_FRAME);
     const events: PlaybackEvent[] = [];
     vimeoAdapter.attach(frame, (e) => events.push(e));
     post(frame, 'https://vimeo.com', { event: 'play', data: { seconds: 0 } });

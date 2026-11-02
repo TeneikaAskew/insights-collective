@@ -4,8 +4,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import videoAnalyticsService from '@/services/videoAnalyticsService';
-import { getVideoKind, toVideoEmbedUrl } from '@/utils/videoUrls';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { accessibleVideoName, resolveEmbed } from './embedSource';
 import { adapterFor } from './providerAdapters';
 import { WatchReporter, type EngagementSink, type ReportStatus } from './watchReporter';
 
@@ -28,23 +29,23 @@ export interface TrackedVideoPlayerProps {
   className?: string;
 }
 
-const STATUS_TEXT: Record<ReportStatus, string> = {
-  idle: '',
-  saving: '',
-  saved: '',
-  error: 'Viewing progress could not be saved. It will be retried.',
-};
+/** Retries are event driven (see WatchReporter); the text says exactly what triggers one. */
+const ERROR_TEXT =
+  'Viewing progress could not be saved. It will be tried again the next time you pause or after more watching, or you can retry now.';
 
 /**
  * Honest-state contract:
- * - Only validated YouTube/Vimeo videos are framed, always via the canonical
- *   embed URL rebuilt by toVideoEmbedUrl (CSP-allowed hosts), plus the
- *   provider's JS-API switch.
- * - Events are accepted only from the provider origin AND the frame's own
- *   window. Watched time is credited only for plausible continuous playback;
- *   seeks are counted, never credited.
+ * - Only validated YouTube/Vimeo videos are framed, using the same frame URL
+ *   as the read-only embed (resolveEmbed from WP09A): a stored embed URL on a
+ *   CSP host is kept with its host (including youtube-nocookie), params and
+ *   unlisted hash; only the provider's JS-API switch is added.
+ * - Events are accepted only from the frame's own origin AND window. Watched
+ *   time is credited only while playing, from a wall-time budget; seeks are
+ *   counted, never credited.
  * - Nothing is recorded without both userId and contentItemId. A failed save
- *   is shown and retried; it is never reported as saved.
+ *   is shown with a retry button and is never reported as saved. Status
+ *   belongs to the current video and identity: it resets when either
+ *   changes, and a replaced or unmounted player's late results are ignored.
  * - completion is never marked here, and coverage percent is not sent unless
  *   reportCoveragePercent is set (see watchReporter.ts for why).
  */
@@ -60,21 +61,20 @@ export function TrackedVideoPlayer({
   className,
 }: TrackedVideoPlayerProps) {
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const reporterRef = useRef<WatchReporter | null>(null);
   const [status, setStatus] = useState<ReportStatus>('idle');
   const [loaded, setLoaded] = useState(false);
 
   const resolved = useMemo(() => {
-    const raw = typeof src === 'string' ? src.trim() : '';
-    const canonical = raw ? toVideoEmbedUrl(raw) : null;
-    const provider = raw ? getVideoKind(raw) : null;
-    if (!canonical || !provider) return null;
-    const adapter = adapterFor(provider);
+    const embed = resolveEmbed(src);
+    if (embed.status !== 'supported') return null;
+    const adapter = adapterFor(embed.provider);
     const pageOrigin = typeof window !== 'undefined' ? window.location.origin : '';
     return {
-      provider,
+      provider: embed.provider,
       adapter,
-      frameSrc: adapter.frameSrc(canonical, pageOrigin),
-      label: provider === 'youtube' ? 'YouTube' : 'Vimeo',
+      frameSrc: adapter.frameSrc(embed.frameSrc, pageOrigin),
+      label: embed.providerLabel,
     };
   }, [src]);
 
@@ -84,23 +84,34 @@ export function TrackedVideoPlayer({
     setLoaded(false);
   }, [resolved?.frameSrc]);
 
+  // A status belongs to one video and one identity.
+  useEffect(() => {
+    setStatus('idle');
+  }, [resolved?.frameSrc, userId, contentItemId]);
+
   useEffect(() => {
     const frame = frameRef.current;
     if (!resolved || !loaded || !frame || !tracking) return;
+    let active = true;
     const reporter = new WatchReporter({
       userId: userId as string,
       contentItemId: contentItemId as string,
       sink,
       reportCoveragePercent,
       flushIntervalMs,
-      onStatus: (next) => setStatus(next),
+      onStatus: (next) => {
+        if (active) setStatus(next);
+      },
     });
+    reporterRef.current = reporter;
     const detach = resolved.adapter.attach(frame, (event) => reporter.record(event));
     const onHide = () => {
       if (document.visibilityState === 'hidden') void reporter.flush();
     };
     document.addEventListener('visibilitychange', onHide);
     return () => {
+      active = false;
+      if (reporterRef.current === reporter) reporterRef.current = null;
       document.removeEventListener('visibilitychange', onHide);
       detach();
       void reporter.dispose();
@@ -122,7 +133,7 @@ export function TrackedVideoPlayer({
     );
   }
 
-  const name = (typeof title === 'string' && title.trim()) || `${resolved.label} video`;
+  const name = accessibleVideoName(title, resolved.label);
 
   return (
     <div
@@ -143,9 +154,16 @@ export function TrackedVideoPlayer({
           onLoad={() => setLoaded(true)}
         />
       </div>
-      <p role="status" aria-live="polite" className={status === 'error' ? 'mt-2 text-sm text-destructive' : 'sr-only'}>
-        {STATUS_TEXT[status]}
-      </p>
+      <div role="status" aria-live="polite" className={status === 'error' ? 'mt-2 flex flex-wrap items-center gap-2' : 'sr-only'}>
+        {status === 'error' ? (
+          <>
+            <p className="m-0 text-sm text-destructive">{ERROR_TEXT}</p>
+            <Button type="button" size="sm" variant="outline" onClick={() => void reporterRef.current?.retry()}>
+              Retry saving
+            </Button>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }

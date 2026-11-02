@@ -95,4 +95,55 @@ describe('WatchProgressTracker', () => {
     tick(1); tracker.handle({ type: 'ended', position: 3.4 });
     expect(tracker.snapshot()).toMatchObject({ ended: true, playing: false, coveredSeconds: 3, coveragePercent: 100 });
   });
+
+  // Review R1 (#164 4c6544a): credit only while playing, from a cumulative wall-time budget.
+  describe('R1 credit bounds', () => {
+    it('credits nothing for a pause or ended report before any play', () => {
+      const { tracker, tick } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 100 });
+      tracker.handle({ type: 'pause', position: 1.4 });
+      tick(5);
+      tracker.handle({ type: 'ended', position: 2.8 });
+      expect(tracker.snapshot()).toMatchObject({ playedSeconds: 0, coveredSeconds: 0, pauseCount: 0, playCount: 0 });
+    });
+
+    it('credits nothing for repeated pause reports after the first', () => {
+      const { tracker, tick } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 100 });
+      tracker.handle({ type: 'play', position: 0 });
+      tick(1);
+      tracker.handle({ type: 'pause', position: 1 });
+      for (let p = 2.4; p < 60; p += 1.4) tracker.handle({ type: 'pause', position: p });
+      expect(tracker.snapshot()).toMatchObject({ playedSeconds: 1, coveredSeconds: 1, pauseCount: 1 });
+    });
+
+    it('does not let rapid small jumps with no wall time earn the whole video', () => {
+      const { tracker } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 100 });
+      tracker.handle({ type: 'play', position: 0 });
+      for (let p = 1.4; p <= 100; p += 1.4) tracker.handle({ type: 'timeupdate', position: p });
+      const snap = tracker.snapshot();
+      expect(snap.playedSeconds).toBeLessThanOrEqual(1.5);
+      expect(snap.coveredSeconds).toBeLessThanOrEqual(1.5);
+    });
+
+    it('never credits more than the wall time played (times rate) plus one slack', () => {
+      const { tracker, tick } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 600 });
+      tracker.handle({ type: 'play', position: 0 });
+      // Each tick claims 1.4 s of video per 1 s of wall time, at rate 1.
+      for (let i = 1; i <= 100; i++) { tick(1); tracker.handle({ type: 'timeupdate', position: i * 1.4 }); }
+      const { playedSeconds } = tracker.snapshot();
+      expect(playedSeconds).toBeLessThanOrEqual(100 + 1.5);
+    });
+
+    it('scales the budget by playback rate', () => {
+      const { tracker, tick } = clockTracker();
+      tracker.handle({ type: 'ready', duration: 600 });
+      tracker.handle({ type: 'ratechange', rate: 2 });
+      tracker.handle({ type: 'play', position: 0 });
+      for (let i = 1; i <= 10; i++) { tick(1); tracker.handle({ type: 'timeupdate', position: i * 2 }); }
+      expect(tracker.snapshot().playedSeconds).toBe(20);
+    });
+  });
 });

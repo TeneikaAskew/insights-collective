@@ -1,17 +1,35 @@
 // ABOUTME: YouTube/Vimeo iframe event adapters over window.postMessage (no provider scripts loaded).
-// ABOUTME: Strict origin + source-window checks; protocol shapes are UNVERIFIED against live providers.
+// ABOUTME: Strict frame-origin + source-window checks; protocol shapes are UNVERIFIED against live providers.
 
 import type { PlaybackEvent } from './watchProgress';
 
 export type Emit = (event: PlaybackEvent) => void;
 
 export interface ProviderAdapter {
-  /** Origin the provider frame posts from; messages from anything else are ignored. */
-  readonly origin: string;
-  /** Frame src with the provider's JS-API switch added (input is a validated canonical embed URL). */
-  frameSrc(canonicalEmbedUrl: string, pageOrigin: string): string;
+  /**
+   * Origins a frame of this provider may be loaded from (the CSP frameSrc
+   * hosts). Messages are accepted only from the frame's OWN origin, and only
+   * when it is one of these.
+   */
+  readonly origins: readonly string[];
+  /**
+   * Frame src with the provider's JS-API switch added. The input is the
+   * already-resolved frame src (resolveEmbed); everything else in it (host,
+   * path, other params, unlisted hash) is kept.
+   */
+  frameSrc(embedSrc: string, pageOrigin: string): string;
   /** Start listening for one iframe. Returns a detach function. Call after the frame has loaded. */
   attach(frame: HTMLIFrameElement, emit: Emit): () => void;
+}
+
+/** The frame's own origin when it is one of `allowed`, else null (then nothing is listened to). */
+export function frameOrigin(frame: HTMLIFrameElement, allowed: readonly string[]): string | null {
+  try {
+    const origin = new URL(frame.src).origin;
+    return allowed.includes(origin) ? origin : null;
+  } catch {
+    return null;
+  }
 }
 
 function parseData(data: unknown): Record<string, any> | null {
@@ -46,20 +64,23 @@ function listen(frame: HTMLIFrameElement, origin: string, onData: (data: Record<
  * {event:'listening'} and the player answers with onReady / infoDelivery /
  * onStateChange messages. playerState: 1 playing, 2 paused, 0 ended.
  */
-const YOUTUBE_ORIGIN = 'https://www.youtube.com';
-const VIMEO_ORIGIN = 'https://player.vimeo.com';
+const YOUTUBE_ORIGINS = ['https://www.youtube.com', 'https://youtube.com', 'https://www.youtube-nocookie.com'] as const;
+const VIMEO_ORIGINS = ['https://player.vimeo.com'] as const;
 
 export const youtubeAdapter: ProviderAdapter = {
-  origin: YOUTUBE_ORIGIN,
-  frameSrc(canonical, pageOrigin) {
-    const url = new URL(canonical);
+  origins: YOUTUBE_ORIGINS,
+  frameSrc(embedSrc, pageOrigin) {
+    const url = new URL(embedSrc);
     url.searchParams.set('enablejsapi', '1');
     url.searchParams.set('origin', pageOrigin);
     return url.toString();
   },
   attach(frame, emit) {
+    const origin = frameOrigin(frame, YOUTUBE_ORIGINS);
+    if (!origin) return () => {};
     let state: number | null = null;
-    let lastTime = 0;
+    // Unknown until the player reports a time; never guessed as 0.
+    let lastTime: number | null = null;
     const applyState = (next: number) => {
       if (next === state) return;
       state = next;
@@ -67,7 +88,7 @@ export const youtubeAdapter: ProviderAdapter = {
       else if (next === 2) emit({ type: 'pause', position: lastTime });
       else if (next === 0) emit({ type: 'ended', position: lastTime });
     };
-    const detach = listen(frame, YOUTUBE_ORIGIN, (data) => {
+    const detach = listen(frame, origin, (data) => {
       if (data.event === 'onReady') {
         emit({ type: 'ready' });
         return;
@@ -93,7 +114,7 @@ export const youtubeAdapter: ProviderAdapter = {
         if (next !== null) applyState(next);
       }
     });
-    frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'ic-video', channel: 'widget' }), YOUTUBE_ORIGIN);
+    frame.contentWindow?.postMessage(JSON.stringify({ event: 'listening', id: 'ic-video', channel: 'widget' }), origin);
     return detach;
   },
 };
@@ -106,15 +127,17 @@ const VIMEO_EVENTS = ['play', 'pause', 'ended', 'timeupdate', 'seeked', 'playbac
  * for each event and receives {event, data:{seconds, duration, percent}}.
  */
 export const vimeoAdapter: ProviderAdapter = {
-  origin: VIMEO_ORIGIN,
-  frameSrc(canonical) {
-    return canonical;
+  origins: VIMEO_ORIGINS,
+  frameSrc(embedSrc) {
+    return embedSrc;
   },
   attach(frame, emit) {
+    const origin = frameOrigin(frame, VIMEO_ORIGINS);
+    if (!origin) return () => {};
     const post = (message: Record<string, unknown>) =>
-      frame.contentWindow?.postMessage(JSON.stringify(message), VIMEO_ORIGIN);
+      frame.contentWindow?.postMessage(JSON.stringify(message), origin);
     const subscribe = () => VIMEO_EVENTS.forEach((value) => post({ method: 'addEventListener', value }));
-    const detach = listen(frame, VIMEO_ORIGIN, (data) => {
+    const detach = listen(frame, origin, (data) => {
       const payload = data.data && typeof data.data === 'object' ? data.data : {};
       const seconds = numLike(payload.seconds);
       const duration = numLike(payload.duration);
@@ -124,13 +147,13 @@ export const vimeoAdapter: ProviderAdapter = {
           emit({ type: 'ready', duration });
           return;
         case 'play':
-          emit({ type: 'play', position: seconds ?? 0 });
+          emit({ type: 'play', position: seconds });
           return;
         case 'pause':
-          emit({ type: 'pause', position: seconds ?? 0 });
+          emit({ type: 'pause', position: seconds });
           return;
         case 'ended':
-          emit({ type: 'ended', position: seconds ?? duration ?? 0 });
+          emit({ type: 'ended', position: seconds ?? duration });
           return;
         case 'timeupdate':
           if (seconds !== null) emit({ type: 'timeupdate', position: seconds, duration });

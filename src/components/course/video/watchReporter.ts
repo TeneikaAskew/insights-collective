@@ -1,12 +1,17 @@
-// ABOUTME: Batches WatchProgressTracker output into videoAnalyticsService.updateEngagement writes.
+// ABOUTME: Batches WatchProgressTracker output into videoAnalyticsService.applyEngagementDeltas writes.
 // ABOUTME: Never marks completion; sends coverage percent only when explicitly enabled.
 
-import type { VideoEngagementUpdate } from '@/services/videoAnalyticsService';
+import type { ApplyDeltasOptions, EngagementDeltas, EngagementTotals } from '@/services/videoAnalyticsService';
 import { WatchProgressTracker, type PlaybackEvent, type WatchSnapshot } from './watchProgress';
 
 /** The one service method the reporter needs; the real default is videoAnalyticsService. */
 export interface EngagementSink {
-  updateEngagement(userId: string, contentItemId: string, updates: VideoEngagementUpdate): Promise<unknown>;
+  applyEngagementDeltas(
+    userId: string,
+    contentItemId: string,
+    deltas: EngagementDeltas,
+    options?: ApplyDeltasOptions,
+  ): Promise<unknown>;
 }
 
 export type ReportStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -29,16 +34,41 @@ export interface WatchReporterOptions {
   onStatus?: (status: ReportStatus, error?: unknown) => void;
 }
 
+/** Duck-typed EngagementWriteUncertainError: the write may have committed; it carries what it tried to write. */
+function attemptedTargetOf(error: unknown): EngagementTotals | null {
+  if (error && typeof error === 'object' && 'attemptedTarget' in error) {
+    const target = (error as { attemptedTarget: unknown }).attemptedTarget;
+    if (target && typeof target === 'object') return target as EngagementTotals;
+  }
+  return null;
+}
+
+interface Batch {
+  deltas: EngagementDeltas;
+  /** Set after a write whose outcome is unknown; lets the service skip it if it did commit. */
+  expectTarget: EngagementTotals | null;
+}
+
 /**
- * Accumulates deltas since the last *successful* write. A failed write keeps
- * them pending, so the next flush retries the same totals: nothing is lost
- * and nothing is counted twice. One write is in flight at a time.
+ * Accumulates deltas since the last confirmed write. One write is in flight
+ * at a time.
+ *
+ * A failed batch is frozen and retried as the identical batch, never merged
+ * with newer progress, so the service can recognise a retry of a write that
+ * did commit (expectTarget) and skip it. Retries are event driven only: the
+ * next pause/ended, the next progress tick after flushIntervalMs, a page hide,
+ * retry(), or dispose(). There is no timer.
+ *
+ * What this does NOT guarantee (needs a server-side atomic increment, out of
+ * scope): an uncertain write that committed and was then changed by another
+ * writer before the retry is applied twice; see applyEngagementDeltas.
  */
 export class WatchReporter {
   readonly tracker: WatchProgressTracker;
   private readonly opts: Required<Pick<WatchReporterOptions, 'flushIntervalMs' | 'reportCoveragePercent'>> &
     WatchReporterOptions;
   private sent = { played: 0, play: 0, pause: 0, seek: 0 };
+  private retryBatch: Batch | null = null;
   private lastFlushAt = 0;
   private inFlight: Promise<void> | null = null;
   private flushAgain = false;
@@ -66,15 +96,16 @@ export class WatchReporter {
     }
   }
 
-  /** Build the pending update from the tracker, or null when there is nothing new. */
-  pendingUpdate(snapshot: WatchSnapshot = this.tracker.snapshot()): VideoEngagementUpdate | null {
-    const playedDelta = Math.floor(snapshot.playedSeconds - this.sent.played);
-    const playDelta = snapshot.playCount - this.sent.play;
-    const pauseDelta = snapshot.pauseCount - this.sent.pause;
-    const seekDelta = snapshot.seekCount - this.sent.seek;
+  /** New progress since the last confirmed write (excluding a frozen retry batch), or null. */
+  pendingUpdate(snapshot: WatchSnapshot = this.tracker.snapshot()): EngagementDeltas | null {
+    const base = this.retryBatch ? this.afterBatch(this.retryBatch.deltas) : this.sent;
+    const playedDelta = Math.floor(snapshot.playedSeconds - base.played);
+    const playDelta = snapshot.playCount - base.play;
+    const pauseDelta = snapshot.pauseCount - base.pause;
+    const seekDelta = snapshot.seekCount - base.seek;
     if (playedDelta <= 0 && playDelta <= 0 && pauseDelta <= 0 && seekDelta <= 0) return null;
 
-    const update: VideoEngagementUpdate = {
+    const update: EngagementDeltas = {
       lastPosition: Math.floor(snapshot.positionSeconds),
       playbackSpeed: snapshot.playbackRate,
     };
@@ -89,31 +120,41 @@ export class WatchReporter {
     return update;
   }
 
+  /** True while a frozen retry batch or newer progress is unconfirmed. */
+  get hasPending(): boolean {
+    return this.retryBatch !== null || this.pendingUpdate() !== null;
+  }
+
+  /** Write the frozen retry batch if there is one, else whatever is new. */
   flush(): Promise<void> {
     if (this.inFlight) {
       this.flushAgain = true;
       return this.inFlight;
     }
-    const snapshot = this.tracker.snapshot();
-    const update = this.pendingUpdate(snapshot);
-    if (!update) return Promise.resolve();
+    let batch = this.retryBatch;
+    if (!batch) {
+      const deltas = this.pendingUpdate();
+      if (!deltas) return Promise.resolve();
+      batch = { deltas, expectTarget: null };
+    }
+    const attempt = batch;
 
     this.lastFlushAt = this.now();
     this.setStatus('saving');
     const { userId, contentItemId, sink } = this.opts;
+    const options: ApplyDeltasOptions = attempt.expectTarget ? { expectTarget: attempt.expectTarget } : {};
     this.inFlight = sink
-      .updateEngagement(userId, contentItemId, update)
+      .applyEngagementDeltas(userId, contentItemId, attempt.deltas, options)
       .then(() => {
-        // Only what this write carried is marked sent; fractions stay pending.
-        this.sent = {
-          played: this.sent.played + (update.watchTimeDelta ?? 0),
-          play: this.sent.play + (update.playCountDelta ?? 0),
-          pause: this.sent.pause + (update.pauseCountDelta ?? 0),
-          seek: this.sent.seek + (update.seekCountDelta ?? 0),
-        };
+        // Only what this write carried is confirmed; fractions and newer progress stay pending.
+        this.sent = this.afterBatch(attempt.deltas);
+        this.retryBatch = null;
         this.setStatus('saved');
       })
       .catch((error) => {
+        const target = attemptedTargetOf(error);
+        // An uncertain write may have committed: remember what it tried to write so the retry can be skipped.
+        this.retryBatch = { deltas: attempt.deltas, expectTarget: target ?? attempt.expectTarget };
         this.setStatus('error', error);
       })
       .finally(() => {
@@ -126,11 +167,39 @@ export class WatchReporter {
     return this.inFlight;
   }
 
-  /** Final flush; later events are ignored. */
-  dispose(): Promise<void> {
-    const done = this.flush();
+  /** Try again now (the UI's retry button). */
+  retry(): Promise<void> {
+    return this.flush();
+  }
+
+  /**
+   * Stop recording and drain: wait for every queued write (including a
+   * follow-up chained behind the one in flight), then write whatever is still
+   * unconfirmed (the frozen retry batch first, then newer progress), one
+   * attempt each. Resolves when all have settled or at the first failure,
+   * which is reported through onStatus and not retried again.
+   */
+  async dispose(): Promise<void> {
     this.disposed = true;
-    return done;
+    await this.settle();
+    while (this.hasPending) {
+      await this.flush();
+      await this.settle();
+      if (this.status === 'error') break;
+    }
+  }
+
+  private async settle(): Promise<void> {
+    while (this.inFlight) await this.inFlight;
+  }
+
+  private afterBatch(deltas: EngagementDeltas) {
+    return {
+      played: this.sent.played + (deltas.watchTimeDelta ?? 0),
+      play: this.sent.play + (deltas.playCountDelta ?? 0),
+      pause: this.sent.pause + (deltas.pauseCountDelta ?? 0),
+      seek: this.sent.seek + (deltas.seekCountDelta ?? 0),
+    };
   }
 
   private setStatus(status: ReportStatus, error?: unknown) {
