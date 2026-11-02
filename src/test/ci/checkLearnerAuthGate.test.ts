@@ -159,7 +159,9 @@ describe('auth gate control flow (fake components; no database, network or GoTru
     expect(r.stdout).toMatch(/PASS auth-gate fake selftest: \d+ cases/);
     expect(r.stdout).not.toMatch(/^FAIL/m);
     expect(r.status).toBe(0);
-  });
+    // One bash selftest spawning many fake child processes: about 3 s locally, past vitest's 5 s default on the hosted
+    // runner (job 125562654319). This explicit budget is for this one test only; every assertion above is unchanged.
+  }, 30_000);
 });
 
 describe('no-Edge job wiring', () => {
