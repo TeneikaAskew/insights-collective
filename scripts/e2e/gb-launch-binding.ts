@@ -1,5 +1,6 @@
 // ABOUTME: Receipt that binds the pinned headless shell to EVERY gradebook-journey launch: each project's launchOptions in
-// ABOUTME: playwright.gradebook-roles.config.ts and the journey session-setup's chromium.launch(chromiumExecutableOption()).
+// ABOUTME: playwright.gradebook-roles.config.ts and the journey session-setup's chromium.launch(chromiumExecutableOption());
+// ABOUTME: with GB_LANE=roster-reports, the same binding for playwright.roster-reports.config.ts and its session-setup.
 //
 // Run (job, after the shell pin and before any write):  GB_LANE=journey npx --no-install tsx scripts/e2e/gb-launch-binding.ts
 // It loads the real config (which runs the config's own strict local-binding check) and the shared resolver the setup uses,
@@ -23,16 +24,37 @@ export function bindingProblems(env: NodeJS.ProcessEnv, projects: Project[], set
   return problems;
 }
 
+// Lanes. journey: playwright.gradebook-roles.config.ts, output unchanged. roster-reports: playwright.roster-reports.config.ts
+// (T-15 persona acceptance), run as GB_LANE=roster-reports RR_SESSION_DIR=<unused absolute dir>; it prints RR-LAUNCH lines and
+// additionally refuses RR_ERROR_INJECTION (the error state stays PENDING and is never bound into a run) and any project set
+// other than exactly its three default projects. Both lanes check the same resolver the setup launch uses.
+export const ROSTER_PROJECTS = ['rr-instructor', 'rr-admin', 'rr-learner'];
+
+export function laneProblems(lane: string | undefined, env: NodeJS.ProcessEnv, projects: Project[]): string[] {
+  if (lane !== 'roster-reports') return [];
+  const problems: string[] = [];
+  if ((env.RR_ERROR_INJECTION ?? '') !== '') problems.push('RR_ERROR_INJECTION is set (the error state is PENDING and never part of a run)');
+  if (projects.map((p) => p.name ?? '?').join(',') !== ROSTER_PROJECTS.join(',')) problems.push(`roster-reports projects are not exactly ${ROSTER_PROJECTS.join(', ')}`);
+  return problems;
+}
+
+const tag = (lane: string | undefined) => (lane === 'roster-reports' ? 'RR-LAUNCH' : 'GB-LAUNCH');
+
+async function loadProjects(lane: string | undefined): Promise<Project[]> {
+  if (lane === 'journey') return ((await import('../../playwright.gradebook-roles.config')).default as { projects?: Project[] }).projects ?? [];
+  if (lane === 'roster-reports') return ((await import('../../playwright.roster-reports.config')).default as { projects?: Project[] }).projects ?? [];
+  throw new Error('GB_LANE must be journey or roster-reports');
+}
+
 async function main() {
-  if (process.env.GB_LANE !== 'journey') throw new Error('GB_LANE must be journey');
-  const cfg = (await import('../../playwright.gradebook-roles.config')).default as { projects?: Project[] };
-  const projects = cfg.projects ?? [];
-  const problems = bindingProblems(process.env, projects, chromiumExecutableOption());
+  const lane = process.env.GB_LANE, T = tag(lane);
+  const projects = await loadProjects(lane);
+  const problems = [...bindingProblems(process.env, projects, chromiumExecutableOption()), ...laneProblems(lane, process.env, projects)];
   if (problems.length) throw new Error(problems.join('; '));
-  for (const p of projects) console.log(`GB-LAUNCH project ${p.name} executablePath=${p.use?.launchOptions?.executablePath}`);
-  console.log(`GB-LAUNCH session-setup executablePath=${chromiumExecutableOption().executablePath}`);
-  console.log(`GB-LAUNCH ok: ${projects.length} projects and the setup launch bind the pinned headless shell`);
+  for (const p of projects) console.log(`${T} project ${p.name} executablePath=${p.use?.launchOptions?.executablePath}`);
+  console.log(`${T} session-setup executablePath=${chromiumExecutableOption().executablePath}`);
+  console.log(`${T} ok: ${projects.length} projects and the setup launch bind the pinned headless shell`);
 }
 
 const isMain = process.argv[1] && /gb-launch-binding\.ts$/.test(process.argv[1]);
-if (isMain) main().catch((e) => { console.log(`GB-LAUNCH REFUSED: ${e instanceof Error ? e.message.split('\n')[0] : 'unexpected error'}`); process.exit(1); });
+if (isMain) main().catch((e) => { console.log(`${tag(process.env.GB_LANE)} REFUSED: ${e instanceof Error ? e.message.split('\n')[0] : 'unexpected error'}`); process.exit(1); });
