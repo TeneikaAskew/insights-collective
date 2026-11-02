@@ -36,8 +36,8 @@ query-filters:
   # The write-location gate below also allows exact fixture-only test files that
   # write fixed synthetic strings into fresh mkdtemp directories and read no network
   # data: src/test/ci/checkLocalTarget.test.ts, caseDiagnostics.test.ts,
-  # checkLearnerAuthGate.test.ts, checkT09StageContract.test.ts and gbJobHolds.test.ts
-  # (five files). They are not flows this exclusion is about; they are listed only
+  # checkLearnerAuthGate.test.ts, checkT09StageContract.test.ts, gbJobHolds.test.ts and
+  # checkGradebookJourneyJob.test.ts (six files). They are not flows this exclusion is about; they are listed only
   # because the gate matches every write call.
   #
   # It also allows one explicit local-DB-to-disk writer,
@@ -54,7 +54,7 @@ query-filters:
   # scripts/ and the opt-in console-errors audit log. The "Filesystem writes stay in
   # reviewed locations" step in security.yml keeps the set closed: it enumerates
   # every tracked source file, subtracts its ALLOWED list (scripts/, the
-  # console-errors fixture, the five fixture-only test files and the local-DB
+  # console-errors fixture, the six fixture-only test files and the local-DB
   # evidence writer above), and fails
   # the build on any other write call. That gate limits where writes may appear; it
   # does not make this repo-wide exclusion safe, which remains reviewed debt.
