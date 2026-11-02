@@ -41,7 +41,12 @@ step served;    node "$HERE/served-build-check.mjs" > "$PRIV/served.txt" 2>&1 ||
 step hermetic;  { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "${PUBLIC_ACCEPT_PRODUCT_DIST:-}" ] && [ -n "${PUBLIC_ACCEPT_SERVED_DIR:-}" ]; } || die PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT
                 node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT', m.SERVED_APP_PINS); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/served-app-pins.txt" \
                   || { codes "$PRIV/served-app-pins.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SERVED_APP_PINS; }
+                # Inputs must be fixed canonical job paths: absolute, existing directories, equal to their own physical realpath.
+                # The fixture's safety claim covers that scope only (no symlink or .. aliases, no concurrent filesystem changes).
+                canon() { [ -n "$1" ] && [ "${1#/}" != "$1" ] && [ -d "$1" ] && [ "$(realpath -e -- "$1" 2>/dev/null)" = "$1" ]; }
+                canon "$PUBLIC_ACCEPT_PRODUCT_DIST" && canon "$PUBLIC_ACCEPT_SERVED_DIR" || die PUBLIC_CATALOG_E_NONCANONICAL_PATH
                 if [ "${PUBLIC_ACCEPT_AVATAR_FIXTURE:-}" = 1 ]; then
+                  canon "${PUBLIC_ACCEPT_HERMETIC_DIR:-}" || die PUBLIC_CATALOG_E_NONCANONICAL_PATH
                   # Served dir = the avatar-fixture copy; the hermetic copy it derives from is verified first, then the fixture.
                   [ -n "${PUBLIC_ACCEPT_HERMETIC_DIR:-}" ] || die PUBLIC_CATALOG_E_NO_HERMETIC_DIR
                   node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_HERMETIC_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY

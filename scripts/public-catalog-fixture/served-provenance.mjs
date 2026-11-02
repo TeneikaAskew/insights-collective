@@ -9,7 +9,7 @@ export const LABEL = 'TEST-SERVED MODIFICATION: product build minus the Lovable 
 export const sha256 = (b) => createHash('sha256').update(b).digest('hex');
 
 /** The shared owner's TEST-SERVED avatar fixture (scripts/served-app/avatar-fixture.mjs, PR134 thread, local/avatar-fixture-r1
- *  b8d2b5b7, module blob f7cbca3e). The lane does not trust AVATAR-PROVENANCE.json for these values: the substitutions, their
+ *  2bb75e71, module blob b8486aac). The lane does not trust AVATAR-PROVENANCE.json for these values: the substitutions, their
  *  order, the targets and the three asset digests are hardcoded here and the file must match them exactly. */
 export const AVATAR_LABEL = 'TEST-SERVED AVATAR FIXTURE: hermetic copy with the three CommunityShowcase i.pravatar.cc URLs replaced by fixed local SVGs; NOT production bytes; product avatar provider integration and the AvatarFallback path UNVERIFIED';
 export const AVATAR_SUBS = Object.freeze([11, 20, 13].map((n) => Object.freeze({ from: `https://i.pravatar.cc/150?img=${n}`, to: `/hermetic-avatars/avatar-fixture-${n}.svg` })));
