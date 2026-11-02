@@ -40,6 +40,15 @@ query-filters:
   # (five files). They are not flows this exclusion is about; they are listed only
   # because the gate matches every write call.
   #
+  # Three more exact files carry the #159/#161 narrow-reads tier controls:
+  # src/test/ci/checkNarrowReadsJob.test.ts and src/test/ci/narrowReadsTierFake.test.ts
+  # (synthetic data into fresh mkdtemp dirs, removed after each test; a tampered COPY of
+  # ledger.sql, never the repo file) and src/test/ci/fixtures/nr-fake-psql/fake-psql.cjs,
+  # a fake psql spawned only by those tests. The fake logs contract facts plus ordinary
+  # argv/HOME/passfile-directory paths and state/ledger strings under $NR_FAKE_DIR, which
+  # it does not validate itself: its safe ownership comes only from the reviewed caller.
+  # No network data. Approved 2026-11-02 (user 17:08:38Z).
+  #
   # It also allows one explicit local-DB-to-disk writer,
   # e2e/quiz-lifecycle/session.fixture.ts: isolated-run evidence from a fixed
   # read-only SQL ledger scoped to one synthetic learner and quiz on the run-owned
@@ -54,8 +63,8 @@ query-filters:
   # scripts/ and the opt-in console-errors audit log. The "Filesystem writes stay in
   # reviewed locations" step in security.yml keeps the set closed: it enumerates
   # every tracked source file, subtracts its ALLOWED list (scripts/, the
-  # console-errors fixture, the five fixture-only test files and the local-DB
-  # evidence writer above), and fails
+  # console-errors fixture, the five fixture-only test files, the three narrow-reads
+  # tier control files and the local-DB evidence writer above), and fails
   # the build on any other write call. That gate limits where writes may appear; it
   # does not make this repo-wide exclusion safe, which remains reviewed debt.
   # Remove that step and this exclusion stops being narrow.
