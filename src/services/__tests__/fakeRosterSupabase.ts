@@ -11,7 +11,9 @@ export interface FakeDb {
   /** Fail only requests to these tables, with the given message. */
   failTables?: Record<string, string>;
   visible?: Record<string, (row: Row) => boolean>;
-  calls: Array<{ table: string; range?: [number, number] }>;
+  /** Fail one specific request: return a message for the call (0-based index per table) to fail. */
+  failWhen?: (table: string, nthCallToTable: number, range?: [number, number]) => string | undefined;
+  calls: Array<{ table: string; range?: [number, number]; inSizes: number[] }>;
 }
 
 export function makeFakeDb(tables: Record<string, Row[]> = {}): FakeDb {
@@ -23,6 +25,7 @@ export function makeFakeClient(db: FakeDb) {
     const preds: Array<(r: Row) => boolean> = [];
     const orders: string[] = [];
     let range: [number, number] | undefined;
+    const inSizes: number[] = [];
     const builder: any = {
       select: () => builder,
       eq: (col: string, val: unknown) => {
@@ -30,7 +33,9 @@ export function makeFakeClient(db: FakeDb) {
         return builder;
       },
       in: (col: string, vals: unknown[]) => {
-        preds.push((r) => vals.includes(r[col]));
+        inSizes.push(vals.length);
+        const set = new Set(vals);
+        preds.push((r) => set.has(r[col]));
         return builder;
       },
       order: (col: string) => {
@@ -42,8 +47,9 @@ export function makeFakeClient(db: FakeDb) {
         return builder;
       },
       then: (resolve: (v: unknown) => unknown, reject?: (e: unknown) => unknown) => {
-        db.calls.push({ table, range });
-        const msg = db.fail ?? db.failTables?.[table];
+        const nth = db.calls.filter((c) => c.table === table).length;
+        db.calls.push({ table, range, inSizes });
+        const msg = db.fail ?? db.failTables?.[table] ?? db.failWhen?.(table, nth, range);
         if (msg) return Promise.resolve({ data: null, error: { message: msg } }).then(resolve, reject);
         const vis = db.visible?.[table] ?? (() => true);
         let rows = (db.tables[table] ?? []).filter((r) => vis(r) && preds.every((p) => p(r)));

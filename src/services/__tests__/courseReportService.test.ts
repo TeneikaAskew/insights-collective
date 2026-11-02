@@ -9,11 +9,14 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 import { computeCourseReport, fetchCourseReport } from '../courseReportService';
 
-const L = (userId: string, progress: number | null, needsAttention = false) =>
-  ({ userId, name: userId, avatarUrl: null, enrolledAt: '2026-01-01', progress, completedItems: 0, totalItems: 2, needsAttention });
+// Fixture learners carry consistent exact counts; progress is only their rounded display value.
+const L = (userId: string, completedItems: number, totalItems: number, needsAttention = false) => ({
+  userId, name: userId, avatarUrl: null, enrolledAt: '2026-01-01', completedItems, totalItems,
+  progress: totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : null, needsAttention,
+});
 
 const base = {
-  learners: [L('u1', 100), L('u2', 50), L('u3', 0, true)],
+  learners: [L('u1', 2, 2), L('u2', 1, 2), L('u3', 0, 2, true)],
   modules: [{ id: 'm1', title: 'Intro', position: 1 }],
   items: [{ id: 'i1', module_id: 'm1', type: 'page', title: 'a' }, { id: 'i2', module_id: 'm1', type: 'page', title: 'b' }],
   progressions: [
@@ -58,13 +61,21 @@ describe('computeCourseReport', () => {
     expect(r.modules[0].avgCompletion).toBeNull();
   });
   it('unknown learner progress is excluded from rates, not counted as 0 (T-15)', () => {
-    const r = computeCourseReport({ ...base, learners: [L('u1', 100), L('u2', null), L('u3', null)] });
+    const r = computeCourseReport({ ...base, learners: [L('u1', 2, 2), L('u2', 0, 0), L('u3', 0, 0)] });
     expect(r.measured).toBe(1);
     expect(r.completionRate).toBe(100);
     expect(r.avgProgress).toBe(100);
   });
+  it('199/200 is not counted as completed although it displays 100%', () => {
+    const r = computeCourseReport({ ...base, learners: [L('u1', 199, 200), L('u2', 200, 200)] });
+    expect(r.completed).toBe(1);
+    expect(r.completionRate).toBe(50);
+  });
+  it('average uses exact shares (0/6 and 1/6 give 8%)', () => {
+    expect(computeCourseReport({ ...base, learners: [L('u1', 0, 6), L('u2', 1, 6)] }).avgProgress).toBe(8);
+  });
   it('no measurable learners gives unknown rates', () => {
-    const r = computeCourseReport({ ...base, learners: [L('u1', null), L('u2', null)] });
+    const r = computeCourseReport({ ...base, learners: [L('u1', 0, 0), L('u2', 0, 0)] });
     expect(r.completionRate).toBeNull();
     expect(r.avgProgress).toBeNull();
   });

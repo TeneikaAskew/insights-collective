@@ -141,10 +141,11 @@ describe('roster helpers', () => {
     expect(filterAndSortRoster(base, '', 'enrolled_desc').map((l) => l.userId)).toEqual(['b', 'c', 'a']);
     expect(filterAndSortRoster(base, '', 'enrolled_asc').map((l) => l.userId)).toEqual(['a', 'c', 'b']);
   });
-  it('flags 0% only after 7 days enrolled', () => {
-    expect(isNotStarted(0, '2026-03-01T00:00:00Z', now)).toBe(false);
-    expect(isNotStarted(0, '2026-02-25T00:00:00Z', now)).toBe(true);
-    expect(isNotStarted(5, '2026-01-01T00:00:00Z', now)).toBe(false);
+  it('flags no finished lesson only after 7 days enrolled', () => {
+    const none = { completedItems: 0, totalItems: 5 };
+    expect(isNotStarted(none, '2026-03-01T00:00:00Z', now)).toBe(false);
+    expect(isNotStarted(none, '2026-02-25T00:00:00Z', now)).toBe(true);
+    expect(isNotStarted({ completedItems: 1, totalItems: 20 }, '2026-01-01T00:00:00Z', now)).toBe(false);
     expect(filterAndSortRoster(base, '', 'name_asc', true).map((l) => l.userId)).toEqual(['c']);
   });
 });

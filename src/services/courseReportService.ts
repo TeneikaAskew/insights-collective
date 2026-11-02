@@ -2,7 +2,7 @@
 // ABOUTME: Reuses courseRosterService and the gradebook model so numbers match the Students tab and gradebook.
 
 import { supabase } from '@/integrations/supabase/client';
-import { averageProgress, fetchCourseRosterData, type RosterLearner } from '@/services/courseRosterService';
+import { averageProgress, fetchCourseRosterData, isComplete, type RosterLearner } from '@/services/courseRosterService';
 import { isProgressionDone } from '@/utils/progressionStates';
 import {
   buildGradebook,
@@ -54,8 +54,9 @@ export function computeCourseReport(input: CourseReportInput): CourseReport {
   const learnerIds = new Set(input.learners.map((l) => l.userId));
   const enrolled = input.learners.length;
   // Progress is per-learner progression evidence from courseRosterService; null is unknown, never 0.
-  const measured = input.learners.filter((l) => l.progress !== null).length;
-  const completed = input.learners.filter((l) => l.progress !== null && l.progress >= 100).length;
+  // Decisions use exact counts; the rounded percent is for display only.
+  const measured = input.learners.filter((l) => l.totalItems > 0).length;
+  const completed = input.learners.filter(isComplete).length;
 
   // Only count progress rows from enrolled learners on this course's items.
   const itemIds = new Set(input.items.map((i) => i.id));

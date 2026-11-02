@@ -10,9 +10,10 @@ export interface RosterLearner {
   avatarUrl: string | null;
   enrolledAt: string | null;
   /**
-   * Percent of the course's published lessons this learner has finished (0-100),
+   * Display only: rounded percent of the course's published lessons finished (0-100),
    * by the same rule as useCourseProgress. null means unknown: the course has no
    * published lessons, so there is nothing to measure against. Never a fake 0.
+   * Decisions (finished, not started, averages) use completedItems/totalItems.
    */
   progress: number | null;
   completedItems: number;
@@ -39,8 +40,30 @@ export const NOT_STARTED_DAYS = 7;
 /** Rows per request. Must not exceed the PostgREST max-rows cap, or pages are silently short. */
 export const PAGE_SIZE = 1000;
 
-export function isNotStarted(progress: number | null, enrolledAt: string | null, now: Date = new Date()): boolean {
-  if (progress === null || progress > 0 || !enrolledAt) return false;
+/** Ids per `in` filter, so request URLs stay bounded for large courses. */
+export const ID_CHUNK = 200;
+
+type Counts = { completedItems: number; totalItems: number };
+
+/**
+ * Exact unrounded share of published lessons finished (0-1), or null when the
+ * course has no published lessons. Decisions use this, never the rounded percent.
+ */
+export function progressShare({ completedItems, totalItems }: Counts): number | null {
+  return totalItems > 0 ? completedItems / totalItems : null;
+}
+
+/** Finished every published lesson, by exact count (199/200 is not finished). */
+export function isComplete({ completedItems, totalItems }: Counts): boolean {
+  return totalItems > 0 && completedItems >= totalItems;
+}
+
+/**
+ * Enrolled at least NOT_STARTED_DAYS ago and finished no lesson at all, by exact
+ * count (1/201 has started even though it rounds to 0%). Unknown is never flagged.
+ */
+export function isNotStarted(counts: Counts, enrolledAt: string | null, now: Date = new Date()): boolean {
+  if (counts.totalItems === 0 || counts.completedItems > 0 || !enrolledAt) return false;
   const ageMs = now.getTime() - new Date(enrolledAt).getTime();
   return ageMs >= NOT_STARTED_DAYS * 24 * 60 * 60 * 1000;
 }
@@ -78,7 +101,11 @@ export function computeLearnerProgress(
 
 type Res<T> = { data: T[] | null; error: { message: string } | null };
 
-/** Reads every page so a large course is never silently cut at the row cap. Throws on any error. */
+/**
+ * Reads every page, in a stable order the caller sets, until a page comes back
+ * shorter than PAGE_SIZE. Throws on any page's error, including the last.
+ * Limit: a server cap below PAGE_SIZE would end paging early and is not detected.
+ */
 async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T>>): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
@@ -90,9 +117,17 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T
   }
 }
 
-function must<T>(res: Res<T>): T[] {
-  if (res.error) throw new Error(res.error.message);
-  return res.data ?? [];
+/** Splits ids into ID_CHUNK-sized `in` lists and pages each one. Chunks run in order. */
+async function fetchAllByIds<T>(
+  ids: string[],
+  page: (chunk: string[], from: number, to: number) => PromiseLike<Res<T>>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    rows.push(...(await fetchAll<T>((from, to) => page(chunk, from, to))));
+  }
+  return rows;
 }
 
 /**
@@ -115,19 +150,25 @@ export async function fetchCourseRosterData(courseId: string, now: Date = new Da
   );
 
   // Same scope as useCourseProgress: published items inside published modules.
-  const modules = must<RosterModule>(
-    await supabase.from('modules').select('id, title, position').eq('course_id', courseId).eq('published', true),
+  const modules = await fetchAll<RosterModule>((from, to) =>
+    supabase
+      .from('modules')
+      .select('id, title, position')
+      .eq('course_id', courseId)
+      .eq('published', true)
+      .order('id')
+      .range(from, to),
   );
   const moduleIds = modules.map((m) => m.id);
-  const items = moduleIds.length
-    ? must<RosterItem>(
-        await supabase
-          .from('content_items')
-          .select('id, module_id, type, title')
-          .in('module_id', moduleIds)
-          .eq('published', true),
-      )
-    : [];
+  const items = await fetchAllByIds<RosterItem>(moduleIds, (chunk, from, to) =>
+    supabase
+      .from('content_items')
+      .select('id, module_id, type, title')
+      .in('module_id', chunk)
+      .eq('published', true)
+      .order('id')
+      .range(from, to),
+  );
 
   const rows = enrollments.filter((e) => e.user_id) as Array<{ user_id: string; enrolled_at: string | null }>;
   if (rows.length === 0) return { learners: [], modules, items, progressions: [] };
@@ -136,23 +177,26 @@ export async function fetchCourseRosterData(courseId: string, now: Date = new Da
   const itemIds = items.map((i) => i.id);
 
   const [profiles, progressions] = await Promise.all([
-    supabase
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url')
-      .in('id', ids)
-      .then((r) => must<{ id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }>(r)),
-    itemIds.length
-      ? fetchAll<RosterProgression>((from, to) =>
-          supabase
-            .from('content_item_progressions')
-            .select('user_id, content_item_id, workflow_state')
-            .in('content_item_id', itemIds)
-            .in('workflow_state', [...DONE_PROGRESSION_STATES])
-            .order('user_id')
-            .order('content_item_id')
-            .range(from, to),
-        )
-      : Promise.resolve([] as RosterProgression[]),
+    fetchAllByIds<{ id: string; first_name: string | null; last_name: string | null; avatar_url: string | null }>(
+      ids,
+      (chunk, from, to) =>
+        supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .in('id', chunk)
+          .order('id')
+          .range(from, to),
+    ),
+    fetchAllByIds<RosterProgression>(itemIds, (chunk, from, to) =>
+      supabase
+        .from('content_item_progressions')
+        .select('user_id, content_item_id, workflow_state')
+        .in('content_item_id', chunk)
+        .in('workflow_state', [...DONE_PROGRESSION_STATES])
+        .order('user_id')
+        .order('content_item_id')
+        .range(from, to),
+    ),
   ]);
 
   const byId = new Map(profiles.map((p) => [p.id, p]));
@@ -167,7 +211,7 @@ export async function fetchCourseRosterData(courseId: string, now: Date = new Da
       avatarUrl: p?.avatar_url ?? null,
       enrolledAt: e.enrolled_at ?? null,
       ...pr,
-      needsAttention: isNotStarted(pr.progress, e.enrolled_at ?? null, now),
+      needsAttention: isNotStarted(pr, e.enrolled_at ?? null, now),
     };
   });
   return { learners, modules, items, progressions };
@@ -177,10 +221,14 @@ export async function fetchCourseRoster(courseId: string, now: Date = new Date()
   return (await fetchCourseRosterData(courseId, now)).learners;
 }
 
-/** Mean progress over learners whose progress is known; null when none is known. */
-export function averageProgress(learners: RosterLearner[]): number | null {
-  const known = learners.filter((l) => l.progress !== null) as Array<RosterLearner & { progress: number }>;
-  return known.length ? Math.round(known.reduce((s, l) => s + l.progress, 0) / known.length) : null;
+/**
+ * Mean of exact per-learner shares over learners whose progress is known,
+ * rounded once for display; null when none is known. Averaging rounded
+ * percents would drift (0/6 and 1/6 give 9% instead of the exact 8%).
+ */
+export function averageProgress(learners: Counts[]): number | null {
+  const shares = learners.map(progressShare).filter((x): x is number => x !== null);
+  return shares.length ? Math.round((shares.reduce((a, b) => a + b, 0) / shares.length) * 100) : null;
 }
 
 export function filterAndSortRoster(
@@ -194,10 +242,12 @@ export function filterAndSortRoster(
   const list = learners.filter(
     (l) => (!q || l.name.toLowerCase().includes(q)) && (!attentionOnly || l.needsAttention),
   );
-  // Unknown progress sorts last in both directions.
+  // Exact share order; unknown progress sorts last in both directions.
   const byProgress = (dir: 1 | -1) => (a: RosterLearner, b: RosterLearner) => {
-    if (a.progress === null || b.progress === null) return (a.progress === null ? 1 : 0) - (b.progress === null ? 1 : 0);
-    return (a.progress - b.progress) * dir;
+    const x = progressShare(a);
+    const y = progressShare(b);
+    if (x === null || y === null) return (x === null ? 1 : 0) - (y === null ? 1 : 0);
+    return (x - y) * dir;
   };
   const cmp: Record<RosterSort, (a: RosterLearner, b: RosterLearner) => number> = {
     enrolled_desc: (a, b) => time(b.enrolledAt) - time(a.enrolledAt),
