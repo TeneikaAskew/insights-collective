@@ -6,7 +6,8 @@
 #   helper pins -> guards (targets, canonical DSN + private passfile, anon key, proof consumer) -> shared PRE contract (BLOCKED:
 #   not integrated) -> diagnostic inventory ->
 #   served-asset provenance -> served-app pins + hermetic verify (+ avatar-fixture verify when PUBLIC_ACCEPT_AVATAR_FIXTURE=1)
-#   -> D1 ownership verify (#154 record, reviewed bootstrap, live sysid) -> W0 (must be pristine) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
+#   -> D1 ownership verify (#154 record, expected bootstrap digest, live sysid) -> pair (FIRST write: one blog_tags carrier)
+#   -> proof gate (full guards) -> W0 (courses/modules empty, exactly the carrier in blog_tags) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
 #   failure or mismatch STOPS here, before any write probe) -> anon probe -> W3 (must equal W1).
 # Output contract:
 #   $PUBLIC_ACCEPT_OUT/evidence/  sanitized, allowlisted files only; the ONLY directory a runner may upload.
@@ -22,6 +23,7 @@ OUT="${PUBLIC_ACCEPT_OUT:-}"; [ -n "$OUT" ] || die PUBLIC_CATALOG_E_NO_OUT
 [[ "${PUBLIC_ACCEPT_RUN_ID:-}" =~ ^[0-9a-f]{32}$ ]] || die PUBLIC_CATALOG_E_RUN_ID
 [ "${PUBLIC_ACCEPT_TIER:-authentic}" = authentic ] || die PUBLIC_CATALOG_E_TIER
 [ -z "${PUBLIC_ACCEPT_LIST_ONLY+x}" ] || die PUBLIC_CATALOG_E_LIST_ONLY_SET
+[ -z "${PUBLIC_ACCEPT_STACK_PROOF+x}" ] || die PUBLIC_CATALOG_E_PROOF_PRESET  # the proof comes only from this run's pairing step
 mkdir -p "$OUT/evidence" && chmod 700 "$OUT" "$OUT/evidence" || die PUBLIC_CATALOG_E_OUT_CREATE
 EV="$OUT/evidence"
 PRIV="$(mktemp -d "${TMPDIR:-/tmp}/pca-private.XXXXXXXX")" || die PUBLIC_CATALOG_E_PRIVATE
@@ -32,7 +34,7 @@ codes() { grep -oE 'PUBLIC_CATALOG_E_[A-Z_]+' "$1" | sort -u | head -20; }
 
 step pins;      node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pins.txt" \
                   || { codes "$PRIV/pins.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PINS; }
-step guards;    node "$HERE/guards.mjs" > "$PRIV/guards.txt" 2>&1 || { codes "$PRIV/guards.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_GUARDS; }
+step guards;    node "$HERE/guards.mjs" --pre-pairing > "$PRIV/guards.txt" 2>&1 || { codes "$PRIV/guards.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_GUARDS; }
 step pre-contract; node --input-type=module -e "import('$HERE/pre-contract.mjs').then((m) => { const e = m.checkPreContract('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pre-contract.txt" \
                   || { codes "$PRIV/pre-contract.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PRE_CONTRACT; }
                 # (once integrated: the shared stack-checks.sh net-create/net-verify/stage-pre steps run here, before W0 and the seed)
@@ -58,11 +60,18 @@ step ownership; SYSID="$(psqlx -c 'select system_identifier::text from pg_contro
                 printf '%s' "$SYSID" | node "$HERE/d1-ownership.mjs" verify > "$PRIV/d1.txt" 2>&1 || { codes "$PRIV/d1.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_D1; }
                 grep -q '^PUBLIC_CATALOG_D1_OK ' "$PRIV/d1.txt" || die PUBLIC_CATALOG_E_D1_NO_VERDICT
                 unset SYSID
+# FIRST WRITE. Reached only after pins, guards, the PRE contract gate (BLOCKED while its pins are empty), served + hermetic
+# verify and the D1 ownership verify. One run-owned blog_tags row; no cleanup exists: stack disposal belongs to the runner.
+step pair;      node "$HERE/pairing-producer.mjs" pair "$PRIV" > "$PRIV/pair.txt" 2>&1 || { codes "$PRIV/pair.txt" | tee -a "$EV/STEPS.txt"; grep -oE '^PAIR_E_[A-Z_]+$' "$PRIV/pair.txt" | head -1 >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PAIR; }
+                grep -q '^PUBLIC_CATALOG_PAIRING_OK ' "$PRIV/pair.txt" || die PUBLIC_CATALOG_E_PAIR_NO_VERDICT
+                export PUBLIC_ACCEPT_STACK_PROOF="$PRIV/stack-proof.json"
+step proof;     node "$HERE/guards.mjs" > "$PRIV/guards-proof.txt" 2>&1 || { codes "$PRIV/guards-proof.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PROOF_GATE; }
 step W0;        psqlx -f "$HERE/witness.sql" > "$EV/W0.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
                 grep -qx 'public.courses|0|empty' "$EV/W0.txt" && grep -qx 'public.modules|0|empty' "$EV/W0.txt" || die PUBLIC_CATALOG_E_NOT_PRISTINE
+                grep -qE '^public\.blog_tags\|1\|[0-9a-f]{32}$' "$EV/W0.txt" || die PUBLIC_CATALOG_E_NOT_PRISTINE_PAIRING  # exactly the carrier row
 step seed;      psqlx -f "$HERE/seed.sql" > "$PRIV/seed.txt" 2>&1 || { codes "$PRIV/seed.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SEED; }
 step W1;        psqlx -f "$HERE/witness.sql" > "$EV/W1.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
-node --input-type=module -e "import('$HERE/fixtures.mjs').then((m) => import('node:fs').then((fs) => fs.writeFileSync('$EV/MANIFEST.json', JSON.stringify({ run_id: '$PUBLIC_ACCEPT_RUN_ID', ids: m.ALL_IDS, created_by: 'seed.sql' }, null, 2))))" || die PUBLIC_CATALOG_E_MANIFEST
+node --input-type=module -e "import('$HERE/fixtures.mjs').then((m) => import('node:fs').then((fs) => fs.writeFileSync('$EV/MANIFEST.json', JSON.stringify({ run_id: '$PUBLIC_ACCEPT_RUN_ID', ids: m.ALL_IDS, created_by: 'seed.sql', pairing_ids: ['$(node --input-type=module -e "import('$HERE/pairing-producer.mjs').then((p) => console.log(p.PAIRING_TAG_ID))")'], pairing_created_by: 'pairing-producer.mjs' }, null, 2))))" || die PUBLIC_CATALOG_E_MANIFEST
 step browser;   (cd "$ROOT" && PUBLIC_ACCEPT_REPORT="$PRIV/playwright.json" timeout 1800 npx playwright test -c playwright.public-catalog.config.ts --output="$PRIV/pw" > "$PRIV/playwright.log" 2>&1); echo $? > "$EV/playwright.exit"
                 node "$HERE/pw-summary.mjs" "$PRIV/playwright.json" > "$EV/playwright-summary.txt" 2>/dev/null || echo PUBLIC_CATALOG_E_PW_REPORT >> "$EV/STEPS.txt"
 step W2;        psqlx -f "$HERE/witness.sql" > "$EV/W2.txt" 2>/dev/null || die PUBLIC_CATALOG_E_W2_FAILED 1

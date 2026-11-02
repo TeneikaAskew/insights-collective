@@ -10,7 +10,9 @@ import { runGuards } from './guards.mjs';
 import { loadProvenance, sha256, expectedHash } from './served-provenance.mjs';
 
 const fail = (code) => { console.error(`PUBLIC_CATALOG_E_SERVED_${code}`); process.exit(2); };
-const errors = runGuards(); if (errors.length) { for (const e of errors) console.error(e.split(':')[0]); process.exit(2); }
+// Runs in run.sh's `served` step, BEFORE the pairing producer writes the proof, and only issues loopback GETs: the proof is
+// therefore not yet required here. Every later consumer (proof gate, Playwright config, anon probe) requires it.
+const errors = runGuards(process.env, { requireProof: false }); if (errors.length) { for (const e of errors) console.error(e.split(':')[0]); process.exit(2); }
 const base = new URL(process.env.PUBLIC_ACCEPT_BASE_URL).origin; const api = new URL(process.env.PUBLIC_ACCEPT_API_URL).origin;
 const { prov, error } = loadProvenance(process.env.PUBLIC_ACCEPT_SERVED_DIR); if (error) fail(error);
 const get = async (p) => { let r; try { r = await fetch(`${base}${p}`, { redirect: 'manual' }); } catch { fail('HTTP'); } if (r.status !== 200) fail('HTTP'); return Buffer.from(await r.arrayBuffer()); };

@@ -132,6 +132,13 @@ say(/EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0
 say(/target outside|AVATAR_SUB_TARGET/.test(read('served-provenance.mjs')) && /assets\\\/\[A-Za-z0-9\._-\]\+\\\.js\$/.test(read('served-provenance.mjs')), 'avatar: substitutions may target only assets/*.js (never index.html)');
 say(at('PUBLIC_CATALOG_E_NONCANONICAL_PATH') > at('step hermetic') && at('PUBLIC_CATALOG_E_NONCANONICAL_PATH') < at('avatar-fixture.mjs" verify') && /realpath -e --/.test(runsh), 'run.sh requires canonical physical input paths before the served-app helpers run');
 say(/PUBLIC_CATALOG_E_D1_NO_VERDICT/.test(runsh) && /realpathSync\(process\.argv\[1\]\)/.test(read('d1-ownership.mjs')), 'D1: a skipped CLI (symlinked path) cannot pass: realpath isMain and the OK line is required');
+say(at('step pair') > at('step ownership') && at('step pair') > at('step pre-contract') && at('step pair') > at('step hermetic') && at('step pair') < at('step proof') && at('step proof') < at('step W0') && at('step pair') < at('step seed'), 'run.sh: the pairing write is the FIRST write, after PRE, hermetic and D1, before the full proof gate, W0 and the seed');
+say(/guards\.mjs" --pre-pairing/.test(runsh) && /PUBLIC_CATALOG_E_PROOF_PRESET/.test(runsh) && /PUBLIC_CATALOG_E_PAIR_NO_VERDICT/.test(runsh) && /blog_tags\\\|1\\\|/.test(runsh), 'run.sh: pre-pairing guards, no preset proof, required pairing verdict, W0 expects exactly the carrier');
+say(/runGuards\(process\.env\)/.test(cfg) && !/requireProof/.test(cfg), 'config: the Playwright guards always require the proof');
+say(!/\b(grant|revoke|create\s+policy|alter\s+table|create\s+table)\b/i.test(read('pairing-producer.mjs')), 'pairing producer: no grant, policy or schema statement');
+say(at('step served') < at('step pair') && /requireProof: false/.test(read('served-build-check.mjs')) && !/requireProof/.test(read('anon-probe.mjs')) && at('step probe') > at('step pair'), 'proof skip is limited to pre-pairing read-only steps (guards --pre-pairing, served check); the anon probe requires it');
+const pc = execFileSync('node', [path.join(HERE, 'pairing-controls.mjs')], { encoding: 'utf8' });
+say(/^ALL PASS$/m.test(pc), 'pairing producer fake controls pass (see pairing-controls.mjs)');
 const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

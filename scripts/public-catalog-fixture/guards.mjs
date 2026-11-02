@@ -27,7 +27,10 @@ function loopbackHttpOrigin(name, raw) {
   return null;
 }
 
-export function runGuards(env = process.env) {
+/** requireProof is false ONLY before the pairing producer has written the proof: run.sh's first guard step and the read-only
+ *  served check (served-build-check.mjs).
+ *  It is reachable only through the CLI flag --pre-pairing (argv, never env); the Playwright config always requires the proof. */
+export function runGuards(env = process.env, { requireProof = true } = {}) {
   const errors = [];
   for (const name of ['PUBLIC_ACCEPT_BASE_URL', 'PUBLIC_ACCEPT_API_URL']) {
     const e = loopbackHttpOrigin(name, env[name]); if (e) errors.push(e);
@@ -43,12 +46,14 @@ export function runGuards(env = process.env) {
   // There is one tier. The old rehearsal tolerance for known third-party attempts is gone: any foreign attempt fails.
   if (env.PUBLIC_ACCEPT_TIER !== undefined && env.PUBLIC_ACCEPT_TIER !== 'authentic') errors.push(`${E.TIER}: only the authentic tier exists`);
   errors.push(...checkDb(env));
-  const proof = checkStackProof(env.PUBLIC_ACCEPT_STACK_PROOF, env.PUBLIC_ACCEPT_RUN_ID); if (proof) errors.push(proof);
+  if (requireProof) { const proof = checkStackProof(env.PUBLIC_ACCEPT_STACK_PROOF, env.PUBLIC_ACCEPT_RUN_ID); if (proof) errors.push(proof); }
   return errors;
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop())) {
-  const errors = runGuards();
+  const pre = process.argv.slice(2).join(' ') === '--pre-pairing';
+  if (process.argv.length > 2 && !pre) { console.error('PUBLIC_CATALOG_E_GUARDS_USAGE'); process.exit(2); }
+  const errors = runGuards(process.env, { requireProof: !pre });
   if (errors.length) { for (const e of errors) console.error(e.split(':')[0]); process.exit(2); }
-  console.log('PUBLIC_CATALOG_GUARDS_OK');
+  console.log(pre ? 'PUBLIC_CATALOG_GUARDS_OK pre-pairing (proof not yet required)' : 'PUBLIC_CATALOG_GUARDS_OK');
 }

@@ -2,9 +2,10 @@
 // ABOUTME: D1 consumer for this lane: verifies the shared runner's stack-ownership record (#154 stack-ownership.mjs, imported
 // ABOUTME: as-is after its blob pin) against this run, this lane's own origins, a LIVE system identifier and the REVIEWED bootstrap.
 //
-// What it proves: the record was written by the reviewed bootstrap (pinned digest below, not "any well-formed one") for THIS
-// run and attempt, naming THIS lane's app/API origins, and the database this lane's DSN reaches is the cluster that bootstrap
-// initialised. What it does not prove: `disposable: true` is the bootstrap's declaration, never treated as proof here, and
+// What it checks (consumer side only): the record's bootstrap_sha256 equals the EXPECTED reviewed digest below (not "any
+// well-formed one"), it names THIS run and attempt and THIS lane's app/API origins, and its system identifier equals a LIVE read
+// through this lane's DSN. That is digest and identity matching. That the record was actually written by that trusted
+// bootstrap, at the reviewed point in the job order, is NOT proven here; it requires the runner job wiring. What it does not prove: `disposable: true` is the bootstrap's declaration, never treated as proof here, and
 // the record says nothing about rows (the pairing producer and W0 cover those). Output: one fixed line; exit 0 or 3.
 //
 // CLI (run.sh step `ownership`, after hermetic verify and before any write):
