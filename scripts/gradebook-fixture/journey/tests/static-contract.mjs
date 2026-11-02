@@ -156,6 +156,15 @@ export function checkJourney(root) {
   if (!/argv: \['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'\]/.test(ppsql) || !/spawn\(o\.psqlBin \?\? 'psql', plan\.argv,/.test(ppsql)
     || !/assertLocalDsn\(/.test(ppsql) || /console\.(log|error)\([^)]*(passLine|pw|dsn)/.test(ppsql) || !/k !== 'SUPABASE_DB_URL'/.test(ppsql)
     || /passLine !== null|passLine: pw === null \? null/.test(ppsql) || !/\n    plan\.env\.PGPASSFILE = passFile;\n/.test(ppsql) || !/'PGPASSFILE'/.test(ppsql)) v.push('R11_PSQL_NOT_PRIVATE private-psql.mjs');
+  // R13 CodeQL c18dd51 sources: check-then-read through one descriptor; no path re-read after a check.
+  const pdir = stripJsComments(rd(`${jdir}/private-dir.mjs`));
+  const rpj = pdir.slice(pdir.indexOf('export function readPrivateJson('));
+  const rsum = stripJsComments(rd(`${sdir}/run-summary.mjs`));
+  const rraw = rsum.slice(rsum.indexOf('export function readRaw('), rsum.indexOf('if (process.argv[1]'));
+  for (const [f, body] of [['private-dir.mjs', rpj], ['run-summary.mjs', rraw]]) {
+    if (!body || /\blstatSync|\bstatSync\(|readFileSync\((p|file)\b|existsSync/.test(body) || !/fs\.fstatSync\(fd\)/.test(body) || !/O_NOFOLLOW/.test(body) || !/O_NONBLOCK/.test(body)) v.push(`R13_FILE_RACE ${f}`);
+  }
+  if (/err = err \?\? 'SHOT_E_READ'/.test(stripJsComments(rd(`${sdir}/shot-export.mjs`)))) v.push('R13_USELESS_CONDITIONAL shot-export.mjs');
   const lb = stripJsComments(rd('e2e/gradebook-roles/local-binding.mjs'));
   if (/execFileSync|spawn/.test(lb) || !/assertLocalDsn\(/.test(lb)) v.push('R11_BINDING_DSN_ARGV local-binding.mjs');
 

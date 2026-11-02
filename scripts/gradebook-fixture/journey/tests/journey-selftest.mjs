@@ -13,7 +13,7 @@ import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
-import { playwrightSummary, compareSummary, shotsSummary } from '../run-summary.mjs';
+import { playwrightSummary, compareSummary, shotsSummary, readRaw } from '../run-summary.mjs';
 import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
@@ -52,6 +52,32 @@ try {
   ok('G1 missing state file refused', code(() => readPrivateJson(good, 'run-state-j2.json')) === 'JOURNEY_GATE1_E_STATE_MISSING');
   fs.writeFileSync(path.join(good, 'loose.json'), '{}'); fs.chmodSync(path.join(good, 'loose.json'), 0o644);
   ok('G1 0644 state file refused', code(() => readPrivateJson(good, 'loose.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
+  // CodeQL js/file-system-race (c18dd51 private-dir.mjs:63, run-summary.mjs:77): check and read now share ONE descriptor.
+  { const real = fs.fstatSync, realL = fs.lstatSync;
+    const swapAfter = (file, key, body) => { fs[key] = function (...a) { const r = (key === 'fstatSync' ? real : realL).apply(fs, a); fs[key] = key === 'fstatSync' ? real : realL;
+      const t = `${file}.swap`; fs.writeFileSync(t, body, { mode: 0o600 }); fs.chmodSync(t, 0o600); fs.renameSync(t, file); return r; }; };
+    const sp = path.join(good, 'swap.json'); fs.writeFileSync(sp, '{"checked":true}', { mode: 0o600 }); fs.chmodSync(sp, 0o600);
+    swapAfter(sp, 'fstatSync', '{"swapped":true}');
+    let got; try { got = JSON.stringify(readPrivateJson(good, 'swap.json')); } finally { fs.fstatSync = real; }
+    ok('RACE readPrivateJson: the file is replaced right after the check; the bytes returned are the checked file', got === '{"checked":true}');
+    // Causal reference: the c18dd51 shape (lstat the path, then read the path) returns the replacement under the same swap.
+    const oldRead = (p) => { const st = fs.lstatSync(p); if (st.isSymbolicLink() || !st.isFile() || (st.mode & 0o777) !== 0o600) throw new Error('mode'); return JSON.parse(fs.readFileSync(p, 'utf8')); };
+    fs.writeFileSync(sp, '{"checked":true}', { mode: 0o600 }); swapAfter(sp, 'lstatSync', '{"swapped":true}');
+    let old; try { old = JSON.stringify(oldRead(sp)); } finally { fs.lstatSync = realL; }
+    ok('RACE causal: the c18dd51 lstat-then-read shape returns the swapped file', old === '{"swapped":true}');
+    fs.symlinkSync(sp, path.join(good, 'link.json'));
+    ok('RACE readPrivateJson: a symlink to a valid 0600 file is refused (O_NOFOLLOW)', code(() => readPrivateJson(good, 'link.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
+    execFileSync('mkfifo', [path.join(good, 'fifo.json')]); fs.chmodSync(path.join(good, 'fifo.json'), 0o600);
+    ok('RACE readPrivateJson: a FIFO is refused without blocking', code(() => readPrivateJson(good, 'fifo.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
+    fs.mkdirSync(path.join(good, 'dir.json'), { mode: 0o700 });
+    ok('RACE readPrivateJson: a directory is refused', code(() => readPrivateJson(good, 'dir.json')) === 'JOURNEY_GATE1_E_STATE_MODE');
+    const rp = path.join(good, 'raw.txt'); fs.writeFileSync(rp, 'checked raw\n');
+    swapAfter(rp, 'fstatSync', 'swapped raw\n');
+    let raw; try { raw = readRaw(rp); } finally { fs.fstatSync = real; }
+    ok('RACE readRaw: the file is replaced right after the check; the text returned is the checked file', raw === 'checked raw\n');
+    const RC = (f) => { try { readRaw(f); return 'ACCEPTED'; } catch (e) { return e.code; } };
+    fs.symlinkSync(rp, path.join(good, 'raw-link.txt'));
+    ok('RACE readRaw: symlink, FIFO, directory and missing file each refuse SUMMARY_E_RAW', [path.join(good, 'raw-link.txt'), path.join(good, 'fifo.json'), path.join(good, 'dir.json'), path.join(good, 'nope.txt')].every((f) => RC(f) === 'SUMMARY_E_RAW') && RC(rp) === 'ACCEPTED'); }
 
   // ---- Gate 2 (diagnostics dir uses the same private-dir check under its own code prefix) ----
   ok('G2 0755 diag dir refused with its own prefix', code(() => assertPrivateDir(wide, { repoRoot: repo, gate: 'JOURNEY_GATE2' })) === 'JOURNEY_GATE2_E_MODE');
@@ -402,13 +428,13 @@ try {
   ok('PSQL a database name psql would expand as conninfo is refused', PC(['postgresql://u', ':p@', '127.0.0.1:5432/a=b'].join('')) !== 'ACCEPTED');
   { const fb = fs.mkdtempSync(path.join(tmp, 'fpsql-')); const log = path.join(fb, 'log.jsonl');
     const bin = path.join(fb, 'psql');
-    fs.writeFileSync(bin, `#!/usr/bin/env node\nconst fs=require('fs'),crypto=require('crypto');const i=fs.readFileSync(0,'utf8');const pf=process.env.PGPASSFILE;const st=pf?fs.lstatSync(pf):null;fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({argv:process.argv.slice(2),mode:st?(st.mode&0o777).toString(8):null,sha:pf?crypto.createHash('sha256').update(fs.readFileSync(pf)).digest('hex'):null,pf,dsn:'SUPABASE_DB_URL' in process.env,input:i})+'\\n');process.stderr.write('MARKER-psql-STDERR\\n');process.stdout.write('ROW 1\\n');process.exit(i.includes('FAILME')?3:0);\n`);
+    fs.writeFileSync(bin, `#!/usr/bin/env node\nconst fs=require('fs'),crypto=require('crypto');const i=fs.readFileSync(0,'utf8');const pf=process.env.PGPASSFILE;const st=pf?fs.lstatSync(pf):null;fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({argv:process.argv.slice(2),mode:st?(st.mode&0o777).toString(8):null,b64:pf?fs.readFileSync(pf).toString('base64'):null,pf,dsn:'SUPABASE_DB_URL' in process.env,input:i})+'\\n');process.stderr.write('MARKER-psql-STDERR\\n');process.stdout.write('ROW 1\\n');process.exit(i.includes('FAILME')?3:0);\n`);
     fs.chmodSync(bin, 0o755);
     const priv = fs.mkdtempSync(path.join(tmp, 'ppriv-')); fs.chmodSync(priv, 0o700);
     const lines = await runPsql({ script: 'select 1;\n', privDir: priv, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin });
     const call = JSON.parse(fs.readFileSync(log, 'utf8').trim().split('\n')[0]);
     ok('PSQL runPsql returns stdout lines only', JSON.stringify(lines) === '["ROW 1"]');
-    ok('PSQL passfile existed as 0600 in the private dir during the call, with exactly the planned line', call.mode === '600' && path.dirname(call.pf) === fs.realpathSync(priv) && call.sha === createHash('sha256').update(plan.passLine).digest('hex'));
+    ok('PSQL passfile existed as 0600 in the private dir during the call, with exactly the planned line', call.mode === '600' && path.dirname(call.pf) === fs.realpathSync(priv) && typeof call.b64 === 'string' && Buffer.from(call.b64, 'base64').equals(Buffer.from(plan.passLine)));
     ok('PSQL passfile removed after the call; SQL went on stdin; no DSN in the child env', !fs.existsSync(call.pf) && call.input === 'select 1;\n' && call.dsn === false);
     ok('PSQL raw stderr lands only in the private 0600 log', fs.readFileSync(path.join(priv, 'psql-stderr.log'), 'utf8').includes('MARKER-psql-STDERR') && (fs.statSync(path.join(priv, 'psql-stderr.log')).mode & 0o777) === 0o600);
     let ec = 'ACCEPTED'; try { await runPsql({ script: 'FAILME', privDir: priv, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin }); } catch (e) { ec = e.code; }
@@ -665,7 +691,7 @@ let op='other'; const inc=input.match(/\\\\i (\\S+)/);
 if(inc) op=path.basename(inc[1]); else if(/JOURNEY_ROWS/.test(input)) op='precheck'; else if(/'CARRIER '/.test(input)) op='carrier'; else if(/pg_control_system/.test(input)) op='sysid';
 if(op==='witness-journey.sql'){const f=S+'/wcount';const n=fs.existsSync(f)?Number(fs.readFileSync(f,'utf8')):0;fs.writeFileSync(f,String(n+1));op=n===0?'witness-pre':'witness-post';}
 const pf=process.env.PGPASSFILE; let pass=null;
-if(pf){const st=fs.lstatSync(pf);pass={mode:(st.mode&0o777).toString(8),sha:crypto.createHash('sha256').update(fs.readFileSync(pf)).digest('hex'),dir:path.dirname(pf)};}
+if(pf){const st=fs.lstatSync(pf);pass={mode:(st.mode&0o777).toString(8),b64:fs.readFileSync(pf).toString('base64'),dir:path.dirname(pf)};}
 fs.appendFileSync(S+'/psql.jsonl',JSON.stringify({op,argv:process.argv.slice(2),pass,dsn:'SUPABASE_DB_URL' in process.env,pgpw:'PGPASSWORD' in process.env})+'\\n');
 if(fail===op){process.stdout.write('MARKER-'+op+'-STDOUT\\n');process.stderr.write('MARKER-'+op+'-STDERR\\n');process.exit(3);}
 process.stderr.write('MARKER-'+op+'-noise\\n');
@@ -801,7 +827,7 @@ process.exit(bad?1:0);
     { const calls = fs.readFileSync(path.join(happy.st, 'psql.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
       ok('RUNFAKE psql call order: sysid, composition, precheck, carrier insert, readback, seed, witness pre, witness post', JSON.stringify(calls.map((c) => c.op)) === '["sysid","composition.sql","precheck","pairing-seed.sql","carrier","seed-journey.sql","witness-pre","witness-post"]');
       ok('RUNFAKE every psql argv is -w with plain -h/-p/-U/-d; no password, URI or nonce on any argv', calls.every((c) => JSON.stringify(c.argv) === JSON.stringify(plan.argv)));
-      ok('RUNFAKE every psql child had a 0600 passfile in the run private raw dir with exactly the planned line, and no DSN or PGPASSWORD env', calls.every((c) => c.pass && c.pass.mode === '600' && c.pass.sha === createHash('sha256').update(plan.passLine).digest('hex') && /\/gb-journey-run\.[A-Za-z0-9]{10}\/raw$/.test(c.pass.dir) && !c.dsn && !c.pgpw));
+      ok('RUNFAKE every psql child had a 0600 passfile in the run private raw dir with exactly the planned line, and no DSN or PGPASSWORD env', calls.every((c) => c.pass && c.pass.mode === '600' && typeof c.pass.b64 === 'string' && Buffer.from(c.pass.b64, 'base64').equals(Buffer.from(plan.passLine)) && /\/gb-journey-run\.[A-Za-z0-9]{10}\/raw$/.test(c.pass.dir) && !c.dsn && !c.pgpw));
       const npx = JSON.parse(fs.readFileSync(path.join(happy.st, 'npx.jsonl'), 'utf8').trim());
       ok('RUNFAKE Playwright gets --reporter=json and a private --output under the run parent', npx.argv.includes('--reporter=json') && npx.argv.some((a) => /^--output=.*\/gb-journey-run\.[A-Za-z0-9]{10}\/raw\/test-results$/.test(a)));
       ok('RUNFAKE J0a reported withheld; two clean shots exported with the tEXt chunk (marker + nonce) dropped; manifest matches bytes', fs.readdirSync(path.join(happy.out, 'screenshots')).join(',') === 'J0b-detail-before-publish.png,J4d-certificate.png' && /^WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\nSHOT J0b-detail-before-publish sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOT J4d-certificate sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOTS 2 captured 1 withheld of 16\n$/.test(fs.readFileSync(path.join(happy.out, 'screenshots.txt'), 'utf8')));
@@ -945,6 +971,10 @@ process.exit(bad?1:0);
     ['export keeps ancillary chunks', `${S}/shot-export.mjs`, (s) => s.replace('      // ancillary (lower-case first letter): dropped, never copied', '      else kept.push(whole); // ancillary kept'), 'R12_SHOT_EXPORT_WEAK'],
     ['export trusts any CRITICAL set', `${S}/shot-export.mjs`, (s) => s.replace("const CRITICAL = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND']);", "const CRITICAL = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'zTXt']);"), 'R12_SHOT_EXPORT_WEAK'],
     ['export skips the nonce byte check', `${S}/shot-export.mjs`, (s) => s.replace('const forbidden = [Buffer.from(proof.stack_id), Buffer.from(PAIRING_PREFIX)];', 'const forbidden = [];'), 'R12_SHOT_EXPORT_WEAK'],
+    ['readPrivateJson goes back to lstat-then-read-path', `${J}/private-dir.mjs`, (s) => s.replace("else text = fs.readFileSync(fd, 'utf8');", "else { fs.lstatSync(p); text = fs.readFileSync(p, 'utf8'); }"), 'R13_FILE_RACE'],
+    ['readRaw drops O_NOFOLLOW', `${S}/run-summary.mjs`, (s) => s.replace("fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0))", "fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NONBLOCK ?? 0))"), 'R13_FILE_RACE'],
+    ['readRaw re-reads the path', `${S}/run-summary.mjs`, (s) => s.replace("  try { return new TextDecoder('utf-8').decode(buf); }", "  try { return fs.readFileSync(file, 'utf8'); }"), 'R13_FILE_RACE'],
+    ['readHandle catch back to the useless conditional', `${S}/shot-export.mjs`, (s) => s.replace("  } catch { err = 'SHOT_E_READ'; }", "  } catch { err = err ?? 'SHOT_E_READ'; }"), 'R13_USELESS_CONDITIONAL'],
     ['export ignores the scan sha256', `${S}/shot-export.mjs`, (s) => s.replace("!== rec.sha256) throw new ShotError('SHOT_E_SCAN_MISMATCH')", "!== rec.sha256) void 0"), 'R12_SHOT_EXPORT_WEAK'],
     ['runner stages the raw shot dir', `${S}/run-journey.sh`, (s) => s.replace('mv "$RAW/shots-export" "$OUT/screenshots"', 'cp -r "$PARENT/shots" "$OUT/screenshots"'), 'R11_RUNNER_RAW_STAGED'],
     ['runner skips the shot export', `${S}/run-journey.sh`, (s) => s.replace(/^node "\$HERE\/shot-export\.mjs".*$/m, 'true'), 'R11_RUNNER_ORDER'],

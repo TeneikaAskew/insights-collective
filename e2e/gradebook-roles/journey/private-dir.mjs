@@ -53,12 +53,21 @@ export function writePrivateFile(dir, name, data) {
   return p;
 }
 
-/** Read a private JSON file written by writePrivateFile: regular file, not a symlink, 0600, parseable. */
+/** Read a private JSON file written by writePrivateFile: regular file, not a symlink, 0600, parseable. The checks and
+ *  the read use ONE descriptor (O_NOFOLLOW, O_NONBLOCK, fstat), so the file read is the file checked. */
 export function readPrivateJson(dir, name) {
   if (!/^[a-z0-9-]+\.json$/.test(name)) throw new JourneyGateError('JOURNEY_GATE1_E_FILENAME');
   const p = path.join(dir, name);
-  let st;
-  try { st = fs.lstatSync(p); } catch { throw new JourneyGateError('JOURNEY_GATE1_E_STATE_MISSING'); }
-  if (st.isSymbolicLink() || !st.isFile() || (st.mode & 0o777) !== 0o600) throw new JourneyGateError('JOURNEY_GATE1_E_STATE_MODE');
-  try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { throw new JourneyGateError('JOURNEY_GATE1_E_STATE_PARSE'); }
+  let fd;
+  try { fd = fs.openSync(p, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)); }
+  catch (e) { throw new JourneyGateError(e && e.code === 'ENOENT' ? 'JOURNEY_GATE1_E_STATE_MISSING' : 'JOURNEY_GATE1_E_STATE_MODE'); }
+  let code = null, text = null;
+  try {
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || (st.mode & 0o777) !== 0o600) code = 'JOURNEY_GATE1_E_STATE_MODE';
+    else text = fs.readFileSync(fd, 'utf8');
+  } catch { code = 'JOURNEY_GATE1_E_STATE_PARSE'; }
+  finally { try { fs.closeSync(fd); } catch { code = code ?? 'JOURNEY_GATE1_E_STATE_PARSE'; } }
+  if (code) throw new JourneyGateError(code);
+  try { return JSON.parse(text); } catch { throw new JourneyGateError('JOURNEY_GATE1_E_STATE_PARSE'); }
 }

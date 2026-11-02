@@ -70,11 +70,24 @@ export function shotsSummary(text, names, reasons) {
   return [...lines, last].join('\n');
 }
 
-function readRaw(file) {
-  let st;
-  try { st = fs.lstatSync(file); } catch { throw new SummaryError('SUMMARY_E_RAW'); }
-  if (!st.isFile() || st.size > MAX_RAW) throw new SummaryError('SUMMARY_E_RAW');
-  try { return fs.readFileSync(file, 'utf8'); } catch { throw new SummaryError('SUMMARY_E_RAW'); }
+/** The raw input, checked and read through ONE descriptor (O_NOFOLLOW, O_NONBLOCK, fstat), bounded to MAX_RAW. */
+export function readRaw(file) {
+  let fd;
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)); }
+  catch { throw new SummaryError('SUMMARY_E_RAW'); }
+  let ok = false, buf = null;
+  try {
+    const st = fs.fstatSync(fd);
+    if (st.isFile() && st.size <= MAX_RAW) {
+      buf = Buffer.alloc(MAX_RAW + 1);
+      let n = 0;
+      for (;;) { const r = fs.readSync(fd, buf, n, buf.length - n, null); if (r === 0) break; n += r; if (n > MAX_RAW) break; }
+      if (n <= MAX_RAW) { buf = buf.subarray(0, n); ok = true; }
+    }
+  } catch { ok = false; }
+  finally { try { fs.closeSync(fd); } catch { ok = false; } }
+  if (!ok) throw new SummaryError('SUMMARY_E_RAW');
+  try { return new TextDecoder('utf-8').decode(buf); } catch { throw new SummaryError('SUMMARY_E_RAW'); }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {

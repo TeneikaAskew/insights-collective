@@ -59,7 +59,7 @@ export function readHandle(file, max, { uid = typeof process.getuid === 'functio
       if (!err && n !== st.size) err = 'SHOT_E_GROWTH';
       if (!err) buf = Buffer.from(cap.subarray(0, n));
     }
-  } catch { err = err ?? 'SHOT_E_READ'; }
+  } catch { err = 'SHOT_E_READ'; }   // every err assignment above ends the try without a throw
   finally { try { io.closeSync(fd); } catch { err = err ?? 'SHOT_E_CLOSE'; } }
   if (err) throw new ShotError(err);
   return buf;
