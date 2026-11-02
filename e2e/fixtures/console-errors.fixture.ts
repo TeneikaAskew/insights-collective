@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import type { SupabaseIssue } from '../../src/integrations/supabase/instrumentation';
 import { structuralIssues, describeIssue } from '../../src/integrations/supabase/issue-triage';
+import { partitionExpectedDenials } from '../../scripts/e2e/expected-denials.mjs';
 import { redactUrl, redactText } from '../../src/integrations/supabase/redact-secrets';
 
 /**
@@ -359,6 +360,15 @@ interface ConsoleFixtures {
    * Tests can inspect it mid-test if needed.
    */
   consoleErrors: ConsoleMessage[];
+  /**
+   * Exact expected 403/42501 denials a spec deliberately provokes (scripts/e2e/expected-denials.mjs). Each declaration
+   * must match exactly `count` structural issues after `after`; unmatched issues stay fatal. Empty by default.
+   */
+  expectedDenials: { declare: (d: ExpectedDenial) => void };
+}
+
+export interface ExpectedDenial {
+  method: string; target: string; status: 403; code: '42501'; message: string; route: string; count: number; after: number;
 }
 
 // Which recorded issues count as defects lives in src/, next to the
@@ -376,9 +386,19 @@ interface ConsoleFixtures {
  * Usage: import { test, expect } from '../fixtures/console-errors.fixture'
  * (or from any fixture file that re-exports this test)
  */
+// Declarations per test, keyed by the fixture object the test received (read only by consoleErrors' teardown).
+const DECLARED = new WeakMap<object, ExpectedDenial[]>();
+
 export const test = base.extend<ConsoleFixtures>({
+  // eslint-disable-next-line no-empty-pattern
+  expectedDenials: async ({}, provide) => {
+    const declared: ExpectedDenial[] = [];
+    const api = { declare: (d: ExpectedDenial) => { declared.push({ ...d }); } };
+    DECLARED.set(api, declared);
+    await provide(api);
+  },
   consoleErrors: [
-    async ({ page }, use, testInfo) => {
+    async ({ page, expectedDenials }, use, testInfo) => {
       const errors: ConsoleMessage[] = [];
       const where = { spec: testInfo.titlePath[0], test: testInfo.title, project: testInfo.project.name };
 
@@ -483,7 +503,9 @@ export const test = base.extend<ConsoleFixtures>({
       const issues: SupabaseIssue[] = await page
         .evaluate(() => (window as unknown as { __supabaseIssues?: SupabaseIssue[] }).__supabaseIssues ?? [])
         .catch(() => []);          // page already closed, or navigated away
-      const structural = structuralIssues(issues);
+      const { unexpected: structural, consumed, problems } = partitionExpectedDenials(structuralIssues(issues), DECLARED.get(expectedDenials) ?? []);
+      for (const issue of consumed) auditRecord({ ...where, kind: 'supabase-issue', ignored: 'expected-denial', ...issue });
+      expect(problems, `Test "${testInfo.title}" declared expected denials that did not match exactly:\n${problems.join('\n')}`).toEqual([]);
 
       for (const issue of structural) {
         auditRecord({ ...where, kind: 'supabase-issue', ignored: false, ...issue });
