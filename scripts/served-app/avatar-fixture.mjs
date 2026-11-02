@@ -14,6 +14,9 @@
 // AvatarFallback (initial) path, which a successful local image load never exercises. Layout: each fixture is a 150x150
 // square SVG, like the provider's 150 px square image, inside the same h-10 w-10 Avatar box.
 //
+// Directories: the out dir must be canonically disjoint from the product dist and the hermetic copy. Each input is resolved
+// with realpath; the out dir's existing parent is resolved with realpath (so a symlinked or `..` alias cannot hide nesting).
+// Neither may equal or contain the other. make() checks this before deriving or creating anything; verify() checks it too.
 // Rules: every `from` string occurs exactly once across the non-.map files of the hermetic copy, in one assets/*.js chunk
 // (never index.html, so served_index_sha256 never changes); afterwards no
 // non-.map file contains "pravatar"; source maps (.map) are copied byte-identical (not fetched by the page; they still
@@ -24,7 +27,7 @@
 //   avatar-fixture.mjs verify <product dist> <hermetic copy> <out dir>
 // Exit codes are fixed: 0 ok, 20 usage, 21 hermetic copy not verified, 22 substitution count != 1, 23 residual provider
 // reference, 24 out dir exists, 25 file set differs, 26 byte differs, 27 provenance missing or inconsistent, 28 fixture
-// asset pin mismatch, 29 io error. Messages are fixed strings plus relative paths; no file content is printed.
+// asset pin mismatch, 29 io error, 30 out dir not canonically disjoint from both inputs (or its parent is missing). Messages are fixed strings plus relative paths; no file content is printed.
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -57,6 +60,30 @@ function listFiles(root) {
   };
   walk(root);
   return out.sort();
+}
+
+const within = (a, b) => a === b || a.startsWith(b.endsWith(path.sep) ? b : b + path.sep);
+
+/** Canonical out path: realpath of the existing parent + basename (make), or realpath of the dir itself (verify). */
+function canonicalOut(outDir, mustExist) {
+  const abs = path.resolve(outDir);
+  if (mustExist) { try { return fs.realpathSync(abs); } catch { throw new ContractError(30, 'out dir cannot be resolved'); } }
+  const base = path.basename(abs);
+  if (!base || base === '.' || base === '..') throw new ContractError(30, 'out dir has no usable name');
+  let parent;
+  try { parent = fs.realpathSync(path.dirname(abs)); } catch { throw new ContractError(30, 'out dir parent must already exist'); }
+  return path.join(parent, base);
+}
+
+/** Refuse unless the out dir is disjoint from both inputs after canonical resolution. Nothing is created or changed. */
+export function assertDisjoint(productDist, hermeticDir, outDir, mustExist) {
+  const out = canonicalOut(outDir, mustExist);
+  for (const [label, dir] of [['product dist', productDist], ['hermetic copy', hermeticDir]]) {
+    let real;
+    try { real = fs.realpathSync(path.resolve(dir)); } catch { throw new ContractError(30, `${label} cannot be resolved`); }
+    if (within(out, real) || within(real, out)) throw new ContractError(30, `out dir is not disjoint from the ${label}`);
+  }
+  return out;
 }
 
 function countOf(buf, needle) { let n = 0; let i = buf.indexOf(needle); while (i >= 0) { n += 1; i = buf.indexOf(needle, i + needle.length); } return n; }
@@ -101,6 +128,9 @@ export function derive(productDist, hermeticDir) {
     hermetic: { served_index_sha256: base.served_index_sha256, product_manifest_sha256: base.product_manifest_sha256 },
     substitutions: subs,
     assets: Object.fromEntries(SUBSTITUTIONS.map((s) => [s.to.slice(1), s.sha256])),
+    // Consumers bind THESE final per-file hashes; the per-substitution sha256_after values are intermediates when several
+    // substitutions land in the same chunk.
+    final_files: Object.fromEntries([...new Set(subs.map((x) => x.file))].sort().map((f) => [f, sha256(out.get(f))])),
     source_maps_unchanged: files.filter(isMap),
     unverified: ['product avatar provider integration (i.pravatar.cc)', 'AvatarFallback initial path'],
   };
@@ -108,7 +138,10 @@ export function derive(productDist, hermeticDir) {
 }
 
 export function make(productDist, hermeticDir, outDir) {
-  if (fs.existsSync(outDir)) throw new ContractError(24, 'out dir already exists');
+  let present = true;
+  try { fs.lstatSync(outDir); } catch { present = false; }
+  if (present) throw new ContractError(24, 'out dir already exists');
+  assertDisjoint(productDist, hermeticDir, outDir, false);
   const { out, prov } = derive(productDist, hermeticDir);
   fs.mkdirSync(outDir, { recursive: false });
   for (const [f, buf] of out) {
@@ -121,6 +154,7 @@ export function make(productDist, hermeticDir, outDir) {
 }
 
 export function verify(productDist, hermeticDir, outDir) {
+  assertDisjoint(productDist, hermeticDir, outDir, true);
   const { out, prov } = derive(productDist, hermeticDir);
   const want = [...out.keys(), PROVENANCE].sort();
   const got = listFiles(outDir);
@@ -138,7 +172,7 @@ if (isMain) {
   try {
     if (!['make', 'verify'].includes(cmd) || !a || !b || !c) throw new ContractError(20, 'usage: avatar-fixture.mjs make|verify <product dist> <hermetic copy> <out dir>');
     const p = cmd === 'make' ? make(a, b, c) : verify(a, b, c);
-    console.log(`AVATAR-FIXTURE ${cmd} ok: ${p.substitutions.length} substitutions (${p.substitutions.map((s) => `${s.file} ${s.sha256_before.slice(0, 12)}->${s.sha256_after.slice(0, 12)}`).join(', ')}); ${Object.keys(p.assets).length} pinned assets; ${p.source_maps_unchanged.length} source map(s) unchanged`);
+    console.log(`AVATAR-FIXTURE ${cmd} ok: ${p.substitutions.length} substitutions (${p.substitutions.map((s) => `${s.file} ${s.sha256_before.slice(0, 12)}->${s.sha256_after.slice(0, 12)}`).join(', ')}); final ${Object.entries(p.final_files).map(([f, h]) => `${f} ${h}`).join(', ')}; ${Object.keys(p.assets).length} pinned assets; ${p.source_maps_unchanged.length} source map(s) unchanged`);
     console.log(LABEL);
   } catch (e) {
     const code = e instanceof ContractError ? e.code : 29;

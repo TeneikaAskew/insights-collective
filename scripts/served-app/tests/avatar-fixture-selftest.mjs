@@ -3,8 +3,12 @@
 // ABOUTME: one fixed-code negative per refusal. Browser (optional, real build): before/after on `/` with every foreign request aborted.
 // Browser tier: the loopback API origin is STUBBED (every call answers 200 []) so `/` renders without a stack; this is a
 // served-bytes control, not authentic public-UI evidence. Every other origin is aborted before send.
+// Scope of the browser barrier: Playwright context.route (HTTP(S) requests of this context) plus serviceWorkers 'block'
+// ONLY. WebSocket traffic and other processes are NOT barred or observed, so B3's "zero foreign attempts" means zero
+// routed HTTP(S) requests, nothing wider. Never reuse this tier as an authentic isolation or egress gate.
 // Usage: avatar-fixture-selftest.mjs [<product dist> <hermetic copy> <fixture copy>]   (browser part only with the three dirs)
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
@@ -62,6 +66,39 @@ try {
   check('N9 provenance label weakened', run('verify', d1, h1, path.join(tmp, 'o1')) === 27);
   fs.writeFileSync(pv, pkeep);
   check('P5 restored copy verifies', run('verify', d1, h1, path.join(tmp, 'o1')) === 0);
+  const prov = JSON.parse(fs.readFileSync(pv, 'utf8'));
+  const chunk = createHash('sha256').update(fs.readFileSync(path.join(tmp, 'o1', 'assets', 'app.js'))).digest('hex');
+  const lastAfter = prov.substitutions.at(-1).sha256_after;
+  check('P6 final_files binds the final served chunk (all three substitutions in one chunk; earlier sha256_after are intermediates)',
+    JSON.stringify(Object.keys(prov.final_files ?? {})) === '["assets/app.js"]' && prov.final_files['assets/app.js'] === chunk && lastAfter === chunk
+    && prov.substitutions.every((x) => x.file === 'assets/app.js') && prov.substitutions.slice(0, -1).every((x) => x.sha256_after !== chunk));
+  // Disjoint input/output directories (exit 30), each refused BEFORE anything is created and with both inputs unchanged.
+  const tree = (root) => { const h = createHash('sha256'); const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const f = path.join(d, e.name); h.update(`${path.relative(root, f)}\0${e.isSymbolicLink() ? 'L' : e.isDirectory() ? 'D' : 'F'}\0`); if (e.isDirectory() && !e.isSymbolicLink()) walk(f); else if (e.isFile()) h.update(fs.readFileSync(f)); } }; walk(root); return h.digest('hex'); };
+  const refuses = (name, out, cmd = 'make') => {
+    const b = [tree(d1), tree(h1)]; const existed = fs.existsSync(out);
+    const code = run(cmd, d1, h1, out);
+    const unchanged = tree(d1) === b[0] && tree(h1) === b[1] && fs.existsSync(out) === existed;
+    check(name, code === 30 && unchanged, `exit ${code}, inputs and out unchanged: ${unchanged}`);
+  };
+  refuses('N11 out dir is a NEW child of the hermetic copy', path.join(h1, 'fixture'));
+  refuses('N12 out dir is a NEW child of the product dist', path.join(d1, 'fixture'));
+  refuses('N13 out dir is a NEW grandchild inside the hermetic copy (existing parent assets/)', path.join(h1, 'assets', 'fixture'));
+  refuses('N14 `..` alias that lands inside the hermetic copy', path.join(tmp, 'o1', '..', path.basename(h1), 'fixture'));
+  const alias = path.join(tmp, 'alias-h'); fs.symlinkSync(h1, alias);
+  refuses('N15 symlinked existing parent that resolves into the hermetic copy', path.join(alias, 'fixture'));
+  const aliasD = path.join(tmp, 'alias-d'); fs.symlinkSync(d1, aliasD);
+  refuses('N16 symlinked existing parent that resolves into the product dist', path.join(aliasD, 'fixture'));
+  refuses('N17 out parent does not exist', path.join(tmp, 'missing-parent', 'fixture'));
+  // A NEW out dir cannot contain existing inputs, so containment in that direction is checked on verify: out = their parent.
+  refuses('N18 verify with an out dir that contains both inputs', tmp, 'verify');
+  fs.cpSync(path.join(tmp, 'o1'), path.join(h1, 'nested-copy'), { recursive: true });
+  const hNested = tree(h1);
+  const vcode = run('verify', d1, h1, path.join(h1, 'nested-copy'));
+  check('N19 verify refuses a fixture copy nested inside the hermetic copy', vcode === 30 && tree(h1) === hNested, `exit ${vcode}`);
+  fs.rmSync(path.join(h1, 'nested-copy'), { recursive: true });
+  const vlink = path.join(tmp, 'alias-o'); fs.symlinkSync(path.join(tmp, 'o1'), vlink);
+  check('P7 verify through a symlink to a disjoint copy still verifies', run('verify', d1, h1, vlink) === 0);
+  check('P8 a disjoint NEW out dir beside the inputs still makes', run('make', d1, h1, path.join(tmp, 'o-beside')) === 0 && run('verify', d1, h1, path.join(tmp, 'o-beside')) === 0);
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 
 const [productDir, hermeticDir, fixtureDir] = process.argv.slice(2);
@@ -101,7 +138,7 @@ if (fixtureDir) {
   check('B1 hermetic copy (no fixture): the page attempts i.pravatar.cc (blocked before send)', before.foreign.includes('https://i.pravatar.cc'), JSON.stringify(before.foreign));
   check('B2 hermetic copy: no avatar image mounts; the three fallback initials A, M, S render (provider blocked)', before.avatars.length === 0 && JSON.stringify(before.fallbacks) === '["A","M","S"]', JSON.stringify(before.fallbacks));
   check('B5 fixture copy: no fallback initial renders once the local images load', after.fallbacks.length === 0, JSON.stringify(after.fallbacks));
-  check('B3 fixture copy: zero foreign attempts on /', after.foreign.length === 0, JSON.stringify(after.foreign));
+  check('B3 fixture copy: zero foreign routed HTTP(S) requests on / (route + SW block only; WS/process not covered)', after.foreign.length === 0, JSON.stringify(after.foreign));
   check('B4 fixture copy: three avatar images load, 150 px square source, 40x40 box', after.avatars.length === 3 && after.avatars.every((a) => a.loaded && a.natural === 150 && a.box[0] === 40 && a.box[1] === 40), JSON.stringify(after.avatars));
   void productDir;
 }
