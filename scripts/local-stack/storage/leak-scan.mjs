@@ -141,7 +141,7 @@ export function readBounded(file, max, rootReal, { io = fs, uid = typeof process
       if (!cat && n !== st.size) cat = 'RACE';
       if (!cat) buf = Buffer.from(cap.subarray(0, n));
     }
-  } catch { cat = cat ?? 'UNREADABLE'; }
+  } catch { cat = 'UNREADABLE'; }   // nothing after a category assignment above can throw
   finally { try { io.closeSync(fd); } catch { cat = cat ?? 'UNREADABLE'; } }
   return cat ? { cat } : { buf };
 }

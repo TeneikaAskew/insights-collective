@@ -8,7 +8,7 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import * as S from '../storage-core.mjs';
-import { main, s0, loadPinned, assertPrivateDir, readPrivate, MAX_PRIVATE_READ, CAPTURE_SQL, EGRESS_VERIFY_SQL, IDENTITIES_SQL, PINS_FILE, MIRROR_FILE, INPUT_ENV, PINNED } from '../storage-job.mjs';
+import { main, s0, assertPrivateDir, readPrivate, MAX_PRIVATE_READ, CAPTURE_SQL, EGRESS_VERIFY_SQL, IDENTITIES_SQL, PINS_FILE, MIRROR_FILE, INPUT_ENV, PINNED } from '../storage-job.mjs';
 import { convert, SOURCE_SHA256, SOURCE_BYTES } from '../live-pins.mjs';
 import { LIVE_PINS_SHA256, MIRROR_SHA256 } from '../gen-mirror.mjs';
 import { probeScripts, probeVerdict, cases, C, U, PROBE_PINS_SHA256 } from '../probes.mjs';
@@ -17,10 +17,8 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 let ok = 0, bad = 0;
 const t = async (name, fn) => { try { await fn(); ok++; console.log(`ok ${name}`); } catch (e) { bad++; console.log(`FAILED ${name}: ${e && (e.code || e.message)}`); } };
 const eq = (a, b) => { if (a !== b) throw new Error(`expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`); };
-const throwsCode = (fn, code) => { try { fn(); } catch (e) { eq(e.code, code); return; } throw new Error(`no refusal (wanted ${code})`); };
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const sha = (b) => createHash('sha256').update(b).digest('hex');
-const md5 = (s) => createHash('md5').update(s, 'utf8').digest('hex');
 
 import { SYN_POLICIES, synInput } from './synthetic-input.mjs';
 
@@ -120,8 +118,8 @@ await t('S0 refuses when the derived pins differ from the reviewed pins digest (
 await t('S0 refuses when the generated mirror differs from the reviewed mirror digest (nothing written)', () => { const r = s0In(undefined, ENV_S0, { ...SYN_PINNED, mirrorSha: '0'.repeat(64) }); eq(r.err, 'ST_E_MIRROR_SHA'); eq(r.files.length, 0); });
 await t('S0 refuses a pre-existing pins.tsv (O_EXCL)', () => { const r = s0In((d) => { fs.writeFileSync(path.join(d, PINS_FILE), 'x', { mode: 0o600 }); }); eq(r.err, 'ST_E_PRIVATE_WRITE'); });
 await t('S0 refuses a symlink planted at mirror.sql (O_NOFOLLOW; target untouched)', () => {
-  const tgt = path.join(os.tmpdir(), `st-target-${process.pid}`); fs.writeFileSync(tgt, 'keep');
-  try { const r = s0In((d) => { fs.symlinkSync(tgt, path.join(d, MIRROR_FILE)); }); eq(r.err, 'ST_E_PRIVATE_WRITE'); eq(fs.readFileSync(tgt, 'utf8'), 'keep'); } finally { fs.rmSync(tgt, { force: true }); }
+  const tdir = fs.mkdtempSync(path.join(os.tmpdir(), 'st-target-')); const tgt = path.join(tdir, 'target'); fs.writeFileSync(tgt, 'keep', { mode: 0o600, flag: 'wx' });
+  try { const r = s0In((d) => { fs.symlinkSync(tgt, path.join(d, MIRROR_FILE)); }); eq(r.err, 'ST_E_PRIVATE_WRITE'); eq(fs.readFileSync(tgt, 'utf8'), 'keep'); } finally { fs.rmSync(tdir, { recursive: true, force: true }); }
 });
 await t('S0 refuses a symlinked private dir', () => { const r = s0In((d) => { fs.symlinkSync(d, `${d}-link`); return `${d}-link`; }); eq(r.err, 'ST_E_PRIVATE_DIR'); eq(r.files.length, 0); });
 await t('S0 refuses a 0755 private dir', () => { const r = s0In((d) => { fs.chmodSync(d, 0o755); }); eq(r.err, 'ST_E_PRIVATE_DIR'); eq(r.files.length, 0); });

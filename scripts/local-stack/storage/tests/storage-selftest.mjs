@@ -40,7 +40,7 @@ const stockFuncs = (mut = {}) => [`FUNC\tstorage\tfoldername\t${b('name text')}\
 t('PARSE well-formed STOCK', () => { const p = S.parsePins(pins('STOCK')); eq(p.policies.size, 2); eq(p.source, 'STOCK'); });
 t('PARSE header refused', () => refuses('ST_E_HEADER', () => S.parsePins(pins('STOCK').replace('v1', 'v2'))));
 t('PARSE no trailing LF', () => refuses('ST_E_PINS', () => S.parsePins(pins('STOCK').slice(0, -1))));
-t('PARSE CR refused', () => refuses('ST_E_PINS', () => S.parsePins(pins('STOCK').replace('\n', '\r\n'))));
+t('PARSE CR refused', () => refuses('ST_E_PINS', () => S.parsePins(`${pins('STOCK').slice(0, -1)}\r\n`)));
 t('PARSE unknown kind', () => refuses('ST_E_KIND', () => S.parsePins(pins('STOCK', { extra: ['SQL\tdrop'] }))));
 t('PARSE empty field', () => refuses('ST_E_LINE', () => S.parsePins(pins('STOCK', { extra: ['GRANT\t\tx\tSELECT'] }))));
 t('PARSE foreign table', () => refuses('ST_E_TABLE', () => S.parsePins(pins('STOCK', { policies: [['public.profiles', 'synthetic', 'SELECT', 'PERMISSIVE', 'authenticated', '(1 = 1)', null]] }))));
