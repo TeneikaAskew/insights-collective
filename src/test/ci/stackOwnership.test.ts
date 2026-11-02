@@ -8,6 +8,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   buildRecord, readRecord, verifyRecord, writeRecord, schemaProblem, KEYS, CODES,
 } from '../../../scripts/e2e/stack-ownership.mjs';
+import { scratchFile } from '../../../scripts/e2e/tests/scratch-files.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const MOD = path.join(ROOT, 'scripts/e2e/stack-ownership.mjs');
@@ -16,7 +17,7 @@ const fake = () => JSON.parse(fs.readFileSync(FAKE, 'utf8'));
 const dirs: string[] = [];
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'so-')); dirs.push(d); return d; };
 afterEach(() => { while (dirs.length) fs.rmSync(dirs.pop()!, { recursive: true, force: true }); });
-const put = (obj: unknown, mode = 0o600) => { const f = path.join(tmp(), 'so.json'); fs.writeFileSync(f, JSON.stringify(obj), { mode }); fs.chmodSync(f, mode); return f; };
+const put = (obj: unknown, mode = 0o600) => scratchFile(tmp(), 'so.json', JSON.stringify(obj), mode);
 const ctx = { runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: 'http://127.0.0.1:54321', appOrigin: 'http://127.0.0.1:4173' };
 
 describe('schema v1', () => {
@@ -64,9 +65,9 @@ describe('verifyRecord (consumer side)', () => {
     expect(verifyRecord(put(fake()), { ...ctx, appOrigin: 'http://localhost:4173' })).toMatchObject({ code: 'SO_ORIGIN_MISMATCH', reason: 'app_origin' });
   });
   it('oversize refuses with SO_SIZE; non-JSON with SO_PARSE; bad shape with SO_SCHEMA', () => {
-    const big = path.join(tmp(), 'big.json'); fs.writeFileSync(big, 'x'.repeat(5000), { mode: 0o600 });
+    const big = scratchFile(tmp(), 'big.json', 'x'.repeat(5000));
     expect(verifyRecord(big, ctx).code).toBe('SO_SIZE');
-    const bad = path.join(tmp(), 'bad.json'); fs.writeFileSync(bad, '{', { mode: 0o600 });
+    const bad = scratchFile(tmp(), 'bad.json', '{');
     expect(verifyRecord(bad, ctx).code).toBe('SO_PARSE');
     expect(verifyRecord(put({ ...fake(), disposable: false }), ctx)).toMatchObject({ code: 'SO_SCHEMA', reason: 'disposable' });
   });
@@ -105,7 +106,7 @@ describe('CLI: one fixed line, exit 0 or 3', () => {
     catch (e: any) { return { out: String(e.stdout), code: e.status }; }
   };
   it('write then verify round trip; mismatch is exit 3 with a fixed reason', () => {
-    const d = tmp(); const f = path.join(d, 'so.json'); const boot = path.join(d, 'boot.sh'); fs.writeFileSync(boot, 'echo bootstrap\n');
+    const d = tmp(); const f = path.join(d, 'so.json'); const boot = scratchFile(d, 'boot.sh', 'echo bootstrap\n');
     const env = { STACK_OWNERSHIP_FILE: f, GITHUB_RUN_ID: '77', GITHUB_RUN_ATTEMPT: '1' };
     expect(cli(['write', 'http://127.0.0.1:54321', 'http://127.0.0.1:4173', boot], env, '7400000000000000009\n'))
       .toEqual({ out: 'stack-ownership SO_OK reason=written\n', code: 0 });
