@@ -5,10 +5,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { X, Upload, Check, RefreshCw, Loader2, Trash2, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import type { ContentItemType } from '@/types/canvas';
+import {
+  listCopyableCourses,
+  loadCourseOutline,
+  type CopyableCourse,
+} from '@/components/course/builder/copyCourseOutline';
 
 export interface OutlineLesson {
   title: string;
-  type: 'page' | 'assignment' | 'quiz' | 'external_url';
+  type: ContentItemType;
+  /** Lesson text to start with (set when copying from another course). */
+  content?: string;
 }
 export interface OutlineSection {
   title: string;
@@ -19,7 +27,7 @@ export interface NewCourseWizardResult {
   title: string;
   description: string;
   thumbnailFile?: File | null;
-  outlineMethod: 'ai' | 'scratch' | 'bulk' | 'copy';
+  outlineMethod: 'ai' | 'scratch' | 'copy';
   aiDescription?: string;
   outline?: OutlineSection[];
 }
@@ -58,6 +66,12 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
+  // Copy from another course (T-18): the author's own courses, and the one picked.
+  const [copyCourses, setCopyCourses] = useState<CopyableCourse[] | null>(null);
+  const [copySourceId, setCopySourceId] = useState('');
+  const [copyLoading, setCopyLoading] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
   // Live thumbnail preview URL (created + revoked as file changes)
   const thumbnailUrl = useMemo(
     () => (thumbnailFile ? URL.createObjectURL(thumbnailFile) : null),
@@ -70,6 +84,43 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   }, [thumbnailUrl]);
 
   if (!open) return null;
+
+  const startCopy = async () => {
+    setOutlineMethod('copy');
+    // Never carry another method's outline into a copy.
+    setOutline([]);
+    setCopySourceId('');
+    setCopyError(null);
+    if (copyCourses) return;
+    setCopyLoading(true);
+    try {
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id;
+      if (!userId) throw new Error('Sign in again to copy from your courses.');
+      setCopyCourses(await listCopyableCourses(supabase, userId));
+    } catch (err: any) {
+      setCopyError(err?.message || 'Your courses could not be loaded.');
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
+  const pickCopySource = async (id: string) => {
+    setCopySourceId(id);
+    setOutline([]);
+    setCopyError(null);
+    if (!id) return;
+    setCopyLoading(true);
+    try {
+      const sections = await loadCourseOutline(supabase, id);
+      if (sections.length === 0) setCopyError('That course has no sections to copy.');
+      setOutline(sections);
+    } catch (err: any) {
+      setCopyError(err?.message || 'That course could not be read.');
+    } finally {
+      setCopyLoading(false);
+    }
+  };
 
   const generateOutline = async () => {
     setGenerating(true);
@@ -103,7 +154,8 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     if (step === 2) {
       if (outlineMethod === 'ai') return aiDescription.trim().length > 10 && outline.length > 0;
       if (outlineMethod === 'scratch') return true;
-      return true;
+      if (outlineMethod === 'copy') return !copyLoading && !!copySourceId && outline.length > 0;
+      return false;
     }
     return true;
   };
@@ -362,13 +414,18 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                   </div>
                 )}
 
-                {(['scratch', 'bulk', 'copy'] as const).map((m) => {
+                {/* Bulk upload was offered here but did nothing (T-18); it is not offered until it works. */}
+                {(['scratch', 'copy'] as const).map((m) => {
                   const active = outlineMethod === m;
                   return (
                     <button
                       key={m}
                       type="button"
                       onClick={() => {
+                        if (m === 'copy') {
+                          void startCopy();
+                          return;
+                        }
                         setOutlineMethod(m);
                         if (m === 'scratch' && outline.length === 0) seedScratchOutline();
                       }}
@@ -379,17 +436,54 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                     >
                       <div className="font-sans text-xl">
                         {m === 'scratch' && 'Start from scratch'}
-                        {m === 'bulk' && 'Bulk upload'}
                         {m === 'copy' && 'Copy from another course'}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {m === 'scratch' && "I'll create my own outline in the builder."}
-                        {m === 'bulk' && 'Upload multiple files to generate your outline.'}
                         {m === 'copy' && 'Copy sections and lessons from another course.'}
                       </div>
                     </button>
                   );
                 })}
+
+                {outlineMethod === 'copy' && (
+                  <div className="pl-1 space-y-3">
+                    <label className="block text-xs font-semibold text-foreground" htmlFor="copy-source">
+                      Course to copy
+                    </label>
+                    <select
+                      id="copy-source"
+                      className="w-full px-3 py-2 rounded-md border border-border text-sm bg-background"
+                      value={copySourceId}
+                      disabled={copyLoading || !copyCourses}
+                      onChange={(e) => void pickCopySource(e.target.value)}
+                    >
+                      <option value="">
+                        {copyCourses && copyCourses.length === 0 ? 'You have no courses to copy' : 'Choose a course'}
+                      </option>
+                      {(copyCourses ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.title}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">
+                      Sections, lessons and lesson text are copied. Quiz questions, assignment settings and other
+                      lesson settings are not; those lessons start empty.
+                    </p>
+                    {copyLoading && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
+                      </div>
+                    )}
+                    {copyError && (
+                      <div role="alert" className="text-xs text-destructive bg-ss-bad-chip border border-destructive/20 rounded-md p-3">
+                        {copyError}
+                      </div>
+                    )}
+                    {outline.length > 0 && <OutlineEditor outline={outline} onChange={setOutline} />}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -569,6 +663,8 @@ function OutlineEditor({
                   <option value="assignment">Assignment</option>
                   <option value="quiz">Quiz</option>
                   <option value="external_url">Link</option>
+                  <option value="discussion">Discussion</option>
+                  <option value="external_tool">External tool</option>
                 </select>
                 <input
                   value={lesson.title}

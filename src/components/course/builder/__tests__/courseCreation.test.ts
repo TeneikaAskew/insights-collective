@@ -99,3 +99,12 @@ describe('planFor', () => {
     expect(() => planFor(p, input({ title: 'Other' }))).toThrow(CreationInputChangedError);
   });
 });
+
+describe('copied lesson text', () => {
+  it('a lesson with content (copied) is created with that content', async () => {
+    const r = input({ outline: [{ title: 'S', lessons: [{ title: 'L', type: 'page', content: '<p>Copied</p>' }] }] });
+    const plan = createPlan(r, uuid);
+    await run(plan, r);
+    expect([...db.tables.content_items.values()][0].content).toBe('<p>Copied</p>');
+  });
+});
