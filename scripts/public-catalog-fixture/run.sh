@@ -7,7 +7,7 @@
 #   not integrated) -> diagnostic inventory ->
 #   served-asset provenance -> served-app pins + hermetic verify (+ avatar-fixture verify when PUBLIC_ACCEPT_AVATAR_FIXTURE=1)
 #   -> D1 ownership verify (#154 record, expected bootstrap digest, live sysid) -> pair (FIRST write: one blog_tags carrier)
-#   -> proof gate (full guards) -> W0 (courses/modules empty, exactly the carrier in blog_tags) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
+#   -> proof gate (full guards) -> W0 (courses/modules empty, exactly the carrier in blog_tags) -> seed -> W1 -> browser (4 fixed-name screenshots into private PRIV/shots) -> shot export (evidence/screenshots + screenshots.txt) -> W2 (must equal W1; a W2
 #   failure or mismatch STOPS here, before any write probe) -> anon probe -> W3 (must equal W1).
 # Output contract:
 #   $PUBLIC_ACCEPT_OUT/evidence/  sanitized, allowlisted files only; the ONLY directory a runner may upload.
@@ -34,6 +34,8 @@ codes() { grep -oE 'PUBLIC_CATALOG_E_[A-Z_]+' "$1" | sort -u | head -20; }
 
 step pins;      node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pins.txt" \
                   || { codes "$PRIV/pins.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PINS; }
+                node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT', m.SHOT_CORE_PINS); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/shot-core-pins.txt" \
+                  || { codes "$PRIV/shot-core-pins.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SHOT_CORE_PINS; }
 step guards;    node "$HERE/guards.mjs" --pre-pairing > "$PRIV/guards.txt" 2>&1 || { codes "$PRIV/guards.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_GUARDS; }
 step pre-contract; node --input-type=module -e "import('$HERE/pre-contract.mjs').then((m) => { const e = m.checkPreContract('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pre-contract.txt" \
                   || { codes "$PRIV/pre-contract.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PRE_CONTRACT; }
@@ -72,8 +74,11 @@ step W0;        psqlx -f "$HERE/witness.sql" > "$EV/W0.txt" 2>/dev/null || die P
 step seed;      psqlx -f "$HERE/seed.sql" > "$PRIV/seed.txt" 2>&1 || { codes "$PRIV/seed.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SEED; }
 step W1;        psqlx -f "$HERE/witness.sql" > "$EV/W1.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
 node --input-type=module -e "import('$HERE/fixtures.mjs').then((m) => import('node:fs').then((fs) => fs.writeFileSync('$EV/MANIFEST.json', JSON.stringify({ run_id: '$PUBLIC_ACCEPT_RUN_ID', ids: m.ALL_IDS, created_by: 'seed.sql', pairing_ids: ['$(node --input-type=module -e "import('$HERE/pairing-producer.mjs').then((p) => console.log(p.PAIRING_TAG_ID))")'], pairing_created_by: 'pairing-producer.mjs' }, null, 2))))" || die PUBLIC_CATALOG_E_MANIFEST
-step browser;   (cd "$ROOT" && PUBLIC_ACCEPT_REPORT="$PRIV/playwright.json" timeout 1800 npx playwright test -c playwright.public-catalog.config.ts --output="$PRIV/pw" > "$PRIV/playwright.log" 2>&1); echo $? > "$EV/playwright.exit"
+                mkdir -m 700 "$PRIV/shots" || die PUBLIC_CATALOG_E_SHOT_DIR   # private; removed with $PRIV by the EXIT trap
+step browser;   (cd "$ROOT" && PUBLIC_ACCEPT_SHOT_DIR="$PRIV/shots" PUBLIC_ACCEPT_REPORT="$PRIV/playwright.json" timeout 1800 npx playwright test -c playwright.public-catalog.config.ts --output="$PRIV/pw" > "$PRIV/playwright.log" 2>&1); echo $? > "$EV/playwright.exit"
                 node "$HERE/pw-summary.mjs" "$PRIV/playwright.json" > "$EV/playwright-summary.txt" 2>/dev/null || echo PUBLIC_CATALOG_E_PW_REPORT >> "$EV/STEPS.txt"
+step shots;     node "$HERE/shot-export.mjs" "$PRIV/shots" "$EV/screenshots" "$EV/screenshots.txt" > "$PRIV/shots.txt" 2>&1; echo $? > "$EV/screenshots.exit"
+                grep -oE '^PUBLIC_SHOT_E_[A-Z_]+$' "$PRIV/shots.txt" | head -1 >> "$EV/STEPS.txt"
 step W2;        psqlx -f "$HERE/witness.sql" > "$EV/W2.txt" 2>/dev/null || die PUBLIC_CATALOG_E_W2_FAILED 1
                 cmp -s "$EV/W1.txt" "$EV/W2.txt" || die PUBLIC_CATALOG_E_W2_MISMATCH 1   # stop BEFORE any write probe
 step probe;     node "$HERE/anon-probe.mjs" "$PRIV/anon-probe.json" "$EV/anon-probe-summary.txt" > /dev/null 2>&1; echo $? > "$EV/anon-probe.exit"
@@ -81,5 +86,6 @@ step W3;        psqlx -f "$HERE/witness.sql" > "$EV/W3.txt" 2>/dev/null || die P
 rc=0
 [ "$(< "$EV/playwright.exit")" = 0 ] || rc=1
 [ "$(< "$EV/anon-probe.exit")" = 0 ] || rc=1   # 1 = leak or accepted write, 3 = UNVERIFIED response; both fail
+[ "$(< "$EV/screenshots.exit")" = 0 ] || rc=1   # all 4 fixed-name PNGs are required; withheld or malformed fails the run
 cmp -s "$EV/W1.txt" "$EV/W3.txt" || { echo PUBLIC_CATALOG_E_W3_MISMATCH >> "$EV/STEPS.txt"; rc=1; }  # supporting evidence only, not RLS causality
 echo "exit $rc" | tee -a "$EV/STEPS.txt"; exit $rc
