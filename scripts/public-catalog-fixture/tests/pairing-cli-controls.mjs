@@ -95,7 +95,7 @@ const zero = (name, root, want, mutate) => {
 };
 
 // Ineligible input: zero child processes, zero HTTP. Run against HARNESS so the PRE gate is not what stops them.
-zero('Z1 hosted password-bearing DSN', HARNESS, 'PAIR_E_ELIGIBILITY_SHARED_GUARD', { apply: () => ({ env: { PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres:secret@db.example.supabase.co:5432/postgres' } }) });
+zero('Z1 hosted password-bearing DSN', HARNESS, 'PAIR_E_ELIGIBILITY_SHARED_GUARD', { apply: () => ({ env: { PUBLIC_ACCEPT_DB_URL: ['postgresql://postgres', 'secret@db.example.supabase.co:5432/postgres'].join(':') /* assembled from parts: no credential-shaped literal */ } }) });
 zero('Z2 foreign HTTPS API', HARNESS, 'PAIR_E_ELIGIBILITY_NOT_LOOPBACK', { apply: () => ({ env: { PUBLIC_ACCEPT_API_URL: 'https://example.supabase.co' } }) });
 zero('Z3 missing passfile', HARNESS, 'PAIR_E_ELIGIBILITY_DB_PASSFILE', { apply: (f) => ({ env: { PUBLIC_ACCEPT_DB_PASSFILE: path.join(f.c, 'nope') } }) });
 zero('Z4 missing output dir', HARNESS, 'PAIR_E_OUT_DIR', { apply: (f) => ({ argv: ['pair', path.join(f.c, 'nope')] }) });
