@@ -3,7 +3,8 @@
 //
 // Called only by run-journey.sh, in its fixed order (static contract R11). Subcommands:
 //   pins <repo>          shared helpers must equal their agreed git blob ids (reused unchanged, never edited here)
-//   ownership            D1 stack-ownership record (shared owner). NOT DEFINED YET, so this always refuses.
+//   ownership            D1: the shared owner's stack-ownership record, verified against this run and a LIVE read of the
+//                        cluster's system identifier, plus this lane's stricter checks (exact 0600, owner, attempt, origins)
 //   pair <proof dir>     P0 precheck, P1 carrier insert, P2 DSN readback, P3 anon API readback, then proof v2 (0600)
 //   seed <proof file>    the rest of the seed (seed-journey.sql), bound to this proof's nonce
 // Output is a fixed code or PASS line only. The nonce is never printed, logged or put on a command line.
@@ -24,7 +25,12 @@ export const HELPER_PINS = Object.freeze(Object.assign(Object.create(null), {
   'scripts/e2e/assert-safe-target.mjs': 'd94b9d6d9744bc7ebcf59bb5cd9bf9df52cf9ada',
   'scripts/local-db/assert-local-dsn.mjs': '9632c7b40dc7a7a739f97342592085f975c58913',
   'e2e/support/chromium-executable.ts': 'ce26c40ebdc6e7893a7bcd502f71fe0bf136dd45',
+  // D1 (shared owner, local commit 637bae9 on main 32ccf7d, 2026-11-02 00:08Z). Until that commit is in this branch's base,
+  // these two are absent and `pins` refuses, so the adapter cannot run.
+  'scripts/e2e/stack-ownership.mjs': '2bddca9886090520f883dcf32907f6c250664e55',
+  'scripts/e2e/fixtures/stack-ownership.fake.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a',
 }));
+export const D1_MODULE = 'scripts/e2e/stack-ownership.mjs';
 
 export class PairError extends Error {
   /** @param {string} code */
@@ -46,13 +52,35 @@ export function pinFailures(root) {
   return f;
 }
 
+const DIGITS = /^[0-9]{1,20}$/;
 /**
- * D1: the shared owner's machine-readable stack-ownership record. Announced (STACK_OWNERSHIP_FILE, 0600 JSON with run id,
- * attempt, PG system_identifier, origins, created_at, bootstrap sha256) but its exact schema is not delivered, so nothing
- * here may treat any file as ownership proof yet. Always refuses; the run is BLOCKED before any DB contact.
- * @returns {string[]}
+ * D1 consumer. The shared module's verifyRecord checks the record (schema v1), the run id and attempt, and the LIVE
+ * pg system identifier. This lane adds: exact 0600 regular file owned by the caller, a required run attempt, and the
+ * record's api/app origins equal to the strictly bound origins this run will use. `disposable: true` is a declaration
+ * by the bootstrap and is never treated as proof here.
+ * @param {{ verifyRecord: Function, file: string|undefined, runId: string|undefined, runAttempt: string|undefined,
+ *   liveSystemIdentifier: string, apiOrigin: string, appOrigin: string, uid?: number }} o
+ * @returns {string[]} fixed codes; empty means verified
  */
-export function stackOwnershipFailures(_env = process.env) { return ['RUN_E_D1_UNDEFINED']; }
+export function stackOwnershipFailures(o) {
+  if (!o || typeof o.verifyRecord !== 'function') return ['RUN_E_D1_MODULE'];
+  if (!DIGITS.test(String(o.runAttempt ?? ''))) return ['RUN_E_D1_NO_ATTEMPT'];
+  if (o.file) {
+    let st;
+    try { st = fs.lstatSync(o.file); } catch { st = null; }
+    const uid = o.uid ?? (typeof process.getuid === 'function' ? process.getuid() : -1);
+    if (st && st.isFile() && ((st.mode & 0o777) !== 0o600 || (uid >= 0 && st.uid !== uid))) return ['RUN_E_D1_MODE_EXACT'];
+  }
+  let r;
+  try { r = o.verifyRecord(o.file, { runId: o.runId, runAttempt: o.runAttempt, liveSystemIdentifier: o.liveSystemIdentifier }); }
+  catch { return ['RUN_E_D1_MODULE']; }
+  if (!r || typeof r !== 'object' || typeof r.code !== 'string') return ['RUN_E_D1_MODULE'];
+  if (r.ok !== true || r.code !== 'SO_OK') return [`RUN_E_D1_${/^SO_[A-Z_]+$/.test(r.code) ? r.code : 'MODULE'}`];
+  const record = r.record;
+  if (!record || record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];
+  if (record.app_origin !== o.appOrigin) return ['RUN_E_D1_APP_ORIGIN'];
+  return [];
+}
 
 /**
  * The pairing core. db and fetchImpl are injected so fakes drive every branch (journey-selftest PAIR section).
@@ -121,7 +149,19 @@ const realDb = {
 async function cli(argv) {
   const [cmd, arg] = argv;
   if (cmd === 'pins') { const f = pinFailures(arg ?? ''); if (f.length) throw new PairError(f[0]); return 'PASS shared helper pins (3 blobs unchanged)'; }
-  if (cmd === 'ownership') { throw new PairError(stackOwnershipFailures()[0]); }
+  if (cmd === 'ownership') {
+    const root = path.resolve(HERE, '../../..');
+    const f = pinFailures(root);                                // the module is re-checked right before it is imported
+    if (f.length) throw new PairError(f[0]);
+    const { api, app } = assertStrictLocalBinding();
+    const live = psql('select \'SYSID \' || system_identifier::text from pg_control_system();\n').filter((l) => l.startsWith('SYSID '));
+    if (live.length !== 1) throw new PairError('RUN_E_D1_LIVE_READ');
+    const mod = await import(path.join(root, D1_MODULE));
+    const bad = stackOwnershipFailures({ verifyRecord: mod.verifyRecord, file: process.env.STACK_OWNERSHIP_FILE, runId: process.env.GITHUB_RUN_ID,
+      runAttempt: process.env.GITHUB_RUN_ATTEMPT, liveSystemIdentifier: live[0].slice(6), apiOrigin: api.origin, appOrigin: app.origin });
+    if (bad.length) throw new PairError(bad[0]);
+    return 'PASS stack ownership record verified for this run and this cluster (disposable is declared, not proven)';
+  }
   if (cmd === 'pair') {
     const { api, anonKey } = assertStrictLocalBinding();      // runs assert-local-dsn again right before the write
     const proof = await producePairing({ db: realDb, apiOrigin: api.origin, anonKey, nonce: randomBytes(16).toString('hex'), randomId: randomUUID() });

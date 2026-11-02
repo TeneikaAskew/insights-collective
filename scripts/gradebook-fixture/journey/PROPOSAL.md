@@ -3,7 +3,7 @@
 **Status:** a proposal plus local checks only. It is not run-ready.
 - Nothing here has run against any GoTrue, PostgREST, Storage, database or browser stack.
 - Nothing was dispatched, pushed or published. There are no production writes.
-- Receipt label: **197 fake/unit/static checks (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
+- Receipt label: **211 fake/unit/static checks (219 with the shared D1 module applied locally) (selftest; helper and comparator behaviour on fakes, NOT journey executions) / 1 mock (vitest characterization) / 12 journey list + 18 grading list preserved / tsc / lint inspected; no authentic journey.**
 
 **History:** 5d9714b (frozen) → bc65540 (r2, the 22:14Z review batch; its security holds, A and D are closed) → r3, the small oracle-only batch for the 22:48Z recheck (section 9). Every earlier commit and export is kept unchanged.
 
@@ -21,7 +21,7 @@ No workflow, shared runner (`scripts/e2e`, `e2e/support`), migration or product 
 ## 1. Still BLOCKED (no shared-file edits in this lane)
 1. **Gate 3 producer and ordered runner: now a gradebook-owned adapter (section 11), runs still BLOCKED on D1.**
    - `pairing-producer.mjs` + `run-journey.sh` produce proof v2 from observed DSN and anon-API reads; `pairing-proof.mjs` re-reads the carrier live before sign-in.
-   - Still missing: the shared owner's stack-ownership record (D1). Until it exists and is reviewed, `run-journey.sh` refuses with `RUN_E_D1_UNDEFINED` before any DB contact.
+   - D1 consumer wired (section 12) to the shared owner's `scripts/e2e/stack-ownership.mjs` (local commit 637bae9, NOT in this branch's base). While it is absent, step 0 pins refuse, so the adapter cannot run.
 2. **Shared owned-stack pairing** before seed and before the first persona request. Same owner.
 3. **Always-cleanup** of the session, proof and diagnostics dirs on every exit, plus an exact inventory of uploaded outputs. These belong to the runner.
 4. **Hermetic served-app contract** (f169429, editor CDN). Owned by the PR 134 thread.
@@ -215,3 +215,25 @@ The list runs used placeholder loopback env values. No server was listening, and
 **UNEXECUTED:**
 - `pairing-seed.sql`, the psql `\gset`/`\if` binding in `seed-journey.sql`, the real psql and fetch paths, and the trap on a full run. None has run against any database or stack.
 - `scripts/gradebook-fixture/tests/origin-guard-selftest.mjs` needs a Chromium build that this container lacks. It fails the same way on 1673a7e. It was not run.
+
+## 12. D1 stack-ownership consumer (shared schema v1 from 637bae9, 2026-11-02 00:08Z)
+- **Pins.** `scripts/e2e/stack-ownership.mjs` (2bddca98) and its fake fixture (f1c384ec) join the three helpers. Neither file is in this branch: they live in the shared owner's local commit 637bae9 on main 32ccf7d, which is not pushed. Until that commit is in the base, `pins` refuses with `RUN_E_PIN`.
+- **Order.** Step 2 runs after the guards and before composition and every fixture read or write.
+  - Its only DB contact is `select system_identifier from pg_control_system()`, read through this lane's guarded DSN.
+  - The module is re-pinned immediately before it is imported.
+- **Shared checks.** The shared `verifyRecord` checks:
+  - the schema;
+  - the 0600-style mode (it allows 0400);
+  - the size;
+  - `run_id` and `run_attempt` against `GITHUB_RUN_ID` and `GITHUB_RUN_ATTEMPT`;
+  - the live system identifier.
+  Each refusal maps to `RUN_E_D1_SO_*`.
+- **Lane checks, stricter.** This lane additionally requires:
+  - an exact 0600 regular file owned by the caller;
+  - a non-empty run attempt;
+  - the record's `api_origin` and `app_origin` equal to the strictly bound `VITE_SUPABASE_URL` and `E2E_BASE_URL`.
+- **`disposable: true` is never proof.** It is the bootstrap's declaration. A refused verify with `disposable: true` still refuses.
+- **Controls.**
+  - 12 fake-verifier checks (D1).
+  - 8 checks against the real shared module (D1REAL), run with 637bae9's patch applied in a scratch worktree. They are SKIPPED, and not counted, in the tree as pushed.
+  - Static contract R11 covers the origin checks, the exact mode, `SO_OK`, no use of `disposable`, and the pins.

@@ -5,8 +5,10 @@
 # Usage: scripts/gradebook-fixture/journey/run-journey.sh <evidence dir (must not exist)>
 # Env (from the shared owner's job, which alone wires this into a workflow): SUPABASE_DB_URL, VITE_SUPABASE_URL,
 #   VITE_SUPABASE_ANON_KEY, E2E_BASE_URL (served app), E2E_INSTRUCTOR_PASSWORD, E2E_MEMBER_PASSWORD. Loopback only.
-# BLOCKED: step 2 (D1, the shared owner's stack-ownership record) is not defined yet and always refuses, before any DB
-# contact. Output is fixed codes and PASS lines only; the pairing nonce never reaches this shell.
+#   Also STACK_OWNERSHIP_FILE, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT (D1, the shared owner's stack-ownership record).
+# BLOCKED until the shared D1 module (637bae9) is in this branch's base and wired into the bootstrap: step 0 refuses while
+# it is absent. Step 2's only DB contact is a read of the cluster's system identifier. Output is fixed codes and PASS lines
+# only; the pairing nonce never reaches this shell.
 # Cleanup: the trap removes exactly this run's private parent dir (proof, session, diag). No DB cleanup: the stack is
 # disposable and destroyed with the job (shared owner).
 set -euo pipefail
@@ -22,8 +24,8 @@ node "$HERE/pairing-producer.mjs" pins "$ROOT" >/dev/null || refuse RUN_E_PIN
 node "$ROOT/scripts/e2e/assert-safe-target.mjs" --mutating >/dev/null 2>&1 || refuse RUN_E_TARGET
 (cd "$ROOT" && node e2e/gradebook-roles/local-binding.mjs >/dev/null 2>&1) || refuse RUN_E_BINDING
 node "$ROOT/scripts/local-db/assert-local-dsn.mjs" "${SUPABASE_DB_URL:-}" >/dev/null 2>&1 || refuse RUN_E_DSN
-# 2. D1 stack ownership (shared owner's record). Refuses until its schema is delivered and reviewed.
-node "$HERE/pairing-producer.mjs" ownership >/dev/null || refuse RUN_E_D1_UNDEFINED 5
+# 2. D1 stack ownership (shared owner's record): this run, this cluster (live system identifier), these origins.
+node "$HERE/pairing-producer.mjs" ownership >&2 || refuse RUN_E_D1 5
 # 3. Composition, detected from the database itself: composed-r5 only.
 PSQL=(env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1)
 GB_COMPOSITION=$("${PSQL[@]}" -f "$GB/composition.sql" | sed -n 's/^COMPOSITION //p'); export GB_COMPOSITION

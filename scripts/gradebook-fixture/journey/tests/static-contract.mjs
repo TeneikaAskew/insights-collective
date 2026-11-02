@@ -119,12 +119,14 @@ export function checkJourney(root) {
   if (at.some((i) => i < 0) || at.some((i, k) => k > 0 && i <= at[k - 1])) v.push('R11_RUNNER_ORDER run-journey.sh');
   if (/set -x|xtrace|stack_id|pairing:|\bnonce\b/i.test(sh)) v.push('R11_RUNNER_NONCE_OR_TRACE run-journey.sh');
   if (/rm -rf -- "\$PARENT"/.test(sh) === false || (sh.match(/rm -/g) || []).length !== 1) v.push('R11_RUNNER_CLEANUP run-journey.sh');
-  if (!/refuse RUN_E_D1_UNDEFINED/.test(sh)) v.push('R11_RUNNER_NO_D1 run-journey.sh');
+  if (!/pairing-producer\.mjs" ownership >&2 \|\| refuse RUN_E_D1 5/.test(sh)) v.push('R11_RUNNER_NO_D1 run-journey.sh');
   const prod = stripJsComments(rd(`${sdir}/pairing-producer.mjs`));
   const pAt = ['o.db.journeyRowCount()', 'o.db.insertCarrier(', 'o.db.readCarrier()', 'assertLivePairing('].map((x) => prod.indexOf(x, prod.indexOf('export async function producePairing')));
   if (pAt.some((i) => i < 0) || pAt.some((i, k) => k > 0 && i <= pAt[k - 1])) v.push('R11_PRODUCER_ORDER pairing-producer.mjs');
   if (/console\.(log|error|warn|info)\([^)]*(nonce|carrier|stack_id|description)/.test(prod)) v.push('R11_PRODUCER_LOGS_NONCE pairing-producer.mjs');
-  if (!/return \['RUN_E_D1_UNDEFINED'\]/.test(prod)) v.push('R11_PRODUCER_D1_NOT_REFUSING pairing-producer.mjs');
+  const d1 = prod.slice(prod.indexOf('export function stackOwnershipFailures'), prod.indexOf('export async function producePairing'));
+  if (!/record\.api_origin !== o\.apiOrigin/.test(d1) || !/record\.app_origin !== o\.appOrigin/.test(d1) || !/\(st\.mode & 0o777\) !== 0o600/.test(d1) || !/r\.ok !== true \|\| r\.code !== 'SO_OK'/.test(d1) || /disposable/.test(d1)) v.push('R11_PRODUCER_D1_WEAK pairing-producer.mjs');
+  if (!/'scripts\/e2e\/stack-ownership\.mjs': '2bddca9886090520f883dcf32907f6c250664e55'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
 
   return v;
 }

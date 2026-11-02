@@ -11,7 +11,7 @@ import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
 import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
 import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
-import { producePairing, pinFailures, stackOwnershipFailures, HELPER_PINS, gitBlobId } from '../pairing-producer.mjs';
+import { producePairing, pinFailures, stackOwnershipFailures, HELPER_PINS, gitBlobId, D1_MODULE } from '../pairing-producer.mjs';
 import { checkJourney } from './static-contract.mjs';
 
 const repo = process.cwd();
@@ -295,16 +295,52 @@ try {
     ok('PAIR API reads carry no Authorization header (anon only)', a.calls.length === 2 && a.calls.every((c) => !Object.keys(c.init.headers).some((h) => h.toLowerCase() === 'authorization'))); }
 
   // ---- Shared helper pins and the D1 gate ----
-  ok('PIN real tree: the 3 shared helpers equal their agreed blobs', pinFailures(repo).length === 0);
+  const D1_PATHS = ['scripts/e2e/stack-ownership.mjs', 'scripts/e2e/fixtures/stack-ownership.fake.json'];
+  const d1Present = fs.existsSync(path.join(repo, D1_MODULE));
+  if (d1Present) ok('PIN real tree: all 5 shared files equal their agreed blobs (D1 module present)', pinFailures(repo).length === 0);
+  else ok('PIN real tree: the 3 helpers pass and ONLY the 2 absent D1 files refuse (BLOCKED until 637bae9 is in the base)', JSON.stringify(pinFailures(repo)) === JSON.stringify(D1_PATHS.map((x) => `RUN_E_PIN ${x}`)));
   ok('PIN gitBlobId equals git hash-object', gitBlobId(fs.readFileSync(path.join(repo, 'scripts/e2e/assert-safe-target.mjs'))) === execFileSync('git', ['hash-object', 'scripts/e2e/assert-safe-target.mjs'], { cwd: repo, encoding: 'utf8' }).trim());
   { const root = fs.mkdtempSync(path.join(tmp, 'pins-'));
-    for (const rel of Object.keys(HELPER_PINS)) { fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.copyFileSync(path.join(repo, rel), path.join(root, rel)); }
-    ok('PIN unmodified copies pass', pinFailures(root).length === 0);
+    for (const rel of Object.keys(HELPER_PINS)) { if (!fs.existsSync(path.join(repo, rel))) continue; fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.copyFileSync(path.join(repo, rel), path.join(root, rel)); }
+    ok('PIN unmodified copies of the present files pass them', pinFailures(root).every((x) => D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`)) && pinFailures(root).length === (d1Present ? 0 : 2));
     fs.appendFileSync(path.join(root, 'scripts/local-db/assert-local-dsn.mjs'), '\n');
-    ok('PIN one changed byte in a shared helper refused', JSON.stringify(pinFailures(root)) === '["RUN_E_PIN scripts/local-db/assert-local-dsn.mjs"]');
+    ok('PIN one changed byte in a shared helper refused', JSON.stringify(pinFailures(root).filter((x) => !D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`))) === '["RUN_E_PIN scripts/local-db/assert-local-dsn.mjs"]');
     fs.rmSync(path.join(root, 'e2e/support/chromium-executable.ts'));
     ok('PIN missing helper refused', pinFailures(root).includes('RUN_E_PIN e2e/support/chromium-executable.ts')); }
-  ok('D1 stack ownership refuses (record not defined by the shared owner yet)', JSON.stringify(stackOwnershipFailures({ STACK_OWNERSHIP_FILE: '/tmp/x.json', GITHUB_RUN_ID: '1' })) === '["RUN_E_D1_UNDEFINED"]');
+  // ---- D1 consumer on a fake verifyRecord (the shared module's contract), plus this lane's stricter checks ----
+  const recDir = fs.mkdtempSync(path.join(tmp, 'so-')); fs.chmodSync(recDir, 0o700);
+  const REC = { schema: 1, run_id: '1000000001', run_attempt: '1', pg_system_identifier: '7400000000000000001', api_origin: API, app_origin: 'http://127.0.0.1:4173', created_at: '2026-11-02T00:00:00.000Z', disposable: true, bootstrap_sha256: '0'.repeat(64) };
+  const recFile = (obj = REC, mode = 0o600) => { const f = path.join(recDir, `rec-${Math.random().toString(16).slice(2)}.json`); fs.writeFileSync(f, JSON.stringify(obj)); fs.chmodSync(f, mode); return f; };
+  const fakeVerify = (res) => { const calls = []; const f = (file, a) => { calls.push({ file, a }); return typeof res === 'function' ? res(file, a) : res; }; f.calls = calls; return f; };
+  const D1o = (over = {}) => ({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: REC }), file: recFile(), runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173', ...over });
+  const D1 = (over) => JSON.stringify(stackOwnershipFailures(D1o(over)));
+  { const o = D1o(); const r = stackOwnershipFailures(o);
+    ok('D1 verified record for this run, cluster and origins: accepted', r.length === 0);
+    ok('D1 run id, attempt and the LIVE identifier are passed to the shared verifier', o.verifyRecord.calls.length === 1 && JSON.stringify(o.verifyRecord.calls[0].a) === JSON.stringify({ runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001' })); }
+  ok('D1 every shared refusal maps to its own fixed code', ['SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH', 'SO_SYSID_MISMATCH', 'SO_INPUT'].every((c) => D1({ verifyRecord: fakeVerify({ ok: false, code: c, reason: 'x' }) }) === `["RUN_E_D1_${c}"]`));
+  ok('D1 ok:true with a non-OK code, or an odd code, refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_MODE', record: REC }) }) === '["RUN_E_D1_SO_MODE"]' && D1({ verifyRecord: fakeVerify({ ok: false, code: 'weird text' }) }) === '["RUN_E_D1_MODULE"]');
+  ok('D1 record for another API origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, api_origin: 'http://127.0.0.1:55555' } }) }) === '["RUN_E_D1_API_ORIGIN"]');
+  ok('D1 record for another app origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, app_origin: 'http://127.0.0.1:5173' } }) }) === '["RUN_E_D1_APP_ORIGIN"]');
+  ok('D1 no run attempt refused before the verifier is called', (() => { const o = D1o({ runAttempt: '' }); return JSON.stringify(stackOwnershipFailures(o)) === '["RUN_E_D1_NO_ATTEMPT"]' && o.verifyRecord.calls.length === 0; })());
+  ok('D1 record file 0400 or 0640 refused (exact 0600 here; the shared check allows 0400)', D1({ file: recFile(REC, 0o400) }) === '["RUN_E_D1_MODE_EXACT"]' && D1({ file: recFile(REC, 0o640) }) === '["RUN_E_D1_MODE_EXACT"]');
+  ok('D1 record owned by another uid refused', D1({ uid: 999999 }) === '["RUN_E_D1_MODE_EXACT"]');
+  ok('D1 missing or throwing verifier refused', D1({ verifyRecord: undefined }) === '["RUN_E_D1_MODULE"]' && D1({ verifyRecord: () => { throw new Error('x'); } }) === '["RUN_E_D1_MODULE"]');
+  ok('D1 "disposable: true" alone is not accepted: a refused verify with disposable set still refuses', D1({ verifyRecord: fakeVerify({ ok: false, code: 'SO_SYSID_MISMATCH', record: REC }) }) === '["RUN_E_D1_SO_SYSID_MISMATCH"]');
+  // With the REAL shared module (only when its pinned blob is in this tree): its codes reach this lane's consumer unchanged.
+  if (d1Present && pinFailures(repo).length === 0) {
+    const { verifyRecord } = await import(path.join(repo, D1_MODULE));
+    const fake = JSON.parse(fs.readFileSync(path.join(repo, 'scripts/e2e/fixtures/stack-ownership.fake.json'), 'utf8'));
+    const R = (over, recOver = {}, mode = 0o600) => JSON.stringify(stackOwnershipFailures({ verifyRecord, file: recFile({ ...fake, ...recOver }, mode), runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin, ...over }));
+    ok('D1REAL shared fake record verifies for its run and cluster', R({}) === '[]');
+    ok('D1REAL other live identifier: RUN_E_D1_SO_SYSID_MISMATCH', R({ liveSystemIdentifier: '7400000000000000002' }) === '["RUN_E_D1_SO_SYSID_MISMATCH"]');
+    ok('D1REAL other run id or attempt: RUN_E_D1_SO_RUN_MISMATCH', R({ runId: '1000000002' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]' && R({ runAttempt: '2' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]');
+    ok('D1REAL empty live read: RUN_E_D1_SO_INPUT, never a pass', R({ liveSystemIdentifier: '' }) === '["RUN_E_D1_SO_INPUT"]');
+    ok('D1REAL disposable:false: RUN_E_D1_SO_SCHEMA', R({}, { disposable: false }) === '["RUN_E_D1_SO_SCHEMA"]');
+    ok('D1REAL extra key: RUN_E_D1_SO_SCHEMA', R({}, { note: 'x' }) === '["RUN_E_D1_SO_SCHEMA"]');
+    const lnk = path.join(recDir, 'link.json'); fs.symlinkSync(recFile(fake), lnk);
+    ok('D1REAL symlinked record: RUN_E_D1_SO_ABSENT', JSON.stringify(stackOwnershipFailures({ verifyRecord, file: lnk, runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin })) === '["RUN_E_D1_SO_ABSENT"]');
+    ok('D1REAL absent record: RUN_E_D1_SO_ABSENT', JSON.stringify(stackOwnershipFailures({ verifyRecord, file: path.join(recDir, 'none.json'), runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin })) === '["RUN_E_D1_SO_ABSENT"]');
+  } else console.log('skip D1REAL (shared module 637bae9 not in this tree; not counted)');
 
   // ---- Runner adapter refusals that need no stack (helper behaviour; the full run is UNEXECUTED) ----
   { const sandbox = fs.mkdtempSync(path.join(tmp, 'runner-')); fs.chmodSync(sandbox, 0o700);
@@ -314,7 +350,8 @@ try {
     const r0 = run([]);
     ok('RUN no evidence dir: RUN_E_USAGE, exit 2', r0.rc === 2 && r0.err.trim() === 'run-journey refused: RUN_E_USAGE');
     const r1 = run([path.join(sandbox, 'out')]);
-    ok('RUN no local binding env: refused at the target guard (code only), nothing written', r1.rc === 3 && /^run-journey refused: RUN_E_(TARGET|BINDING|DSN)$/.test(r1.err.trim()) && fs.readdirSync(sandbox).length === 0);
+    const want = d1Present ? /^run-journey refused: RUN_E_(TARGET|BINDING|DSN)$/ : /^run-journey refused: RUN_E_PIN$/;
+    ok(`RUN no stack env: refused at ${d1Present ? 'the target guard' : 'step 0 pins (D1 module absent)'} (code only), nothing written`, r1.rc === 3 && want.test(r1.err.trim()) && fs.readdirSync(sandbox).length === 0);
     const r2 = run([sandbox]);
     ok('RUN existing evidence dir refused', r2.rc === 2 && r2.err.trim() === 'run-journey refused: RUN_E_OUT_EXISTS'); }
 
@@ -369,7 +406,11 @@ try {
     ['runner deletes outside its parent', `${S}/run-journey.sh`, (s) => s.replace('trap cleanup EXIT', 'trap cleanup EXIT\nrm -rf -- "$TMPROOT"'), 'R11_RUNNER_CLEANUP'],
     ['producer reads the API before the DSN', `${S}/pairing-producer.mjs`, (s) => s.replace("  const rows = await o.db.readCarrier();\n", '').replace("  return { version: 2,", "  const rows = await o.db.readCarrier();\n  return { version: 2,"), 'R11_PRODUCER_ORDER'],
     ['producer logs the carrier', `${S}/pairing-producer.mjs`, (s) => s.replace("  trace.push('insert');", "  console.log(carrier);\n  trace.push('insert');"), 'R11_PRODUCER_LOGS_NONCE'],
-    ['producer D1 starts accepting', `${S}/pairing-producer.mjs`, (s) => s.replace("return ['RUN_E_D1_UNDEFINED'];", 'return [];'), 'R11_PRODUCER_D1_NOT_REFUSING'],
+    ['producer D1 drops the API origin check', `${S}/pairing-producer.mjs`, (s) => s.replace("if (!record || record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];", ''), 'R11_PRODUCER_D1_WEAK'],
+    ['producer D1 trusts disposable', `${S}/pairing-producer.mjs`, (s) => s.replace("  const record = r.record;", "  const record = r.record;\n  if (record && record.disposable === true) return [];"), 'R11_PRODUCER_D1_WEAK'],
+    ['producer D1 accepts ok without SO_OK', `${S}/pairing-producer.mjs`, (s) => s.replace("r.ok !== true || r.code !== 'SO_OK'", "r.ok !== true"), 'R11_PRODUCER_D1_WEAK'],
+    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': '2bddca9886090520f883dcf32907f6c250664e55',", ''), 'R11_D1_NOT_PINNED'],
+    ['runner hides the D1 refusal code', `${S}/run-journey.sh`, (s) => s.replace('ownership >&2 || refuse RUN_E_D1 5', 'ownership >/dev/null || true'), 'R11_RUNNER_NO_D1'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],
     ['error leaks the response body', `${J}/session-setup.ts`, (s) => s.replace('`JOURNEY_SETUP_E_SIGNIN_HTTP_${res.status}_${R}`', '`JOURNEY_SETUP_E_SIGNIN_HTTP ${await res.text()}`'), 'R6_UNSANITIZED_ERROR'],
     ['composition check moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace("  if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n", '').replace("    if (res.status !== 200)", "    if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n    if (res.status !== 200)"), 'R6_COMPOSITION_AFTER_SIGNIN'],
