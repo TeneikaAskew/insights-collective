@@ -131,6 +131,7 @@ say(at('m.SERVED_APP_PINS') > at('step hermetic') && at('m.SERVED_APP_PINS') < a
 say(/EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715'/.test(read('d1-ownership.mjs')), 'D1: the reviewed bootstrap digest is hardcoded in lane source');
 say(/target outside|AVATAR_SUB_TARGET/.test(read('served-provenance.mjs')) && /assets\\\/\[A-Za-z0-9\._-\]\+\\\.js\$/.test(read('served-provenance.mjs')), 'avatar: substitutions may target only assets/*.js (never index.html)');
 say(at('PUBLIC_CATALOG_E_NONCANONICAL_PATH') > at('step hermetic') && at('PUBLIC_CATALOG_E_NONCANONICAL_PATH') < at('avatar-fixture.mjs" verify') && /realpath -e --/.test(runsh), 'run.sh requires canonical physical input paths before the served-app helpers run');
+say(/PUBLIC_CATALOG_E_D1_NO_VERDICT/.test(runsh) && /realpathSync\(process\.argv\[1\]\)/.test(read('d1-ownership.mjs')), 'D1: a skipped CLI (symlinked path) cannot pass: realpath isMain and the OK line is required');
 const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

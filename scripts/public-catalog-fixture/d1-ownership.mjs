@@ -55,7 +55,10 @@ async function main() {
   return bad[0] ?? null;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+// realpath on both sides: a symlinked invocation path must not silently skip the CLI (which would exit 0). run.sh also
+// requires the PUBLIC_CATALOG_D1_OK line, so a skipped CLI can never pass the step.
+const isMain = (() => { try { return !!process.argv[1] && fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(process.argv[1]); } catch { return false; } })();
+if (isMain) {
   if (process.argv[2] !== 'verify') { console.log('PUBLIC_CATALOG_E_D1_USAGE'); process.exit(3); }
   main().then((code) => {
     if (code) { console.log(code); process.exit(3); }

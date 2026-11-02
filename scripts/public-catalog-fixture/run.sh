@@ -56,6 +56,7 @@ step hermetic;  { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "$
                 fi
 step ownership; SYSID="$(psqlx -c 'select system_identifier::text from pg_control_system()' 2>/dev/null)" || die PUBLIC_CATALOG_E_D1_LIVE_READ
                 printf '%s' "$SYSID" | node "$HERE/d1-ownership.mjs" verify > "$PRIV/d1.txt" 2>&1 || { codes "$PRIV/d1.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_D1; }
+                grep -q '^PUBLIC_CATALOG_D1_OK ' "$PRIV/d1.txt" || die PUBLIC_CATALOG_E_D1_NO_VERDICT
                 unset SYSID
 step W0;        psqlx -f "$HERE/witness.sql" > "$EV/W0.txt" 2>/dev/null || die PUBLIC_CATALOG_E_WITNESS
                 grep -qx 'public.courses|0|empty' "$EV/W0.txt" && grep -qx 'public.modules|0|empty' "$EV/W0.txt" || die PUBLIC_CATALOG_E_NOT_PRISTINE
