@@ -173,6 +173,25 @@ describe("T-56 wizard retry resumes the same course", () => {
     expect(sizes()).toMatchObject({ courses: 1, modules: 2, content_items: 3 });
   });
 
+  it('W5 the account changes before the retry: no further writes, and the first course gets nothing from the new account', async () => {
+    db.faults.set('modules#1', 'fail');
+    await attempt('modules insert failed');
+    const before = Object.values(db.inserts).reduce((a, b) => a + b, 0);
+    (mockSupabaseClient.auth.getUser as any).mockResolvedValue({ data: { user: { id: 'u2' } }, error: null });
+    fireEvent.click(screen.getByText('create course'));
+    await waitFor(() => expect(screen.getByTestId('wizard-result').textContent).toMatch(/different account/));
+    expect(Object.values(db.inserts).reduce((a, b) => a + b, 0)).toBe(before);
+    expect(sizes()).toMatchObject({ courses: 1, modules: 0, content_items: 0 });
+  });
+
+  it('W6 same owner retries after a lost response on a section insert: one complete course', async () => {
+    db.faults.set('modules#1', 'commit-then-lose-response');
+    await attempt('Failed to fetch');
+    fireEvent.click(screen.getByText('create course'));
+    await waitFor(() => expect(screen.getByTestId('builder-open')).toBeInTheDocument());
+    expect(sizes()).toMatchObject({ courses: 1, modules: 2, content_items: 3, assignments: 1, quizzes: 1 });
+  });
+
   it("W4 control: a clean run creates one course with every lesson and opens it", async () => {
     fireEvent.click(screen.getByText("create course"));
     await waitFor(() =>
