@@ -316,8 +316,8 @@ try {
   const D1 = (over) => JSON.stringify(stackOwnershipFailures(D1o(over)));
   { const o = D1o(); const r = stackOwnershipFailures(o);
     ok('D1 verified record for this run, cluster and origins: accepted', r.length === 0);
-    ok('D1 run id, attempt and the LIVE identifier are passed to the shared verifier', o.verifyRecord.calls.length === 1 && JSON.stringify(o.verifyRecord.calls[0].a) === JSON.stringify({ runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001' })); }
-  ok('D1 every shared refusal maps to its own fixed code', ['SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH', 'SO_SYSID_MISMATCH', 'SO_INPUT'].every((c) => D1({ verifyRecord: fakeVerify({ ok: false, code: c, reason: 'x' }) }) === `["RUN_E_D1_${c}"]`));
+    ok('D1 run id, attempt, LIVE identifier and the bound origins are passed to the shared verifier', o.verifyRecord.calls.length === 1 && JSON.stringify(o.verifyRecord.calls[0].a) === JSON.stringify({ runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173' })); }
+  ok('D1 every shared refusal maps to its own fixed code', ['SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_SYSID_MISMATCH', 'SO_INPUT'].every((c) => D1({ verifyRecord: fakeVerify({ ok: false, code: c, reason: 'x' }) }) === `["RUN_E_D1_${c}"]`));
   ok('D1 ok:true with a non-OK code, or an odd code, refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_MODE', record: REC }) }) === '["RUN_E_D1_SO_MODE"]' && D1({ verifyRecord: fakeVerify({ ok: false, code: 'weird text' }) }) === '["RUN_E_D1_MODULE"]');
   ok('D1 record for another API origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, api_origin: 'http://127.0.0.1:55555' } }) }) === '["RUN_E_D1_API_ORIGIN"]');
   ok('D1 record for another app origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, app_origin: 'http://127.0.0.1:5173' } }) }) === '["RUN_E_D1_APP_ORIGIN"]');
@@ -335,6 +335,8 @@ try {
     ok('D1REAL other live identifier: RUN_E_D1_SO_SYSID_MISMATCH', R({ liveSystemIdentifier: '7400000000000000002' }) === '["RUN_E_D1_SO_SYSID_MISMATCH"]');
     ok('D1REAL other run id or attempt: RUN_E_D1_SO_RUN_MISMATCH', R({ runId: '1000000002' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]' && R({ runAttempt: '2' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]');
     ok('D1REAL empty live read: RUN_E_D1_SO_INPUT, never a pass', R({ liveSystemIdentifier: '' }) === '["RUN_E_D1_SO_INPUT"]');
+    ok('D1REAL record for other origins: RUN_E_D1_SO_ORIGIN_MISMATCH from the shared module', R({}, { api_origin: 'http://127.0.0.1:55555' }) === '["RUN_E_D1_SO_ORIGIN_MISMATCH"]' && R({}, { app_origin: 'http://127.0.0.1:5173' }) === '["RUN_E_D1_SO_ORIGIN_MISMATCH"]');
+    ok('D1REAL shared module itself refuses 0400 and a missing attempt (lane checks bypassed)', verifyRecord(recFile(fake, 0o400), { runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin }).code === 'SO_MODE' && verifyRecord(recFile(fake), { runId: fake.run_id, runAttempt: '', liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin }).code === 'SO_INPUT');
     ok('D1REAL disposable:false: RUN_E_D1_SO_SCHEMA', R({}, { disposable: false }) === '["RUN_E_D1_SO_SCHEMA"]');
     ok('D1REAL extra key: RUN_E_D1_SO_SCHEMA', R({}, { note: 'x' }) === '["RUN_E_D1_SO_SCHEMA"]');
     const lnk = path.join(recDir, 'link.json'); fs.symlinkSync(recFile(fake), lnk);
@@ -409,7 +411,7 @@ try {
     ['producer D1 drops the API origin check', `${S}/pairing-producer.mjs`, (s) => s.replace("if (!record || record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];", ''), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 trusts disposable', `${S}/pairing-producer.mjs`, (s) => s.replace("  const record = r.record;", "  const record = r.record;\n  if (record && record.disposable === true) return [];"), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 accepts ok without SO_OK', `${S}/pairing-producer.mjs`, (s) => s.replace("r.ok !== true || r.code !== 'SO_OK'", "r.ok !== true"), 'R11_PRODUCER_D1_WEAK'],
-    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': '2bddca9886090520f883dcf32907f6c250664e55',", ''), 'R11_D1_NOT_PINNED'],
+    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': 'afa9ebd812d57a03c52f3d67477e5dd6190fc40f',", ''), 'R11_D1_NOT_PINNED'],
     ['runner hides the D1 refusal code', `${S}/run-journey.sh`, (s) => s.replace('ownership >&2 || refuse RUN_E_D1 5', 'ownership >/dev/null || true'), 'R11_RUNNER_NO_D1'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],
     ['error leaks the response body', `${J}/session-setup.ts`, (s) => s.replace('`JOURNEY_SETUP_E_SIGNIN_HTTP_${res.status}_${R}`', '`JOURNEY_SETUP_E_SIGNIN_HTTP ${await res.text()}`'), 'R6_UNSANITIZED_ERROR'],
