@@ -1120,6 +1120,29 @@ jobs:
           echo "HERMETIC_SERVED_DIR=$GB_SERVED" >> "$GITHUB_ENV"
           HERMETIC_SERVED_DIR="$GB_SERVED" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$GB_EVIDENCE/checks/served-app-check.txt"
 
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      # The ONE browser every gradebook launch may use, pinned and exported BEFORE any D1, actor, fixture or carrier write.
+      # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
+      # fallback), and the pin module itself refuses if that variable names anything else.
+      - name: Pin the headless shell and export it for every launch (refuses before any write)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/gb-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          tee "$GB_EVIDENCE/checks/headless-shell.txt" < "$R"
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+          echo "GB_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      - name: Launch binding receipt (every config project and the setup launch resolve to the pinned shell; before any write)
+        run: |
+          set -o pipefail
+          GB_LANE=journey GB_SESSION_DIR="$RUNNER_TEMP/gb-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$GB_EVIDENCE/checks/launch-binding.txt"
+
       # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
       # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
       # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
@@ -1130,33 +1153,37 @@ jobs:
           umask 077
           have=$(sha256sum scripts/local-stack/bootstrap.sh | cut -d' ' -f1)
           [ "$have" = "$GB_D1_BOOTSTRAP_SHA256" ] || { echo "D1 refused: scripts/local-stack/bootstrap.sh is not the reviewed file"; exit 1; }
-          node scripts/local-db/assert-local-dsn.mjs "$SUPABASE_DB_URL" >/dev/null
+          # Private 0700 dir for psql passfiles and raw psql streams (removed by the always-run private-output step).
+          mkdir -m 700 "$RUNNER_TEMP/gb-priv"
           API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
           APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
-          env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c 'select system_identifier from pg_control_system()' \
+          # DSN from the environment only, checked in-process; psql -w with an explicit 0600 passfile; nothing raw printed.
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/gb-priv" \
             | node scripts/e2e/stack-ownership.mjs write "$API" "$APP" scripts/local-stack/bootstrap.sh | tee "$GB_EVIDENCE/checks/d1-write.txt"
           # Self-check through the consumer's own entry point (same reviewed constant, fresh live read).
-          env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE psql "$SUPABASE_DB_URL" -X -At -v ON_ERROR_STOP=1 -c 'select system_identifier from pg_control_system()' \
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/gb-priv" \
             | node scripts/e2e/stack-ownership.mjs verify "$API" "$APP" "$GB_D1_BOOTSTRAP_SHA256" | tee -a "$GB_EVIDENCE/checks/d1-write.txt"
 
-      # Runner-owned actors only (the three fixed synthetic e2e accounts). No legacy e2e seed, no course fixture.
-      - name: Local actors (synthetic admin, instructor, member; reference rows from local-preseed.sql)
+      # Runner-owned rows from the two frozen SQL files, byte-unchanged: local-preseed.sql writes 3 synthetic users (admin,
+      # instructor, member) with profiles and roles, 5 reference courses (660e8400-...0001..0005) and 4 modules; then
+      # auth-fixtures.sql makes those 3 users sign-in-able with the run's synthetic password. No legacy e2e seed.
+      - name: Local actors and reference rows (3 synthetic users with profiles and roles, 5 reference courses, 4 modules; then auth fixtures)
         run: |
           set -o pipefail
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "actors refused: the pinned headless shell is not bound"; exit 1; }
           node scripts/e2e/assert-safe-target.mjs --mutating
-          env -u PGHOST -u PGHOSTADDR -u PGSERVICE -u PGSERVICEFILE -u PGPORT -u PGPASSFILE \
-            psql "$SUPABASE_DB_URL" -X -q -v ON_ERROR_STOP=1 -f scripts/local-db/local-preseed.sql 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/actors.txt"
-          scripts/local-stack/seed-auth.sh 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee -a "$GB_EVIDENCE/checks/actors.txt"
-      - name: Install Chromium headless shell
-        run: npx --no-install playwright install --with-deps --only-shell chromium
-      - name: Pin the headless shell (package-declared revision; refuses before any carrier write or browser launch)
-        run: node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt | tee "$GB_EVIDENCE/checks/headless-shell.txt"
+          # Same psql route as D1: no DSN or password on any argv; the password reaches psql on stdin only.
+          node scripts/e2e/gb-job-psql.mjs preseed "$RUNNER_TEMP/gb-priv" | tee "$GB_EVIDENCE/checks/actors.txt"
+          node scripts/e2e/gb-job-psql.mjs seed-auth "$RUNNER_TEMP/gb-priv" | tee -a "$GB_EVIDENCE/checks/actors.txt"
 
       # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), served-app gate,
       # composed-r5, private dirs, pairing carrier, seed, witness, the five journey projects, witness, compare, 5-file inventory.
       - name: Gradebook journey adapter (gradebook-owned run-journey.sh)
         run: |
           set -o pipefail
+          # The exported shell is re-checked immediately before the adapter's first carrier write and launch.
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
+          GB_LANE=journey GB_SESSION_DIR="$RUNNER_TEMP/gb-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/gb-launch-recheck.txt" || { cat "$RUNNER_TEMP/gb-launch-recheck.txt"; exit 1; }
           scripts/gradebook-fixture/journey/run-journey.sh "$RUNNER_TEMP/gb-journey-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/journey.txt"
       - name: Copy the adapter's inventoried evidence (exactly its five files)
         if: always() && steps.gb_d1.outcome == 'success'
@@ -1172,22 +1199,30 @@ jobs:
         run: |
           # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
           scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$GB_EVIDENCE/checks/no-edge-end.txt"
-      - name: Stop background servers (preview); remove private Playwright output and the D1 record
+      - name: Stop background servers (preview)
         if: always()
         run: |
           # Only the process groups recorded at launch are signalled (pid plus kernel start time); 8080 must then have no listener.
+          # An uncertain group is never signalled (owned-proc refuses it). Private outputs are removed by the NEXT step, which
+          # runs even when this one fails.
           if [ -d "$RUNNER_TEMP/gb-owned" ]; then
             node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/gb-owned" 8080 | tee "$GB_EVIDENCE/checks/owned-stop.txt"
           else
             echo "no owned background server was launched" | tee "$GB_EVIDENCE/checks/owned-stop.txt"
             scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
           fi
-          rm -rf playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out"
-          rm -f "$RUNNER_TEMP/stack-ownership.json"
-          for p in playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out" "$RUNNER_TEMP/stack-ownership.json"; do
-            if [ -e "$p" ]; then echo "private output still present: $p"; exit 1; fi
+      - name: Remove private outputs (Playwright output, adapter dir, private psql dir, shell receipts, D1 record; verified)
+        if: always()
+        run: |
+          # Every path is attempted and checked; any removal failure or survivor makes this step fail after all were tried.
+          rc=0
+          for p in playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out" "$RUNNER_TEMP/gb-priv" \
+                   "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/gb-shell-receipt.txt" "$RUNNER_TEMP/gb-shell-receipt.txt.bound" "$RUNNER_TEMP/gb-launch-recheck.txt"; do
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
           done
-          echo "background servers stopped; private Playwright output, adapter dir and D1 record absent" | tee -a "$GB_EVIDENCE/checks/owned-stop.txt"
+          if [ "$rc" -eq 0 ]; then echo "private Playwright output, adapter dir, private psql dir, shell receipts and D1 record absent" | tee "$GB_EVIDENCE/checks/private-removed.txt"; fi
+          exit "$rc"
       - name: Stop stack (no backup)
         if: always() && steps.gb_prep.outcome == 'success'
         run: |
@@ -1210,7 +1245,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/headless-shell.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

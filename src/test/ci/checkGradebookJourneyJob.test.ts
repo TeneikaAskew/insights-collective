@@ -49,10 +49,11 @@ describe('gradebook-journey job (proposal)', () => {
       /bootstrap\.sh "\$SUPABASE_DB_URL"/, /verify-identities\.sh/, /apply-reviewed\.sh "\$SUPABASE_DB_URL" NEW/, /hermetic-dist\.mjs verify/, /cmp -s "\$RUNNER_TEMP\/preview-index\.html"/]) {
       expect(at(re), String(re)).toBeLessThan(d1);
     }
-    for (const re of [/local-preseed\.sql/, /seed-auth\.sh/, /run-journey\.sh/, /pairing-producer\.mjs/, /seed-journey\.sql/, /fixture\.sh/]) {
+    for (const re of [/gb-job-psql\.mjs preseed/, /gb-job-psql\.mjs seed-auth/, /run-journey\.sh/, /pairing-producer\.mjs/, /seed-journey\.sql/, /fixture\.sh/]) {
       for (const i of all(re)) expect(i, String(re)).toBeGreaterThan(d1);
     }
-    expect(at(/seed-auth\.sh/)).toBeLessThan(at(/run-journey\.sh/));
+    expect(all(/seed-auth\.sh|local-preseed\.sql/)).toEqual([]);   // the job's own callers go through gb-job-psql.mjs only
+    expect(at(/gb-job-psql\.mjs seed-auth/)).toBeLessThan(at(/run-journey\.sh/));
   });
   it("gives the adapter's served-app gate the verified copy and records it live before D1; copies exactly the 5-file inventory", () => {
     const gate = at(/served-app-check\.mjs "\$E2E_BASE_URL"/);
@@ -76,7 +77,11 @@ describe('gradebook-journey job (proposal)', () => {
   it('runs every cleanup and staging step under always(), removes the record and private output, and stages after leftovers', () => {
     const stop = byName(S, 'Stop background servers');
     expect(stop.if).toBe('always()');
-    expect(runOf(stop)).toMatch(/rm -f "\$RUNNER_TEMP\/stack-ownership\.json"/);
+    const removal = byName(S, 'Remove private outputs');
+    expect(removal.if).toBe('always()');
+    expect(S.indexOf(removal)).toBe(S.indexOf(stop) + 1);
+    expect(runOf(removal)).toMatch(/"\$RUNNER_TEMP\/stack-ownership\.json"/);
+    expect(runOf(removal)).toMatch(/"\$RUNNER_TEMP\/gb-priv"/);
     const stage = S.findIndex((s) => s.id === 'stage');
     expect(S[stage].if).toBe('always()');
     expect(stage).toBeGreaterThan(at(/stack-checks\.sh leftovers/));
