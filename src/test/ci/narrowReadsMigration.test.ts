@@ -15,7 +15,7 @@ const flat = (s: string) => s.replace(/\s+/g, ' ').trim();
 type Policy = { name: string; table: string; cmd: string; to: string; body: string };
 const creates: Policy[] = [...sql.matchAll(/CREATE POLICY "([^"]+)"\s+ON public\.(\w+)\s+FOR (\w+)\s+TO (\w+)\s+(USING|WITH CHECK)\s*\(([\s\S]*?)\);/g)]
   .map((m) => ({ name: m[1], table: m[2], cmd: m[3], to: m[4], body: flat(m[6]) }));
-const drops = [...sql.matchAll(/DROP POLICY IF EXISTS "([^"]+)" ON public\.(\w+);/g)].map((m) => `${m[2]}:${m[1]}`);
+const drops = [...sql.matchAll(/DROP POLICY "([^"]+)" ON public\.(\w+);/g)].map((m) => `${m[2]}:${m[1]}`);
 const byName = (n: string) => creates.find((p) => p.name === n)!;
 
 describe('narrow reads migration (static)', () => {
@@ -28,7 +28,9 @@ describe('narrow reads migration (static)', () => {
   it('contains only 4 DROP POLICY and 4 CREATE POLICY statements', () => {
     const statements = sql.split(';').map(flat).filter(Boolean);
     expect(statements).toHaveLength(8);
-    for (const s of statements) expect(s).toMatch(/^(DROP POLICY IF EXISTS|CREATE POLICY) /);
+    for (const s of statements) expect(s).toMatch(/^(DROP POLICY|CREATE POLICY) /);
+    // Plain DROP: a name mismatch must fail, never leave the old wide policy as an OR peer.
+    expect(sql).not.toMatch(/IF EXISTS/i);
     expect(sql).not.toMatch(/\b(DELETE|UPDATE|INSERT INTO|TRUNCATE|ALTER|GRANT|REVOKE|FUNCTION|TABLE)\b/i);
     expect(creates).toHaveLength(4);
   });
@@ -75,11 +77,33 @@ describe('narrow reads migration (static)', () => {
     expect(drops).not.toContain('blog_settings:Admins can manage blog settings');
   });
 
+  it('replaces, not adds: resulting permissive policies on the three tables (snapshot minus drops plus creates)', () => {
+    const snap = [...live.matchAll(/create policy "([^"]+)" on public\.(career_quiz_attempts|user_feedback|blog_settings) as (\w+) for (\w+) to ([\w, ]+?) (?:using|with check)/g)]
+      .map((m) => ({ name: m[1], table: m[2], kind: m[3], cmd: m[4], to: m[5] }));
+    expect(snap.every((p) => p.kind === 'permissive')).toBe(true);
+    const after = [
+      ...snap.filter((p) => !drops.includes(`${p.table}:${p.name}`)).map((p) => `${p.table}|${p.cmd}|${p.to}|${p.name}`),
+      ...creates.map((p) => `${p.table}|${p.cmd}|${p.to}|${p.name}`),
+    ].sort();
+    expect(after).toEqual([
+      'blog_settings|ALL|public|Admins can manage blog settings',
+      'blog_settings|SELECT|authenticated|Blog authors can view blog settings',
+      'career_quiz_attempts|INSERT|public|Users can insert their own quiz attempts',
+      'career_quiz_attempts|SELECT|public|Users can view their own quiz attempts',
+      'user_feedback|INSERT|authenticated|Users can insert feedback',
+      'user_feedback|SELECT|authenticated|Users can view feedback',
+      'user_feedback|UPDATE|authenticated|Users can update their own feedback',
+    ]);
+    expect(sql).not.toMatch(/assistant/i);
+  });
+
   it('client paths the predicates rely on are unchanged', () => {
     const read = (p: string) => readFileSync(path.join(ROOT, p), 'utf8');
-    // Both live quiz writers run only when signed in, so they use the unchanged auth.uid() branch.
+    // All three live quiz writers run only when signed in, so they use the unchanged auth.uid() branch.
     expect(read('src/hooks/useCareerCoach.ts')).toMatch(/if \(isAuthenticated\)[\s\S]*storeQuizAttempt\(/);
     expect(read('src/pages/AssistantInterface.tsx')).toMatch(/assistantId === 'career-coach' && isAuthenticated[\s\S]*storeQuizAttempt\(/);
+    // QuizResults.tsx: the active saveQuizResults (below the commented legacy copy) is also sign-in gated.
+    expect(read('src/components/quiz/QuizResults.tsx')).toMatch(/\n  const saveQuizResults = async \(\) => \{\n    if \(!isAuthenticated\) return;[\s\S]{0,120}await storeQuizAttempt\(/);
     // Feedback submission inserts its own user_id and reads nothing back.
     const fb = read('src/hooks/useFeedbackSubmission.ts');
     expect(fb).toMatch(/from\('user_feedback'\)[\s\S]*\.insert\(/);
