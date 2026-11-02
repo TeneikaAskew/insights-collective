@@ -306,3 +306,26 @@ removed, exact evidence inventory.
   - The scan samples main-document text, markup, form values, title and URL, not every painted surface.
   - Scope is the reviewed synthetic app and media of these 16 routes. Unsupported surfaces are withheld. This is not a universal framework.
 - **Catalog fact, for the record (source read only).** At this head, CourseList.tsx renders each card's title, instructor, category, duration and level. `description` is used only by the search filter (line 96). J0a is withheld regardless.
+
+## 16. Capture-window ordering fix (T 03:44Z recheck of 945246b; UNRUN)
+
+- **Correction to section 15.** That section claimed J0a was certain to show the nonce. That claim is withdrawn. `/courses` uses `description` for search only, and the cards don't display it. Withholding J0a is a conservative choice; no nonce was observed.
+- **The gap that was found.** In 945246b the BEFORE sample ran before the guard was armed, and the guard was read and disconnected before the AFTER sample. So this sequence passed: clean BEFORE, then a secret inserted before arm, then the screenshot paints it, then the guard reads 0, then the secret is removed before AFTER. The 945246b read also disconnected only the observer and left the four event listeners attached.
+- **New order, in `captureShot(drv, …)` (shot-core.mjs).** `observe.ts` only wraps the page in a driver.
+  1. Watch main-frame navigations.
+  2. Arm the guard.
+  3. Take the BEFORE sample. If it is dirty there is no screenshot.
+  4. Take the screenshot.
+  5. Take the AFTER sample.
+  6. In `finally`, on success and on any exception, read the guard. The read drains pending records with `takeRecords`, disconnects the observer, removes the input/change/pagehide/beforeunload listeners and deletes the state.
+  7. Remove the navigation listener.
+  8. Any exception, or a guard that cannot be read, gives `INCOMPLETE` and drops the buffer.
+- **Unchanged.** The decision order, the reasons, the J0a rule, the export, the private dirs, the PNG allowlist and the oracle. No pixel framework and no policy change.
+- **Controls.** SHOTWINDOW runs the real `SHOT_GUARD` and `captureShot` over jsdom, with hooks in every gap.
+  - T's exact case is a causal pair. The 945246b order WRITES a PNG that painted the nonce. The new order withholds it as `MUTATED`.
+  - Each gap is tested separately: sample to screenshot, and screenshot to sample to read. A change still pending at read time is drained.
+  - A field change is caught. A navigation before the first sample, in a gap, or before the read is caught.
+  - A dirty BEFORE sample causes no screenshot call.
+  - Exceptions in the screenshot, either sample, arm, or read all end detached and `INCOMPLETE`, with no buffer.
+  - The legitimate positive keeps the exact call order.
+- **Static rules.** R12_SHOT_WINDOW pins the `captureShot` order and the count of driver calls. R12_SHOT_GUARD_DETACH pins the order drain, disconnect, remove listeners, delete. R3 allows exactly one guard call site.
