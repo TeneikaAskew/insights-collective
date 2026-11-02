@@ -23,8 +23,11 @@ export function queryExact(c, spec) {
   return true;
 }
 
-/** Records every request the target STARTS from now on ('request' event), then its terminal state. */
-export function createRecorder(target) {
+/** Records every request the target STARTS from now on ('request' event), then its terminal state.
+ *  opts.storageReadMs: the fixed deadline for the DIAGNOSTIC Storage error-body read (default STORAGE_READ_MS). */
+export function createRecorder(target, opts = {}) {
+  const readMs = Number.isInteger(opts.storageReadMs) && opts.storageReadMs > 0 ? opts.storageReadMs : STORAGE_READ_MS;
+  let stopped = false;
   /** @type {Call[]} */
   const calls = [];
   const byReq = new Map();
@@ -40,15 +43,25 @@ export function createRecorder(target) {
     let r = null;
     try { r = await req.response(); c.status = r ? r.status() : null; } catch { c.status = null; }
     // DIAGNOSTIC ONLY: a Storage error response is reduced to fixed categories before the call is terminal; the body text
-    // is a local value that is never stored, returned or logged.
-    if (r && isStorageError(c)) { try { c.storage = storageCategory(await r.text()); } catch { c.storage = STORAGE_UNREADABLE; } }
+    // is a local value that is never stored, returned or logged. The read is raced against a fixed deadline, so a body that
+    // never arrives gives TIMEOUT (a rejected read gives UNREADABLE) and the call still becomes terminal with its HTTP
+    // status. The category is assigned once: a read that completes after the deadline, or after stop(), changes nothing.
+    if (r && isStorageError(c)) {
+      let timer;
+      const deadline = new Promise((res) => { timer = setTimeout(() => res(STORAGE_TIMEOUT), readMs); });
+      const read = Promise.resolve().then(() => r.text()).then((t) => storageCategory(t), () => STORAGE_UNREADABLE);
+      const cat = await Promise.race([read, deadline]);
+      clearTimeout(timer);
+      if (stopped) return;           // the recorder was stopped while the diagnostic read was pending: leave the call as is
+      c.storage = cat;
+    }
     c.done = true;
   };
   const onFail = (req) => { const c = byReq.get(req); if (c) { c.failed = true; c.done = true; } };
   target.on('request', onReq); target.on('requestfinished', onFin); target.on('requestfailed', onFail);
   return {
     calls,
-    stop() { target.off('request', onReq); target.off('requestfinished', onFin); target.off('requestfailed', onFail); },
+    stop() { stopped = true; target.off('request', onReq); target.off('requestfinished', onFin); target.off('requestfailed', onFail); },
   };
 }
 
@@ -67,19 +80,24 @@ const STORAGE_MSG = new Map([
   ['Invalid key', 'INVALID_KEY'], ['mime type not supported', 'MIME_TYPE'],
 ]);
 const FIELD_STATES = ['ABSENT', 'OTHER', 'NA'];
-export const STORAGE_ERR_NAMES = Object.freeze([...new Set([...STORAGE_ERR.values(), ...FIELD_STATES, 'UNPARSEABLE', 'SHAPE', 'OVERSIZE', 'UNREADABLE'])]);
+export const STORAGE_ERR_NAMES = Object.freeze([...new Set([...STORAGE_ERR.values(), ...FIELD_STATES, 'UNPARSEABLE', 'SHAPE', 'OVERSIZE', 'UNREADABLE', 'TIMEOUT'])]);
 export const STORAGE_MSG_NAMES = Object.freeze([...new Set([...STORAGE_MSG.values(), ...FIELD_STATES])]);
-const STORAGE_MAX_BODY = 4096;
+/** Parse bound, checked AFTER the full body text has been read: its UTF-8 byte length. It limits what is parsed, not what
+ *  is read from the network (the read itself is bounded only in time, by STORAGE_READ_MS). */
+const STORAGE_MAX_BODY_BYTES = 4096;
+export const STORAGE_READ_MS = 2000;
+const STORAGE_TIMEOUT = Object.freeze({ err: 'TIMEOUT', code: 'NA', msg: 'NA', status: 'NA' });
 const STORAGE_UNREADABLE = Object.freeze({ err: 'UNREADABLE', code: 'NA', msg: 'NA', status: 'NA' });
 const isStorageError = (c) => c.url.pathname.startsWith('/storage/v1/') && Number.isInteger(c.status) && c.status >= 400;
 /**
  * Fixed categories from a Storage error body: err (`error`), code (`code`), msg (`message`, exact known strings only) and
- * the body's own `statusCode` when it is exactly three digits. Own keys only; non-string values are OTHER. Pure.
+ * the body's own `statusCode` when it is exactly three digits. Own keys only; non-string values are OTHER. A text over
+ * 4096 UTF-8 bytes is OVERSIZE and is not parsed. Pure.
  * @param {unknown} text @returns {{ err: string, code: string, msg: string, status: string }}
  */
 export function storageCategory(text) {
   if (typeof text !== 'string') return STORAGE_UNREADABLE;
-  if (text.length > STORAGE_MAX_BODY) return { err: 'OVERSIZE', code: 'NA', msg: 'NA', status: 'NA' };
+  if (new TextEncoder().encode(text).length > STORAGE_MAX_BODY_BYTES) return { err: 'OVERSIZE', code: 'NA', msg: 'NA', status: 'NA' };
   let b;
   try { b = JSON.parse(text); } catch { return { err: 'UNPARSEABLE', code: 'NA', msg: 'NA', status: 'NA' }; }
   if (!b || typeof b !== 'object' || Array.isArray(b)) return { err: 'SHAPE', code: 'NA', msg: 'NA', status: 'NA' };

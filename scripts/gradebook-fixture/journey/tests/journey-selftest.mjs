@@ -299,7 +299,35 @@ try {
       ok('STREC a 2xx Storage response and a non-Storage 4xx are never read; no OBS_STORAGE when the status is allowed', a.reads() === 0 && b.reads() === 0 && !rec.calls.some((c) => c.storage)
         && evaluate(rec.calls, STW, { origin: O }).failures.length === 0); }
     { const t = fakeTarget(); const rec = createRecorder(t); const r = startB(t, 'POST', SUP, RLSBODY); const pre = settled(rec.calls, STW, O); await finish(t, r, 400); rec.stop();
-      ok('STREC the category is set before the call becomes terminal (settled waits for it)', pre === false && rec.calls[0].done && rec.calls[0].storage && rec.calls[0].storage.msg === 'RLS'); } }
+      ok('STREC the category is set before the call becomes terminal (settled waits for it)', pre === false && rec.calls[0].done && rec.calls[0].storage && rec.calls[0].storage.msg === 'RLS'); }
+    // Bounded diagnostic settlement (review hold 18:15Z): the body read is raced against a fixed deadline.
+    const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
+    const waitFor = async (fn, ms = 2000) => { const end = Date.now() + ms; while (!fn() && Date.now() < end) await new Promise((r) => setTimeout(r, 5)); return fn(); };
+    const ERRS = ['OBS_STATUS POST /storage/v1/object/course-documents/submissions/ 400'];
+    { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 40 }); const r = startB(t, 'POST', SUP, new Promise(() => {})); t.emit('requestfinished', (r._s = 400, r));
+      const done = await waitFor(() => rec.calls[0].done); rec.stop();
+      ok('STREC a 400 whose body never arrives: terminal after the fixed deadline with status 400 kept and category TIMEOUT; OBS_STATUS 400, never OBS_PENDING',
+        done && rec.calls[0].status === 400 && JSON.stringify(evaluate(rec.calls, STW, { origin: O }).failures) === JSON.stringify([...ERRS, 'OBS_STORAGE TIMEOUT NA NA NA'])); }
+    { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 40 }); const d = defer(); const r = startB(t, 'POST', SUP, d.p); t.emit('requestfinished', (r._s = 400, r));
+      await waitFor(() => rec.calls[0].done); const frozen = JSON.stringify({ ...rec.calls[0], req: null }); d.res(RLSBODY); await new Promise((x) => setTimeout(x, 30));
+      const after = JSON.stringify({ ...rec.calls[0], req: null }); rec.stop();
+      ok('STREC a body that arrives AFTER the deadline changes nothing: category stays TIMEOUT, the call is byte-identical', frozen === after && rec.calls[0].storage.err === 'TIMEOUT'); }
+    { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 40 }); const d = defer(); const r = startB(t, 'POST', SUP, d.p); t.emit('requestfinished', (r._s = 400, r));
+      await waitFor(() => rec.calls[0].done); d.rej(new Error('MARKER')); await new Promise((x) => setTimeout(x, 30)); rec.stop();
+      ok('STREC a read rejected after the deadline is also ignored (TIMEOUT kept)', rec.calls[0].storage.err === 'TIMEOUT'); }
+    { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 1000 }); const d = defer(); const r = startB(t, 'POST', SUP, d.p); t.emit('requestfinished', (r._s = 400, r));
+      await new Promise((x) => setTimeout(x, 10)); d.rej(new Error('MARKER')); await waitFor(() => rec.calls[0].done); rec.stop();
+      ok('STREC a read rejected before the deadline: UNREADABLE, status 400 kept, terminal', rec.calls[0].done && rec.calls[0].status === 400 && rec.calls[0].storage.err === 'UNREADABLE'); }
+    { const t = fakeTarget(); const rec = createRecorder(t, { storageReadMs: 60 }); const d = defer(); const r = startB(t, 'POST', SUP, d.p); t.emit('requestfinished', (r._s = 400, r));
+      await new Promise((x) => setTimeout(x, 5)); rec.stop(); const frozen = JSON.stringify({ ...rec.calls[0], req: null }); d.res(RLSBODY); await new Promise((x) => setTimeout(x, 120));
+      ok('STREC stop() while the read is pending: neither a late body nor the deadline mutates the recorded call afterwards', JSON.stringify({ ...rec.calls[0], req: null }) === frozen && rec.calls[0].storage === undefined); }
+    { const euro = '€';
+      const big = JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: euro.repeat(2000) });   // 2000 UTF-16 units of text, about 6 KB of UTF-8
+      const small = JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: euro.repeat(1300) }); // under 4096 UTF-8 bytes
+      ok('STCAT the 4096 bound is UTF-8 bytes after the read: multibyte text under 4096 UTF-16 units but over 4096 bytes is OVERSIZE; under the byte bound it parses',
+        big.length < 4096 && new TextEncoder().encode(big).length > 4096 && JSON.stringify(storageCategory(big)) === '{"err":"OVERSIZE","code":"NA","msg":"NA","status":"NA"}'
+        && new TextEncoder().encode(small).length <= 4096 && JSON.stringify(storageCategory(small)) === '{"err":"UNAUTHORIZED","code":"ABSENT","msg":"OTHER","status":"403"}'); }
+    ok('STCAT TIMEOUT is in the exported fixed list', STORAGE_ERR_NAMES.includes('TIMEOUT')); }
 
   // ---- J0b course-read oracle (run 41486270908): OLD 69e5f4b one-reader oracle vs NEW three-reader + declared sibling ----
   stage = "J0b course-read oracle (run 41486270908): OLD 69e5f4b vs NEW";
