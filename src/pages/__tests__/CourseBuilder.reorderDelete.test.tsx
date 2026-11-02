@@ -27,6 +27,7 @@ vi.mock('@/components/course/builder/teachable/CurriculumView', () => ({
           <button type="button" onClick={() => onReorderLessons(m.id, [...m.items.map((i: any) => i.id)].reverse())}>
             reverse lessons {m.id}
           </button>
+          <button type="button" onClick={() => onReorderLessons(m.id, ['b', 'a', 'c'])}>swap first lessons {m.id}</button>
           <button type="button" onClick={() => onDeleteModule(m.id)}>delete section {m.id}</button>
           {m.items.map((i: any) => (
             <button key={i.id} type="button" onClick={() => onDeleteLesson(i.id)}>delete lesson {i.id}</button>
@@ -141,6 +142,39 @@ function renderBuilder() {
   );
 }
 
+
+// ---- overlapping reorders: every RPC is held until the test settles it ----
+type Pending = { key: string; settle: (ok: boolean) => void };
+let pending: Pending[] = [];
+function deferRpc() {
+  pending = [];
+  rpcBehaviour = (name, args) =>
+    new Promise((res) => {
+      const key = (args.p_module_ids ?? args.p_item_ids).join(',');
+      pending.push({
+        key,
+        settle: (ok) => {
+          if (ok) applyReorder(name, args);
+          res(ok ? { data: null, error: null } : { data: null, error: { message: `refused ${key}` } });
+        },
+      });
+    });
+}
+/** Settle each listed order once it has been sent, preferring earlier entries of `priority` when several wait. */
+async function drive(outcomes: Record<string, 'ok' | 'fail'>, priority: string[]) {
+  const left = new Set(Object.keys(outcomes));
+  while (left.size) {
+    await waitFor(() => expect(pending.length).toBeGreaterThan(0));
+    const p = priority.map((k) => pending.find((x) => x.key === k)).find(Boolean)!;
+    pending.splice(pending.indexOf(p), 1);
+    left.delete(p.key);
+    p.settle(outcomes[p.key] === 'ok');
+  }
+}
+const serverSections = () => [...mods.values()].sort((a, z) => a.position - z.position).map((m) => m.id).join(',');
+const serverLessons = () =>
+  [...items.values()].filter((i) => i.module_id === 'm1').sort((a, z) => a.position - z.position).map((i) => i.id).join(',');
+
 const sectionOrder = () => screen.getByTestId('section-order').textContent;
 const lessonOrder = () => screen.getByTestId('lesson-order-m1').textContent;
 const lastToast = () => toastSpy.mock.calls.at(-1)?.[0];
@@ -189,7 +223,7 @@ describe('T-54 reorder: a refused reorder does not stay on screen', () => {
     fireEvent.click(screen.getByText('reverse sections'));
     await waitFor(() => expect(lastToast()?.title).toBe('Sections not reordered'));
     expect(sectionOrder()).toBe('m1,m2,m3');
-    expect(lastToast().description).toContain('The previous order was restored');
+    expect(lastToast().description).toMatch(/order was restored/);
   });
 
   it('R4 the server changed order elsewhere: a failed reorder shows the server order, not the stale local one', async () => {
@@ -202,24 +236,15 @@ describe('T-54 reorder: a refused reorder does not stay on screen', () => {
     expect(sectionOrder()).toBe('m3,m1,m2');
   });
 
-  it('R5 guard: an older reorder that fails after a newer one succeeded does not undo the newer order', async () => {
+  it('R5 an older reorder that fails while a newer one is waiting does not undo the newer, saved order', async () => {
     await loaded();
-    let rejectFirst!: (e: any) => void;
-    let call = 0;
-    rpcBehaviour = (name, args) => {
-      call++;
-      if (call === 1) return new Promise((res) => (rejectFirst = () => res({ data: null, error: { message: 'late failure' } })));
-      applyReorder(name, args);
-      return Promise.resolve({ data: null, error: null });
-    };
+    deferRpc();
     fireEvent.click(screen.getByText('swap first sections'));
-    await waitFor(() => expect(sectionOrder()).toBe('m2,m1,m3'));
     fireEvent.click(screen.getByText('reverse sections'));
+    await drive({ 'm2,m1,m3': 'fail', 'm3,m1,m2': 'ok' }, ['m3,m1,m2', 'm2,m1,m3']);
+    await waitFor(() => expect(serverSections()).toBe('m3,m1,m2'));
     await waitFor(() => expect(sectionOrder()).toBe('m3,m1,m2'));
-    await waitFor(() => expect(call).toBe(2));
-    rejectFirst(undefined);
-    await waitFor(() => expect(lastToast()?.title).toBe('Sections not reordered'));
-    expect(sectionOrder()).toBe('m3,m1,m2');
+    expect(toastSpy.mock.calls.map((c) => c[0].title)).not.toContain('Sections not reordered');
   });
 
   it('R6 control: a successful reorder keeps the new order and reloads nothing', async () => {
@@ -230,6 +255,58 @@ describe('T-54 reorder: a refused reorder does not stay on screen', () => {
     expect(sectionOrder()).toBe('m3,m2,m1');
     expect(reads.modules).toBe(before);
     expect(toastSpy).not.toHaveBeenCalled();
+  });
+});
+
+
+type Scope = { name: string; first: string; second: string; a: string; b: string; shown: () => string | null; server: () => string; base: string; toast: string; failRead: () => void };
+const SCOPES: Scope[] = [
+  { name: 'sections', first: 'swap first sections', second: 'reverse sections', a: 'm2,m1,m3', b: 'm3,m1,m2', shown: () => sectionOrder(), server: () => serverSections(), base: 'm1,m2,m3', toast: 'Sections not reordered', failRead: () => (failModuleRead = true) },
+  { name: 'lessons', first: 'swap first lessons m1', second: 'reverse lessons m1', a: 'b,a,c', b: 'c,a,b', shown: () => lessonOrder(), server: () => serverLessons(), base: 'a,b,c', toast: 'Lessons not reordered', failRead: () => (failItemRead = true) },
+];
+
+describe.each(SCOPES)('T-54 overlapping $name reorders end on the stored order', (sc) => {
+  it('O1 both requests fail and the reload fails too: the last stored order is shown, not a speculative one', async () => {
+    await loaded();
+    deferRpc();
+    sc.failRead();
+    fireEvent.click(screen.getByText(sc.first));
+    fireEvent.click(screen.getByText(sc.second));
+    await drive({ [sc.a]: 'fail', [sc.b]: 'fail' }, [sc.b, sc.a]);
+    await waitFor(() => expect(lastToast()?.title).toBe(sc.toast));
+    await waitFor(() => expect(sc.shown()).toBe(sc.base));
+    expect(sc.server()).toBe(sc.base);
+  });
+
+  it('O2 the older request succeeds after the newer one failed: the shown order is the stored (older) one', async () => {
+    await loaded();
+    deferRpc();
+    fireEvent.click(screen.getByText(sc.first));
+    fireEvent.click(screen.getByText(sc.second));
+    await drive({ [sc.a]: 'ok', [sc.b]: 'fail' }, [sc.b, sc.a]);
+    await waitFor(() => expect(sc.server()).toBe(sc.a));
+    await waitFor(() => expect(lastToast()?.title).toBe(sc.toast));
+    await waitFor(() => expect(sc.shown()).toBe(sc.a));
+  });
+
+  it('O3 guard: both requests fail with the reload working: the stored order is shown', async () => {
+    await loaded();
+    deferRpc();
+    fireEvent.click(screen.getByText(sc.first));
+    fireEvent.click(screen.getByText(sc.second));
+    await drive({ [sc.a]: 'fail', [sc.b]: 'fail' }, [sc.b, sc.a]);
+    await waitFor(() => expect(lastToast()?.title).toBe(sc.toast));
+    await waitFor(() => expect(sc.shown()).toBe(sc.base));
+  });
+
+  it('O4 newer success: the older request fails while the newer waits; the newer order is saved and shown', async () => {
+    await loaded();
+    deferRpc();
+    fireEvent.click(screen.getByText(sc.first));
+    fireEvent.click(screen.getByText(sc.second));
+    await drive({ [sc.a]: 'fail', [sc.b]: 'ok' }, [sc.b, sc.a]);
+    await waitFor(() => expect(sc.server()).toBe(sc.b));
+    await waitFor(() => expect(sc.shown()).toBe(sc.b));
   });
 });
 

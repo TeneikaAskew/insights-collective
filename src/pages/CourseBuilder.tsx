@@ -31,7 +31,7 @@ import {
 } from '@/components/course/builder/teachable/NewCourseWizard';
 import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
 import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
-import { applyIdOrder, createReorderSequencer } from '@/components/course/builder/reorderReconcile';
+import { applyIdOrder, createReorderCoordinator } from '@/components/course/builder/reorderReconcile';
 import { planFor, runCreationPlan, type CreationPlan } from '@/components/course/builder/courseCreation';
 import {
   LessonSaveQueue,
@@ -103,10 +103,10 @@ const CourseBuilder = () => {
 
   const [course, setCourse] = useState<BuilderCourse | null>(null);
   const [modules, setModules] = useState<BuilderModule[]>([]);
-  // Latest committed modules, read by the reorder handlers to capture the order they replace.
+  // Latest committed modules, read by the reorder coordinator for the idle (confirmed) order.
   const modulesRef = useRef(modules);
   modulesRef.current = modules;
-  const reorderSeq = useRef(createReorderSequencer()).current;
+  const reorders = useRef(createReorderCoordinator()).current;
   // The in-flight or failed wizard creation, kept so a retry resumes it (T-56).
   const creationPlanRef = useRef<CreationPlan | null>(null);
   const [loading, setLoading] = useState(!isNew);
@@ -519,42 +519,34 @@ const CourseBuilder = () => {
     [toast],
   );
 
-  // Optimistic reorder. If the RPC fails, the latest reorder in this scope puts back the order the
-  // server reports (or, if that read fails too, the order it replaced). An older failure never
-  // undoes a newer reorder.
+  // Optimistic reorder, one request in flight per scope (see createReorderCoordinator): if the last
+  // request fails, the saved order is reloaded, or the last accepted order is shown if that read fails.
+  const reorderFailedToast = useCallback(
+    (what: 'Sections' | 'Lessons', err: any, restored: 'server' | 'last-confirmed') =>
+      toast({
+        title: `${what} not reordered`,
+        description: `${err?.message ?? 'The new order was not saved.'} ${
+          restored === 'server'
+            ? 'The saved order was reloaded.'
+            : 'The last saved order was restored; reload to check it.'
+        }`,
+        variant: 'destructive',
+      }),
+    [toast],
+  );
+
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      const scope = 'sections';
-      const seq = reorderSeq.begin(scope);
-      const before = modulesRef.current.map((m) => m.id);
-      setModules((prev) => applyIdOrder(prev, ordered));
-      try {
-        await CanvasContentService.reorderModules(courseId, ordered);
-      } catch (err: any) {
-        if (!reorderSeq.isLatest(scope, seq)) {
-          toast({ title: 'Sections not reordered', description: err.message, variant: 'destructive' });
-          return;
-        }
-        let serverOrder: string[] | null = null;
-        try {
-          serverOrder = (await CanvasContentService.getModules(courseId)).map((m) => m.id);
-        } catch {
-          serverOrder = null;
-        }
-        if (reorderSeq.isLatest(scope, seq)) {
-          setModules((prev) => applyIdOrder(prev, serverOrder ?? before));
-        }
-        toast({
-          title: 'Sections not reordered',
-          description: `${err.message} ${
-            serverOrder ? 'The saved order was reloaded.' : 'The previous order was restored; reload to check the saved order.'
-          }`,
-          variant: 'destructive',
-        });
-      }
+      await reorders.request('sections', ordered, {
+        current: () => modulesRef.current.map((m) => m.id),
+        apply: (order) => setModules((prev) => applyIdOrder(prev, order)),
+        send: (order) => CanvasContentService.reorderModules(courseId, order),
+        reload: async () => (await CanvasContentService.getModules(courseId)).map((m) => m.id),
+        onFailed: (err, restored) => reorderFailedToast('Sections', err, restored),
+      });
     },
-    [courseId, toast, reorderSeq],
+    [courseId, reorders, reorderFailedToast],
   );
 
   const addLesson = useCallback(
@@ -642,41 +634,21 @@ const CourseBuilder = () => {
     [toast, saveQueue],
   );
 
-  // Same reconcile rule as reorderSections, scoped to one section's lessons.
+  // Same rule as reorderSections, scoped to one section's lessons.
   const reorderLessons = useCallback(
     async (moduleId: string, ordered: string[]) => {
-      const scope = `lessons:${moduleId}`;
-      const seq = reorderSeq.begin(scope);
-      const before = (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id);
-      const setLessonOrder = (order: string[]) =>
-        setModules((prev) =>
-          prev.map((m) => (m.id === moduleId ? { ...m, items: applyIdOrder(m.items, order) } : m)),
-        );
-      setLessonOrder(ordered);
-      try {
-        await CanvasContentService.reorderContentItems(moduleId, ordered);
-      } catch (err: any) {
-        if (!reorderSeq.isLatest(scope, seq)) {
-          toast({ title: 'Lessons not reordered', description: err.message, variant: 'destructive' });
-          return;
-        }
-        let serverOrder: string[] | null = null;
-        try {
-          serverOrder = (await CanvasContentService.getContentItems(moduleId)).map((i) => i.id);
-        } catch {
-          serverOrder = null;
-        }
-        if (reorderSeq.isLatest(scope, seq)) setLessonOrder(serverOrder ?? before);
-        toast({
-          title: 'Lessons not reordered',
-          description: `${err.message} ${
-            serverOrder ? 'The saved order was reloaded.' : 'The previous order was restored; reload to check the saved order.'
-          }`,
-          variant: 'destructive',
-        });
-      }
+      await reorders.request(`lessons:${moduleId}`, ordered, {
+        current: () => (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id),
+        apply: (order) =>
+          setModules((prev) =>
+            prev.map((m) => (m.id === moduleId ? { ...m, items: applyIdOrder(m.items, order) } : m)),
+          ),
+        send: (order) => CanvasContentService.reorderContentItems(moduleId, order),
+        reload: async () => (await CanvasContentService.getContentItems(moduleId)).map((i) => i.id),
+        onFailed: (err, restored) => reorderFailedToast('Lessons', err, restored),
+      });
     },
-    [toast, reorderSeq],
+    [reorders, reorderFailedToast],
   );
 
   const handleAddContentTile = useCallback(
