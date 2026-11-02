@@ -32,10 +32,27 @@ export async function verifyServedApp({ appOrigin, servedDir = process.env.HERME
   try { res = await fetchImpl(`${appOrigin}/`, { redirect: 'error', signal: AbortSignal.timeout(timeoutMs) }); }
   catch { return { ok: false, code: 'SA_FETCH' }; }
   if (!res || res.status !== 200) return { ok: false, code: 'SA_STATUS' };
-  let got;
-  try { got = Buffer.from(await res.arrayBuffer()); } catch { return { ok: false, code: 'SA_FETCH' }; }
-  if (got.length > MAX_INDEX || !got.equals(want)) return { ok: false, code: 'SA_BYTES' };
+  const got = await readBounded(res.body, MAX_INDEX);
+  if (got === 'SA_FETCH' || got === 'SA_BYTES') return { ok: false, code: got };
+  if (!got.equals(want)) return { ok: false, code: 'SA_BYTES' };
   return { ok: true };
+}
+
+/** Reads at most `max` bytes; one byte more cancels the stream and yields SA_BYTES. Never buffers past the cap. */
+async function readBounded(body, max) {
+  if (!body || typeof body.getReader !== 'function') return 'SA_FETCH';
+  const reader = body.getReader();
+  const parts = []; let n = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      n += value.byteLength;
+      if (n > max) { await reader.cancel().catch(() => {}); return 'SA_BYTES'; }
+      parts.push(Buffer.from(value.buffer, value.byteOffset, value.byteLength));
+    }
+  } catch { return 'SA_FETCH'; } finally { try { reader.releaseLock(); } catch { /* already released */ } }
+  return Buffer.concat(parts, n);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === fs.realpathSync(process.argv[1])) {

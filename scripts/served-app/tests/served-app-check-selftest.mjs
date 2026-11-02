@@ -36,12 +36,19 @@ try {
   check('N7 live server serves the PRODUCT index', await verifyServedApp(base), { ok: false, code: 'SA_BYTES' });
   body = fs.readFileSync(path.join(served, 'index.html')); status = 404;
   check('N8 live status not 200', await verifyServedApp(base), { ok: false, code: 'SA_STATUS' });
-  status = 200; await new Promise((r) => srv.close(r));
+  status = 200; body = Buffer.alloc((1 << 20) + 1, 0x20);
+  check('N11 oversize body (cap + 1 byte)', await verifyServedApp(base), { ok: false, code: 'SA_BYTES' });
+  const big = await verifyServedApp({ ...base, fetchImpl: async () => new Response(new ReadableStream({ pull(c) { c.enqueue(new Uint8Array(65536)); } })) });
+  check('N12 endless stream is cut at the cap', big, { ok: false, code: 'SA_BYTES' });
+  check('N13 response without a body stream', await verifyServedApp({ ...base, fetchImpl: async () => ({ status: 200, body: null }) }), { ok: false, code: 'SA_FETCH' });
+  body = fs.readFileSync(path.join(served, 'index.html'));
+  check('P3 restored after oversize', await verifyServedApp(base), { ok: true });
+  await new Promise((r) => srv.close(r));
   check('N9 nothing listening', await verifyServedApp(base), { ok: false, code: 'SA_FETCH' });
   const r = await verifyServedApp({ ...base, fetchImpl: async () => { throw new Error('boom'); } });
   check('N10 fetch throws', r, { ok: false, code: 'SA_FETCH' });
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
-console.log(fails === 0 ? 'PASS served-app-check selftest (12 cases)' : `FAIL served-app-check selftest: ${fails} case(s)`);
+console.log(fails === 0 ? 'PASS served-app-check selftest (16 cases)' : `FAIL served-app-check selftest: ${fails} case(s)`);
 process.exit(fails === 0 ? 0 : 1);
