@@ -1185,13 +1185,28 @@ jobs:
           [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
           GB_LANE=journey GB_SESSION_DIR="$RUNNER_TEMP/gb-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/gb-launch-recheck.txt" || { cat "$RUNNER_TEMP/gb-launch-recheck.txt"; exit 1; }
           scripts/gradebook-fixture/journey/run-journey.sh "$RUNNER_TEMP/gb-journey-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/journey.txt"
-      - name: Copy the adapter's inventoried evidence (exactly its five files)
+      - name: Copy the adapter's inventoried evidence (exactly its seven entries; screenshots only as its manifest names)
         if: always() && steps.gb_d1.outcome == 'success'
         run: |
           O="$RUNNER_TEMP/gb-journey-out"
           [ -d "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
           mkdir -p "$GB_EVIDENCE/journey"
-          for f in compare.txt composition.txt pairing.txt playwright-summary.txt seed.txt; do [ -f "$O/$f" ] && cp "$O/$f" "$GB_EVIDENCE/journey/$f"; done
+          for f in compare.txt composition.txt pairing.txt playwright-summary.txt screenshots.txt seed.txt; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$GB_EVIDENCE/journey/$f"; done
+          # screenshots/ is copied as-is only when it is a real dir whose entries are exactly the regular, non-link 0600
+          # PNGs that screenshots.txt names (possibly none); anything else copies no PNG and fails this step.
+          if [ -e "$O/screenshots" ] || [ -L "$O/screenshots" ]; then
+            S="$O/screenshots"
+            [ -d "$S" ] && [ ! -L "$S" ] && [ -f "$O/screenshots.txt" ] || { echo "screenshots refused: not a real dir with a manifest"; exit 1; }
+            want=$(sed -n 's/^SHOT \([A-Za-z0-9-]*\) .*/\1.png/p' "$O/screenshots.txt" | LC_ALL=C sort | tr '\n' ' ')
+            have=$(ls -A "$S" | LC_ALL=C sort | tr '\n' ' ')
+            [ "$want" = "$have" ] || { echo "screenshots refused: the dir does not equal its manifest"; exit 1; }
+            for p in $have; do
+              [ -f "$S/$p" ] && [ ! -L "$S/$p" ] && [ "$(stat -c %a "$S/$p")" = 600 ] || { echo "screenshots refused: $p is not a regular 0600 file"; exit 1; }
+            done
+            mkdir -m 700 "$GB_EVIDENCE/journey/screenshots"
+            for p in $have; do cp -p -- "$S/$p" "$GB_EVIDENCE/journey/screenshots/$p"; done
+            echo "screenshots copied: $(wc -w <<<"$have") PNG(s), equal to the manifest"
+          fi
           ls -A "$GB_EVIDENCE/journey"
 
       - name: No Edge runtime container exists (read-only; after the journey)
@@ -1245,7 +1260,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4
