@@ -27,7 +27,7 @@ const code = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e && 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'jr-selftest-'));
 // Fixed, safe failure-stage diagnostics: an uncaught error is reported as the section label (a literal from this file)
 // plus the error's name, code and exit status only. Never its message or output, which can carry command output.
-let stage = 'setup', aborted = null;
+let stage, aborted = null; // stage is set by the first statement inside try
 try {
   // ---- Gate 1: private session dir ----
   stage = "Gate 1: private session dir";
