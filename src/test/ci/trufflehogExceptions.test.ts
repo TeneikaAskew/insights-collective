@@ -223,8 +223,10 @@ describe('actual security.yml step with a fake docker (no download, no real scan
       fs.symlinkSync(path.join(ROOT, 'scripts'), path.join(cwd, 'scripts'));
     }
     const [out, err, rc] = MODES[mode];
-    const script = o.approved ? `export TH_EXCEPTIONS=<(printf '%s' "$APPROVED_JSON")\n${scan.run}`
-      : o.pending ? `export TH_EXCEPTIONS=<(printf '%s' "$PENDING_JSON")\n${scan.run}` : scan.run;
+    // The process substitution must prefix the command itself: bash closes a <(...) descriptor once its writer has
+    // exited and the expanding command is done, so `export X=<(...)` on its own line races the next line (exit 4).
+    const script = o.approved ? `TH_EXCEPTIONS=<(printf '%s' "$APPROVED_JSON") ${scan.run}`
+      : o.pending ? `TH_EXCEPTIONS=<(printf '%s' "$PENDING_JSON") ${scan.run}` : scan.run;
     const r = spawnSync('bash', ['-c', script], {
       cwd, encoding: 'utf8',
       env: { PATH: pathDir, HOME: tmp, RUNNER_TEMP: rt, BASE: o.base ?? '', HEAD: o.head ?? '', FAKE_LOG: logf,
