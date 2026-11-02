@@ -1,14 +1,16 @@
 // ABOUTME: Tests for course report metrics — completion, module progression, work status, empty course, no cross-course rows.
 // ABOUTME: Pure computeCourseReport against fixtures; fetch failure is covered via a mocked Supabase client.
 import { describe, it, expect, vi } from 'vitest';
-vi.mock('@/integrations/supabase/client', () => {
-  const b: any = { select: () => b, eq: () => b, in: () => b, then: (r: any) => r({ data: null, error: { message: 'boom' } }) };
-  return { supabase: { from: () => b } };
-});
+import { makeFakeClient, makeFakeDb, type FakeDb } from './fakeRosterSupabase';
+
+const h = vi.hoisted(() => ({ db: null as unknown as FakeDb }));
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: { from: (t: string) => makeFakeClient(h.db).from(t) },
+}));
 import { computeCourseReport, fetchCourseReport } from '../courseReportService';
 
-const L = (userId: string, progress: number, needsAttention = false) =>
-  ({ userId, name: userId, avatarUrl: null, enrolledAt: '2026-01-01', progress, needsAttention });
+const L = (userId: string, progress: number | null, needsAttention = false) =>
+  ({ userId, name: userId, avatarUrl: null, enrolledAt: '2026-01-01', progress, completedItems: 0, totalItems: 2, needsAttention });
 
 const base = {
   learners: [L('u1', 100), L('u2', 50), L('u3', 0, true)],
@@ -35,6 +37,7 @@ describe('computeCourseReport', () => {
   it('computes enrollment and completion KPIs', () => {
     const r = computeCourseReport(base);
     expect(r.enrolled).toBe(3);
+    expect(r.measured).toBe(3);
     expect(r.completed).toBe(1);
     expect(r.completionRate).toBe(33);
     expect(r.avgProgress).toBe(50);
@@ -54,7 +57,56 @@ describe('computeCourseReport', () => {
     expect(r.avgProgress).toBeNull();
     expect(r.modules[0].avgCompletion).toBeNull();
   });
+  it('unknown learner progress is excluded from rates, not counted as 0 (T-15)', () => {
+    const r = computeCourseReport({ ...base, learners: [L('u1', 100), L('u2', null), L('u3', null)] });
+    expect(r.measured).toBe(1);
+    expect(r.completionRate).toBe(100);
+    expect(r.avgProgress).toBe(100);
+  });
+  it('no measurable learners gives unknown rates', () => {
+    const r = computeCourseReport({ ...base, learners: [L('u1', null), L('u2', null)] });
+    expect(r.completionRate).toBeNull();
+    expect(r.avgProgress).toBeNull();
+  });
   it('fetch failure throws instead of returning zeros', async () => {
+    h.db = makeFakeDb();
+    h.db.fail = 'boom';
     await expect(fetchCourseReport('c1')).rejects.toThrow('boom');
+  });
+  it('headline metrics come from progressions, not enrollments.completion_status (T-15)', async () => {
+    h.db = makeFakeDb({
+      enrollments: [
+        { course_id: 'c1', user_id: 'u1', enrolled_at: '2026-01-01T00:00:00Z', completion_status: 0 },
+        { course_id: 'c1', user_id: 'u2', enrolled_at: '2026-01-01T00:00:00Z', completion_status: 80 },
+      ],
+      profiles: [],
+      modules: [{ id: 'm1', course_id: 'c1', title: 'One', position: 1, published: true }],
+      content_items: [
+        { id: 'i1', module_id: 'm1', course_id: 'c1', type: 'page', title: 'a', published: true },
+        { id: 'i2', module_id: 'm1', course_id: 'c1', type: 'page', title: 'b', published: true },
+      ],
+      content_item_progressions: [
+        { user_id: 'u1', content_item_id: 'i1', workflow_state: 'read' },
+        { user_id: 'u1', content_item_id: 'i2', workflow_state: 'completed' },
+      ],
+      assignments: [],
+      quizzes: [],
+    });
+    const r = await fetchCourseReport('c1');
+    expect(r.completed).toBe(1);
+    expect(r.completionRate).toBe(50);
+    expect(r.avgProgress).toBe(50);
+    expect(r.modules[0]).toMatchObject({ learnersCompleted: 1, avgCompletion: 50 });
+  });
+  it('a course with no published lessons reports unknown progress', async () => {
+    h.db = makeFakeDb({
+      enrollments: [{ course_id: 'c1', user_id: 'u1', enrolled_at: '2026-01-01T00:00:00Z', completion_status: 100 }],
+      profiles: [], modules: [], content_items: [], content_item_progressions: [], assignments: [], quizzes: [],
+    });
+    const r = await fetchCourseReport('c1');
+    expect(r.enrolled).toBe(1);
+    expect(r.measured).toBe(0);
+    expect(r.completionRate).toBeNull();
+    expect(r.avgProgress).toBeNull();
   });
 });

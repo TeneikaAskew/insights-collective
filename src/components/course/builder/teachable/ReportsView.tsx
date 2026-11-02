@@ -81,8 +81,8 @@ export function ReportsView({ courseId, courseTitle }: ReportsViewProps) {
             <h3 id="kpi-heading" className="text-lg font-semibold mb-3 text-left">Overview</h3>
             <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <Kpi label="Enrolled" value={String(data.enrolled)} definition="Learners with an enrollment in this course." />
-              <Kpi label="Completion rate" value={show(data.completionRate)} definition={`${data.completed} of ${data.enrolled} learners at 100% progress.`} />
-              <Kpi label="Average progress" value={show(data.avgProgress)} definition="Mean course progress across enrolled learners — same as the Students tab." />
+              <Kpi label="Completion rate" value={show(data.completionRate)} definition={data.measured === 0 ? 'Unknown: no published lessons to measure yet.' : `${data.completed} of ${data.measured} learners finished every published lesson.`} />
+              <Kpi label="Average progress" value={show(data.avgProgress)} definition={data.measured === 0 ? 'Unknown: no published lessons to measure yet.' : 'Share of published lessons finished, averaged across learners. Same as the Students tab.'} />
               <Kpi label="Not started" value={String(data.notStarted)} definition={`0% progress ${NOT_STARTED_DAYS}+ days after enrolling.`} />
             </dl>
             <Link to={studentsHref} className="inline-block mt-3 text-sm text-primary underline-offset-4 hover:underline">

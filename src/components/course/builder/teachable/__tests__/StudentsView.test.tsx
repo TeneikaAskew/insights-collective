@@ -1,5 +1,5 @@
 // ABOUTME: Tests for the builder Students roster — course scoping, empty/error states, search, sort, links.
-// ABOUTME: Supabase is mocked to mirror enrollments_staff_select (instructor of the course or admin only).
+// ABOUTME: Supabase is faked with RLS-like visibility for enrollments and progressions (course instructor or self).
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@/test/utils/test-utils';
 import { StudentsView } from '../StudentsView';
@@ -7,12 +7,13 @@ import { filterAndSortRoster, isNotStarted } from '@/services/courseRosterServic
 
 const state = vi.hoisted(() => ({
   caller: 'inst-a',
-  fail: null as string | null,
+  db: null as any,
 }));
 
+// completion_status is deliberately inconsistent with progressions: progress must come from progressions.
 const ENROLLMENTS = [
-  { course_id: 'course-a', user_id: 'u1', enrolled_at: '2026-01-10T00:00:00Z', completion_status: 80 },
-  { course_id: 'course-a', user_id: 'u2', enrolled_at: '2026-03-01T00:00:00Z', completion_status: 0 },
+  { course_id: 'course-a', user_id: 'u1', enrolled_at: '2026-01-10T00:00:00Z', completion_status: 0 },
+  { course_id: 'course-a', user_id: 'u2', enrolled_at: '2026-03-01T00:00:00Z', completion_status: 90 },
   { course_id: 'course-a', user_id: 'u3', enrolled_at: '2026-02-01T00:00:00Z', completion_status: 0 },
   { course_id: 'course-b', user_id: 'u9', enrolled_at: '2026-02-01T00:00:00Z', completion_status: 50 },
 ];
@@ -22,38 +23,46 @@ const PROFILES = [
   { id: 'u3', first_name: 'Alan', last_name: 'Turing', avatar_url: null },
   { id: 'u9', first_name: 'Other', last_name: 'Learner', avatar_url: null },
 ];
+const MODULES = [{ id: 'm1', course_id: 'course-a', title: 'One', position: 1, published: true }];
+const ITEMS = [
+  { id: 'i1', module_id: 'm1', type: 'page', title: 'a', published: true },
+  { id: 'i2', module_id: 'm1', type: 'page', title: 'b', published: true },
+  { id: 'i3', module_id: 'm1', type: 'page', title: 'c', published: true },
+  { id: 'i4', module_id: 'm1', type: 'page', title: 'd', published: true },
+  { id: 'i5', module_id: 'm1', type: 'page', title: 'e', published: true },
+];
+// u1 finished 4 of 5 (80%); u2 and u3 nothing.
+const PROGRESSIONS = ['i1', 'i2', 'i3', 'i4'].map((id) => ({ user_id: 'u1', content_item_id: id, workflow_state: 'completed' }));
 const INSTRUCTOR_OF: Record<string, string> = { 'course-a': 'inst-a', 'course-b': 'inst-b' };
+const ENROLLED_IN: Record<string, string> = { u1: 'course-a', u2: 'course-a', u3: 'course-a', u9: 'course-b' };
 
-vi.mock('@/integrations/supabase/client', () => {
-  const from = (table: string) => {
-    const filters: Record<string, unknown> = {};
-    const builder: any = {
-      select: () => builder,
-      eq: (col: string, val: unknown) => { filters[col] = val; return builder; },
-      in: (col: string, vals: unknown[]) => { filters[col] = vals; return builder; },
-      then: (resolve: (v: unknown) => void) => {
-        if (state.fail) return resolve({ data: null, error: { message: state.fail } });
-        if (table === 'enrollments') {
-          // RLS: own rows, or staff of the row's course.
-          const rows = ENROLLMENTS.filter(
-            (e) => e.course_id === filters.course_id &&
-              (e.user_id === state.caller || INSTRUCTOR_OF[e.course_id] === state.caller),
-          );
-          return resolve({ data: rows, error: null });
-        }
-        const ids = (filters.id as string[]) || [];
-        return resolve({ data: PROFILES.filter((p) => ids.includes(p.id)), error: null });
-      },
-    };
-    return builder;
-  };
-  return { supabase: { from } };
+vi.mock('@/integrations/supabase/client', async () => {
+  const { makeFakeClient } = await import('@/services/__tests__/fakeRosterSupabase');
+  return { supabase: { from: (t: string) => makeFakeClient(state.db).from(t) } };
 });
+
+async function freshDb() {
+  const { makeFakeDb } = await import('@/services/__tests__/fakeRosterSupabase');
+  const db = makeFakeDb({
+    enrollments: ENROLLMENTS,
+    profiles: PROFILES,
+    modules: MODULES,
+    content_items: ITEMS,
+    content_item_progressions: PROGRESSIONS,
+  });
+  // RLS: own rows, or staff of the row's course.
+  db.visible = {
+    enrollments: (e: any) => e.user_id === state.caller || INSTRUCTOR_OF[e.course_id] === state.caller,
+    content_item_progressions: (p: any) =>
+      p.user_id === state.caller || INSTRUCTOR_OF[ENROLLED_IN[p.user_id]] === state.caller,
+  };
+  return db;
+}
 
 const renderView = (courseId = 'course-a') =>
   render(<StudentsView courseId={courseId} courseTitle="Data 101" />);
 
-beforeEach(() => { state.caller = 'inst-a'; state.fail = null; });
+beforeEach(async () => { state.caller = 'inst-a'; state.db = await freshDb(); });
 
 describe('StudentsView', () => {
   it('shows only the learners of the instructor\'s own course', async () => {
@@ -79,13 +88,35 @@ describe('StudentsView', () => {
   });
 
   it('shows an error with retry when the backend fails, not an empty roster', async () => {
-    state.fail = 'permission denied';
+    state.db.fail = 'permission denied';
     renderView();
     expect(await screen.findByRole('alert')).toHaveTextContent(/permission denied/);
     expect(screen.queryByText(/no students yet/i)).not.toBeInTheDocument();
-    state.fail = null;
+    state.db.fail = null;
     fireEvent.click(screen.getByRole('button', { name: /try again/i }));
     await waitFor(() => expect(screen.getByText('Ada Lovelace')).toBeInTheDocument());
+  });
+
+  it('shows progress from progression evidence, not enrollments.completion_status (T-15)', async () => {
+    renderView();
+    await screen.findByText('Ada Lovelace');
+    const rows = within(screen.getByRole('list', { name: /enrolled students/i })).getAllByRole('listitem');
+    const ada = rows.find((r) => within(r).queryByText('Ada Lovelace'))!;
+    const grace = rows.find((r) => within(r).queryByText('Grace Hopper'))!;
+    expect(within(ada).getByText('80%')).toBeInTheDocument();
+    expect(within(grace).getByText('0%')).toBeInTheDocument();
+    expect(within(grace).queryByText('90%')).not.toBeInTheDocument();
+    expect(screen.getByTestId('roster-avg-progress')).toHaveTextContent('27%');
+  });
+
+  it('shows unknown progress as a dash when the course has no published lessons', async () => {
+    state.db.tables.content_items = [];
+    renderView();
+    await screen.findByText('Ada Lovelace');
+    expect(screen.getByTestId('roster-avg-progress')).toHaveTextContent('—');
+    expect(screen.getByText(/no published lessons to measure yet/i)).toBeInTheDocument();
+    expect(screen.queryByText('0%')).not.toBeInTheDocument();
+    expect(screen.queryByText('Not started')).not.toBeInTheDocument();
   });
 
   it('search filters by name and links each learner to the gradebook', async () => {
@@ -101,9 +132,9 @@ describe('StudentsView', () => {
 describe('roster helpers', () => {
   const now = new Date('2026-03-05T00:00:00Z');
   const base = [
-    { userId: 'a', name: 'Ada', avatarUrl: null, enrolledAt: '2026-01-10T00:00:00Z', progress: 80, needsAttention: false },
-    { userId: 'b', name: 'Grace', avatarUrl: null, enrolledAt: '2026-03-01T00:00:00Z', progress: 0, needsAttention: false },
-    { userId: 'c', name: 'Alan', avatarUrl: null, enrolledAt: '2026-02-01T00:00:00Z', progress: 0, needsAttention: true },
+    { userId: 'a', name: 'Ada', avatarUrl: null, enrolledAt: '2026-01-10T00:00:00Z', progress: 80, completedItems: 4, totalItems: 5, needsAttention: false },
+    { userId: 'b', name: 'Grace', avatarUrl: null, enrolledAt: '2026-03-01T00:00:00Z', progress: 0, completedItems: 0, totalItems: 5, needsAttention: false },
+    { userId: 'c', name: 'Alan', avatarUrl: null, enrolledAt: '2026-02-01T00:00:00Z', progress: 0, completedItems: 0, totalItems: 5, needsAttention: true },
   ];
   it('sorts by progress and enrollment date', () => {
     expect(filterAndSortRoster(base, '', 'progress_desc').map((l) => l.userId)[0]).toBe('a');

@@ -2,14 +2,13 @@
 // ABOUTME: Reuses courseRosterService and the gradebook model so numbers match the Students tab and gradebook.
 
 import { supabase } from '@/integrations/supabase/client';
-import { fetchCourseRoster, type RosterLearner } from '@/services/courseRosterService';
+import { averageProgress, fetchCourseRosterData, type RosterLearner } from '@/services/courseRosterService';
+import { isProgressionDone } from '@/utils/progressionStates';
 import {
   buildGradebook,
   type RawAssignmentSubmission,
   type RawQuizSubmission,
 } from '@/components/course/gradebook/gradebookData';
-
-const DONE_STATES = ['read', 'completed', 'graded'];
 
 export interface ReportModule { id: string; title: string; position: number | null }
 export interface ReportItem { id: string; module_id: string | null; type: string; title: string | null }
@@ -39,6 +38,8 @@ export interface ModuleProgressRow {
 
 export interface CourseReport {
   enrolled: number;
+  /** Learners whose progress can be measured (the course has published lessons). */
+  measured: number;
   completed: number;
   completionRate: number | null;
   avgProgress: number | null;
@@ -52,13 +53,15 @@ const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : null)
 export function computeCourseReport(input: CourseReportInput): CourseReport {
   const learnerIds = new Set(input.learners.map((l) => l.userId));
   const enrolled = input.learners.length;
-  const completed = input.learners.filter((l) => l.progress >= 100).length;
+  // Progress is per-learner progression evidence from courseRosterService; null is unknown, never 0.
+  const measured = input.learners.filter((l) => l.progress !== null).length;
+  const completed = input.learners.filter((l) => l.progress !== null && l.progress >= 100).length;
 
   // Only count progress rows from enrolled learners on this course's items.
   const itemIds = new Set(input.items.map((i) => i.id));
   const done = new Set(
     input.progressions
-      .filter((p) => learnerIds.has(p.user_id) && itemIds.has(p.content_item_id) && DONE_STATES.includes(p.workflow_state ?? ''))
+      .filter((p) => learnerIds.has(p.user_id) && itemIds.has(p.content_item_id) && isProgressionDone(p.workflow_state))
       .map((p) => `${p.user_id}:${p.content_item_id}`),
   );
 
@@ -99,9 +102,10 @@ export function computeCourseReport(input: CourseReportInput): CourseReport {
 
   return {
     enrolled,
+    measured,
     completed,
-    completionRate: pct(completed, enrolled),
-    avgProgress: enrolled ? Math.round(input.learners.reduce((s, l) => s + l.progress, 0) / enrolled) : null,
+    completionRate: pct(completed, measured),
+    avgProgress: averageProgress(input.learners),
     notStarted: input.learners.filter((l) => l.needsAttention).length,
     modules,
     work,
@@ -118,11 +122,11 @@ const must = <T,>(res: { data: T | null; error: { message: string } | null }): T
  * Throws on any failure so the tab shows an error, never partial zeros.
  */
 export async function fetchCourseReport(courseId: string): Promise<CourseReport> {
-  const learners = await fetchCourseRoster(courseId);
+  // Learners, published lessons and progressions come from one load so the
+  // Reports and Students tabs cannot disagree.
+  const { learners, modules, items, progressions } = await fetchCourseRosterData(courseId);
 
-  const [modules, items, assignments, quizzes] = await Promise.all([
-    supabase.from('modules').select('id, title, position').eq('course_id', courseId).eq('published', true).then(must<ReportModule[]>),
-    supabase.from('content_items').select('id, module_id, type, title').eq('course_id', courseId).eq('published', true).then(must<ReportItem[]>),
+  const [assignments, quizzes] = await Promise.all([
     supabase.from('assignments').select('id, title, points').eq('course_id', courseId).then(must<ReportGradeItem[]>),
     supabase
       .from('quizzes')
@@ -131,15 +135,11 @@ export async function fetchCourseReport(courseId: string): Promise<CourseReport>
       .then(must<Array<{ id: string; title: string | null; points_possible: number | null }>>),
   ]);
 
-  const itemIds = items.map((i) => i.id);
   const aIds = assignments.map((a) => a.id);
   const qIds = quizzes.map((q) => q.id);
   const empty = Promise.resolve([] as never[]);
 
-  const [progressions, assignmentSubmissions, quizSubmissions] = await Promise.all([
-    itemIds.length && learners.length
-      ? supabase.from('content_item_progressions').select('user_id, content_item_id, workflow_state').in('content_item_id', itemIds).then(must<ReportProgression[]>)
-      : empty,
+  const [assignmentSubmissions, quizSubmissions] = await Promise.all([
     aIds.length
       ? supabase.from('assignment_submissions').select('id, user_id, assignment_id, grade, workflow_state, attempt, submitted_at').in('assignment_id', aIds).then(must<RawAssignmentSubmission[]>)
       : empty,
