@@ -309,7 +309,7 @@ removed, exact evidence inventory.
 
 ## 16. Capture-window ordering fix (T 03:44Z recheck of 945246b; UNRUN)
 
-- **Correction to section 15.** That section claimed J0a was certain to show the nonce. That claim is withdrawn. `/courses` uses `description` for search only, and the cards don't display it. Withholding J0a is a conservative choice; no nonce was observed.
+- **J0a, reviewer correction.** The earlier definite J0a claim is corrected. `/courses` CourseList uses `description` for search only; the cards don't display it. Withholding J0a is a conservative choice, not an observed nonce.
 - **The gap that was found.** In 945246b the BEFORE sample ran before the guard was armed, and the guard was read and disconnected before the AFTER sample. So this sequence passed: clean BEFORE, then a secret inserted before arm, then the screenshot paints it, then the guard reads 0, then the secret is removed before AFTER. The 945246b read also disconnected only the observer and left the four event listeners attached.
 - **New order, in `captureShot(drv, …)` (shot-core.mjs).** `observe.ts` only wraps the page in a driver.
   1. Watch main-frame navigations.

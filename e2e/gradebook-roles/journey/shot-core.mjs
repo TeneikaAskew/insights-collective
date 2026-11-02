@@ -44,7 +44,8 @@ export const SHOT_PLAN = Object.freeze({
   'J4c-progress': ['jr-4-learner-readback', 'progress'],
   'J4d-certificate': ['jr-4-learner-readback', 'certificate'],
 });
-/** Withheld by rule, never captured: the catalog page lists the published control course that carries the pairing value. */
+/** Withheld by rule, never captured: the catalog lists the control course (the pairing carrier). CourseList cards do not
+ *  display `description` (search only), so this is a conservative choice, not an observed nonce. */
 export const WITHHOLD_ALWAYS = Object.freeze({ 'J0a-catalog-before-publish': 'CARRIER_ROUTE' });
 export const WITHHELD_REASONS = Object.freeze(['CARRIER_ROUTE', 'INCOMPLETE', 'PERSONA', 'ROUTE', 'UNSUPPORTED_SURFACE', 'DIRTY_BEFORE',
   'NAVIGATED', 'MUTATED', 'CHANGED', 'DIRTY_AFTER']);
