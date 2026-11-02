@@ -139,6 +139,46 @@ describe('videoAnalyticsService', () => {
         })
       ).rejects.toMatchObject({ message: 'db down' });
     });
+
+    it('applies batched deltas additively to the stored counters and watch time', async () => {
+      const existing = makeVideoAnalytics({ watch_time: 120, play_count: 2, pause_count: 1, seek_count: 0 });
+      const builder = getQueryBuilder();
+      builder.maybeSingle.mockResolvedValueOnce({ data: existing, error: null });
+      builder.single.mockResolvedValueOnce({ data: existing, error: null });
+
+      await videoAnalyticsService.updateEngagement('user-1', 'item-1', {
+        watchTimeDelta: 15.6,
+        playCountDelta: 1,
+        pauseCountDelta: 2,
+        seekCountDelta: 3,
+        lastPosition: 140,
+      });
+
+      const sent = builder.update.mock.calls[0][0];
+      expect(sent).toMatchObject({ watch_time: 136, play_count: 3, pause_count: 3, seek_count: 3, last_position: 140 });
+      expect(sent).not.toHaveProperty('completion_percentage');
+    });
+
+    it('ignores negative and non-finite deltas, and an absolute watchTime wins over a delta', async () => {
+      const existing = makeVideoAnalytics({ watch_time: 120, play_count: 2 });
+      const builder = getQueryBuilder();
+      builder.maybeSingle.mockResolvedValueOnce({ data: existing, error: null });
+      builder.single.mockResolvedValueOnce({ data: existing, error: null });
+
+      await videoAnalyticsService.updateEngagement('user-1', 'item-1', {
+        watchTime: 50,
+        watchTimeDelta: 999,
+        playCountDelta: -4,
+        pauseCountDelta: Number.NaN,
+        seekCountDelta: Number.POSITIVE_INFINITY,
+      });
+
+      const sent = builder.update.mock.calls[0][0];
+      expect(sent.watch_time).toBe(50);
+      expect(sent).not.toHaveProperty('play_count');
+      expect(sent).not.toHaveProperty('pause_count');
+      expect(sent).not.toHaveProperty('seek_count');
+    });
   });
 
   describe('getVideoProgress', () => {

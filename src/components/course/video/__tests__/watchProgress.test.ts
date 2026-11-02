@@ -1,0 +1,98 @@
+// ABOUTME: Unit tests for WatchProgressTracker: credited playback, seeks, rewatch and coverage.
+
+import { describe, expect, it } from 'vitest';
+import { WatchProgressTracker } from '../watchProgress';
+
+function clockTracker() {
+  let t = 0;
+  const tracker = new WatchProgressTracker({ now: () => t });
+  return { tracker, tick: (seconds: number) => { t += seconds * 1000; } };
+}
+
+describe('WatchProgressTracker', () => {
+  it('credits continuous playback and reports coverage once duration is known', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'ready', duration: 100 });
+    tracker.handle({ type: 'play', position: 0 });
+    for (let s = 1; s <= 10; s++) { tick(1); tracker.handle({ type: 'timeupdate', position: s }); }
+    tracker.handle({ type: 'pause', position: 10 });
+    const snap = tracker.snapshot();
+    expect(snap.coveredSeconds).toBe(10);
+    expect(snap.playedSeconds).toBe(10);
+    expect(snap.coveragePercent).toBe(10);
+    expect(snap).toMatchObject({ playCount: 1, pauseCount: 1, seekCount: 0, playing: false, positionSeconds: 10 });
+  });
+
+  it('never credits a forward seek as watched time', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'ready', duration: 100 });
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 1 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 95 }); // scrubbed to the end
+    tick(1); tracker.handle({ type: 'timeupdate', position: 96 });
+    const snap = tracker.snapshot();
+    expect(snap.coveredSeconds).toBe(2);
+    expect(snap.seekCount).toBe(1);
+    expect(snap.coveragePercent).toBe(2);
+  });
+
+  it('counts an explicit seeked event once even when a jumped timeupdate follows', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'seeked', position: 60 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 61 });
+    expect(tracker.snapshot()).toMatchObject({ seekCount: 1, coveredSeconds: 1 });
+  });
+
+  it('rewatching adds played time but not coverage', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'ready', duration: 20 });
+    tracker.handle({ type: 'play', position: 0 });
+    for (let s = 1; s <= 5; s++) { tick(1); tracker.handle({ type: 'timeupdate', position: s }); }
+    tracker.handle({ type: 'seeked', position: 0 });
+    for (let s = 1; s <= 5; s++) { tick(1); tracker.handle({ type: 'timeupdate', position: s }); }
+    const snap = tracker.snapshot();
+    expect(snap.coveredSeconds).toBe(5);
+    expect(snap.playedSeconds).toBe(10);
+    expect(snap.coveragePercent).toBe(25);
+  });
+
+  it('does not credit time while paused, and a repeated play event is one play', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'play', position: 0 });
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'pause', position: 1 });
+    tick(30); tracker.handle({ type: 'timeupdate', position: 31 });
+    expect(tracker.snapshot()).toMatchObject({ playCount: 1, coveredSeconds: 1, positionSeconds: 31 });
+  });
+
+  it('scales the plausibility window by playback rate', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'ratechange', rate: 2 });
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 2 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 4 });
+    expect(tracker.snapshot()).toMatchObject({ coveredSeconds: 4, seekCount: 0, playbackRate: 2 });
+  });
+
+  it('reports unknown coverage while duration is unknown and ignores non-finite input', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: Number.NaN });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 2 });
+    const snap = tracker.snapshot();
+    expect(snap.coveragePercent).toBeNull();
+    expect(snap.durationSeconds).toBeNull();
+    expect(snap.coveredSeconds).toBe(2);
+  });
+
+  it('marks ended and clamps to duration', () => {
+    const { tracker, tick } = clockTracker();
+    tracker.handle({ type: 'ready', duration: 3 });
+    tracker.handle({ type: 'play', position: 0 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 1 });
+    tick(1); tracker.handle({ type: 'timeupdate', position: 2 });
+    tick(1); tracker.handle({ type: 'ended', position: 3.4 });
+    expect(tracker.snapshot()).toMatchObject({ ended: true, playing: false, coveredSeconds: 3, coveragePercent: 100 });
+  });
+});

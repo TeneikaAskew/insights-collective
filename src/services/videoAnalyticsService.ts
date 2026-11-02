@@ -44,7 +44,20 @@ export interface VideoEngagementUpdate {
   incrementPlayCount?: boolean;
   incrementPauseCount?: boolean;
   incrementSeekCount?: boolean;
+  /**
+   * Additive forms for batched producers. Each is added to the stored value
+   * (negative or non-finite values are ignored), so a batch of N pauses or
+   * T seconds of playback is one write instead of N.
+   */
+  watchTimeDelta?: number;
+  playCountDelta?: number;
+  pauseCountDelta?: number;
+  seekCountDelta?: number;
 }
+
+/** A positive finite delta, else 0. */
+const positiveDelta = (n: number | undefined): number =>
+  typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : 0;
 
 class VideoAnalyticsService {
   /**
@@ -122,6 +135,10 @@ class VideoAnalyticsService {
 
       if (updates.watchTime !== undefined) {
         updateData.watch_time = Math.max(0, updates.watchTime);
+      } else if (positiveDelta(updates.watchTimeDelta) > 0) {
+        // watch_time is an integer column of seconds (rewatching may exceed duration).
+        updateData.watch_time =
+          (current.watch_time || 0) + Math.round(positiveDelta(updates.watchTimeDelta));
       }
 
       if (updates.lastPosition !== undefined) {
@@ -153,6 +170,19 @@ class VideoAnalyticsService {
 
       if (updates.incrementSeekCount) {
         updateData.seek_count = current.seek_count + 1;
+      }
+
+      const playDelta = Math.floor(positiveDelta(updates.playCountDelta));
+      const pauseDelta = Math.floor(positiveDelta(updates.pauseCountDelta));
+      const seekDelta = Math.floor(positiveDelta(updates.seekCountDelta));
+      if (playDelta > 0) {
+        updateData.play_count = (updateData.play_count ?? current.play_count) + playDelta;
+      }
+      if (pauseDelta > 0) {
+        updateData.pause_count = (updateData.pause_count ?? current.pause_count) + pauseDelta;
+      }
+      if (seekDelta > 0) {
+        updateData.seek_count = (updateData.seek_count ?? current.seek_count) + seekDelta;
       }
 
       // Perform update
