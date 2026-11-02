@@ -1285,7 +1285,7 @@ jobs:
       E2E_ISOLATED_TARGET_REF: ''
       CI: 'true'
       PC_EVIDENCE: pc-evidence
-      # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29), the same constant as the gradebook job
+      # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29), the same constant as the gradebook-journey job
       # and the #150 lane's d1-ownership.mjs. The writer refuses unless the checked-out file has exactly this digest.
       PC_D1_BOOTSTRAP_SHA256: b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715
     steps:
@@ -1405,8 +1405,8 @@ jobs:
           cmp -s "$RUNNER_TEMP/preview-index.html" "$PC_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
           echo "preview serving the TEST-SERVED copy"
 
-      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs) re-runs hermetic verify on dist and
-      # this copy and compares the live index bytes, on every call. It is given the copy's path, never a verdict.
+      # Job-side receipt only. The lane's run.sh re-runs hermetic verify and avatar-fixture verify itself on the same canonical
+      # paths; the served index bytes were compared in the serve step above. No verdict is handed to the lane.
       - name: Avatar-fixture gate receipt (the served copy re-verified against the hermetic copy; the lane re-runs both verifies)
         run: |
           set -o pipefail
@@ -1415,7 +1415,7 @@ jobs:
           echo "served copy = verified avatar-fixture copy of the verified hermetic copy" | tee -a "$PC_EVIDENCE/checks/served-gate.txt"
       - name: Install Chromium headless shell
         run: npx --no-install playwright install --with-deps --only-shell chromium
-      # The ONE browser every gradebook launch may use, pinned and exported BEFORE any D1, actor, fixture or carrier write.
+      # The ONE browser every public-catalog launch may use, pinned and exported BEFORE the D1 record and any lane write.
       # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
       # fallback), and the pin module itself refuses if that variable names anything else.
       - name: Pin the headless shell and export it for every launch (refuses before any write)
@@ -1437,7 +1437,7 @@ jobs:
           PUBLIC_ACCEPT_LIST_ONLY=1 npx --no-install tsx scripts/e2e/pc-launch-binding.ts --list | tee "$PC_EVIDENCE/checks/launch-binding.txt"
           # Declared cases, from the real config in its own list-only mode (no stack proof, no browser launch).
           PUBLIC_ACCEPT_LIST_ONLY=1 npx --no-install playwright test -c playwright.public-catalog.config.ts --list 2>&1 | tail -1 | tee "$PC_EVIDENCE/checks/list.txt"
-      - name: D1 stack-ownership record (after every check above; before any fixture, actor or carrier write)
+      - name: D1 stack-ownership record (after every check above; before the lane's carrier and seed writes)
         id: pc_d1
         run: |
           set -o pipefail
@@ -1455,9 +1455,8 @@ jobs:
           node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/pc-priv" \
             | node scripts/e2e/stack-ownership.mjs verify "$API" "$APP" "$PC_D1_BOOTSTRAP_SHA256" | tee -a "$PC_EVIDENCE/checks/d1-write.txt"
 
-      # Runner-owned rows from the two frozen SQL files, byte-unchanged: local-preseed.sql writes 3 synthetic users (admin,
-      # instructor, member) with profiles and roles, 5 reference courses (660e8400-...0001..0005) and 4 modules; then
-      # auth-fixtures.sql makes those 3 users sign-in-able with the run's synthetic password. No legacy e2e seed.
+      # The public job seeds no actors and no reference rows: the only writes are the lane's own (one blog_tags carrier, then
+      # its seed.sql), all inside run.sh after its D1 verify. No legacy e2e seed.
       # Lane inputs: canonical password-free DSN plus a private one-line pgpass, loopback origins equal to the D1 record,
       # canonical served paths, a fresh 32-hex run id and an OUT path that does not exist yet. No proof is preset.
       - name: Public lane inputs (private pgpass; origins from the D1 record's own inputs; nothing secret printed)

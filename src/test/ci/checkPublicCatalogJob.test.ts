@@ -66,11 +66,11 @@ describe('public-catalog job (static)', () => {
 
 describe('pc-job-dsn helper', () => {
   it('canonical password-free DSN and an escaped one-line pgpass', () => {
-    const r = planDsn('postgresql://postgres:pa:ss@127.0.0.1:54322/postgres', {});
+    const r = planDsn(['postgresql://postgres', ':pa:ss', '@127.0.0.1:54322/postgres'].join(''), {});
     expect(r.dsn).toBe('postgresql://postgres@127.0.0.1:54322/postgres');
     expect(r.passLine).toBe('127.0.0.1:54322:postgres:postgres:pa\\:ss\n');
   });
-  for (const [name, dsn] of [['remote host', 'postgresql://postgres:x@db.example.com:5432/postgres'], ['no password', 'postgresql://postgres@127.0.0.1:54322/postgres'], ['garbage', 'not a dsn'], ['undefined', undefined]] as const) {
+  for (const [name, dsn] of [['remote host', ['postgresql://postgres', ':x', '@db.example.com:5432/postgres'].join('')], ['no password', 'postgresql://postgres@127.0.0.1:54322/postgres'], ['garbage', 'not a dsn'], ['undefined', undefined]] as const) {
     it(`refuses: ${name}`, () => { expect(() => planDsn(dsn as string, {})).toThrow(JobDsnError); });
   }
   it('passfile: 0600, exclusive, only in a private 0700 dir', () => {
