@@ -8,7 +8,7 @@
 //   certificate in course H) and HG (genuine pre-migration history in H). history-hash.sql seeds H for HC and HG by id.
 //   Passwords: 24 random bytes per persona, generated here, sent only in a request body over the validated origin; never on a
 //   command line, in the environment, in a file or in output. Output: {"A":{"id","token"},...}, written 0600.
-import { existsSync, writeFileSync, openSync, fchmodSync, fstatSync, closeSync, constants } from 'node:fs';
+import { writeFileSync, openSync, fchmodSync, fstatSync, closeSync, constants } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { apiOrigin, readSecretFile, request } from './api-http.mjs';
 
@@ -21,7 +21,11 @@ let API;
 try { API = apiOrigin(rawApi); } catch (e) { refuse(e.message); }
 let anon, service;
 try { anon = readSecretFile(anonFile, 'anon key'); service = readSecretFile(serviceFile, 'service key'); } catch (e) { refuse(e.message); }
-if (existsSync(out)) refuse('persona file exists (never reused)');
+// Reserve the output BEFORE any persona is created: exclusive create, no symlink follow, 0600. This one handle is the
+// only access to the file (no exists-then-open by path); an existing file is refused exactly as before.
+let ofd;
+try { ofd = openSync(out, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600); }
+catch (e) { refuse(e.code === 'EEXIST' ? 'persona file exists (never reused)' : `persona file not creatable (${e.code})`); }
 
 const run = randomBytes(4).toString('hex');
 const result = {};
@@ -49,8 +53,7 @@ for (const p of PERSONAS) {
   result[p] = { id, token };
   console.log(`persona ${p}: created via local GoTrue admin API (setup) and signed in by password grant; token kept in the 0600 persona file`);
 }
-// Create (exclusive, no symlink follow), write, chmod and verify on one handle (no check-then-use by path).
-const ofd = openSync(out, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+// Write, chmod and verify on the reserved handle.
 try {
   writeFileSync(ofd, JSON.stringify(result));
   fchmodSync(ofd, 0o600);
