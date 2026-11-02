@@ -1490,15 +1490,40 @@ jobs:
           env -u SUPABASE_DB_URL -u PGPASSWORD -u PGPASSFILE TMPDIR="$RUNNER_TEMP/pc-tmp" \
             PUBLIC_ACCEPT_ANON_KEY="$VITE_SUPABASE_ANON_KEY" PUBLIC_ACCEPT_PRODUCT_DIST="$PC_DIST" PUBLIC_ACCEPT_HERMETIC_DIR="$PC_HERMETIC" PUBLIC_ACCEPT_SERVED_DIR="$PC_SERVED" PUBLIC_ACCEPT_AVATAR_FIXTURE=1 \
             bash scripts/public-catalog-fixture/run.sh 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$PC_EVIDENCE/checks/lane.txt"
-      - name: Copy the lane's evidence (exactly its allowlisted files; nothing else under OUT)
+      - name: Copy the lane's evidence (exactly its allowlisted files; screenshots only as its hash manifest names, fixed names only)
         if: always() && steps.pc_d1.outcome == 'success'
         run: |
           O="${PUBLIC_ACCEPT_OUT:-}/evidence"
           [ -n "${PUBLIC_ACCEPT_OUT:-}" ] && [ -d "$O" ] && [ ! -L "$O" ] || { echo "lane produced no evidence dir"; exit 0; }
           mkdir -p "$PC_EVIDENCE/lane"
-          ALLOW="STEPS.txt pre-stack-inventory.txt W0.txt W1.txt W2.txt W3.txt MANIFEST.json playwright.exit playwright-summary.txt anon-probe.exit anon-probe-summary.txt"
-          for e in $(ls -A "$O"); do case " $ALLOW " in *" $e "*) ;; *) echo "lane evidence refused: unexpected entry"; exit 1 ;; esac; done
+          ALLOW="STEPS.txt pre-stack-inventory.txt W0.txt W1.txt W2.txt W3.txt MANIFEST.json playwright.exit playwright-summary.txt anon-probe.exit anon-probe-summary.txt screenshots.txt"
+          for e in $(ls -A "$O"); do case " $ALLOW screenshots " in *" $e "*) ;; *) echo "lane evidence refused: unexpected entry"; exit 1 ;; esac; done
           for f in $ALLOW; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$PC_EVIDENCE/lane/$f"; done
+          # screenshots/ is copied only when it is a real dir whose entries are exactly the regular, non-link 0600 PNGs that
+          # screenshots.txt names as "SHOT <name> <sha256>", each name one of the four fixed names below, each file's sha256
+          # equal to its line and each starting with the PNG signature. Anything else copies no PNG and fails this step.
+          # A missing capture is reported by count, never substituted.
+          if [ -e "$O/screenshots" ] || [ -L "$O/screenshots" ]; then
+            S="$O/screenshots"
+            [ -d "$S" ] && [ ! -L "$S" ] && [ -f "$O/screenshots.txt" ] && [ ! -L "$O/screenshots.txt" ] || { echo "screenshots refused: not a real dir with a manifest"; exit 1; }
+            NAMES="PC-catalog-desktop-1440x900 PC-catalog-tablet-834x1112 PC-catalog-mobile-390x844 PC-rail-desktop-1180x757"
+            grep -vE '^(SHOT [A-Za-z0-9x-]+ [0-9a-f]{64}|WITHHELD [A-Za-z0-9x-]+ [A-Z_]+)$' "$O/screenshots.txt" | grep -q . && { echo "screenshots refused: malformed manifest line"; exit 1; }
+            for n in $(sed -n 's/^\(SHOT\|WITHHELD\) \([A-Za-z0-9x-]*\) .*/\2/p' "$O/screenshots.txt"); do
+              case " $NAMES " in *" $n "*) ;; *) echo "screenshots refused: name not in the fixed list"; exit 1 ;; esac
+            done
+            [ -z "$(sed -n 's/^\(SHOT\|WITHHELD\) \([A-Za-z0-9x-]*\) .*/\2/p' "$O/screenshots.txt" | LC_ALL=C sort | uniq -d)" ] || { echo "screenshots refused: duplicate name"; exit 1; }
+            want=$(sed -n 's/^SHOT \([A-Za-z0-9x-]*\) .*/\1.png/p' "$O/screenshots.txt" | LC_ALL=C sort | tr '\n' ' ')
+            have=$(ls -A "$S" | LC_ALL=C sort | tr '\n' ' ')
+            [ "$want" = "$have" ] || { echo "screenshots refused: the dir does not equal its manifest"; exit 1; }
+            for p in $have; do
+              [ -f "$S/$p" ] && [ ! -L "$S/$p" ] && [ "$(stat -c %a "$S/$p")" = 600 ] || { echo "screenshots refused: $p is not a regular 0600 file"; exit 1; }
+              [ "$(head -c 8 "$S/$p" | od -An -tx1 | tr -d ' \n')" = 89504e470d0a1a0a ] || { echo "screenshots refused: $p is not a PNG"; exit 1; }
+              grep -qx "SHOT ${p%.png} $(sha256sum < "$S/$p" | cut -d' ' -f1)" "$O/screenshots.txt" || { echo "screenshots refused: $p does not match its manifest hash"; exit 1; }
+            done
+            mkdir -m 700 "$PC_EVIDENCE/lane/screenshots"
+            for p in $have; do cp -p -- "$S/$p" "$PC_EVIDENCE/lane/screenshots/$p"; done
+            echo "screenshots copied: $(wc -w <<<"$have") of 4 fixed PNG(s), equal to the hash manifest; withheld: $(awk '/^WITHHELD /{n++} END{print n+0}' "$O/screenshots.txt")"
+          fi
           ls -A "$PC_EVIDENCE/lane"
       - name: No Edge runtime container exists (read-only; after the lane)
         if: always() && steps.pc_prep.outcome == 'success'
@@ -1551,7 +1576,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$PC_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ pcj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-gate.txt" "$E/checks/list.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/lane-inputs.txt" "$E/checks/lane.txt" "$E/lane/STEPS.txt" "$E/lane/W0.txt" "$E/lane/W1.txt" "$E/lane/W2.txt" "$E/lane/W3.txt" "$E/lane/MANIFEST.json" "$E/lane/playwright.exit" "$E/lane/playwright-summary.txt" "$E/lane/anon-probe.exit" "$E/lane/anon-probe-summary.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ pcj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-gate.txt" "$E/checks/list.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/lane-inputs.txt" "$E/checks/lane.txt" "$E/lane/STEPS.txt" "$E/lane/W0.txt" "$E/lane/W1.txt" "$E/lane/W2.txt" "$E/lane/W3.txt" "$E/lane/MANIFEST.json" "$E/lane/playwright.exit" "$E/lane/playwright-summary.txt" "$E/lane/anon-probe.exit" "$E/lane/anon-probe-summary.txt" "$E/lane/screenshots.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

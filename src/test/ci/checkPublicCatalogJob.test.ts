@@ -14,7 +14,8 @@ const S: Array<{ name?: string; id?: string; run?: string; if?: string; uses?: s
 const at = (re: RegExp) => { const i = S.findIndex((s) => re.test(s.name ?? '')); expect(i, String(re)).toBeGreaterThanOrEqual(0); return i; };
 const run = (re: RegExp) => S[at(re)].run ?? '';
 const LANE_EVIDENCE = ['STEPS.txt', 'pre-stack-inventory.txt', 'W0.txt', 'W1.txt', 'W2.txt', 'W3.txt', 'MANIFEST.json', 'playwright.exit',
-  'playwright-summary.txt', 'anon-probe.exit', 'anon-probe-summary.txt'];
+  'playwright-summary.txt', 'anon-probe.exit', 'anon-probe-summary.txt', 'screenshots.txt'];
+const SHOT_NAMES = ['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-834x1112', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757'];
 
 describe('public-catalog job (static)', () => {
   it('is dispatch-only, read-only token, and offered as a specs choice', () => {
@@ -49,13 +50,24 @@ describe('public-catalog job (static)', () => {
     for (const k of ['PUBLIC_ACCEPT_ANON_KEY', 'PUBLIC_ACCEPT_PRODUCT_DIST="$PC_DIST"', 'PUBLIC_ACCEPT_HERMETIC_DIR="$PC_HERMETIC"', 'PUBLIC_ACCEPT_SERVED_DIR="$PC_SERVED"', 'PUBLIC_ACCEPT_AVATAR_FIXTURE=1']) expect(lane).toContain(k);
     expect(lane).not.toMatch(/PUBLIC_ACCEPT_STACK_PROOF|PUBLIC_ACCEPT_LIST_ONLY=1 bash/);
   });
-  it('copies only the 11 allowlisted lane evidence files, refusing any other entry, and stages them as receipts', () => {
+  it('copies only the 12 allowlisted lane evidence files, refusing any other entry, and stages them as receipts', () => {
     const copy = run(/Copy the lane's evidence/);
     expect(copy).toContain(`ALLOW="${LANE_EVIDENCE.join(' ')}"`);
     expect(copy).toMatch(/\*\) echo "lane evidence refused: unexpected entry"; exit 1/);
     const stage = run(/Stage evidence/);
     for (const f of LANE_EVIDENCE.filter((f) => f !== 'pre-stack-inventory.txt')) expect(stage).toContain(`"$E/lane/${f}"`);
     expect(S[at(/Upload evidence/)]).toMatchObject({ uses: 'actions/upload-artifact@v4' });
+  });
+  it('copies screenshots only as the hash manifest names them: four fixed names, 0600 PNGs, exact sha256, nothing else', () => {
+    const copy = run(/Copy the lane's evidence/);
+    expect(copy).toContain(`NAMES="${SHOT_NAMES.join(' ')}"`);
+    expect(copy).toContain('echo "screenshots refused: name not in the fixed list"; exit 1');
+    expect(copy).toContain('echo "screenshots refused: the dir does not equal its manifest"; exit 1');
+    expect(copy).toContain('is not a regular 0600 file"; exit 1');
+    expect(copy).toContain('= 89504e470d0a1a0a ]');
+    expect(copy).toContain('grep -qx "SHOT ${p%.png} $(sha256sum < "$S/$p" | cut -d\' \' -f1)" "$O/screenshots.txt"');
+    expect(copy).toContain('echo "screenshots refused: duplicate name"; exit 1');
+    expect(copy).not.toMatch(/tablet-768|768x/);
   });
   it('removes every private output, including the lane OUT, TMPDIR, pgpass dir and served copies, under always()', () => {
     const rm = run(/Remove private outputs/);
