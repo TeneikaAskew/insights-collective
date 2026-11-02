@@ -283,4 +283,26 @@ removed, exact evidence inventory.
   - The re-encoded bytes must not contain the nonce or the prefix.
   - Output is `screenshots/<name>.png` (0600) and a manifest, `SHOT <name> sha256= bytes= width= height=` lines then `SHOTS n of 16`, validated by `run-summary.mjs shots`.
 - **Evidence inventory** is now exactly: `compare.txt composition.txt pairing.txt playwright-summary.txt screenshots/ screenshots.txt seed.txt`. The PNG set must equal the manifest.
-- **Limit.** Pixels are not OCR'd. The scan covers what the page renders as text, which is where a description or credential would come from on these synthetic pages. A static read at 324332ea finds the control course description on none of the 16 screens.
+- **Limit (superseded wording, see section 15).** ~~A static read at 324332ea finds the control course description on none of the 16 screens.~~ This lane makes no claim about how many shots a run will capture. The manifest reports what was actually captured or withheld, and why.
+
+## 15. Capture-window correction batch (T 03:27Z, reviewer wording 03:28Z; UNRUN)
+
+- **Route and persona binding.** `SHOT_PLAN` binds each of the 16 names to one persona project (`jr-*`) and one route key. `observe.ts` resolves each key to the exact path from `ids.ts`. A wrong project, a path, query or hash that doesn't match, or a different origin each WITHHOLD the shot (`PERSONA`, `ROUTE`). A name outside the plan refuses.
+- **J0a withheld by rule** (`CARRIER_ROUTE`). The catalog lists the published control course, which is the pairing carrier. J0a is never captured, so the screenshot set never depends on how that row renders. The fixture, product, nonce and oracle are unchanged.
+- **Capture window, on the f2112ce principle.**
+  1. Sample the page. A dirty sample is never captured (`DIRTY_BEFORE`).
+  2. Arm the read-only in-page guard. This is the only page script, and its body is pinned: a token on this document, plus a count of DOM mutations and input/change/pagehide/beforeunload events.
+  3. Watch main-frame navigations.
+  4. Take the screenshot.
+  5. Read the guard.
+  6. Take a second sample.
+  7. Write only if all hold: no navigation and the same token (otherwise `NAVIGATED`), zero events (otherwise `MUTATED`), an identical second sample (otherwise `CHANGED`), and a clean second sample (otherwise `DIRTY_AFTER`).
+  8. Any exception or missing check gives `INCOMPLETE`.
+  9. A withheld shot writes only `<name>.withheld.json {name, withheld, reason}`, and the buffer is dropped. The journey's own assertions are not affected.
+- **Unsupported surfaces are withheld** (`UNSUPPORTED_SURFACE`): iframe, canvas, video, embed, object, or an image whose source is not http(s) on the app or API origin (this includes data: and blob:).
+- **Export and manifest.** Lines are `SHOT …` and `WITHHELD <name> reason=<R>` in allowlist order, then `SHOTS <c> captured <w> withheld of 16`.
+- **Reviewer wording (exact limits).**
+  - `sanitizePng` strips ancillary chunks and preserves IDAT. It is not a full pixel decode/re-encode and not pixel-secret detection.
+  - The scan samples main-document text, markup, form values, title and URL, not every painted surface.
+  - Scope is the reviewed synthetic app and media of these 16 routes. Unsupported surfaces are withheld. This is not a universal framework.
+- **Catalog fact, for the record (source read only).** At this head, CourseList.tsx renders each card's title, instructor, category, duration and level. `description` is used only by the search filter (line 96). J0a is withheld regardless.

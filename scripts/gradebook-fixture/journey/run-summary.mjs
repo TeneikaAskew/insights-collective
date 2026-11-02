@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SHOT_NAMES } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, WITHHELD_REASONS } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
 
 export class SummaryError extends Error {
   /** @param {string} code */
@@ -51,20 +51,22 @@ export function compareSummary(text) {
 }
 
 const SHOT_LINE = /^SHOT (J[0-4][a-d]?-[a-z-]{3,48}) sha256=[0-9a-f]{64} bytes=[1-9][0-9]{0,7} width=[1-9][0-9]{0,4} height=[1-9][0-9]{0,4}$/;
-/** @param {string} text raw shot-export stdout @param {readonly string[]} names the allowlist @returns {string} */
-export function shotsSummary(text, names) {
+const WITHHELD_LINE = /^WITHHELD (J[0-4][a-d]?-[a-z-]{3,48}) reason=([A-Z_]{4,24})$/;
+/** @param {string} text raw shot-export stdout @param {readonly string[]} names the allowlist @param {readonly string[]} reasons @returns {string} */
+export function shotsSummary(text, names, reasons) {
   const lines = text.split('\n').filter((l) => l !== '');
   if (!lines.length) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
   const last = lines.pop();
-  const m = /^SHOTS (\d{1,2}) of (\d{1,2})$/.exec(last);
-  if (!m || Number(m[2]) !== names.length || Number(m[1]) !== lines.length) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
-  let at = -1;
+  const m = /^SHOTS (\d{1,2}) captured (\d{1,2}) withheld of (\d{1,2})$/.exec(last);
+  if (!m || Number(m[3]) !== names.length) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
+  let at = -1, cap = 0, wh = 0;
   for (const l of lines) {
-    const n = SHOT_LINE.exec(l);
-    const i = n ? names.indexOf(n[1]) : -1;
-    if (i <= at) throw new SummaryError('SUMMARY_E_SHOTS_LINE');   // unknown, duplicate or out of allowlist order
-    at = i;
+    const s = SHOT_LINE.exec(l), w = WITHHELD_LINE.exec(l);
+    const i = s ? names.indexOf(s[1]) : w && reasons.includes(w[2]) ? names.indexOf(w[1]) : -1;
+    if (i <= at) throw new SummaryError('SUMMARY_E_SHOTS_LINE');   // unknown, duplicate, out of allowlist order, odd reason
+    at = i; if (s) cap++; else wh++;
   }
+  if (Number(m[1]) !== cap || Number(m[2]) !== wh) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
   return [...lines, last].join('\n');
 }
 
@@ -80,7 +82,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const [cmd, file, exit] = process.argv.slice(2);
     if (cmd === 'playwright') console.log(playwrightSummary(readRaw(file), exit));
     else if (cmd === 'compare') console.log(compareSummary(readRaw(file)));
-    else if (cmd === 'shots') console.log(shotsSummary(readRaw(file), SHOT_NAMES));
+    else if (cmd === 'shots') console.log(shotsSummary(readRaw(file), SHOT_NAMES, WITHHELD_REASONS));
     else throw new SummaryError('SUMMARY_E_USAGE');
   } catch (e) {
     console.log(`run-journey refused: ${e instanceof SummaryError ? e.code : 'SUMMARY_E_UNCLASSIFIED'}`);
