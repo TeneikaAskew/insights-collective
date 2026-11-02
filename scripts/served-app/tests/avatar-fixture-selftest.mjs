@@ -43,6 +43,12 @@ try {
   check('N4 a source is missing (source moved)', run('make', d4, h4, path.join(tmp, 'o4')) === 22);
   const [d5, h5] = mk('residual', good + 'const r="https://i.pravatar.cc/150?img=99";\n');
   check('N5 another provider URL remains', run('make', d5, h5, path.join(tmp, 'o5')) === 23);
+  const [d10, h10] = mk('inindex', good.replace(`{avatar:"${SUBSTITUTIONS[2].from}"}`, '0'), {});
+  const ix = path.join(h10, 'index.html');
+  fs.writeFileSync(ix, fs.readFileSync(ix, 'utf8').replace('<div id="root"></div>', `<div id="root" data-a="${SUBSTITUTIONS[2].from}"></div>`));
+  fs.writeFileSync(path.join(d10, 'index.html'), fs.readFileSync(path.join(d10, 'index.html'), 'utf8').replace('<div id="root"></div>', `<div id="root" data-a="${SUBSTITUTIONS[2].from}"></div>`));
+  fs.rmSync(h10, { recursive: true }); makeHermetic(d10, h10);
+  check('N10 a source in index.html (never substituted there)', run('make', d10, h10, path.join(tmp, 'o10')) === 22);
   check('N6 out dir exists', run('make', d1, h1, path.join(tmp, 'o1')) === 24);
   fs.writeFileSync(path.join(tmp, 'o1', 'extra.txt'), 'x');
   check('N7 extra file in fixture copy', run('verify', d1, h1, path.join(tmp, 'o1')) === 25);

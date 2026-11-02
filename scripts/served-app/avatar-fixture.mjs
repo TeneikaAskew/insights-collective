@@ -14,7 +14,8 @@
 // AvatarFallback (initial) path, which a successful local image load never exercises. Layout: each fixture is a 150x150
 // square SVG, like the provider's 150 px square image, inside the same h-10 w-10 Avatar box.
 //
-// Rules: every `from` string occurs exactly once across the non-.map files of the hermetic copy, in one file; afterwards no
+// Rules: every `from` string occurs exactly once across the non-.map files of the hermetic copy, in one assets/*.js chunk
+// (never index.html, so served_index_sha256 never changes); afterwards no
 // non-.map file contains "pravatar"; source maps (.map) are copied byte-identical (not fetched by the page; they still
 // describe the product source). The SVG bytes are pinned by sha256 below.
 //
@@ -82,6 +83,8 @@ export function derive(productDist, hermeticDir) {
     const total = hits.reduce((a, [, n]) => a + n, 0);
     if (total !== 1) throw new ContractError(22, `substitution source must occur exactly once outside source maps (found ${total})`);
     const [file] = hits[0];
+    // Only a hashed JS chunk may change; index.html (whose hash the hermetic contract fixes) or any other file refuses.
+    if (!/^assets\/[^/]+\.js$/.test(file)) throw new ContractError(22, `substitution target is not an assets/*.js chunk: ${file}`);
     const before = out.get(file);
     const i = before.indexOf(needle);
     const after = Buffer.concat([before.subarray(0, i), Buffer.from(s.to, 'utf8'), before.subarray(i + needle.length)]);
