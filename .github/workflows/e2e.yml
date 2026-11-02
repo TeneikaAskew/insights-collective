@@ -33,7 +33,9 @@ on:
         # t09-runtime: the T-09 SQL runtime job below. LOCAL stack only; it runs no browser and serves no Edge Function.
         # learner-quiz: the learner quiz lifecycle job at the end. LOCAL stack, NEW schema, score-quiz on the local Edge runtime.
         # gradebook-journey: LOCAL-ONLY PROPOSAL (unrun). The gradebook no-quiz UI journey on the no-Edge stack below.
-        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey]
+        # narrow-reads-sql: #159 policy SQL tier on ONE disposable loopback stack (snapshot + PRE + bootstrap). No browser,
+        #   no app, no Edge, no seven T-09 migrations, no hosted project. Applies the #159 file by pinned path only.
+        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, narrow-reads-sql]
 
 permissions: {}
 
@@ -1269,3 +1271,144 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           path: gbj-upload/
+
+  # #159 narrow-reads SQL tier. The t09-runtime stack shape (owned loopback network, STAGE PRE before any bootstrap write,
+  # snapshot bootstrap, target/port/mail guards, always-cleanup, staged evidence), on ONE stack, then
+  # scripts/local-stack/narrow-reads/tier.sh: catalog S0, committed synthetic baseline, row hash, OLD matrix (exactly the 8
+  # closed checks fail), apply 20261102000000 by pinned path in one transaction with its ledger row, NEW matrix, rollback
+  # (catalog back to S0), re-apply. Not proven by a green run: the live production policies on any date, PostgREST header
+  # mapping, app behaviour, or anything about a production apply (db-migrate.yml with its own approval).
+  narrow-reads-sql:
+    name: '#159 narrow reads SQL tier (one disposable loopback stack)'
+    if: inputs.specs == 'narrow-reads-sql'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      NR_EVIDENCE: nr-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no database.
+      - name: Narrow-reads tier selftest (synthetic outputs; classifier byte-equal to sql-tier.sh)
+        run: |
+          mkdir -p "$NR_EVIDENCE"
+          scripts/local-stack/narrow-reads/tier.sh --selftest | tee "$NR_EVIDENCE/tier-selftest.txt"
+      - name: Stack-check selftest (MOCKED docker/ss)
+        run: scripts/local-stack/t09/tests/stack-checks-selftest.sh | tee "$NR_EVIDENCE/stack-checks-selftest.txt"
+      - name: Export-status selftest (MOCKED status file)
+        run: scripts/local-stack/t09/tests/export-status-selftest.sh | tee "$NR_EVIDENCE/export-status-selftest.txt"
+      - name: Stack-net selftest (FAKE docker/ss)
+        run: scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$NR_EVIDENCE/stack-net-selftest.txt"
+
+      - name: Prepare workdir (job-scoped path, never reused)
+        id: nr_prep
+        run: |
+          W="$RUNNER_TEMP/ic-nr"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_NR=$W" >> "$GITHUB_ENV"
+      - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-create.txt"
+      - name: supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/nr-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NR" --network-id "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok; its key summary is not printed"
+      - name: Export loopback endpoints (masks registered before any value reaches the env or the log)
+        run: |
+          umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_NR" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/nr-keys"
+      - name: Target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: Published ports loopback-only, mail to the local catcher only
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$NR_EVIDENCE/net-verify.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$NR_EVIDENCE/ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$NR_EVIDENCE/mail.txt"
+      - name: STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/stage-pre.txt"
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/bootstrap.txt"
+      - name: Verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/identities.txt"
+      - name: Narrow-reads tier (S0, baseline, OLD, apply, NEW, rollback, OLD, re-apply, NEW)
+        run: scripts/local-stack/narrow-reads/tier.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/tier.txt"
+      - name: Delete local keys (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/nr-keys"
+          if [ -e "$RUNNER_TEMP/nr-keys" ]; then echo "a private key file is still present"; exit 1; fi
+          echo "local keys absent"
+      - name: stop (no backup)
+        if: always() && steps.nr_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/nr-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_NR" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok"
+      - name: Remove owned network (only the one this job created; absence verified)
+        if: always() && steps.nr_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-remove.txt"
+      - name: Nothing left behind
+        if: always() && steps.nr_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$NR_EVIDENCE/leftovers.txt"
+      - name: Record not started
+        if: always() && steps.nr_prep.outcome != 'success'
+        run: |
+          echo "NOT STARTED (workdir step outcome '${{ steps.nr_prep.outcome }}'); no stack, so no cleanup or leftover check applies" | tee "$NR_EVIDENCE/not-started.txt"
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ nr-upload "$NR_EVIDENCE/tier-selftest.txt" "$NR_EVIDENCE/net-create.txt" "$NR_EVIDENCE/net-verify.txt" "$NR_EVIDENCE/ports.txt" "$NR_EVIDENCE/mail.txt" "$NR_EVIDENCE/stage-pre.txt" "$NR_EVIDENCE/bootstrap.txt" "$NR_EVIDENCE/identities.txt" "$NR_EVIDENCE/tier.txt" "$NR_EVIDENCE/net-remove.txt" "$NR_EVIDENCE/leftovers.txt" -- tested-ids.txt "$NR_EVIDENCE"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrow-reads-sql-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: nr-upload/
