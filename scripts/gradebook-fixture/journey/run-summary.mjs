@@ -3,11 +3,13 @@
 //
 //   node run-summary.mjs playwright <raw report.json> <exit code>   -> one line: PLAYWRIGHT exit=<n> expected=<n> ...
 //   node run-summary.mjs compare <raw comparator stdout>            -> the comparator's lines, each matched to a fixed grammar
+//   node run-summary.mjs shots <raw shot-export stdout>             -> the export manifest, each line matched to its grammar
 // Any line or field that does not match its grammar refuses (exit 3, "run-journey refused: SUMMARY_E_*"), so a stray
 // value, path, URL, id or error message can never be staged.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SHOT_NAMES } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
 
 export class SummaryError extends Error {
   /** @param {string} code */
@@ -48,6 +50,24 @@ export function compareSummary(text) {
   return lines.join('\n');
 }
 
+const SHOT_LINE = /^SHOT (J[0-4][a-d]?-[a-z-]{3,48}) sha256=[0-9a-f]{64} bytes=[1-9][0-9]{0,7} width=[1-9][0-9]{0,4} height=[1-9][0-9]{0,4}$/;
+/** @param {string} text raw shot-export stdout @param {readonly string[]} names the allowlist @returns {string} */
+export function shotsSummary(text, names) {
+  const lines = text.split('\n').filter((l) => l !== '');
+  if (!lines.length) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
+  const last = lines.pop();
+  const m = /^SHOTS (\d{1,2}) of (\d{1,2})$/.exec(last);
+  if (!m || Number(m[2]) !== names.length || Number(m[1]) !== lines.length) throw new SummaryError('SUMMARY_E_SHOTS_SHAPE');
+  let at = -1;
+  for (const l of lines) {
+    const n = SHOT_LINE.exec(l);
+    const i = n ? names.indexOf(n[1]) : -1;
+    if (i <= at) throw new SummaryError('SUMMARY_E_SHOTS_LINE');   // unknown, duplicate or out of allowlist order
+    at = i;
+  }
+  return [...lines, last].join('\n');
+}
+
 function readRaw(file) {
   let st;
   try { st = fs.lstatSync(file); } catch { throw new SummaryError('SUMMARY_E_RAW'); }
@@ -60,6 +80,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     const [cmd, file, exit] = process.argv.slice(2);
     if (cmd === 'playwright') console.log(playwrightSummary(readRaw(file), exit));
     else if (cmd === 'compare') console.log(compareSummary(readRaw(file)));
+    else if (cmd === 'shots') console.log(shotsSummary(readRaw(file), SHOT_NAMES));
     else throw new SummaryError('SUMMARY_E_USAGE');
   } catch (e) {
     console.log(`run-journey refused: ${e instanceof SummaryError ? e.code : 'SUMMARY_E_UNCLASSIFIED'}`);
