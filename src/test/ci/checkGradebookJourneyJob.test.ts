@@ -1,7 +1,9 @@
 // ABOUTME: Structural controls for the PROPOSED gradebook-journey job: its stack, PRE and hermetic steps are the reviewed
 // ABOUTME: learner-quiz-noedge steps byte-for-byte (modulo job-scoped names), D1 is written after them and before any write.
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
@@ -117,6 +119,98 @@ describe('gradebook-journey job (proposal)', () => {
     expect(d1).toMatch(/stack-ownership\.mjs verify "\$API" "\$APP" "\$GB_D1_BOOTSTRAP_SHA256"/);
     expect(d1).not.toMatch(/bootstrap_sha256|jq|cat "\$STACK_OWNERSHIP_FILE"/);   // never read back from the record
   });
+  it('Storage composition: S0 then S1..S3 after the seven migrations and before D1; S4 after the actors; private digests; private dir removed', () => {
+    const src = (f: string) => readFileSync(path.join(ROOT, 'scripts/local-stack/storage', f), 'utf8');
+    const konst = (f: string, name: string) => { const m = src(f).match(new RegExp(`export const ${name} = '([0-9a-f]{64})';`)); expect(m, name).not.toBeNull(); return m![1]; };
+    expect(GB.env.GB_STORAGE_PINS_SHA256).toBe(konst('gen-mirror.mjs', 'LIVE_PINS_SHA256'));
+    expect(GB.env.GB_STORAGE_MIRROR_SHA256).toBe(konst('gen-mirror.mjs', 'MIRROR_SHA256'));
+    expect(konst('probes.mjs', 'PROBE_PINS_SHA256')).toBe(GB.env.GB_STORAGE_PINS_SHA256);
+    for (const f of ['live-pins.tsv', 'mirror.sql', 'live-identities.tsv']) expect(() => readFileSync(path.join(ROOT, 'scripts/local-stack/storage', f)), f).toThrow();
+    const mig = at(/apply-reviewed\.sh "\$SUPABASE_DB_URL" NEW/);
+    const s0 = at(/storage-job\.mjs s0 /), s1 = at(/storage-job\.mjs s1 /), s2 = at(/storage-job\.mjs s2 /), s3 = at(/storage-job\.mjs s3 /), s4 = at(/storage-job\.mjs s4 /);
+    const d1 = all(/stack-ownership\.mjs write/)[0];
+    const actors = at(/gb-job-psql\.mjs seed-auth/), adapter = at(/run-journey\.sh/);
+    expect([mig < s0, s0 + 1 === s1, s1 < s2, s2 < s3, s3 < d1, d1 < actors, actors < s4, s4 < adapter]).toEqual([true, true, true, true, true, true, true, true]);
+    expect(S[s0].id).toBe('gb_s0');
+    expect(S[s0].if).toBeUndefined();
+    expect(runOf(S[s0])).toBe('set -o pipefail\nmkdir -m 700 "$RUNNER_TEMP/gb-st-priv"\nnode scripts/local-stack/storage/storage-job.mjs s0 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s0.txt"\n');
+    expect(runOf(S[s1])).toMatch(/sha256sum -c --quiet \|\| \{ echo "S1 refused: private pins[\s\S]*sha256sum -c --quiet \|\| \{ echo "S1 refused: private mirror/);
+    expect(runOf(S[s1])).toContain('$RUNNER_TEMP/gb-st-priv/pins.tsv');
+    expect(runOf(S[s1])).not.toMatch(/mkdir/);
+    expect(runOf(S[s2])).toMatch(/assert-safe-target\.mjs --mutating[\s\S]*gb-st-priv\/mirror\.sql" \| sha256sum -c --quiet[\s\S]*storage-job\.mjs s2/);
+    expect(runOf(S[s4])).toMatch(/assert-safe-target\.mjs --mutating[\s\S]*storage-job\.mjs s4 "\$RUNNER_TEMP\/gb-st-priv" "\$GITHUB_RUN_ID" "\$GITHUB_RUN_ATTEMPT"/);
+    for (const i of [s0, s1, s2, s3, s4]) expect(runOf(S[i])).not.toMatch(/SUPABASE_DB_URL|psql |STORAGE_METADATA_JSON/);   // private-psql route only; input never named in a run
+    expect(String(S[d1].name)).toMatch(/snapshot \+ seven migrations \+ Storage composition pins 02ce9f85/);
+    expect(runOf(byName(S, 'Remove private outputs'))).toMatch(/"\$RUNNER_TEMP\/gb-st-priv"/);
+  });
+  it('private input binding: environment on this job only; the input variable is bound nowhere in this tree (guard change unapplied)', () => {
+    expect(GB.environment).toBe('insights-isolated-storage');
+    for (const [name, job] of Object.entries(DOC.jobs as Record<string, { environment?: unknown }>)) if (name !== 'gradebook-journey') expect(job.environment, name).toBeUndefined();
+    expect(DOC.on).toEqual({ workflow_dispatch: expect.anything() });
+    expect(Object.keys(DOC.on)).toEqual(['workflow_dispatch']);
+    expect(WF).not.toMatch(/\$\{\{[^}]*\bsecrets\b/);
+    expect(GB.env.STORAGE_METADATA_JSON).toBeUndefined();
+    for (const st of S) expect((st as { env?: Record<string, unknown> }).env?.STORAGE_METADATA_JSON, String(st.name)).toBeUndefined();
+  });
+  it('leak tripwire: after the journey evidence, right before the stop/removal pair; upload requires its PASS whenever S0 started', () => {
+    const leak = at(/leak-scan\.mjs /), stop = S.indexOf(byName(S, 'Stop background servers')), rm = S.indexOf(byName(S, 'Remove private outputs'));
+    const s4 = at(/storage-job\.mjs s4 /), noEdge = S.indexOf(byName(S, 'No Edge runtime container exists (read-only; after the journey)'));
+    expect([s4 < leak, noEdge < leak, leak + 1 === stop, stop + 1 === rm]).toEqual([true, true, true, true]);
+    expect(S[leak].id).toBe('gb_leak');
+    expect(S[leak].if).toBe("always() && steps.gb_s0.outcome != 'skipped'");
+    expect(runOf(S[leak])).toBe('set -o pipefail\ngit ls-files -z > "$RUNNER_TEMP/gb-st-priv/public-refs.lst"\nnode scripts/local-stack/storage/leak-scan.mjs "$RUNNER_TEMP/gb-st-priv" "$RUNNER_TEMP/gb-st-priv/public-refs.lst" "$GB_EVIDENCE" | tee "$GB_EVIDENCE/checks/storage-leakscan.txt"\n');
+    const up = S.find((st) => String(st.uses ?? '').startsWith('actions/upload-artifact@') && String(st.name ?? '').startsWith('Upload evidence'))!;
+    expect(up.if).toBe("always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')");
+  });
+  it('requires the seven Storage/D1-composition receipts on a successful job; each missing or empty one refuses staging', () => {
+    const run = runOf(S[at(/stack-checks\.sh stage-evidence \$REQ gbj-upload/)]);
+    const line = run.split('\n').find((l) => l.includes('stage-evidence $REQ gbj-upload'))!;
+    const expectList = [...line.split(' -- ')[0].matchAll(/"\$E\/([^"]+)"/g)].map((m) => m[1]);
+    const NEW = ['checks/storage-s0.txt', 'checks/storage-s1.txt', 'checks/storage-s2.txt', 'checks/storage-s3.txt', 'checks/d1-composition.txt', 'checks/storage-s4.txt', 'checks/storage-leakscan.txt'];
+    for (const r of NEW) expect(expectList).toContain(r);
+    const pos = (r: string) => expectList.indexOf(r);
+    expect([pos('checks/migrations-new.txt') < pos('checks/storage-s0.txt'), pos('checks/storage-s0.txt') + 1 === pos('checks/storage-s1.txt'),
+      pos('checks/storage-s3.txt') < pos('checks/d1-write.txt'),
+      pos('checks/d1-write.txt') < pos('checks/d1-composition.txt'), pos('checks/actors.txt') < pos('checks/storage-s4.txt'),
+      pos('checks/storage-s4.txt') < pos('checks/journey.txt'), pos('checks/leftovers.txt') > pos('checks/storage-leakscan.txt')]).toEqual([true, true, true, true, true, true, true]);
+    const SC = path.join(ROOT, 'scripts/local-stack/t09/stack-checks.sh');
+    const stage = (mut: (dir: string) => void) => {
+      const dir = mkdtempSync(path.join(tmpdir(), 'gbj-ev-'));
+      try {
+        const E = path.join(dir, 'gb-evidence');
+        for (const r of expectList) { mkdirSync(path.dirname(path.join(E, r)), { recursive: true }); writeFileSync(path.join(E, r), 'ok\n'); }
+        writeFileSync(path.join(dir, 'tested-ids.txt'), 'x\n');
+        mut(E);
+        const r = spawnSync('bash', [SC, 'stage-evidence', '--require-all', path.join(dir, 'up'), ...expectList.map((x) => path.join(E, x)), '--', path.join(dir, 'tested-ids.txt'), E], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+        return { status: r.status, out: `${r.stdout}${r.stderr}` };
+      } finally { rmSync(dir, { recursive: true, force: true }); }
+    };
+    expect(stage(() => {}).status).toBe(0);
+    for (const r of NEW) {
+      const miss = stage((E) => rmSync(path.join(E, r)));
+      expect(miss.status, `missing ${r}`).not.toBe(0);
+      expect(miss.out).toContain('missing on a successful job');
+      const empty = stage((E) => writeFileSync(path.join(E, r), ''));
+      expect(empty.status, `empty ${r}`).not.toBe(0);
+      expect(empty.out).toContain(`receipt MISSING or empty: `);
+    }
+  });
+  it('fs-write gate: the one approved exact writer exception admits only this file; neighbors stay refused (read-only)', () => {
+    const SEC = YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8'));
+    const runs = Object.values(SEC.jobs as Record<string, { steps?: Step[] }>).flatMap((j) => j.steps ?? []).map(runOf).filter((r) => r.includes("ALLOWED='"));
+    expect(runs.length).toBe(1);
+    const m = runs[0].match(/ALLOWED='([^']+)'/);
+    const re = new RegExp(m![1]);
+    expect(m![1].split('checkGradebookJourneyJob').length).toBe(2);
+    expect(m![1]).toContain('src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds|checkGradebookJourneyJob)\\.test\\.ts$');
+    expect(re.test('src/test/ci/checkGradebookJourneyJob.test.ts')).toBe(true);
+    for (const n of ['src/test/ci/checkGradebookJourneyJob.test.tsx', 'src/test/ci/checkGradebookJourneyJob.spec.ts', 'src/test/ci/checkGradebookJourneyJob.test.mjs',
+      'src/test/ci/checkGradebookJourneyJobs.test.ts', 'src/test/ci/xcheckGradebookJourneyJob.test.ts', 'src/test/ci/sub/checkGradebookJourneyJob.test.ts',
+      'src/test/checkGradebookJourneyJob.test.ts', 'e2e/checkGradebookJourneyJob.test.ts', 'src/test/ci/checkGradebookJourneyJob.test.ts.js',
+      'src/test/ci/checkLearnerQuizJob.test.ts', './src/test/ci/checkGradebookJourneyJob.test.ts']) expect(re.test(n), n).toBe(false);
+    expect(runs[0]).toMatch(/approved 2026-11-02: user 19:14:49Z,\s*#\s*relayed by T 19:15:29Z; proposal r1\.1/);
+    expect(runs[0]).toContain('(the five entries above approved 2026-11-02: user 12:08:50Z, relayed by T 13:01:47Z; proposal c1059c5)');
+  });
   it('runs every cleanup and staging step under always(), removes the record and private output, and stages after leftovers', () => {
     const stop = byName(S, 'Stop background servers');
     expect(stop.if).toBe('always()');
@@ -133,7 +227,7 @@ describe('gradebook-journey job (proposal)', () => {
     expect(at(/supabase stop/)).toBeGreaterThan(S.indexOf(stop));
     expect(S.indexOf(stop)).toBeGreaterThan(at(/run-journey\.sh/));
     expect(S[stage + 1].uses).toMatch(/^actions\/upload-artifact@v4$/);
-    expect(S[stage + 1].if).toBe("always() && steps.stage.outcome == 'success'");
+    expect(S[stage + 1].if).toBe("always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')");
   });
   it('serves no Edge runtime and never runs the legacy e2e seed or the base Playwright config', () => {
     expect(runOf(byName(S, 'supabase start'))).toMatch(/-x [^\n]*edge-runtime/);

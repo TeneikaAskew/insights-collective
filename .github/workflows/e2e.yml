@@ -982,6 +982,9 @@ jobs:
   gradebook-journey:
     name: Gradebook UI journey (NEW schema composed-r5, NO Edge runtime, hermetic served app; D1 record before any fixture write)
     if: inputs.specs == 'gradebook-journey'
+    # Deployment protection for the private Storage input: the environment admits only the exact reviewed branch and
+    # waits for the user's manual approval of each run. Nothing in this workflow approves, waits out or bypasses it.
+    environment: insights-isolated-storage
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -1000,6 +1003,11 @@ jobs:
       # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29) as reviewed. The writer refuses
       # unless the checked-out file has exactly this digest. Never read back from the record.
       GB_D1_BOOTSTRAP_SHA256: b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715
+      # Reviewed constants for the Storage composition: sha256 of the LIVE pins and of the mirror SQL that S0 derives on the
+      # runner from the private input (never committed; input sha256 pinned in storage/live-pins.mjs). S0 writes both only
+      # into the private dir and only when they equal these digests; S1 to S4 re-verify them before use.
+      GB_STORAGE_PINS_SHA256: 02ce9f854d091ee634cbbffbddabf8d94bec3c66f0d0ac91c8da2e42c7ae1124
+      GB_STORAGE_MIRROR_SHA256: 2d519c9db99cabdaeeffc59c2cda6a05fda4a4f302dfbc963e4eb257e2a98c53
     steps:
       - uses: actions/checkout@v4
         with:
@@ -1088,6 +1096,35 @@ jobs:
       - name: Seven reviewed migrations, pinned (NEW), guard re-verified
         run: scripts/local-stack/t09/apply-reviewed.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/migrations-new.txt"
 
+      # Storage composition (scripts/local-stack/storage/). The journey stack had NO app policy on storage.objects
+      # (workdir.sh leaves the CLI migrations dir empty; the snapshot is public-only; localize.sql creates buckets only).
+      # S0 derives the LIVE pins and mirror privately; S1 to S3 then mirror the LIVE storage policy inventory and the three
+      # course bucket limits exactly, before D1; S4 runs rolled-back SQL policy probes after the actors. Private 0700 dir,
+      # removed in the always-run step. No policy text, limit or count reaches a public line. This does NOT establish what
+      # caused the HTTP 400 in run 41493619385.
+      - name: Storage S0 private input (digests verified; private 0600 outputs only; nothing derived printed)
+        id: gb_s0
+        run: |
+          set -o pipefail
+          mkdir -m 700 "$RUNNER_TEMP/gb-st-priv"
+          node scripts/local-stack/storage/storage-job.mjs s0 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s0.txt"
+      - name: Storage S1 preflight (read-only; stock policies zero, RLS as live, course buckets private, live helper and grant dependencies present)
+        run: |
+          set -o pipefail
+          echo "$GB_STORAGE_PINS_SHA256  $RUNNER_TEMP/gb-st-priv/pins.tsv" | sha256sum -c --quiet || { echo "S1 refused: private pins are not the reviewed digest"; exit 1; }
+          echo "$GB_STORAGE_MIRROR_SHA256  $RUNNER_TEMP/gb-st-priv/mirror.sql" | sha256sum -c --quiet || { echo "S1 refused: private mirror is not the reviewed digest"; exit 1; }
+          node scripts/local-stack/storage/storage-job.mjs s1 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s1.txt"
+      - name: Storage S2 mirror (one transaction; exact live policy inventory and course bucket limits from the private mirror; public never written; PRE guard re-verified)
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          echo "$GB_STORAGE_MIRROR_SHA256  $RUNNER_TEMP/gb-st-priv/mirror.sql" | sha256sum -c --quiet || { echo "S2 refused: private mirror is not the reviewed digest"; exit 1; }
+          node scripts/local-stack/storage/storage-job.mjs s2 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s2.txt"
+      - name: Storage S3 verify (read-only; final storage catalog equals live policies plus limits, everything else equals S1; public identities unchanged)
+        run: |
+          set -o pipefail
+          node scripts/local-stack/storage/storage-job.mjs s3 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s3.txt"
+
       - name: Build app (production build, local target) and check it
         run: |
           npm run build
@@ -1165,7 +1202,7 @@ jobs:
       # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
       # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
       # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
-      - name: D1 stack-ownership record (after every check above; before any fixture, actor or carrier write)
+      - name: D1 stack-ownership record (snapshot + seven migrations + Storage composition pins 02ce9f85; after every check above; before any fixture, actor or carrier write)
         id: gb_d1
         run: |
           set -o pipefail
@@ -1174,6 +1211,7 @@ jobs:
           [ "$have" = "$GB_D1_BOOTSTRAP_SHA256" ] || { echo "D1 refused: scripts/local-stack/bootstrap.sh is not the reviewed file"; exit 1; }
           # Private 0700 dir for psql passfiles and raw psql streams (removed by the always-run private-output step).
           mkdir -m 700 "$RUNNER_TEMP/gb-priv"
+          echo "D1 stack composition: snapshot + seven migrations + Storage composition private pins sha256 $GB_STORAGE_PINS_SHA256 (private mirror sha256 $GB_STORAGE_MIRROR_SHA256); D1 record schema v1 and its bootstrap digest field unchanged" | tee "$GB_EVIDENCE/checks/d1-composition.txt"
           API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
           APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
           # DSN from the environment only, checked in-process; psql -w with an explicit 0600 passfile; nothing raw printed.
@@ -1194,6 +1232,15 @@ jobs:
           # Same psql route as D1: no DSN or password on any argv; the password reaches psql on stdin only.
           node scripts/e2e/gb-job-psql.mjs preseed "$RUNNER_TEMP/gb-priv" | tee "$GB_EVIDENCE/checks/actors.txt"
           node scripts/e2e/gb-job-psql.mjs seed-auth "$RUNNER_TEMP/gb-priv" | tee -a "$GB_EVIDENCE/checks/actors.txt"
+
+      # S4: 8 rolled-back SQL cases on storage.objects rows only (no HTTP, no upload). NEW: learner own INSERT, read-back,
+      # instructor SELECT, owner DELETE; negatives from the pinned semantics; O1 is an EMULATION (mirrored policies dropped
+      # inside its own rolled-back transaction). After each: run-owned residue 0 and the S3 catalog again.
+      - name: Storage S4 SQL policy probes (after the actors, before the adapter; every case rolls back)
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/local-stack/storage/storage-job.mjs s4 "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4.txt"
 
       # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), served-app gate,
       # composed-r5, private dirs, pairing carrier, seed, witness, the five journey projects, witness, compare, 5-file inventory.
@@ -1233,6 +1280,17 @@ jobs:
         run: |
           # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
           scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$GB_EVIDENCE/checks/no-edge-end.txt"
+      # Secondary tripwire only (the primary controls are the one-step input binding, private raw streams and fixed public
+      # lines). Runs whenever S0 started, after the journey evidence and before the private dir is removed; upload
+      # below requires its PASS in that case. Later receipts (owned-stop, private-removed, net-remove, leftovers) come from
+      # unchanged stack scripts that never read the private dir.
+      - name: Storage leak tripwire (secondary, field-aware; scans the evidence dir for private pins fields; fixed lines only)
+        id: gb_leak
+        if: always() && steps.gb_s0.outcome != 'skipped'
+        run: |
+          set -o pipefail
+          git ls-files -z > "$RUNNER_TEMP/gb-st-priv/public-refs.lst"
+          node scripts/local-stack/storage/leak-scan.mjs "$RUNNER_TEMP/gb-st-priv" "$RUNNER_TEMP/gb-st-priv/public-refs.lst" "$GB_EVIDENCE" | tee "$GB_EVIDENCE/checks/storage-leakscan.txt"
       - name: Stop background servers (preview)
         if: always()
         run: |
@@ -1250,7 +1308,7 @@ jobs:
         run: |
           # Every path is attempted and checked; any removal failure or survivor makes this step fail after all were tried.
           rc=0
-          for p in playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out" "$RUNNER_TEMP/gb-priv" \
+          for p in playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out" "$RUNNER_TEMP/gb-priv" "$RUNNER_TEMP/gb-st-priv" \
                    "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/gb-shell-receipt.txt" "$RUNNER_TEMP/gb-shell-receipt.txt.bound" "$RUNNER_TEMP/gb-launch-recheck.txt"; do
             rm -rf -- "$p" || rc=1
             if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
@@ -1279,9 +1337,9 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
-      - name: Upload evidence (the staged manifest only)
-        if: always() && steps.stage.outcome == 'success'
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/storage-s0.txt" "$E/checks/storage-s1.txt" "$E/checks/storage-s2.txt" "$E/checks/storage-s3.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/d1-composition.txt" "$E/checks/actors.txt" "$E/checks/storage-s4.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/storage-leakscan.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+      - name: Upload evidence (the staged manifest only; after a leak tripwire PASS whenever S0 started)
+        if: always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')
         uses: actions/upload-artifact@v4
         with:
           name: gradebook-journey-${{ github.run_id }}
