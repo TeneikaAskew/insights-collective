@@ -32,6 +32,7 @@ import {
 import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
 import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
 import { applyIdOrder, createReorderSequencer } from '@/components/course/builder/reorderReconcile';
+import { planFor, runCreationPlan, type CreationPlan } from '@/components/course/builder/courseCreation';
 import {
   LessonSaveQueue,
   getSharedLessonSaveQueue,
@@ -106,6 +107,8 @@ const CourseBuilder = () => {
   const modulesRef = useRef(modules);
   modulesRef.current = modules;
   const reorderSeq = useRef(createReorderSequencer()).current;
+  // The in-flight or failed wizard creation, kept so a retry resumes it (T-56).
+  const creationPlanRef = useRef<CreationPlan | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -335,78 +338,20 @@ const CourseBuilder = () => {
         const { data: userData } = await supabase.auth.getUser();
         const instructorId = userData.user?.id ?? null;
 
-        // 1) Upload thumbnail first (if provided)
-        let thumbnailUrl: string | null = null;
-        if (r.thumbnailFile && instructorId) {
-          setStep('thumbnail', 'running');
-          const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
-          const path = `course-thumbnails/${instructorId}-${Date.now()}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from('course-materials')
-            .upload(path, r.thumbnailFile, {
-              upsert: true,
-              contentType: r.thumbnailFile.type,
-            });
-          if (uploadError) {
-            logger.error('Thumbnail upload failed', uploadError);
-            // Do not block course creation on thumbnail failure — surface it
-            // as a non-fatal step error so the user sees what happened.
-            setStep(
-              'thumbnail',
-              'error',
-              `${uploadError.message || 'Upload failed'} — continuing without a thumbnail. You can add one later in Setup.`,
-            );
-          } else {
-            const { data: pub } = supabase.storage
-              .from('course-materials')
-              .getPublicUrl(path);
-            thumbnailUrl = pub.publicUrl;
-            setStep('thumbnail', 'done');
-          }
-        }
-
-        // 2) Create the course
-        setStep('course', 'running');
-        const { data: created, error } = await supabase
-          .from('courses')
-          .insert({
-            title: r.title,
-            description: r.description || '',
-            category: 'General',
-            level: 'beginner',
-            published: false,
-            status: 'draft',
-            instructor_id: instructorId,
-            ...(thumbnailUrl ? { image_url: thumbnailUrl, thumbnail: thumbnailUrl } : {}),
-          })
-          .select('id')
-          .single();
-        if (error) {
-          setStep('course', 'error', error.message);
-          throw error;
-        }
-        setStep('course', 'done');
-
-        // 3) Seed curriculum from the wizard outline
-        if (outline.length > 0) {
-          setStep('curriculum', 'running', '0 of ' + totalLessons + ' lessons');
-          let done = 0;
-          for (const section of outline) {
-            const mod = await CanvasContentService.createModule(created.id, section.title);
-            for (const lesson of section.lessons) {
-              await CanvasContentService.createContentItem({
-                course_id: created.id,
-                module_id: mod.id,
-                type: lesson.type,
-                title: lesson.title,
-                content: '',
-              });
-              done += 1;
-              setStep('curriculum', 'running', `${done} of ${totalLessons} lessons`);
-            }
-          }
-          setStep('curriculum', 'done', `${totalLessons} lesson${totalLessons === 1 ? '' : 's'} created`);
-        }
+        // Same input as a failed attempt resumes that attempt's plan (same ids), so a retry finishes the
+        // same course instead of creating another one.
+        const plan = planFor(creationPlanRef.current, r);
+        creationPlanRef.current = plan;
+        const courseId = await runCreationPlan({
+          plan,
+          result: r,
+          instructorId,
+          client: supabase as any,
+          report: { step: setStep },
+          onThumbnailError: (e) => logger.error('Thumbnail upload failed', e),
+        });
+        creationPlanRef.current = null;
+        const created = { id: courseId };
 
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
         navigate(`/courses/${created.id}/builder`, { replace: true });
