@@ -1,0 +1,204 @@
+# WP-09 R3: durable idempotency for watch-progress writes (design and source plan)
+
+Status: **PROPOSAL.** Nothing here is applied, committed as a migration, or wired.
+- Branch: `claude/wp09-r3-idempotency-design`, based on #164 head `c5b7caf`. #164 itself stays frozen at `c5b7caf`.
+- Evidence tier: fake-model only (jsdom/vitest). No DB, RPC, RLS, provider or browser evidence exists for this design.
+- The current #164 qualification (unwired, model tier) is unchanged by this document.
+
+## 1. The three failures this must close
+
+All three are reproduced as executable fakes in `src/components/course/video/__tests__/r3IdempotencyModel.test.ts`.
+
+| Id | Failure at c5b7caf | Cause | Fake result today |
+|---|---|---|---|
+| F1 | A batch whose write committed but whose response was lost is applied twice when another writer changes the row before the retry. | The retry recognises its own commit only by comparing totals (`expectTarget`). Any intervening writer breaks that comparison. | watch_time 13, expected 8 |
+| F2 | A batch that never committed is dropped when another writer happens to bring the row to exactly the totals it attempted. | The same totals comparison gives a false "already applied". | watch_time 5, expected 10 |
+| F3 | Under sustained same-key writes (several reporters, remounts, tabs), a batch can fail to apply at all. | Client compare-and-set gives up after 3 rounds (`EngagementConflictError`). This is liveness, not corruption. | `'error'`, expected `'saved'` |
+
+The common cause is that the server keeps no durable record of *which batch* it applied. Totals cannot identify a batch, and nothing short of a durable per-batch marker can.
+
+**An atomic increment alone does not fix this.** `UPDATE ... SET watch_time = watch_time + d` closes F3. It makes F1 *unconditional*, though: a blind retry always adds again. It closes F2 only because it never skips anything. Durable idempotency (dedup) is required, not just atomicity.
+
+## 2. Chosen minimal contract: keyed apply-once batches with a per-session high-water mark
+
+**Client side.** These guarantees already hold in `WatchReporter` at c5b7caf, except for the key.
+- Each `WatchReporter` instance gets a random `session_id` (`crypto.randomUUID()`). A remount, another tab or another device is a new session.
+- Each batch it sends carries `seq`, starting at 1 and strictly increasing within the session.
+- A failed batch is frozen and retried with **the same seq and the same deltas**.
+- Seq k+1 is never sent until seq k is confirmed. Only one write is ever in flight, and the frozen batch always goes first.
+
+**Server side.** One RPC call is one transaction:
+1. Lock the session row `(user_id, content_item_id, session_id)`, creating it with `last_seq = 0` if absent.
+2. If `p_seq <= last_seq`, the batch was already applied. Return `applied = false` and the current totals. **Do not apply.**
+3. Otherwise set `last_seq = p_seq`, then upsert `video_analytics` with additive expressions: `watch_time = watch_time + d`, and the same for each counter. The row lock serialises concurrent sessions.
+4. Commit. The marker and the increment commit together or not at all.
+
+**Why this closes each failure exactly.** Given the client guarantee above, `seq <= last_seq` holds exactly when "this session's batch seq already committed".
+- **F1:** the retry carries a seq that is `<= last_seq`, so it is skipped regardless of what other sessions wrote.
+- **F2:** an uncommitted seq is `> last_seq`, so it is applied regardless of the totals.
+- **F3:** the increment happens inside one statement under a row lock. There is no client compare-and-set to lose.
+
+**Why a high-water mark instead of a row per batch.** Ordering per session is guaranteed, so one integer per session is a complete dedup record. Storage is one row per viewing session, instead of one row per 15 s batch.
+
+### Alternatives considered
+
+| Option | F1 | F2 | F3 | Why not chosen |
+|---|---|---|---|---|
+| A. Ledger with one row per batch: PK `(user, item, session, seq)`, `INSERT ... ON CONFLICT DO NOTHING`, then apply if inserted | closes | closes | closes | Correct and also detects payload mismatch on key reuse. It costs one row per batch and needs a retention or pruning rule, and pruning re-opens F1 for very late retries. **This is the fallback if per-session ordering is ever relaxed** (for example, parallel writes). |
+| B. Append-only events table, aggregated on read | closes | closes | closes | Every reader of `video_analytics` would need to change: `get_student_video_progress`, the course and instructor analytics in `videoAnalyticsService`, and the reports lane. Writes would no longer fire the completion trigger. Much larger blast radius, outside the owned paths. |
+| C. Client reconciliation (current c5b7caf: CAS plus `expectTarget`) | open | open | open (liveness) | Totals cannot identify a batch, as shown in §1. |
+| D. Atomic increment RPC with no key | **worse** | closes | closes | A blind retry always double-applies. Rejected per the review. |
+| E. Marker columns on `video_analytics` (`last_session_id`, `last_seq`) | open | open | closes | Holds only the latest writer, so a retry from session A after session B wrote is undecidable. |
+
+## 3. Proposed database objects (PROPOSAL ONLY; no file under `supabase/migrations/`)
+
+**This SQL has never been executed or syntax-checked against Postgres.** It is a draft for review; the isolated SQL tier in §5 is what would validate it.
+
+```sql
+-- PROPOSAL. Number assigned by the PR134 lane at authoring time (see §6).
+create table public.video_engagement_sessions (
+  user_id          uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  content_item_id  uuid not null references public.content_items(id) on delete cascade,
+  session_id       uuid not null,
+  last_seq         integer not null default 0 check (last_seq >= 0),
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now(),
+  primary key (user_id, content_item_id, session_id)
+);
+alter table public.video_engagement_sessions enable row level security;
+create policy "own sessions readable" on public.video_engagement_sessions
+  for select using (user_id = auth.uid());
+-- No insert/update/delete policies: rows are written only inside the RPC below.
+
+create or replace function public.apply_video_engagement_batch(
+  p_content_item_id uuid,
+  p_session_id      uuid,
+  p_seq             integer,
+  p_watch_delta     integer,
+  p_play_delta      integer,
+  p_pause_delta     integer,
+  p_seek_delta      integer,
+  p_last_position   integer default null,
+  p_video_duration  integer default null,
+  p_playback_speed  numeric default null
+) returns table (applied boolean, watch_time integer, play_count integer, pause_count integer, seek_count integer)
+language plpgsql
+security definer                -- writes the session table that has no write policy; see RLS review points
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  v_user uuid := auth.uid();
+  v_last integer;
+begin
+  if v_user is null then raise exception 'not authenticated' using errcode = '28000'; end if;
+  if p_seq < 1 or least(p_watch_delta, p_play_delta, p_pause_delta, p_seek_delta) < 0 then
+    raise exception 'invalid batch' using errcode = '22023';
+  end if;
+  -- Same visibility rule the learner already has for the content item (review point R-3).
+
+  insert into video_engagement_sessions (user_id, content_item_id, session_id)
+    values (v_user, p_content_item_id, p_session_id)
+    on conflict do nothing;
+  select s.last_seq into v_last from video_engagement_sessions s
+    where s.user_id = v_user and s.content_item_id = p_content_item_id and s.session_id = p_session_id
+    for update;
+
+  if p_seq <= v_last then
+    return query select false, va.watch_time, va.play_count, va.pause_count, va.seek_count
+      from video_analytics va where va.user_id = v_user and va.content_item_id = p_content_item_id;
+    return;
+  end if;
+
+  update video_engagement_sessions set last_seq = p_seq, updated_at = now()
+    where user_id = v_user and content_item_id = p_content_item_id and session_id = p_session_id;
+
+  return query
+  with upserted as (
+  insert into video_analytics as va (user_id, content_item_id, watch_time, play_count, pause_count, seek_count,
+                                     last_position, video_duration, playback_speed)
+    values (v_user, p_content_item_id, p_watch_delta, p_play_delta, p_pause_delta, p_seek_delta,
+            coalesce(p_last_position, 0), p_video_duration, coalesce(p_playback_speed, 1.0))
+  on conflict (user_id, content_item_id) do update set
+    watch_time     = coalesce(va.watch_time, 0)  + excluded.watch_time,
+    play_count     = coalesce(va.play_count, 0)  + excluded.play_count,
+    pause_count    = coalesce(va.pause_count, 0) + excluded.pause_count,
+    seek_count     = coalesce(va.seek_count, 0)  + excluded.seek_count,
+    last_position  = coalesce(p_last_position, va.last_position),
+    video_duration = coalesce(p_video_duration, va.video_duration),
+    playback_speed = coalesce(p_playback_speed, va.playback_speed)
+  returning va.watch_time, va.play_count, va.pause_count, va.seek_count
+  )
+  select true, u.watch_time, u.play_count, u.pause_count, u.seek_count from upserted u;
+end $$;
+
+revoke all on function public.apply_video_engagement_batch(uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) from public, anon;
+grant execute on function public.apply_video_engagement_batch(uuid, uuid, integer, integer, integer, integer, integer, integer, integer, numeric) to authenticated;
+```
+
+**Existing objects this touches**
+- `public.video_analytics`, as written by the RPC. Its schema is **unchanged**. It already has `UNIQUE(user_id, content_item_id)`, which the upsert relies on.
+- The trigger `trigger_update_video_analytics_timestamp` calls `update_video_analytics_timestamp()`. It is BEFORE UPDATE only.
+  - It still fires on the `do update` path and sets `updated_at` and `last_watched_at`.
+  - The RPC never sets `completion_percentage`, so the trigger cannot newly auto-complete. Completion policy stays undecided, as in #164.
+  - The insert path does not fire it. This is the same as today's `getOrCreateAnalytics`.
+- Existing `video_analytics` policies (`20251006_video_analytics_and_discussions.sql:262-285`) are **not changed**.
+- `getOrCreateAnalytics`, `updateEngagement`, `get_student_video_progress` and every reader are untouched.
+
+**Rollback**
+- Drop the function, then drop `video_engagement_sessions`.
+- `video_analytics` keeps the counts already applied. They are correct, because they were applied once each.
+- The client falls back to `applyEngagementDeltas`, which still exists (see §4).
+- No data rewrite is needed in either direction.
+
+## 4. Client changes (owned files only; not on this branch yet)
+
+| File | Change |
+|---|---|
+| `src/services/videoAnalyticsService.ts` | Add `applyEngagementBatch(contentItemId, {sessionId, seq, deltas})`, which calls `supabase.rpc('apply_video_engagement_batch', ...)` and maps the result to `{outcome: 'applied' \| 'already-applied', totals}`. Any error is a plain retryable failure, because retrying the same key is now safe. Keep `applyEngagementDeltas` unchanged as the pre-migration path. |
+| `src/components/course/video/watchReporter.ts` | Add a `sessionId` (injectable generator, default `crypto.randomUUID`) and a `seq` counter. `Batch` gains `seq`. A retry reuses it; a new batch increments it. The sink becomes `applyEngagementBatch`, behind an option that defaults to the current CAS sink until the migration is approved and applied. `expectTarget` handling is removed on the keyed path. |
+| `src/components/course/video/TrackedVideoPlayer.tsx` | No behaviour change. It passes through an optional sink mode for tests. |
+| `src/components/course/video/__tests__/*` | Turn the `it.fails` current-contract cases into real-client tests over an RPC fake. |
+
+Not touched: LessonViewer, CourseLearn, the unified canvas editor, the sanitizer, workflows, `e2e/support` and `scripts/e2e`. Wiring stays in the PR134 lane.
+
+## 5. Proofs
+
+**Fake-model tier (this branch, runnable now).** File: `r3IdempotencyModel.test.ts`.
+- 3 tests are `it.fails` against the **current** c5b7caf service over a fake table. The suite reports them as "expected fail". Run as plain `it`, they fail with exactly 13≠8 (F1), 5≠10 (F2) and `'error'`≠`'saved'` (F3). The receipt is in the export.
+- 5 tests pass against `ProposedBatchLedgerModel` with `KeyedWriterModel`, an in-memory model of §2 (`__tests__/support/`): the same F1, F2 and F3, plus remount-as-new-session and same-session retry-ack.
+- **The model is not the SQL.** It proves the contract is sufficient, not that the proposed function implements it.
+
+**Next tier, once the real client lands (still fake).** Replace the model writer with the real `WatchReporter` and service over an RPC fake that implements §2. The three current `it.fails` flip to `it`, and a mutation that drops `seq` from the retry must re-open F1.
+
+**Isolated SQL/API tier (needs explicit scoped approval; run through the PR134 lane's qualified isolated runner, never production).**
+1. Apply the proposed migration to the isolated stack only.
+2. As one synthetic learner JWT:
+   - call seq 1 twice and assert one increment and `applied = false` on the second;
+   - call seq 2 with a lost response (abort after commit) and retry, and assert one increment;
+   - run two sessions concurrently with 50 batches each and assert exact sums with no errors;
+   - assert the BEFORE UPDATE trigger still sets `last_watched_at` and does not set `completed`.
+3. As a second learner, check that they cannot read or advance the first learner's session rows, and cannot write for another `user_id`.
+4. As anon, check that execute is denied.
+5. Roll back: drop the objects, then confirm the `video_analytics` rows and counts are unchanged.
+
+## 6. Coordination, migration numbering and RLS review points
+
+**Migration number.**
+- Not chosen here. The PR134 lane assigns it at authoring time, after the current `20261102000000` series and any reserved numbers.
+- `npm run check:migrations` must pass, and no version may be reused (see the CLAUDE.md lesson).
+- Apply only via the parent-dispatched `db-migrate.yml`, never `apply_migration`. Ledger row and schema go in one transaction.
+- Production is blocked behind the pending Nov-1 migrations and needs its own grant.
+
+**RLS review points (none are decided in this document)**
+- **R-1 Definer vs invoker.** As drafted, the function is `security definer` so that it can write a table with no write policies. The alternative is invoker plus insert and update policies on `video_engagement_sessions`. That would let a learner advance their own `last_seq` directly, which only harms their own future writes. Reviewer to choose.
+- **R-2 Direct writes stay open.** The existing `video_analytics` UPDATE and INSERT policies still let a learner write arbitrary counters directly. This design does not make the counters tamper-proof. That would need revoking those direct-write policies, which is a **new policy** and is out of scope.
+- **R-3 Content visibility.** The function should refuse `content_item_id`s the learner cannot see (enrolment or visibility). The existing table policies do not check this either. The exact predicate must reuse the lane's visibility helper, not invent a new one.
+- **R-4 Instructor read policy, noted in passing.** The existing policy uses `p.roles @> ARRAY['admin','instructor']`, which requires **both** roles. That is probably not the intent. It is outside WP-09 and is flagged for the reports and RLS owner.
+- **R-5 Session rows are readable by their owner only.** No instructor access is needed.
+- **R-6 Bounds.** Optional per-batch sanity bounds, such as watch delta at most the wall time since the session's previous batch times the maximum rate. This would be new scoring policy, so it is not proposed without a decision.
+
+**Dependencies**
+- PR134 lane: migration number, isolated runner and approval routing.
+- #146 and #164: unchanged and frozen.
+- Completion policy: still undecided. The RPC deliberately does not send completion.
