@@ -14,10 +14,10 @@ export const HELPER_PINS = {
   'e2e/lesson-editor/egress-proxy.ts': '8934885bba89dc81729bfc01aa8a1e594edb4e18', // #152 c74986bc
 };
 /** Served-app helpers the runner EXECUTES in the hermetic step (shared owner, PR134 thread). Checked by run.sh before use, not
- *  at config load. hermetic-dist.mjs is the f169429 contract; the avatar fixture is local/avatar-fixture-r1 2845dea4. */
+ *  at config load. hermetic-dist.mjs is the f169429 contract; the avatar fixture is local/avatar-fixture-r1 b8d2b5b7 (tree b389405e). */
 export const SERVED_APP_PINS = {
   'scripts/served-app/hermetic-dist.mjs': '9db9bf1b8502681d73fcd63d7d653816ebbad0d2',
-  'scripts/served-app/avatar-fixture.mjs': '49c4b88cf3465be9b31dfe9cae89e282edc311ff',
+  'scripts/served-app/avatar-fixture.mjs': 'f7cbca3e6d1771619cd854e769604cd267c88d89',
   'scripts/served-app/avatars/avatar-fixture-11.svg': 'f2716c1b401ce5a7271905a64cf7542ed0619ccf',
   'scripts/served-app/avatars/avatar-fixture-20.svg': '99165ac6ba81ee7cccdb2aea0a1737e2bdba7d84',
   'scripts/served-app/avatars/avatar-fixture-13.svg': 'baa1804a0666ac315393dcba3a682294fb341fcc',

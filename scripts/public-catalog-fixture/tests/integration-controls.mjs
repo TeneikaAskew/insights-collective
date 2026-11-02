@@ -24,10 +24,10 @@ const hermetic = { label: LABEL, served_index_sha256: h('served-index'), product
 const chain = [h('chunk-0'), h('chunk-1'), h('chunk-2'), h('chunk-3')];
 const avatar = { label: AVATAR_LABEL, hermetic: { served_index_sha256: hermetic.served_index_sha256, product_manifest_sha256: hermetic.product_manifest_sha256 },
   substitutions: AVATAR_SUBS.map((s, i) => ({ from: s.from, to: s.to, count: 1, file: CHUNK, sha256_before: chain[i], sha256_after: chain[i + 1] })),
-  assets: { ...AVATAR_ASSETS }, source_maps_unchanged: [] };
+  assets: { ...AVATAR_ASSETS }, final_files: { [CHUNK]: chain[3] }, source_maps_unchanged: [] };
 
 const pos = applyAvatarProvenance(hermetic, avatar);
-ok(!pos.error && pos.prov.files[CHUNK] === chain[3], 'avatar P1 chained subs bind the chunk to the LAST after only');
+ok(!pos.error && pos.prov.files[CHUNK] === chain[3] && ![chain[1], chain[2]].includes(pos.prov.files[CHUNK]), 'avatar P1 the chunk binds to final_files (= chain end), never an intermediate after');
 ok(!pos.error && Object.entries(AVATAR_ASSETS).every(([k, v]) => pos.prov.files[k] === v), 'avatar P2 the three assets bind to the hardcoded sha256');
 ok(!pos.error && pos.prov.served_index_sha256 === hermetic.served_index_sha256 && pos.prov.files['assets/other.js'] === hermetic.files['assets/other.js'], 'avatar P3 index and untouched files keep their hermetic pins');
 ok(!pos.error && expectedHash(pos.prov, '/AVATAR-PROVENANCE.json') === null && expectedHash(pos.prov, '/HERMETIC-PROVENANCE.json') === null, 'avatar P4 neither provenance file is ever bound');
@@ -50,6 +50,23 @@ neg('N12 broken middle link (per-sub rule would pass it)', (a) => { a.substituti
 neg('N13 asset hash from the file, not the pin', (a) => { a.assets['hermetic-avatars/avatar-fixture-11.svg'] = h('forged'); }, 'AVATAR_ASSET_HASH');
 neg('N14 extra asset', (a) => { a.assets['hermetic-avatars/extra.svg'] = h('x'); }, 'AVATAR_ASSET_SET');
 neg('N15 asset path already in hermetic files', (a, hm) => { hm.files['hermetic-avatars/avatar-fixture-13.svg'] = h('x'); }, 'AVATAR_ASSET_COLLISION');
+
+neg('N16 final_files absent (2845dea shape)', (a) => { delete a.final_files; }, 'AVATAR_FINAL_SET');
+neg('N17 final_files names an intermediate', (a) => { a.final_files[CHUNK] = chain[2]; }, 'AVATAR_FINAL_CHAIN');
+neg('N18 final_files has an extra file', (a) => { a.final_files['assets/other.js'] = h('other'); }, 'AVATAR_FINAL_SET');
+
+// Real-build pair from the owner's b8d2b5b packet (optional: REAL_AVATAR_DIR holds HERMETIC-/AVATAR-PROVENANCE.real-build.json).
+if (process.env.REAL_AVATAR_DIR) {
+  const { readFileSync } = await import('node:fs');
+  const rd = (n) => JSON.parse(readFileSync(path.join(process.env.REAL_AVATAR_DIR, n), 'utf8'));
+  const rh = rd('HERMETIC-PROVENANCE.real-build.json'); const ra = rd('AVATAR-PROVENANCE.real-build.json');
+  const rr = applyAvatarProvenance(rh, ra);
+  const fin = Object.entries(ra.final_files ?? {});
+  ok(!rr.error && fin.length === 1 && rr.prov.files[fin[0][0]] === fin[0][1] && fin[0][1].startsWith('428312d3') && rr.prov.served_index_sha256 === rh.served_index_sha256,
+    `avatar REAL b8d2b5b real-build pair binds ${fin[0]?.[0]} to its final ${fin[0]?.[1]?.slice(0, 8)} (got ${rr.error ?? 'OK'})`);
+  const ro = clone(ra); delete ro.final_files;
+  ok(applyAvatarProvenance(rh, ro).error === 'AVATAR_FINAL_SET', 'avatar REAL same pair without final_files is refused');
+}
 
 // loadProvenance: the fixture is an explicit choice both ways.
 const T = mkdtempSync(path.join(tmpdir(), 'pca-int-'));

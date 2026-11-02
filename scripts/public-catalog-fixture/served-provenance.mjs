@@ -9,7 +9,7 @@ export const LABEL = 'TEST-SERVED MODIFICATION: product build minus the Lovable 
 export const sha256 = (b) => createHash('sha256').update(b).digest('hex');
 
 /** The shared owner's TEST-SERVED avatar fixture (scripts/served-app/avatar-fixture.mjs, PR134 thread, local/avatar-fixture-r1
- *  2845dea4, module blob 49c4b88c). The lane does not trust AVATAR-PROVENANCE.json for these values: the substitutions, their
+ *  b8d2b5b7, module blob f7cbca3e). The lane does not trust AVATAR-PROVENANCE.json for these values: the substitutions, their
  *  order, the targets and the three asset digests are hardcoded here and the file must match them exactly. */
 export const AVATAR_LABEL = 'TEST-SERVED AVATAR FIXTURE: hermetic copy with the three CommunityShowcase i.pravatar.cc URLs replaced by fixed local SVGs; NOT production bytes; product avatar provider integration and the AvatarFallback path UNVERIFIED';
 export const AVATAR_SUBS = Object.freeze([11, 20, 13].map((n) => Object.freeze({ from: `https://i.pravatar.cc/150?img=${n}`, to: `/hermetic-avatars/avatar-fixture-${n}.svg` })));
@@ -27,7 +27,10 @@ const readJson = (file, max) => {
 };
 
 /** Pure: the expected served map for the fixture copy, or an error code. Per-file chain in recorded (= application) order:
- *  the first before equals the HERMETIC pin, each later before equals the previous after; only the last after is bound. */
+ *  the first before equals the HERMETIC pin, each later before equals the previous after. Every sha256_after but the last is
+ *  an intermediate and is never bound. The bound value is final_files[file], which must exist for exactly the substituted
+ *  files and equal the chain's end. It is build-specific: it comes from the provenance this job's avatar verify re-derived,
+ *  never from a constant carried over from another build. */
 export function applyAvatarProvenance(hermetic, av) {
   const keys = (o) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.keys(o).sort().join() : '');
   if (!av || av.label !== AVATAR_LABEL) return { error: 'AVATAR_LABEL' };
@@ -45,7 +48,12 @@ export function applyAvatarProvenance(hermetic, av) {
     if (s.sha256_before !== expectBefore) return { error: 'AVATAR_SUB_CHAIN' };
     head[s.file] = s.sha256_after;
   }
-  for (const [f, h] of Object.entries(head)) files[f] = h;
+  const finals = av.final_files;
+  if (keys(finals) !== keys(head)) return { error: 'AVATAR_FINAL_SET' };
+  for (const [f, h] of Object.entries(head)) {
+    if (!HEX.test(finals[f] ?? '') || finals[f] !== h) return { error: 'AVATAR_FINAL_CHAIN' };
+    files[f] = finals[f];
+  }
   if (keys(av.assets) !== keys(AVATAR_ASSETS)) return { error: 'AVATAR_ASSET_SET' };
   for (const [rel, h] of Object.entries(AVATAR_ASSETS)) {
     if (av.assets[rel] !== h) return { error: 'AVATAR_ASSET_HASH' };
