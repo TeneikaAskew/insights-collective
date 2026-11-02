@@ -6,6 +6,8 @@ import { BINDING } from '../fixture';
 import { SUBMISSION_PREFIX } from './ids';
 import { readPrivateJson, writePrivateFile } from './private-dir.mjs';
 import { createRecorder, evaluate, isCandidate, runStateFailures, settled } from './observe-core.mjs';
+import { scanPage, shotSecrets, writeShot } from './shot-core.mjs';
+import { assertPairingProof } from './pairing-proof.mjs';
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' | 'HEAD';
 export type CallSpec = {
@@ -76,6 +78,25 @@ export const loadRunState = (): RunState => {
   return s;
 };
 
-export async function shot(page: Page, info: TestInfo, name: string) {
-  await info.attach(`${name}.png`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+/** Everything the page renders as text: visible text, markup, form values, title and URL (read-only Playwright APIs; no
+ *  script runs in the page). */
+async function pageTexts(page: Page): Promise<string[]> {
+  const values: string[] = [];
+  for (const f of await page.locator('input, textarea, select').all()) values.push(await f.inputValue()); // unreadable: the test fails (closed)
+  return [await page.locator('body').innerText(), await page.content(), values.join('\n'), await page.title(), page.url()];
+}
+
+/**
+ * A real screenshot of the page as the persona sees it, kept only if the page text holds neither this run's pairing nonce
+ * (nor its carrier prefix) nor a credential, checked before and after the capture. A dirty page fails the test with a
+ * fixed code and nothing is written. Clean captures go to the private GB_SHOT_DIR with a scan record bound to their
+ * sha256; shot-export.mjs is the only way out of the run.
+ */
+export async function shot(page: Page, _info: TestInfo, name: string) {
+  const proof = assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: sessionDir() });
+  const secrets = shotSecrets(process.env, proof);
+  const before = scanPage(await pageTexts(page), secrets);
+  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });
+  const after = scanPage(await pageTexts(page), secrets);
+  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);
 }

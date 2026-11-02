@@ -13,7 +13,10 @@ import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
-import { playwrightSummary, compareSummary } from '../run-summary.mjs';
+import { playwrightSummary, compareSummary, shotsSummary } from '../run-summary.mjs';
+import { SHOT_NAMES, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
+import zlib from 'node:zlib';
 import { checkJourney } from './static-contract.mjs';
 
 const repo = process.cwd();
@@ -452,6 +455,97 @@ try {
   ok('SUM comparator lines pass their grammar', compareSummary('FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison\n') === 'FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison');
   ok('SUM a stray raw line (id, URL, message) in comparator output refused', SUMC(() => compareSummary('FAIL W_X\nERROR: MARKER at /tmp/x\nFAIL journey witness comparison\n')) === 'SUMMARY_E_COMPARE_LINE' && SUMC(() => compareSummary('FAIL W_X 9b6c0000-0000-4000-8000-000000000001\nFAIL journey witness comparison')) === 'SUMMARY_E_COMPARE_LINE');
 
+  // ---- Screenshots: capture scan (shot-core) and export (shot-export), on fakes ----
+  const pchunk = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t, 'latin1'), d]); const c = Buffer.alloc(4); c.writeUInt32BE(crc32(td)); return Buffer.concat([l, td, c]); };
+  const PSIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = (w = 2, h = 1, depth = 8, color = 2) => { const b = Buffer.alloc(13); b.writeUInt32BE(w, 0); b.writeUInt32BE(h, 4); b[8] = depth; b[9] = color; return pchunk('IHDR', b); };
+  const idat = (raw = Buffer.from([0, 1, 2, 3, 4, 5, 6]), level = 6) => pchunk('IDAT', zlib.deflateSync(raw, { level }));
+  const iend = () => pchunk('IEND', Buffer.alloc(0));
+  const mkPng = (...mid) => Buffer.concat([PSIG, ihdr(), ...(mid.length ? mid : [idat()]), iend()]);
+  const NONCE = 'a'.repeat(31) + 'b';
+  const SECRETS = shotSecrets({ E2E_INSTRUCTOR_PASSWORD: 'instr-pw-123456', E2E_MEMBER_PASSWORD: 'member-pw-654321', VITE_SUPABASE_ANON_KEY: 'anon-key-abcdefgh' }, { stack_id: NONCE });
+  const SC = (txt) => JSON.stringify(scanPage(Array.isArray(txt) ? txt : [txt, '', '', '', ''], SECRETS));
+  const SCE = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e.code; } };
+  ok('SHOTSCAN secrets refuse a missing nonce or a missing credential (a scan never checks less)', SCE(() => shotSecrets({ E2E_INSTRUCTOR_PASSWORD: 'x', E2E_MEMBER_PASSWORD: 'y', VITE_SUPABASE_ANON_KEY: 'z' }, {})) === 'SHOT_E_NO_NONCE' && SCE(() => shotSecrets({ E2E_INSTRUCTOR_PASSWORD: 'x', E2E_MEMBER_PASSWORD: '' , VITE_SUPABASE_ANON_KEY: 'z' }, { stack_id: NONCE })) === 'SHOT_E_NO_SECRET');
+  ok('SHOTSCAN synthetic journey page text is clean', SC(['Journey Course\nModule 1\nUpload assignment 10 points', '<html><body>Journey Course</body></html>', '', 'Insights', 'http://127.0.0.1:4173/courses/9b6c0000-0000-4000-8000-000000000001']) === '[]');
+  ok('SHOTSCAN the nonce anywhere (text, markup, form value, URL) refuses', [0, 1, 2, 4].every((i) => { const t = ['', '', '', '', '']; t[i] = `x ${NONCE} y`; return SC(t) === '["SHOT_E_NONCE"]'; }));
+  ok('SHOTSCAN the carrier prefix refuses, in any case', SC('Gb-Journey-Pairing:') === '["SHOT_E_PREFIX"]');
+  ok('SHOTSCAN a persona password or the anon key on the page refuses', SC('member-pw-654321') === '["SHOT_E_CREDENTIAL"]' && SC(['', '', 'instr-pw-123456', '', '']) === '["SHOT_E_CREDENTIAL"]' && SC('<meta content="anon-key-abcdefgh">') === '["SHOT_E_CREDENTIAL"]');
+  ok('SHOTSCAN credential shapes refuse: database URI, JWT, Supabase key, service_role', ['postgresql://u@h/d', 'eyJhbGciOiJIUzI1.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJlMTI', 'sb_secret_abcdefgh12', 'role SERVICE_ROLE'].every((t) => SC(t) === '["SHOT_E_PATTERN"]'));
+  ok('SHOTSCAN odd input refuses', JSON.stringify(scanPage([], SECRETS)) === '["SHOT_E_SCAN_INPUT"]' && JSON.stringify(scanPage([1], SECRETS)) === '["SHOT_E_SCAN_INPUT"]' && JSON.stringify(scanPage(['x'], [])) === '["SHOT_E_SCAN_INPUT"]');
+  const shotDir = () => { const d = fs.mkdtempSync(path.join(tmp, 'shots-')); fs.chmodSync(d, 0o700); return d; };
+  { const d = shotDir(); const png = mkPng();
+    ok('SHOTWRITE clean capture writes <name>.png and a scan record bound to its sha256, both 0600', writeShot(d, 'J4c-grades', png, [[], []]) === createHash('sha256').update(png).digest('hex') && JSON.stringify(JSON.parse(fs.readFileSync(path.join(d, 'J4c-grades.scan.json'), 'utf8'))) === JSON.stringify({ name: 'J4c-grades', sha256: createHash('sha256').update(png).digest('hex'), verdict: 'clean', scans: 2 }) && ['J4c-grades.png', 'J4c-grades.scan.json'].every((f) => (fs.statSync(path.join(d, f)).mode & 0o777) === 0o600));
+    ok('SHOTWRITE a dirty scan before OR after the capture refuses and writes nothing', SCE(() => writeShot(d, 'J4c-progress', png, [['SHOT_E_NONCE'], []])) === 'SHOT_E_NONCE' && SCE(() => writeShot(d, 'J4c-progress', png, [[], ['SHOT_E_CREDENTIAL']])) === 'SHOT_E_CREDENTIAL' && !fs.existsSync(path.join(d, 'J4c-progress.png')));
+    ok('SHOTWRITE an unscanned capture, an unknown name, or an existing file refuses', SCE(() => writeShot(d, 'J4c-progress', png, [[]])) === 'SHOT_E_NOT_SCANNED' && SCE(() => writeShot(d, 'J9-other', png, [[], []])) === 'SHOT_E_NAME' && SCE(() => writeShot(d, 'J4c-grades', png, [[], []])) === 'SHOT_E_EXCLUSIVE_CREATE');
+    const open = fs.mkdtempSync(path.join(tmp, 'shots-open-')); fs.chmodSync(open, 0o755);
+    const link = path.join(tmp, `shots-link-${randomUUID()}`); fs.symlinkSync(shotDir(), link);
+    ok('SHOTWRITE a non-private, symlinked or relative shot dir refuses', SCE(() => writeShot(open, 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR' && SCE(() => writeShot(link, 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR' && SCE(() => writeShot('rel', 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR'); }
+  // PNG re-encoding
+  { const clean = mkPng();
+    const withMeta = mkPng(pchunk('tEXt', Buffer.from(`Comment\0MARKER gb-journey-pairing:${NONCE}`, 'latin1')), idat(), pchunk('tIME', Buffer.alloc(7)));
+    const out = sanitizePng(withMeta);
+    ok('PNG clean image passes byte-identical', sanitizePng(clean).png.equals(clean));
+    ok('PNG ancillary chunks (tEXt with marker + nonce, tIME) are dropped; image data kept byte-identical', !out.png.includes(Buffer.from('MARKER')) && !out.png.includes(Buffer.from(NONCE)) && !out.png.includes(Buffer.from('tEXt')) && out.png.equals(clean) && out.width === 2 && out.height === 1);
+    const bad = Buffer.from(clean); bad[bad.length - 13] ^= 1;
+    const PC = (b) => SCE(() => sanitizePng(b));
+    ok('PNG refusals: signature, CRC, truncated, trailing bytes', PC(Buffer.concat([Buffer.from('GIF89a..'), clean.subarray(8)])) === 'SHOT_E_PNG_SIG' && PC(bad) === 'SHOT_E_PNG_CRC' && PC(clean.subarray(0, clean.length - 6)) === 'SHOT_E_PNG_TRUNCATED' && PC(Buffer.concat([clean, Buffer.from('MARKER')])) === 'SHOT_E_PNG_TRAILING');
+    ok('PNG refusals: IHDR not first or repeated, odd IHDR, unknown critical chunk, split IDAT, missing IEND, non-inflating IDAT', PC(Buffer.concat([PSIG, idat(), ihdr(), iend()])) === 'SHOT_E_PNG_IHDR' && PC(Buffer.concat([PSIG, ihdr(), ihdr(), idat(), iend()])) === 'SHOT_E_PNG_IHDR' && PC(Buffer.concat([PSIG, ihdr(2, 1, 3, 2), idat(), iend()])) === 'SHOT_E_PNG_IHDR'
+      && PC(mkPng(idat(), pchunk('ABCD', Buffer.from('x')))) === 'SHOT_E_PNG_CHUNK' && PC(mkPng(idat(), pchunk('tEXt', Buffer.from('a\0b')), idat())) === 'SHOT_E_PNG_IDAT' && PC(Buffer.concat([PSIG, ihdr(), idat()])) === 'SHOT_E_PNG_IEND' && PC(mkPng(pchunk('IDAT', Buffer.from('not zlib MARKER')))) === 'SHOT_E_PNG_DATA'); }
+  // Export
+  const shotRun = () => {
+    const par = fs.mkdtempSync(path.join(tmp, 'shotrun-')); fs.chmodSync(par, 0o700);
+    for (const d of ['proof', 'session', 'shots']) fs.mkdirSync(path.join(par, d), { mode: 0o700 });
+    const proofFile = path.join(par, 'proof', 'pairing-proof.json');
+    fs.writeFileSync(proofFile, JSON.stringify({ version: 2, stack_id: NONCE, control_course_id: CTRL, db_read: `gb-journey-pairing:${NONCE}`, api_read: `gb-journey-pairing:${NONCE}`, journey_rows_before_pairing: 0 }), { mode: 0o600 });
+    return { par, shots: path.join(par, 'shots'), session: path.join(par, 'session'), proofFile, exportDir: path.join(par, 'export') };
+  };
+  const put = (r, name, png, rec = {}) => { fs.writeFileSync(path.join(r.shots, `${name}.png`), png, { mode: 0o600 }); fs.writeFileSync(path.join(r.shots, `${name}.scan.json`), JSON.stringify({ name, sha256: createHash('sha256').update(png).digest('hex'), verdict: 'clean', scans: 2, ...rec }), { mode: 0o600 }); };
+  const EX = (r, over = {}) => { try { return exportShots({ shotDir: r.shots, sessionDir: r.session, proofFile: r.proofFile, exportDir: r.exportDir, ...over }); } catch (e) { return e.code; } };
+  { const r = shotRun(); const meta = mkPng(pchunk('iTXt', Buffer.from(`XML:com.adobe.xmp\0\0\0\0\0MARKER ${NONCE}`, 'latin1')), idat());
+    put(r, 'J4d-certificate', meta); put(r, 'J0a-catalog-before-publish', mkPng());
+    const lines = EX(r);
+    const outs = fs.readdirSync(r.exportDir).sort();
+    ok('SHOTEXPORT clean pair exported in allowlist order with exact manifest lines; bytes re-encoded without metadata', Array.isArray(lines) && lines.length === 3 && lines[0].startsWith('SHOT J0a-catalog-before-publish sha256=') && lines[1].startsWith('SHOT J4d-certificate sha256=') && lines[2] === 'SHOTS 2 of 16'
+      && outs.join(',') === 'J0a-catalog-before-publish.png,J4d-certificate.png' && !fs.readFileSync(path.join(r.exportDir, 'J4d-certificate.png')).includes(Buffer.from('MARKER')) && lines[1].includes(`sha256=${createHash('sha256').update(fs.readFileSync(path.join(r.exportDir, 'J4d-certificate.png'))).digest('hex')}`));
+    ok('SHOTEXPORT export dir 0700, files 0600; scan records are never exported', (fs.statSync(r.exportDir).mode & 0o777) === 0o700 && outs.every((f) => (fs.statSync(path.join(r.exportDir, f)).mode & 0o777) === 0o600) && !outs.some((f) => f.endsWith('.json')));
+    ok('SHOTEXPORT the export dir must not exist yet', EX(r) === 'SHOT_E_EXPORT_DIR'); }
+  ok('SHOTEXPORT no shots: just "SHOTS 0 of 16"', JSON.stringify(EX(shotRun())) === '["SHOTS 0 of 16"]');
+  { const cases = [
+      ['nonce inside the image data itself (stored deflate) refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from(`\0${NONCE}`), 0))), 'SHOT_E_NONCE_IN_PNG'],
+      ['carrier prefix inside the image data refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from('\0gb-journey-pairing:'), 0))), 'SHOT_E_NONCE_IN_PNG'],
+      ['a dirty verdict refuses', (r) => put(r, 'J4c-grades', mkPng(), { verdict: 'dirty' }), 'SHOT_E_SCAN_RECORD'],
+      ['a record for one scan only refuses', (r) => put(r, 'J4c-grades', mkPng(), { scans: 1 }), 'SHOT_E_SCAN_RECORD'],
+      ['a record with an extra key refuses', (r) => put(r, 'J4c-grades', mkPng(), { note: 'x' }), 'SHOT_E_SCAN_RECORD'],
+      ['a record naming another shot refuses', (r) => put(r, 'J4c-grades', mkPng(), { name: 'J4c-progress' }), 'SHOT_E_SCAN_RECORD'],
+      ['PNG bytes changed after the scan refuse', (r) => { put(r, 'J4c-grades', mkPng()); fs.writeFileSync(path.join(r.shots, 'J4c-grades.png'), mkPng(idat(Buffer.from([0, 7, 7, 7, 7, 7, 7]))), { mode: 0o600 }); }, 'SHOT_E_SCAN_MISMATCH'],
+      ['a PNG without its record refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J4c-grades.png'), mkPng(), { mode: 0o600 }), 'SHOT_E_UNPAIRED'],
+      ['a record without its PNG refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J4c-grades.scan.json'), '{}', { mode: 0o600 }), 'SHOT_E_UNPAIRED'],
+      ['an unknown file (not allowlisted) refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J9-extra.png'), mkPng(), { mode: 0o600 }), 'SHOT_E_UNKNOWN_FILE'],
+      ['a 0644 PNG refuses', (r) => { put(r, 'J4c-grades', mkPng()); fs.chmodSync(path.join(r.shots, 'J4c-grades.png'), 0o644); }, 'SHOT_E_MODE'],
+      ['a symlinked PNG refuses (no-follow)', (r) => { put(r, 'J4c-grades', mkPng()); const t = path.join(r.par, 'real.png'); fs.renameSync(path.join(r.shots, 'J4c-grades.png'), t); fs.symlinkSync(t, path.join(r.shots, 'J4c-grades.png')); }, 'SHOT_E_OPEN'],
+      ['a FIFO in place of a PNG refuses at once (non-blocking)', (r) => { put(r, 'J4c-grades', mkPng()); fs.rmSync(path.join(r.shots, 'J4c-grades.png')); execFileSync('mkfifo', ['-m', '600', path.join(r.shots, 'J4c-grades.png')]); }, 'SHOT_E_TYPE'],
+      ['a directory in place of a record refuses', (r) => { fs.writeFileSync(path.join(r.shots, 'J4c-grades.png'), mkPng(), { mode: 0o600 }); fs.mkdirSync(path.join(r.shots, 'J4c-grades.scan.json'), { mode: 0o700 }); }, 'SHOT_E_TYPE'],
+      ['an oversize record refuses', (r) => { put(r, 'J4c-grades', mkPng()); fs.writeFileSync(path.join(r.shots, 'J4c-grades.scan.json'), 'x'.repeat(600), { mode: 0o600 }); }, 'SHOT_E_SIZE'],
+    ];
+    for (const [label, setup, want] of cases) { const r = shotRun(); setup(r); const t0 = Date.now(); const got = EX(r); ok(`SHOTEXPORT ${label}; nothing exported`, got === want && !fs.existsSync(r.exportDir) && Date.now() - t0 < 5000); } }
+  { const r = shotRun(); put(r, 'J4c-grades', mkPng());
+    const open = shotRun(); fs.chmodSync(open.shots, 0o755); put(open, 'J4c-grades', mkPng());
+    ok('SHOTEXPORT a non-private shot dir or an invalid/missing proof refuses', EX(open) === 'SHOT_E_DIR' && EX(r, { proofFile: path.join(r.par, 'none.json') }) === 'SHOT_E_PROOF' && EX(r, { sessionDir: path.join(r.par, 'proof') }) === 'SHOT_E_PROOF');
+    const f = path.join(r.shots, 'J4c-grades.png'); const io = (over) => ({ openSync: fs.openSync, fstatSync: fs.fstatSync, readSync: fs.readSync, closeSync: fs.closeSync, ...over });
+    const HC = (o) => { try { shotReadHandle(f, 1 << 20, { io: io(o) }); return 'ACCEPTED'; } catch (e) { return e.code; } };
+    const resize = (d) => (fd) => { const st = fs.fstatSync(fd); return Object.assign(Object.create(Object.getPrototypeOf(st)), st, { size: st.size + d }); };
+    let closed = 0;
+    ok('SHOTEXPORT handle: growth, shrink, read error, close error refuse; handle always closed', HC({ fstatSync: resize(-3) }) === 'SHOT_E_GROWTH' && HC({ fstatSync: resize(3) }) === 'SHOT_E_GROWTH'
+      && HC({ readSync: () => { throw new Error('EIO'); }, closeSync: (fd) => { closed++; fs.closeSync(fd); } }) === 'SHOT_E_READ' && closed === 1 && HC({ closeSync: (fd) => { fs.closeSync(fd); throw new Error('x'); } }) === 'SHOT_E_CLOSE');
+    ok('SHOTEXPORT handle: an endless reader stops at the cap', HC({ fstatSync: resize(0), readSync: (_fd, b, off, len) => { b.fill(1, off, off + len); return len; } }) === 'SHOT_E_SIZE'); }
+  // Manifest grammar
+  { const L = (n) => `SHOT ${n} sha256=${'c'.repeat(64)} bytes=120 width=1280 height=2400`;
+    const SS = (t) => { try { return shotsSummary(t, SHOT_NAMES); } catch (e) { return e.code; } };
+    ok('SUM shots manifest in allowlist order passes', SS(`${L('J0a-catalog-before-publish')}\n${L('J4d-certificate')}\nSHOTS 2 of 16\n`) === `${L('J0a-catalog-before-publish')}\n${L('J4d-certificate')}\nSHOTS 2 of 16`);
+    ok('SUM shots refusals: out of order, duplicate, unknown name, wrong count, stray raw line', SS(`${L('J4d-certificate')}\n${L('J0a-catalog-before-publish')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\n${L('J4c-grades')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE'
+      && SS(`${L('J9-other-shot')}\nSHOTS 1 of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_SHAPE' && SS(`${L('J4c-grades')}\nMARKER /tmp/x\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE'); }
+
   // ---- Runner, end to end on FAKES: a copy of the tree with fake psql/npx on PATH and an in-process fake API ----
   // The copy's ONLY edits: the two D1 pins and the two first-write gate constants point at selftest fakes. Every other
   // byte (runner, producer, private-psql, summaries, SQL, guards) is the real file. Nothing touches a database.
@@ -485,6 +579,19 @@ process.stderr.write('MARKER-playwright-STDERR\\n');
 const m=process.env.FAKE_FAIL;
 if(m==='playwright-badjson'){process.stdout.write('MARKER-playwright-not-json');process.exit(1);}
 const bad=m==='playwright';
+{ const crypto=require('crypto'),zlib=require('zlib'),path=require('path');
+  const T=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;T[n]=c>>>0;}
+  const crc=(b)=>{let c=0xffffffff;for(const x of b)c=T[(c^x)&0xff]^(c>>>8);return (c^0xffffffff)>>>0;};
+  const ch=(t,d)=>{const l=Buffer.alloc(4);l.writeUInt32BE(d.length);const td=Buffer.concat([Buffer.from(t,'latin1'),d]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(td));return Buffer.concat([l,td,c]);};
+  const ih=Buffer.alloc(13);ih.writeUInt32BE(2,0);ih.writeUInt32BE(1,4);ih[8]=8;ih[9]=2;
+  const proof=JSON.parse(fs.readFileSync(process.env.GB_JOURNEY_PAIRING_PROOF,'utf8'));
+  const meta=ch('tEXt',Buffer.from('Comment\0MARKER-png-text '+proof.db_read,'latin1'));
+  const png=Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]),ch('IHDR',ih),meta,ch('IDAT',zlib.deflateSync(Buffer.from([0,9,9,9,8,8,8]))),ch('IEND',Buffer.alloc(0))]);
+  const mode=process.env.FAKE_SHOTS||'two';
+  if(mode!=='none') for(const name of ['J0a-catalog-before-publish','J4d-certificate']){
+    const d=process.env.GB_SHOT_DIR;fs.writeFileSync(path.join(d,name+'.png'),png,{mode:0o600,flag:'wx'});
+    fs.writeFileSync(path.join(d,name+'.scan.json'),JSON.stringify({name,sha256:crypto.createHash('sha256').update(png).digest('hex'),verdict:mode==='dirty'?'dirty':'clean',scans:2}),{mode:0o600,flag:'wx'});
+    if(mode==='stray'){fs.writeFileSync(path.join(d,'MARKER-stray.txt'),'x',{mode:0o600});} } }
 process.stdout.write(JSON.stringify({config:{marker:'MARKER-playwright-json'},suites:[],errors:bad?[{message:'MARKER-playwright-error'}]:[],stats:{expected:bad?11:12,unexpected:bad?1:0,flaky:0,skipped:0}}));
 process.exit(bad?1:0);
 `);
@@ -547,10 +654,15 @@ process.exit(bad?1:0);
     'seed.txt': (s) => s === `${SEED_PASS}\n`,
     'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\n$/.test(s),
     'compare.txt': (s) => { try { compareSummary(s); return true; } catch { return false; } },
+    'screenshots.txt': (s) => { try { shotsSummary(s, SHOT_NAMES); return true; } catch { return false; } },
+    'screenshots': () => true, // checked below against its manifest
   };
   const verdict = (r, rc, err, files) => {
     const staged = fs.existsSync(r.out) ? fs.readdirSync(r.out).sort() : [];
-    const texts = staged.map((f) => fs.readFileSync(path.join(r.out, f), 'utf8'));
+    const isDir = (f) => fs.lstatSync(path.join(r.out, f)).isDirectory();
+    const pngs = staged.includes('screenshots') ? fs.readdirSync(path.join(r.out, 'screenshots')).sort() : [];
+    const texts = staged.map((f) => isDir(f) ? pngs.map((x) => fs.readFileSync(path.join(r.out, f, x), 'latin1')).join('\n') : fs.readFileSync(path.join(r.out, f), 'utf8'));
+    let nonce = ''; try { nonce = fs.readFileSync(path.join(r.st, 'carrier'), 'utf8').split(':')[1] ?? ''; } catch { /* no carrier yet */ }
     const all = [r.so, r.se, ...texts].join('\n');
     const left = fs.readdirSync(r.sb).filter((f) => f.startsWith('gb-journey-run.'));
     const why = [];
@@ -559,7 +671,14 @@ process.exit(bad?1:0);
     if (/MARKER|s3cr3t|%3A|postgresql:\/\/|gb-journey-pairing:/.test(all)) why.push('leak');
     if (left.length) why.push('parent-left');
     if (staged.join(',') !== files) why.push(`files=${staged.join(',')}`);
+    if (nonce && all.includes(nonce)) why.push('nonce');
     if (staged.some((f, i) => !ALLOWED[f] || !ALLOWED[f](texts[i]))) why.push('content');
+    if (staged.includes('screenshots')) {
+      const man = fs.readFileSync(path.join(r.out, 'screenshots.txt'), 'utf8').split('\n').filter((l) => l.startsWith('SHOT '));
+      const named = man.map((l) => `${l.split(' ')[1]}.png`).sort();
+      if (JSON.stringify(named) !== JSON.stringify(pngs)) why.push('shots-manifest');
+      for (const l of man) { const [, n, sh] = l.split(' '); const b = fs.readFileSync(path.join(r.out, 'screenshots', `${n}.png`));
+        if (`sha256=${createHash('sha256').update(b).digest('hex')}` !== sh || b.includes(Buffer.from('tEXt')) || (fs.statSync(path.join(r.out, 'screenshots', `${n}.png`)).mode & 0o777) !== 0o600) why.push('shots-bytes'); } }
     return why;
   };
   const RUN = async (name, opts, extra, rc, err, files) => {
@@ -569,14 +688,15 @@ process.exit(bad?1:0);
     return r;
   };
   try {
-    const ALL = 'compare.txt,composition.txt,pairing.txt,playwright-summary.txt,seed.txt';
-    const happy = await RUN('every step on fakes: exit 1 (fake witness fails compare), only the 5 fixed summaries staged, nothing raw, parent removed', {}, {}, 1, '', ALL);
+    const ALL = 'compare.txt,composition.txt,pairing.txt,playwright-summary.txt,screenshots,screenshots.txt,seed.txt';
+    const happy = await RUN('every step on fakes: exit 1 (fake witness fails compare), only the 5 fixed summaries + screenshots manifest + re-encoded PNGs staged, nothing raw, parent removed', {}, {}, 1, '', ALL);
     { const calls = fs.readFileSync(path.join(happy.st, 'psql.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
       ok('RUNFAKE psql call order: sysid, composition, precheck, carrier insert, readback, seed, witness pre, witness post', JSON.stringify(calls.map((c) => c.op)) === '["sysid","composition.sql","precheck","pairing-seed.sql","carrier","seed-journey.sql","witness-pre","witness-post"]');
       ok('RUNFAKE every psql argv is -w with plain -h/-p/-U/-d; no password, URI or nonce on any argv', calls.every((c) => JSON.stringify(c.argv) === JSON.stringify(plan.argv)));
       ok('RUNFAKE every psql child had a 0600 passfile in the run private raw dir with exactly the planned line, and no DSN or PGPASSWORD env', calls.every((c) => c.pass && c.pass.mode === '600' && c.pass.sha === createHash('sha256').update(plan.passLine).digest('hex') && /\/gb-journey-run\.[A-Za-z0-9]{10}\/raw$/.test(c.pass.dir) && !c.dsn && !c.pgpw));
       const npx = JSON.parse(fs.readFileSync(path.join(happy.st, 'npx.jsonl'), 'utf8').trim());
       ok('RUNFAKE Playwright gets --reporter=json and a private --output under the run parent', npx.argv.includes('--reporter=json') && npx.argv.some((a) => /^--output=.*\/gb-journey-run\.[A-Za-z0-9]{10}\/raw\/test-results$/.test(a)));
+      ok('RUNFAKE two clean shots exported, the tEXt chunk carrying a marker and the nonce dropped, manifest matches bytes', fs.readdirSync(path.join(happy.out, 'screenshots')).join(',') === 'J0a-catalog-before-publish.png,J4d-certificate.png' && /^SHOT J0a-catalog-before-publish sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOT J4d-certificate sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOTS 2 of 16\n$/.test(fs.readFileSync(path.join(happy.out, 'screenshots.txt'), 'utf8')));
       ok('RUNFAKE stdout is exactly the staged compare lines plus the Playwright count line', happy.so === `${fs.readFileSync(path.join(happy.out, 'compare.txt'), 'utf8')}PLAYWRIGHT exit=0 expected=12 unexpected=0 flaky=0 skipped=0 global_errors=0\n`); }
     const apiSeen = [...apiCalls];
     ok('RUNFAKE carrier API reads: GET, anon key only, carrier then random-id control', apiSeen.length === 2 && apiSeen.every((c) => c.method === 'GET' && c.auth === null) && apiSeen[0].url === `/rest/v1/courses?id=eq.${CTRL}&select=id,description` && /^\/rest\/v1\/courses\?id=eq\.[0-9a-f-]{36}&select=id,description$/.test(apiSeen[1].url) && apiSeen[1].url !== apiSeen[0].url);
@@ -604,7 +724,11 @@ process.exit(bad?1:0);
     await RUN('Playwright report is not JSON (marker)', {}, { FAKE_FAIL: 'playwright-badjson' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY', 'composition.txt,pairing.txt,seed.txt');
     { const r = await RUN('Playwright fails (marker in report, stderr and errors): run continues, exit 1, counts only', {}, { FAKE_FAIL: 'playwright' }, 1, '', ALL);
       ok('RUNFAKE failed Playwright summary is the fixed count line', fs.readFileSync(path.join(r.out, 'playwright-summary.txt'), 'utf8') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1\n'); }
-    await RUN('witness post fails', {}, { FAKE_FAIL: 'witness-post' }, 3, 'run-journey refused: RUN_E_WITNESS_POST', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
+    await RUN('witness post fails', {}, { FAKE_FAIL: 'witness-post' }, 3, 'run-journey refused: RUN_E_WITNESS_POST', 'composition.txt,pairing.txt,playwright-summary.txt,screenshots,screenshots.txt,seed.txt');
+    await RUN('a dirty scan record in the shot dir refuses the export (nothing staged from it)', {}, { FAKE_SHOTS: 'dirty' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
+    await RUN('a stray file in the shot dir refuses the export', {}, { FAKE_SHOTS: 'stray' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
+    { const r = await RUN('no screenshots taken: empty screenshots dir, manifest SHOTS 0 of 16', {}, { FAKE_SHOTS: 'none' }, 1, '', ALL);
+      ok('RUNFAKE zero-shot manifest is exactly the count line', fs.readFileSync(path.join(r.out, 'screenshots.txt'), 'utf8') === 'SHOTS 0 of 16\n'); }
   } finally { server.close(); }
 
   // ---- Runner refusals on THIS tree that need no stack ----
@@ -690,6 +814,19 @@ process.exit(bad?1:0);
     ['hermetic-dist import unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace(/  'scripts\/served-app\/hermetic-dist\.mjs': '[0-9a-f]{40}',\n/, ''), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['appverify skips the pin re-check', `${S}/pairing-producer.mjs`, (s) => s.replace("  if (cmd === 'appverify') {\n    const f = pinFailures(root);", "  if (cmd === 'appverify') {\n    const f = [];"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
+    ['shot() captures before scanning', `${J}/observe.ts`, (s) => s.replace("  const before = scanPage(await pageTexts(page), secrets);\n  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });", "  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });\n  const before = scanPage(await pageTexts(page), secrets);"), 'R12_SHOT_UNSCANNED'],
+    ['shot() skips the after-scan', `${J}/observe.ts`, (s) => s.replace('[before, after]', '[before, before]'), 'R12_SHOT_UNSCANNED'],
+    ['shot() attaches the raw capture again', `${J}/observe.ts`, (s) => s.replace("  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);", "  await _info.attach(`${name}.png`, { body: png, contentType: 'image/png' });\n  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);"), 'R12_SHOT_UNSCANNED'],
+    ['a spec takes its own screenshot', `${J}/j4-learner-readback-certificate.spec.ts`, (s) => s.replace("await shot(page, info, 'J4d-certificate');", "await shot(page, info, 'J4d-certificate');\n  await page.screenshot({ path: 'x.png' });"), 'R12_SHOT_UNSCANNED'],
+    ['allowlist gains a name no spec uses', `${J}/shot-core.mjs`, (s) => s.replace("'J4d-certificate',\n]);", "'J4d-certificate', 'J9-anything',\n]);"), 'R12_SHOT_ALLOWLIST'],
+    ['scan drops the anon key', `${J}/shot-core.mjs`, (s) => s.replace("'E2E_MEMBER_PASSWORD', 'VITE_SUPABASE_ANON_KEY']", "'E2E_MEMBER_PASSWORD']"), 'R12_SHOT_SCAN_WEAK'],
+    ['scan drops the nonce', `${J}/shot-core.mjs`, (s) => s.replace("{ label: 'NONCE', value: proof.stack_id }, ", ''), 'R12_SHOT_SCAN_WEAK'],
+    ['export keeps ancillary chunks', `${S}/shot-export.mjs`, (s) => s.replace('      // ancillary (lower-case first letter): dropped, never copied', '      else kept.push(whole); // ancillary kept'), 'R12_SHOT_EXPORT_WEAK'],
+    ['export trusts any CRITICAL set', `${S}/shot-export.mjs`, (s) => s.replace("const CRITICAL = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND']);", "const CRITICAL = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'zTXt']);"), 'R12_SHOT_EXPORT_WEAK'],
+    ['export skips the nonce byte check', `${S}/shot-export.mjs`, (s) => s.replace('const forbidden = [Buffer.from(proof.stack_id), Buffer.from(PAIRING_PREFIX)];', 'const forbidden = [];'), 'R12_SHOT_EXPORT_WEAK'],
+    ['export ignores the scan sha256', `${S}/shot-export.mjs`, (s) => s.replace("!== rec.sha256) throw new ShotError('SHOT_E_SCAN_MISMATCH')", "!== rec.sha256) void 0"), 'R12_SHOT_EXPORT_WEAK'],
+    ['runner stages the raw shot dir', `${S}/run-journey.sh`, (s) => s.replace('mv "$RAW/shots-export" "$OUT/screenshots"', 'cp -r "$PARENT/shots" "$OUT/screenshots"'), 'R11_RUNNER_RAW_STAGED'],
+    ['runner skips the shot export', `${S}/run-journey.sh`, (s) => s.replace(/^node "\$HERE\/shot-export\.mjs".*$/m, 'true'), 'R11_RUNNER_ORDER'],
     ['private psql sets PGPASSFILE only when there is a password', `${S}/private-psql.mjs`, (s) => s.replace('\n    plan.env.PGPASSFILE = passFile;\n', '\n    if (plan.passLine) plan.env.PGPASSFILE = passFile;\n'), 'R11_PSQL_NOT_PRIVATE'],
     ['private psql plans null for a passwordless DSN again', `${S}/private-psql.mjs`, (s) => s.replace("passLine: pw === null ? '' :", 'passLine: pw === null ? null :'), 'R11_PSQL_NOT_PRIVATE'],
     ['private psql drops -w', `${S}/private-psql.mjs`, (s) => s.replace("'-At', '-w',", "'-At',"), 'R11_PSQL_NOT_PRIVATE'],

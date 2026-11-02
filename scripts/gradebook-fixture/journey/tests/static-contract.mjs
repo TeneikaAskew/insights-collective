@@ -114,15 +114,17 @@ export function checkJourney(root) {
   const sh = rd(`${sdir}/run-journey.sh`).split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   const steps = ['pairing-producer.mjs" pins', 'assert-safe-target.mjs" --mutating', 'local-binding.mjs', 'pairing-producer.mjs" dsn', 'mktemp -d',
     'trap cleanup EXIT', 'pairing-producer.mjs" ownership', 'pairing-producer.mjs" appverify', 'composition.sql', 'pairing-producer.mjs" pair',
-    'pairing-producer.mjs" seed', 'witness-journey.sql" "$RAW/witness-pre.txt"', 'playwright test', 'witness-journey.sql" "$RAW/witness-post.txt"', 'compare-witness.mjs'];
+    'pairing-producer.mjs" seed', 'witness-journey.sql" "$RAW/witness-pre.txt"', 'playwright test', 'shot-export.mjs"', 'run-summary.mjs" shots', 'witness-journey.sql" "$RAW/witness-post.txt"', 'compare-witness.mjs'];
   const at = steps.map((x) => sh.indexOf(x));
   if (at.some((i) => i < 0) || at.some((i, k) => k > 0 && i <= at[k - 1])) v.push('R11_RUNNER_ORDER run-journey.sh');
   if (/set -x|xtrace|stack_id|gb-journey-pairing:|\bnonce\b/i.test(sh)) v.push('R11_RUNNER_NONCE_OR_TRACE run-journey.sh');
   // No DSN on any command line, and no direct psql: every DB call goes through private-psql.mjs or the producer.
   if (/SUPABASE_DB_URL/.test(sh) || /(^|[^-\w])psql\s/m.test(sh.replace(/private-psql\.mjs/g, ''))) v.push('R11_RUNNER_DSN_ARGV run-journey.sh');
   // The evidence dir receives only the fixed composition line and copies of validated RAW summaries.
-  const outWrites = [...sh.matchAll(/[^\n]*"\$OUT\/[^"\n]*"[^\n]*/g)].map((m) => m[0].trim()).filter((l) => !/^\[ "\$\(ls -A "\$OUT"/.test(l) && !/^cat "\$OUT\/compare\.txt" "\$OUT\/playwright-summary\.txt"$/.test(l));
-  if (outWrites.some((l) => !(l === 'echo "COMPOSITION composed-r5" > "$OUT/composition.txt"' || /^cp "\$RAW\/(pairing|seed|playwright-summary|compare-summary)\.out" "\$OUT\/(pairing|seed|playwright-summary|compare)\.txt"$/.test(l)))) v.push('R11_RUNNER_RAW_STAGED run-journey.sh');
+  const outWrites = [...sh.matchAll(/[^\n]*"\$OUT\/[^"\n]*"[^\n]*/g)].map((m) => m[0].trim()).filter((l) => !/^\[ "\$\(ls -A "\$OUT"/.test(l) && !/^cat "\$OUT\/compare\.txt" "\$OUT\/playwright-summary\.txt"$/.test(l)
+    && l !== `[ "$(sed -n 's/^SHOT \\([^ ]*\\) .*/\\1.png/p' "$OUT/screenshots.txt" | LC_ALL=C sort | tr '\\n' ' ')" = "$(ls -A "$OUT/screenshots" | LC_ALL=C sort | tr '\\n' ' ')" ] || refuse RUN_E_INVENTORY`);
+  if (outWrites.some((l) => !(l === 'echo "COMPOSITION composed-r5" > "$OUT/composition.txt"' || /^cp "\$RAW\/(pairing|seed|playwright-summary|compare-summary|shots-summary)\.out" "\$OUT\/(pairing|seed|playwright-summary|compare|screenshots)\.txt"$/.test(l)
+    || l === 'mv "$RAW/shots-export" "$OUT/screenshots"'))) v.push('R11_RUNNER_RAW_STAGED run-journey.sh');
   if (!/--reporter=json --output="\$RAW\/test-results"/.test(sh)) v.push('R11_RUNNER_RAW_STAGED run-journey.sh');
   if (/rm -rf -- "\$PARENT"/.test(sh) === false || (sh.match(/rm -/g) || []).length !== 1) v.push('R11_RUNNER_CLEANUP run-journey.sh');
   if (!/^step RUN_E_D1 ownership "[^"]+" -- node "\$HERE\/pairing-producer\.mjs" ownership "\$RAW"$/m.test(sh) || !/^step RUN_E_APP appverify "[^"]+" -- node "\$HERE\/pairing-producer\.mjs" appverify$/m.test(sh)) v.push('R11_RUNNER_NO_D1 run-journey.sh');
@@ -154,6 +156,26 @@ export function checkJourney(root) {
   const lb = stripJsComments(rd('e2e/gradebook-roles/local-binding.mjs'));
   if (/execFileSync|spawn/.test(lb) || !/assertLocalDsn\(/.test(lb)) v.push('R11_BINDING_DSN_ARGV local-binding.mjs');
 
+  // R12 screenshots: the only capture path scans the page (before and after) and writes through writeShot; the allowlist is
+  // exactly the specs' shot names; the export keeps critical PNG chunks only and refuses the nonce/prefix in the bytes.
+  const obs = stripJsComments(rd(`${jdir}/observe.ts`));
+  const shotFn = obs.slice(obs.indexOf('export async function shot('));
+  const sAt = ['shotSecrets(process.env, proof)', 'scanPage(await pageTexts(page), secrets)', 'page.screenshot(', 'scanPage(await pageTexts(page), secrets)', 'writeShot(process.env.GB_SHOT_DIR'].map((x, k, a) => shotFn.indexOf(x, k ? shotFn.indexOf(a[k - 1]) + 1 : 0));
+  if (sAt.some((i) => i < 0) || sAt.some((i, k) => k > 0 && i <= sAt[k - 1]) || /attach\(/.test(shotFn) || !/writeShot\([^)]*\[before, after\]\)/.test(shotFn)) v.push('R12_SHOT_UNSCANNED observe.ts');
+  for (const f of JOURNEY_SPECS.concat(['observe.ts', 'session-setup.ts', 'progress-oracle.ts'])) {
+    const t = stripJsComments(rd(`${jdir}/${f}`));
+    const n = (t.match(/\.screenshot\(|\.attach\(/g) || []).length;
+    if (n !== (f === 'observe.ts' ? 1 : 0)) v.push(`R12_SHOT_UNSCANNED ${f}`);
+  }
+  const specShots = JOURNEY_SPECS.flatMap((f) => [...stripJsComments(rd(`${jdir}/${f}`)).matchAll(/shot\(page, info, '([^']+)'\)/g)].map((m) => m[1])).sort();
+  const core = rd(`${jdir}/shot-core.mjs`);
+  const allow = [...((core.match(/SHOT_NAMES = Object\.freeze\(\[([\s\S]*?)\]\)/) || [, ''])[1]).matchAll(/'([^']+)'/g)].map((m) => m[1]).sort();
+  if (!specShots.length || new Set(specShots).size !== specShots.length || JSON.stringify(specShots) !== JSON.stringify(allow)) v.push('R12_SHOT_ALLOWLIST shot-core.mjs');
+  if (!/for \(const k of \['E2E_INSTRUCTOR_PASSWORD', 'E2E_MEMBER_PASSWORD', 'VITE_SUPABASE_ANON_KEY'\]\)/.test(core) || !/label: 'NONCE', value: proof\.stack_id/.test(core) || !/label: 'PREFIX', value: PAIRING_PREFIX/.test(core)) v.push('R12_SHOT_SCAN_WEAK shot-core.mjs');
+  const ex = stripJsComments(rd(`${sdir}/shot-export.mjs`));
+  if (!/const CRITICAL = new Set\(\['IHDR', 'PLTE', 'IDAT', 'IEND'\]\);/.test(ex) || !/\/\/ ancillary|ancillary/.test(rd(`${sdir}/shot-export.mjs`)) || (ex.match(/kept\.push\(whole\)/g) || []).length !== 4 || /else kept\.push/.test(ex)
+    || !/forbidden = \[Buffer\.from\(proof\.stack_id\), Buffer\.from\(PAIRING_PREFIX\)\]/.test(ex) || !/rec\.verdict !== 'clean'/.test(ex) || !/!== rec\.sha256\) throw new ShotError\('SHOT_E_SCAN_MISMATCH'\)/.test(ex)
+    || !/O_NONBLOCK/.test(ex) || !/crc32\(/.test(ex)) v.push('R12_SHOT_EXPORT_WEAK shot-export.mjs');
   return v;
 }
 

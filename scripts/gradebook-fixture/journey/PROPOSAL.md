@@ -265,3 +265,22 @@ passfile mode/content/removal, env stripping, remote/multihost/hostaddr/socket/P
 RUNFAKE end to end on a tree copy with fake psql/npx and an in-process fake API: the happy order, then a marker-bearing
 failure at every post-mktemp step, each checked for one fixed stderr line, no marker/password/DSN/nonce anywhere, parent
 removed, exact evidence inventory.
+
+## 14. Bounded synthetic PNG screenshot export (T 02:59Z; UNRUN)
+
+- **Capture** (`observe.ts` `shot()`, rules in `e2e/gradebook-roles/journey/shot-core.mjs`):
+  - Reads the page text with read-only Playwright APIs: body innerText, `page.content()`, every input/textarea/select value, title and URL.
+  - Scans it before and after the screenshot for: this run's nonce (from the checked proof v2), the carrier prefix `gb-journey-pairing:`, both persona passwords, the anon key, and credential shapes (database URI, JWT, Supabase keys, service_role).
+  - Any hit fails the test with a fixed `SHOT_E_*` code, and nothing is written.
+  - A clean capture is written to the private `GB_SHOT_DIR` (0700, under the runner's parent) as `<name>.png`, plus `<name>.scan.json` with keys `{name, sha256, verdict:"clean", scans:2}`, both exclusive-create 0600.
+  - Names come from a 16-entry allowlist, which the static contract keeps equal to the specs' `shot()` calls.
+  - No other screenshot or attach call exists in the journey files.
+- **Export** (`scripts/gradebook-fixture/journey/shot-export.mjs`), the only way out:
+  - Allowlisted pairs only.
+  - Each file is read on one O_NOFOLLOW|O_NONBLOCK handle: regular file, this uid, exact 0600, bounded size, bounded read, no growth, finally-close.
+  - The scan record must be exact and clean, and its sha256 must equal the PNG bytes.
+  - The PNG is re-encoded with IHDR/PLTE/IDAT/IEND only. Every chunk CRC is checked and the image data must inflate. Ancillary chunks, such as text/XMP/EXIF/time, are dropped, and unknown critical chunks refuse.
+  - The re-encoded bytes must not contain the nonce or the prefix.
+  - Output is `screenshots/<name>.png` (0600) and a manifest, `SHOT <name> sha256= bytes= width= height=` lines then `SHOTS n of 16`, validated by `run-summary.mjs shots`.
+- **Evidence inventory** is now exactly: `compare.txt composition.txt pairing.txt playwright-summary.txt screenshots/ screenshots.txt seed.txt`. The PNG set must equal the manifest.
+- **Limit.** Pixels are not OCR'd. The scan covers what the page renders as text, which is where a description or credential would come from on these synthetic pages. A static read at 324332ea finds the control course description on none of the 16 screens.

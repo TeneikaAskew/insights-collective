@@ -25,14 +25,14 @@ node "$HERE/pairing-producer.mjs" pins "$ROOT" >/dev/null 2>&1 || refuse RUN_E_P
 node "$ROOT/scripts/e2e/assert-safe-target.mjs" --mutating >/dev/null 2>&1 || refuse RUN_E_TARGET
 (cd "$ROOT" && node e2e/gradebook-roles/local-binding.mjs >/dev/null 2>&1) || refuse RUN_E_BINDING
 node "$HERE/pairing-producer.mjs" dsn >/dev/null 2>&1 || refuse RUN_E_DSN
-# 2. Private dirs: one fresh 0700 parent, four distinct 0700 children; the trap removes exactly that parent.
+# 2. Private dirs: one fresh 0700 parent, five distinct 0700 children; the trap removes exactly that parent.
 TMPROOT="$(cd "${RUNNER_TEMP:-${TMPDIR:-/tmp}}" && pwd -P)"
 PARENT="$(mktemp -d "$TMPROOT/gb-journey-run.XXXXXXXXXX")" || refuse RUN_E_DIRS
 cleanup() { case "$PARENT" in "$TMPROOT"/gb-journey-run.??????????) [ -d "$PARENT" ] && [ ! -L "$PARENT" ] && rm -rf -- "$PARENT" ;; esac; }
 trap cleanup EXIT
-chmod 700 "$PARENT"; mkdir -m 700 "$PARENT/proof" "$PARENT/session" "$PARENT/diag" "$PARENT/raw" || refuse RUN_E_DIRS
+chmod 700 "$PARENT"; mkdir -m 700 "$PARENT/proof" "$PARENT/session" "$PARENT/diag" "$PARENT/raw" "$PARENT/shots" || refuse RUN_E_DIRS
 RAW="$PARENT/raw"
-export GB_SESSION_DIR="$PARENT/session" GB_DIAG_DIR="$PARENT/diag" GB_JOURNEY_PAIRING_PROOF="$PARENT/proof/pairing-proof.json"
+export GB_SESSION_DIR="$PARENT/session" GB_DIAG_DIR="$PARENT/diag" GB_SHOT_DIR="$PARENT/shots" GB_JOURNEY_PAIRING_PROOF="$PARENT/proof/pairing-proof.json"
 mkdir -m 700 "$OUT" || refuse RUN_E_DIRS
 # step <fixed code> <raw name> <exact expected stdout line> -- command...: raw streams private, stdout must be that line.
 step() {
@@ -67,6 +67,11 @@ set +e
 set -e
 node "$HERE/run-summary.mjs" playwright "$RAW/playwright.json" "$PW" > "$RAW/playwright-summary.out" 2> "$RAW/playwright-summary.err" || refuse RUN_E_PLAYWRIGHT_SUMMARY
 cp "$RAW/playwright-summary.out" "$OUT/playwright-summary.txt"
+# 9b. Screenshots: only clean, allowlisted captures, re-encoded with critical PNG chunks only; validated manifest staged.
+node "$HERE/shot-export.mjs" "$PARENT/shots" "$PARENT/session" "$GB_JOURNEY_PAIRING_PROOF" "$RAW/shots-export" > "$RAW/shots.out" 2> "$RAW/shots.err" || refuse RUN_E_SHOTS
+node "$HERE/run-summary.mjs" shots "$RAW/shots.out" > "$RAW/shots-summary.out" 2> "$RAW/shots-summary.err" || refuse RUN_E_SHOTS_SUMMARY
+mv "$RAW/shots-export" "$OUT/screenshots"
+cp "$RAW/shots-summary.out" "$OUT/screenshots.txt"
 # 10. Witness after (private), then the exact comparison; only its validated fixed verdict lines are staged.
 node "$HERE/private-psql.mjs" run "$RAW" "$HERE/witness-journey.sql" "$RAW/witness-post.txt" > "$RAW/witness-post.out" 2> "$RAW/witness-post.err" || refuse RUN_E_WITNESS_POST
 rc=0
@@ -75,6 +80,8 @@ node "$HERE/run-summary.mjs" compare "$RAW/compare.out" > "$RAW/compare-summary.
 cp "$RAW/compare-summary.out" "$OUT/compare.txt"
 [ "$PW" -eq 0 ] || rc=1
 # 11. Exact evidence inventory (fixed summaries only).
-[ "$(ls -A "$OUT" | LC_ALL=C sort | tr '\n' ' ')" = "compare.txt composition.txt pairing.txt playwright-summary.txt seed.txt " ] || refuse RUN_E_INVENTORY
+[ "$(ls -A "$OUT" | LC_ALL=C sort | tr '\n' ' ')" = "compare.txt composition.txt pairing.txt playwright-summary.txt screenshots screenshots.txt seed.txt " ] || refuse RUN_E_INVENTORY
+# The screenshots dir holds exactly the PNGs its validated manifest names, nothing else.
+[ "$(sed -n 's/^SHOT \([^ ]*\) .*/\1.png/p' "$OUT/screenshots.txt" | LC_ALL=C sort | tr '\n' ' ')" = "$(ls -A "$OUT/screenshots" | LC_ALL=C sort | tr '\n' ' ')" ] || refuse RUN_E_INVENTORY
 cat "$OUT/compare.txt" "$OUT/playwright-summary.txt"
 exit $rc
