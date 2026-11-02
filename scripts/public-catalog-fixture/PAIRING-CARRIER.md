@@ -35,9 +35,12 @@ this lane's owner DSN, not through anon.
 src/integrations/supabase/types.ts:831:            referencedRelation: "blog_tags"
 src/integrations/supabase/types.ts:1126:      blog_tags: {
 ```
-Generated types only: no component, page, hook or service queries or embeds blog_tags, so it cannot reach `/`, `/courses`,
-`/courses/<id>` or any screenshot. The lane's specs, fixtures, probes and config never name it (only run.sh's W0 check and
-the producer). The course description carrier used by gradebook (rendered on /courses and the home page) is NOT used.
+Generated types only. Within the reviewed source tree (`src` at 96e9676d) no component, page, hook or service queries or
+embeds blog_tags, so within that scope it cannot reach `/`, `/courses`, `/courses/<id>` or a screenshot. This is a statement
+about that source tree only, not about other clients of the API. The lane's specs, fixtures, probes and config never name it
+(only run.sh's W0 check and the producer).
+The course description carrier used by gradebook is NOT used: descriptions render on the home page's featured courses
+(FeaturedCourses.tsx:130) and CourseList uses them for search (CourseList.tsx:123), so a nonce there could surface.
 
 ## Limits
 - Static snapshot: the grant and policy above are what the local-stack schema files say; the producer's anon readback on

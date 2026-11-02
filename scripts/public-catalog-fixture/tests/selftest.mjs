@@ -137,6 +137,9 @@ say(/guards\.mjs" --pre-pairing/.test(runsh) && /PUBLIC_CATALOG_E_PROOF_PRESET/.
 say(/runGuards\(process\.env\)/.test(cfg) && !/requireProof/.test(cfg), 'config: the Playwright guards always require the proof');
 say(!/\b(grant|revoke|create\s+policy|alter\s+table|create\s+table)\b/i.test(read('pairing-producer.mjs')), 'pairing producer: no grant, policy or schema statement');
 say(at('step served') < at('step pair') && /requireProof: false/.test(read('served-build-check.mjs')) && !/requireProof/.test(read('anon-probe.mjs')) && at('step probe') > at('step pair'), 'proof skip is limited to pre-pairing read-only steps (guards --pre-pairing, served check); the anon probe requires it');
+{ const pp = read('pairing-producer.mjs'); const m = pp.slice(pp.indexOf('export async function main('));
+  say(m.indexOf('checkEligibility(') > 0 && m.indexOf('checkEligibility(') < m.indexOf('psql(env') && m.indexOf('psql(env') < m.indexOf('producePairing(') && pp.indexOf('checkOutputDir(argv[1]') > 0,
+    'pairing CLI: eligibility (guards, PRE, D1 pin and record, output dir) runs before the first child process; output dir re-checked before the insert'); }
 const pc = execFileSync('node', [path.join(HERE, 'pairing-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(pc), 'pairing producer fake controls pass (see pairing-controls.mjs)');
 const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });

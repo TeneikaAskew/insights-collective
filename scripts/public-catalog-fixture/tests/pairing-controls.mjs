@@ -67,7 +67,7 @@ writeProof(T, p.proof);
 const f = path.join(T, 'stack-proof.json');
 ok((statSync(f).mode & 0o777) === 0o600 && JSON.parse(readFileSync(f, 'utf8')).stack_id === NONCE, 'W1 proof written 0600 in the private dir');
 let second; try { writeProof(T, p.proof); second = 'wrote'; } catch (e) { second = e.code; }
-ok(second === 'EEXIST', 'W2 a second proof write refuses (O_EXCL), never overwrites');
+ok(second === 'PAIR_E_PROOF_EXISTS', 'W2 a second proof write refuses (O_EXCL), never overwrites');
 const U = mkdtempSync(path.join(tmpdir(), 'pca-pair-')); chmodSync(U, 0o755);
 let wide; try { writeProof(U, p.proof); wide = 'wrote'; } catch (e) { wide = e.code; }
 ok(wide === 'PAIR_E_PRIVATE_DIR', 'W3 a non-private dir is refused');
