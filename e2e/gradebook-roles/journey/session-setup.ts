@@ -100,7 +100,9 @@ async function run(): Promise<void> {
       }
       const json = await stage(`JOURNEY_SETUP_E_STATE_SERIALIZE_${R}`, () => JSON.stringify(state));
       writePrivateFile(dir, `${role}.json`, json);
-      await stage(`JOURNEY_SETUP_E_STDOUT_${R}`, () => { process.stdout.write(`[journey setup] session saved for ${role}\n`); });
+      // stderr, never stdout: the adapter runs Playwright with --reporter=json on stdout, and a stdout line from this
+      // (runner) process lands in front of the report and makes it unparsable.
+      await stage(`JOURNEY_SETUP_E_PROGRESS_${R}`, () => { process.stderr.write(`[journey setup] session saved for ${role}\n`); });
     } catch (err) {
       primary = err;
     }

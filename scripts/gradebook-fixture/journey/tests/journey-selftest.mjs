@@ -16,7 +16,7 @@ import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
-import { playwrightSummary, compareSummary, shotsSummary, readRaw } from '../run-summary.mjs';
+import { playwrightSummary, compareSummary, shotsSummary, readRaw, GLOBAL_CODES, globalCode } from '../run-summary.mjs';
 import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
@@ -510,8 +510,40 @@ try {
 
   // ---- Fixed summaries ----
   stage = "Fixed summaries";
-  ok('SUM playwright JSON becomes one count line; raw text never echoed', playwrightSummary(JSON.stringify({ stats: { expected: 11, unexpected: 1, flaky: 0, skipped: 0 }, errors: [{ message: 'MARKER secret http://x' }] }), '1') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1');
   const SUMC = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e.code; } };
+  ok('SUM playwright JSON becomes one count line; raw text never echoed', playwrightSummary(JSON.stringify({ stats: { expected: 11, unexpected: 1, flaky: 0, skipped: 0 }, errors: [{ message: 'MARKER secret http://x' }] }), '1') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1\nGLOBAL first=OTHER where=NONE diag=NONE diag_class=NONE diags=0');
+  { // Global-error classification: fixed code/place/class lists only; message, stack, path and diag message never echoed.
+    const R0 = '/r00t';
+    const rep = (errors, diag = '') => playwrightSummary(JSON.stringify({ stats: { expected: 0, unexpected: 0, flaky: 0, skipped: 0 }, errors }), '1', diag, R0).split('\n')[1];
+    const setupLoc = { file: `${R0}/e2e/gradebook-roles/journey/session-setup.ts`, line: 1, column: 1 };
+    ok('SUMG a setup gate code at session-setup.ts is staged as that code, place SETUP', rep([{ message: 'JourneyGateError: JOURNEY_SETUP_E_SIGNIN_HTTP_400_INSTRUCTOR\nMARKER-stack', stack: 'MARKER', location: setupLoc }]) === 'GLOBAL first=JOURNEY_SETUP_E_SIGNIN_HTTP_400_INSTRUCTOR where=SETUP diag=NONE diag_class=NONE diags=0');
+    ok('SUMG a gate code thrown in private-dir.mjs or pairing-proof.mjs is place SETUP', rep([{ message: 'JourneyGateError: JOURNEY_GATE1_E_NOT_EMPTY', location: { file: `${R0}/e2e/gradebook-roles/journey/private-dir.mjs` } }]) === 'GLOBAL first=JOURNEY_GATE1_E_NOT_EMPTY where=SETUP diag=NONE diag_class=NONE diags=0' && rep([{ message: 'JourneyGateError: JOURNEY_GATE3_E_LIVE_STATUS', location: { file: `${R0}/e2e/gradebook-roles/journey/pairing-proof.mjs` } }]).startsWith('GLOBAL first=JOURNEY_GATE3_E_LIVE_STATUS where=SETUP '));
+    ok('SUMG a spec load error is place SPEC, code OTHER (its message is not staged)', rep([{ message: "Error: Cannot find module 'MARKER'", location: { file: `${R0}/e2e/gradebook-roles/journey/j2-learner-enroll-submit.spec.ts` } }]) === 'GLOBAL first=OTHER where=SPEC diag=NONE diag_class=NONE diags=0');
+    ok('SUMG config place, no location, foreign path', rep([{ message: 'x', location: { file: `${R0}/playwright.gradebook-roles.config.ts` } }]).includes(' where=CONFIG ') && rep([{ message: 'x' }]).includes(' where=NONE ') && rep([{ message: 'x', location: { file: '/tmp/MARKER/session-setup.ts' } }]).includes(' where=OTHER '));
+    ok('SUMG a code-shaped but unlisted value, a marker after the code, a lower-case or non-gate name all stage OTHER', ['JourneyGateError: JOURNEY_SETUP_E_MARKER', 'JourneyGateError: JOURNEY_SETUP_E_BINDING MARKER', 'JourneyGateError: journey_setup_e_binding', 'Error: JOURNEY_SETUP_E_BINDING', 'JourneyGateError: JOURNEY_SETUP_E_SIGNIN_HTTP_999_INSTRUCTOR', 'JourneyGateError: JOURNEY_SETUP_E_GOTO_ADMIN'].every((m) => rep([{ message: m, location: setupLoc }]) === 'GLOBAL first=OTHER where=SETUP diag=NONE diag_class=NONE diags=0'));
+    ok('SUMG no errors is NONE/NONE; only the FIRST error is classified', rep([]) === 'GLOBAL first=NONE where=NONE diag=NONE diag_class=NONE diags=0' && rep([{ message: 'JourneyGateError: JOURNEY_SETUP_E_BINDING', location: setupLoc }, { message: 'JourneyGateError: JOURNEY_GATE1_E_MODE' }]).startsWith('GLOBAL first=JOURNEY_SETUP_E_BINDING '));
+    const dd = fs.mkdtempSync(path.join(tmp, 'diag-')); fs.chmodSync(dd, 0o700);
+    fs.writeFileSync(path.join(dd, 'diag-001.json'), JSON.stringify({ code: 'JOURNEY_SETUP_E_GOTO_MEMBER', name: 'TimeoutError', message: 'MARKER-diag http://x' }), { mode: 0o600 });
+    fs.writeFileSync(path.join(dd, 'diag-002.json'), JSON.stringify({ code: 'JOURNEY_SETUP_E_BROWSER_CLOSE_MEMBER', name: 'Error', message: 'MARKER' }), { mode: 0o600 });
+    const withDiag = rep([{ message: 'JourneyGateError: JOURNEY_SETUP_E_GOTO_MEMBER', location: setupLoc }], dd);
+    ok('SUMG first diag record: its fixed stage code and class only, message never read out; count of records', withDiag === 'GLOBAL first=JOURNEY_SETUP_E_GOTO_MEMBER where=SETUP diag=JOURNEY_SETUP_E_GOTO_MEMBER diag_class=TimeoutError diags=2' && !withDiag.includes('MARKER'));
+    fs.writeFileSync(path.join(dd, 'diag-001.json'), JSON.stringify({ code: 'JOURNEY_SETUP_E_MARKER', name: 'MARKER Error', message: 'x' }));
+    ok('SUMG a diag record with an unlisted code or class stages OTHER for each', rep([], dd) === 'GLOBAL first=NONE where=NONE diag=OTHER diag_class=OTHER diags=2');
+    fs.writeFileSync(path.join(dd, 'MARKER.txt'), 'x');
+    ok('SUMG a stray name in the diag dir, or an unreadable dir, stages OTHER (never a name)', rep([], dd) === 'GLOBAL first=NONE where=NONE diag=OTHER diag_class=OTHER diags=3' && rep([], path.join(dd, 'none')) === 'GLOBAL first=NONE where=NONE diag=OTHER diag_class=OTHER diags=0');
+    // Completeness: every code the setup chain can throw or record is in the fixed list (templates expanded).
+    const src = ['e2e/gradebook-roles/journey/session-setup.ts', 'e2e/gradebook-roles/journey/private-dir.mjs', 'e2e/gradebook-roles/journey/pairing-proof.mjs'].map((f) => fs.readFileSync(path.join(repo, f), 'utf8')).join('\n');
+    const thrown = new Set();
+    for (const m of src.matchAll(/['`](JOURNEY_(?:SETUP|GATE[0-9])_E_[A-Z0-9_]*(?:\$\{[^}]+\}[A-Z0-9_]*)*)['`]/g)) {
+      for (const r of ['INSTRUCTOR', 'MEMBER']) thrown.add(m[1].replace(/\$\{R\}/g, r).replace(/\$\{res\.status\}/g, '401'));
+    }
+    for (const m of src.matchAll(/`\$\{g\}_E_([A-Z_]+)`/g)) for (const g of ['JOURNEY_GATE1', 'JOURNEY_GATE2']) thrown.add(`${g}_E_${m[1]}`);
+    const missing = [...thrown].filter((c) => globalCode(c) !== c);
+    ok(`SUMG every one of the ${thrown.size} codes thrown or recorded by the setup chain is staged as itself (none falls to OTHER)`, thrown.size > 60 && missing.length === 0);
+    ok('SUMG the fixed list holds only upper-case gate codes', [...GLOBAL_CODES].every((c) => /^JOURNEY_(?:SETUP|GATE[123])_E_[A-Z0-9_]+$/.test(c)));
+    ok('SUMG session-setup.ts never writes to stdout (the JSON report shares it)', !/process\.stdout|console\.(log|info|debug|table|dir)\(/.test(fs.readFileSync(path.join(repo, 'e2e/gradebook-roles/journey/session-setup.ts'), 'utf8')));
+  }
+  ok('SUM empty report, and a report behind stray stdout, refuse with their own codes', SUMC(() => playwrightSummary('', '1')) === 'SUMMARY_E_PLAYWRIGHT_EMPTY' && SUMC(() => playwrightSummary('\n  \n', '1')) === 'SUMMARY_E_PLAYWRIGHT_EMPTY' && SUMC(() => playwrightSummary('[journey setup] MARKER\n{"stats":{}}', '0')) === 'SUMMARY_E_PLAYWRIGHT_POLLUTED' && SUMC(() => playwrightSummary('MARKER\n{not json', '0')) === 'SUMMARY_E_PLAYWRIGHT_PARSE');
   ok('SUM non-JSON or odd counts refused', SUMC(() => playwrightSummary('MARKER not json', '1')) === 'SUMMARY_E_PLAYWRIGHT_PARSE' && SUMC(() => playwrightSummary(JSON.stringify({ stats: { expected: '12', unexpected: 0, flaky: 0, skipped: 0 } }), '0')) === 'SUMMARY_E_PLAYWRIGHT_SHAPE');
   ok('SUM comparator lines pass their grammar', compareSummary('FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison\n') === 'FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison');
   ok('SUM a stray raw line (id, URL, message) in comparator output refused', SUMC(() => compareSummary('FAIL W_X\nERROR: MARKER at /tmp/x\nFAIL journey witness comparison\n')) === 'SUMMARY_E_COMPARE_LINE' && SUMC(() => compareSummary('FAIL W_X 9b6c0000-0000-4000-8000-000000000001\nFAIL journey witness comparison')) === 'SUMMARY_E_COMPARE_LINE');
@@ -747,6 +779,10 @@ fs.appendFileSync(process.env.FAKE_STATE+'/npx.jsonl',JSON.stringify({argv:proce
 process.stderr.write('MARKER-playwright-STDERR\\n');
 const m=process.env.FAKE_FAIL;
 if(m==='playwright-badjson'){process.stdout.write('MARKER-playwright-not-json');process.exit(1);}
+if(m==='playwright-empty'){process.exit(1);}
+if(m==='playwright-setup'){const p=require('path');fs.writeFileSync(p.join(process.env.GB_DIAG_DIR,'diag-001.json'),JSON.stringify({code:'JOURNEY_SETUP_E_GOTO_INSTRUCTOR',name:'TimeoutError',message:'MARKER-diag-message http://x'}),{mode:0o600,flag:'wx'});
+  process.stdout.write(JSON.stringify({config:{marker:'MARKER'},suites:[],errors:[{message:'JourneyGateError: JOURNEY_SETUP_E_GOTO_INSTRUCTOR',stack:'MARKER-stack',location:{file:p.join(process.cwd(),'e2e/gradebook-roles/journey/session-setup.ts'),line:1,column:1}}],stats:{expected:0,unexpected:0,flaky:0,skipped:0}}));process.exit(1);}
+if(m==='playwright-polluted'){process.stdout.write('[journey setup] MARKER\\n'+JSON.stringify({stats:{expected:12,unexpected:0,flaky:0,skipped:0},errors:[]}));process.exit(0);}
 const bad=m==='playwright';
 { const crypto=require('crypto'),zlib=require('zlib'),path=require('path');
   const T=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;T[n]=c>>>0;}
@@ -823,7 +859,7 @@ process.exit(bad?1:0);
     'composition.txt': (s) => s === 'COMPOSITION composed-r5\n',
     'pairing.txt': (s) => s === 'PASS pairing: carrier written through the DSN, read back through the DSN and the anon API\n',
     'seed.txt': (s) => s === `${SEED_PASS}\n`,
-    'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\n$/.test(s),
+    'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\nGLOBAL first=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) where=(?:NONE|SETUP|SPEC|CONFIG|OTHER) diag=(?:NONE|OTHER|JOURNEY_[A-Z0-9_]+) diag_class=[A-Za-z]+ diags=\d+\n$/.test(s),
     'compare.txt': (s) => { try { compareSummary(s); return true; } catch { return false; } },
     'screenshots.txt': (s) => { try { shotsSummary(s, SHOT_NAMES, WITHHELD_REASONS); return true; } catch { return false; } },
     'screenshots': () => true, // checked below against its manifest
@@ -868,7 +904,7 @@ process.exit(bad?1:0);
       const npx = JSON.parse(fs.readFileSync(path.join(happy.st, 'npx.jsonl'), 'utf8').trim());
       ok('RUNFAKE Playwright gets --reporter=json and a private --output under the run parent', npx.argv.includes('--reporter=json') && npx.argv.some((a) => /^--output=.*\/gb-journey-run\.[A-Za-z0-9]{10}\/raw\/test-results$/.test(a)));
       ok('RUNFAKE J0a reported withheld; two clean shots exported with the tEXt chunk (marker + nonce) dropped; manifest matches bytes', fs.readdirSync(path.join(happy.out, 'screenshots')).join(',') === 'J0b-detail-before-publish.png,J4d-certificate.png' && /^WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\nSHOT J0b-detail-before-publish sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOT J4d-certificate sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOTS 2 captured 1 withheld of 16\n$/.test(fs.readFileSync(path.join(happy.out, 'screenshots.txt'), 'utf8')));
-      ok('RUNFAKE stdout is exactly the staged compare lines plus the Playwright count line', happy.so === `${fs.readFileSync(path.join(happy.out, 'compare.txt'), 'utf8')}PLAYWRIGHT exit=0 expected=12 unexpected=0 flaky=0 skipped=0 global_errors=0\n`); }
+      ok('RUNFAKE stdout is exactly the staged compare lines plus the Playwright count line', happy.so === `${fs.readFileSync(path.join(happy.out, 'compare.txt'), 'utf8')}PLAYWRIGHT exit=0 expected=12 unexpected=0 flaky=0 skipped=0 global_errors=0\nGLOBAL first=NONE where=NONE diag=NONE diag_class=NONE diags=0\n`); }
     const apiSeen = [...apiCalls];
     ok('RUNFAKE carrier API reads: GET, anon key only, carrier then random-id control', apiSeen.length === 2 && apiSeen.every((c) => c.method === 'GET' && c.auth === null) && apiSeen[0].url === `/rest/v1/courses?id=eq.${CTRL}&select=id,description` && /^\/rest\/v1\/courses\?id=eq\.[0-9a-f-]{36}&select=id,description$/.test(apiSeen[1].url) && apiSeen[1].url !== apiSeen[0].url);
     { const r = await RUN('bootstrap.sh drifted from its pin: refused at step 0 pins, NO database contact', { boot: 'tamper' }, {}, 3, 'run-journey refused: RUN_E_PIN', '');
@@ -892,9 +928,14 @@ process.exit(bad?1:0);
     apiMode = 'ok';
     await RUN('seed psql fails', {}, { FAKE_FAIL: 'seed-journey.sql' }, 3, 'run-journey refused: RUN_E_SEED PAIR_E_PSQL', 'composition.txt,pairing.txt');
     await RUN('witness pre fails', {}, { FAKE_FAIL: 'witness-pre' }, 3, 'run-journey refused: RUN_E_WITNESS_PRE', 'composition.txt,pairing.txt,seed.txt');
-    await RUN('Playwright report is not JSON (marker)', {}, { FAKE_FAIL: 'playwright-badjson' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY', 'composition.txt,pairing.txt,seed.txt');
+    await RUN('Playwright report is not JSON (marker)', {}, { FAKE_FAIL: 'playwright-badjson' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY SUMMARY_E_PLAYWRIGHT_PARSE', 'composition.txt,pairing.txt,seed.txt');
     { const r = await RUN('Playwright fails (marker in report, stderr and errors): run continues, exit 1, counts only', {}, { FAKE_FAIL: 'playwright' }, 1, '', ALL);
-      ok('RUNFAKE failed Playwright summary is the fixed count line', fs.readFileSync(path.join(r.out, 'playwright-summary.txt'), 'utf8') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1\n'); }
+      ok('RUNFAKE failed Playwright summary is the fixed count line', fs.readFileSync(path.join(r.out, 'playwright-summary.txt'), 'utf8') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1\nGLOBAL first=OTHER where=NONE diag=NONE diag_class=NONE diags=0\n'); }
+    { const r = await RUN('global setup fails (gate code + private diag with marker message): code, place and diag class staged before cleanup', {}, { FAKE_FAIL: 'playwright-setup' }, 1, '', ALL);
+      const t = fs.readFileSync(path.join(r.out, 'playwright-summary.txt'), 'utf8');
+      ok('RUNFAKE setup failure staged as fixed code/place/diag class, zero cases, no marker', t === 'PLAYWRIGHT exit=1 expected=0 unexpected=0 flaky=0 skipped=0 global_errors=1\nGLOBAL first=JOURNEY_SETUP_E_GOTO_INSTRUCTOR where=SETUP diag=JOURNEY_SETUP_E_GOTO_INSTRUCTOR diag_class=TimeoutError diags=1\n' && !(r.so + r.se).includes('MARKER')); }
+    await RUN('Playwright wrote no report (config load or start failure)', {}, { FAKE_FAIL: 'playwright-empty' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY SUMMARY_E_PLAYWRIGHT_EMPTY', 'composition.txt,pairing.txt,seed.txt');
+    await RUN('stray runner stdout in front of the report', {}, { FAKE_FAIL: 'playwright-polluted' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY SUMMARY_E_PLAYWRIGHT_POLLUTED', 'composition.txt,pairing.txt,seed.txt');
     await RUN('witness post fails', {}, { FAKE_FAIL: 'witness-post' }, 3, 'run-journey refused: RUN_E_WITNESS_POST', 'composition.txt,pairing.txt,playwright-summary.txt,screenshots,screenshots.txt,seed.txt');
     await RUN('a dirty scan record in the shot dir refuses the export (nothing staged from it)', {}, { FAKE_SHOTS: 'dirty' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
     await RUN('a stray file in the shot dir refuses the export', {}, { FAKE_SHOTS: 'stray' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
