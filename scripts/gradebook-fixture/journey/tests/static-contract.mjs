@@ -137,13 +137,15 @@ export function checkJourney(root) {
     || !/record\.bootstrap_sha256 !== o\.expectedBootstrapSha256/.test(d1) || /disposable/.test(d1) || /lstatSync/.test(d1)) v.push('R11_PRODUCER_D1_WEAK pairing-producer.mjs');
   if (!/'scripts\/e2e\/stack-ownership\.mjs': 'ea39300dda9673b66fc6918b75929ca1b5e5d467'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
   // Until the shared owner delivers them, both first-write gates are null and refuse.
-  // Gate 1: the reviewed bootstrap digest, pinned with its blob and re-hashed before use. Gate 2 (served-app verifier) is
-  // not delivered, so it stays null and refuses before the first write.
+  // Gate 1: the reviewed bootstrap digest, pinned with its blob and re-hashed before use. Gate 2: the pinned shared
+  // served-app verifier (and its hermetic-dist import), re-pinned right before import.
   if (!/^export const EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715';$/m.test(prod)
     || !/'scripts\/local-stack\/bootstrap\.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa'/.test(prod)
     || !/bootstrapFileSha256\(root\) !== EXPECTED_BOOTSTRAP_SHA256\) throw new PairError\('RUN_E_D1_BOOTSTRAP_FILE'\)/.test(prod)
     || /process\.env\.[A-Z_]*BOOTSTRAP/.test(prod) || /record\.bootstrap_sha256\s*[;,)]/.test(prod.replace(/record\.bootstrap_sha256 !== o\.expectedBootstrapSha256/g, ''))
-    || !/^export const SERVED_APP_VERIFIER = null;$/m.test(prod)) v.push('R11_GATES_NOT_FAIL_CLOSED pairing-producer.mjs');
+    || !/^export const SERVED_APP_VERIFIER = Object\.freeze\(\{ path: 'scripts\/served-app\/served-app-check\.mjs', blob: 'f63fa3e01d698c604738aae99d3603d93d7fd359' \}\);$/m.test(prod)
+    || !/'scripts\/served-app\/served-app-check\.mjs': 'f63fa3e01d698c604738aae99d3603d93d7fd359'/.test(prod) || !/'scripts\/served-app\/hermetic-dist\.mjs': '9db9bf1b8502681d73fcd63d7d653816ebbad0d2'/.test(prod)
+    || !/cmd === 'appverify'\) \{\n    const f = pinFailures\(root\);/.test(prod)) v.push('R11_GATES_NOT_FAIL_CLOSED pairing-producer.mjs');
   if (/spawnSync|execFileSync|SUPABASE_DB_URL/.test(prod)) v.push('R11_PRODUCER_DSN_ARGV pairing-producer.mjs');
   const ppsql = stripJsComments(rd(`${sdir}/private-psql.mjs`));
   if (!/argv: \['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'\]/.test(ppsql) || !/spawn\(o\.psqlBin \?\? 'psql', plan\.argv,/.test(ppsql)

@@ -40,6 +40,10 @@ export const HELPER_PINS = Object.freeze(Object.assign(Object.create(null), {
   'scripts/e2e/fixtures/stack-ownership.fake.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a',
   // The reviewed bootstrap the D1 record must name (same blob on main 32ccf7d, 1cb7f68 and 0f3c659).
   'scripts/local-stack/bootstrap.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa',
+  // Served-app gate (shared owner, local composition gb-compose-r2b 24de830, 2026-11-02 01:02Z): the verifier and the
+  // f169429 hermetic contract it imports. Neither is in this branch's base, so `pins` refuses until they land.
+  'scripts/served-app/served-app-check.mjs': 'f63fa3e01d698c604738aae99d3603d93d7fd359',
+  'scripts/served-app/hermetic-dist.mjs': '9db9bf1b8502681d73fcd63d7d653816ebbad0d2',
 }));
 export const D1_MODULE = 'scripts/e2e/stack-ownership.mjs';
 /** sha256 of the reviewed scripts/local-stack/bootstrap.sh (blob aa34aa29, pinned above), the digest the D1 record must
@@ -48,9 +52,11 @@ export const D1_MODULE = 'scripts/e2e/stack-ownership.mjs';
  *  owner 2026-11-02 00:48Z and checked independently (sha256 of the blob on main, 0f3c659 and the working file). */
 export const EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715';
 export const BOOTSTRAP_FILE = 'scripts/local-stack/bootstrap.sh';
-/** The shared hermetic served-app verifier ({ path, blob }), to run before the carrier INSERT. Not delivered as a module this
- *  adapter can call and pin: null refuses (RUN_E_APP_UNVERIFIED), so the adapter stays BLOCKED before its first write. */
-export const SERVED_APP_VERIFIER = null;
+/** The shared hermetic served-app verifier, run before the carrier INSERT. verifyServedApp({ appOrigin }) re-runs the
+ *  hermetic-dist verify on <repo>/dist against $HERMETIC_SERVED_DIR and compares the live GET / bytes (bounded read) with that
+ *  copy's index.html; only exactly { ok: true } passes. Pinned here AND (with its import) in HELPER_PINS. Local preparation
+ *  only: pinning is not execution clearance. */
+export const SERVED_APP_VERIFIER = Object.freeze({ path: 'scripts/served-app/served-app-check.mjs', blob: 'f63fa3e01d698c604738aae99d3603d93d7fd359' });
 
 export class PairError extends Error {
   /** @param {string} code */
@@ -248,6 +254,8 @@ async function cli(argv) {
     return 'PASS stack ownership record verified for this run, this cluster and the pinned bootstrap (disposable is declared, not proven)';
   }
   if (cmd === 'appverify') {
+    const f = pinFailures(root);                                // verifier and its import re-checked right before import
+    if (f.length) throw new PairError(f[0]);
     const { app } = assertStrictLocalBinding();
     const bad = await servedAppFailures({ verifier: SERVED_APP_VERIFIER, root, appOrigin: app.origin });
     if (bad.length) throw new PairError(bad[0]);

@@ -297,14 +297,17 @@ try {
     ok('PAIR API reads carry no Authorization header (anon only)', a.calls.length === 2 && a.calls.every((c) => !Object.keys(c.init.headers).some((h) => h.toLowerCase() === 'authorization'))); }
 
   // ---- Shared helper pins and the D1 gate ----
-  const D1_PATHS = ['scripts/e2e/stack-ownership.mjs', 'scripts/e2e/fixtures/stack-ownership.fake.json'];
+  // Shared files delivered outside this branch's base (D1 module + fake, served-app verifier + its import).
+  const NOT_IN_BASE = ['scripts/e2e/stack-ownership.mjs', 'scripts/e2e/fixtures/stack-ownership.fake.json', 'scripts/served-app/served-app-check.mjs', 'scripts/served-app/hermetic-dist.mjs'];
+  const D1_PATHS = NOT_IN_BASE.filter((x) => !fs.existsSync(path.join(repo, x)));
   const d1Present = fs.existsSync(path.join(repo, D1_MODULE));
-  if (d1Present) ok('PIN real tree: all 5 shared files equal their agreed blobs (D1 module present)', pinFailures(repo).length === 0);
-  else ok('PIN real tree: the 3 helpers pass and ONLY the 2 absent D1 files refuse (BLOCKED until 637bae9 is in the base)', JSON.stringify(pinFailures(repo)) === JSON.stringify(D1_PATHS.map((x) => `RUN_E_PIN ${x}`)));
+  const absent = D1_PATHS.length;
+  if (!absent) ok(`PIN real tree: all ${Object.keys(HELPER_PINS).length} shared files equal their agreed blobs`, pinFailures(repo).length === 0);
+  else ok(`PIN real tree: present helpers pass and ONLY the ${absent} absent shared files refuse (BLOCKED until they are in the base)`, JSON.stringify(pinFailures(repo)) === JSON.stringify(D1_PATHS.map((x) => `RUN_E_PIN ${x}`)));
   ok('PIN gitBlobId equals git hash-object', gitBlobId(fs.readFileSync(path.join(repo, 'scripts/e2e/assert-safe-target.mjs'))) === execFileSync('git', ['hash-object', 'scripts/e2e/assert-safe-target.mjs'], { cwd: repo, encoding: 'utf8' }).trim());
   { const root = fs.mkdtempSync(path.join(tmp, 'pins-'));
     for (const rel of Object.keys(HELPER_PINS)) { if (!fs.existsSync(path.join(repo, rel))) continue; fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true }); fs.copyFileSync(path.join(repo, rel), path.join(root, rel)); }
-    ok('PIN unmodified copies of the present files pass them', pinFailures(root).every((x) => D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`)) && pinFailures(root).length === (d1Present ? 0 : 2));
+    ok('PIN unmodified copies of the present files pass them', pinFailures(root).every((x) => D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`)) && pinFailures(root).length === absent);
     fs.appendFileSync(path.join(root, 'scripts/local-db/assert-local-dsn.mjs'), '\n');
     ok('PIN one changed byte in a shared helper refused', JSON.stringify(pinFailures(root).filter((x) => !D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`))) === '["RUN_E_PIN scripts/local-db/assert-local-dsn.mjs"]');
     fs.rmSync(path.join(root, 'e2e/support/chromium-executable.ts'));
@@ -374,12 +377,13 @@ try {
     fs.writeFileSync(path.join(root, 'v/app.mjs'), src);
     const blob = gitBlobId(Buffer.from(src));
     const A = (verifier, appOrigin = 'http://127.0.0.1:4173', importImpl) => servedAppFailures({ verifier, root, appOrigin, importImpl }).then((x) => JSON.stringify(x));
-    ok('APP no verifier pinned (the real tree): RUN_E_APP_UNVERIFIED', await A(SERVED_APP_VERIFIER) === '["RUN_E_APP_UNVERIFIED"]' && SERVED_APP_VERIFIER === null);
+    ok('APP no verifier (null): RUN_E_APP_UNVERIFIED', await A(null) === '["RUN_E_APP_UNVERIFIED"]');
+    ok('APP the real tree pins the shared verifier by blob; absent here, so RUN_E_APP_VERIFIER_PIN (never a pass)', SERVED_APP_VERIFIER.path === 'scripts/served-app/served-app-check.mjs' && Object.isFrozen(SERVED_APP_VERIFIER) && (fs.existsSync(path.join(repo, SERVED_APP_VERIFIER.path)) || await servedAppFailures({ verifier: SERVED_APP_VERIFIER, root: repo, appOrigin: 'http://127.0.0.1:4173' }).then((x) => JSON.stringify(x)) === '["RUN_E_APP_VERIFIER_PIN"]'));
     ok('APP pinned verifier says ok for this origin: accepted', await A({ path: 'v/app.mjs', blob }) === '[]');
     ok('APP pinned verifier says no: RUN_E_APP_UNVERIFIED', await A({ path: 'v/app.mjs', blob }, 'http://127.0.0.1:9999') === '["RUN_E_APP_UNVERIFIED"]');
     ok('APP verifier bytes differ from the pin: RUN_E_APP_VERIFIER_PIN', await A({ path: 'v/app.mjs', blob: 'f'.repeat(40) }) === '["RUN_E_APP_VERIFIER_PIN"]');
     ok('APP verifier throws or answers more than ok: refused', await A({ path: 'v/app.mjs', blob }, undefined, async () => ({ verifyServedApp: async () => { throw new Error('x'); } })) === '["RUN_E_APP_VERIFIER"]' && await A({ path: 'v/app.mjs', blob }, undefined, async () => ({ verifyServedApp: async () => ({ ok: true, why: 'x' }) })) === '["RUN_E_APP_UNVERIFIED"]');
-    ok('GATES bootstrap digest is the reviewed constant and equals sha256 of the pinned bootstrap.sh in this tree; served-app gate still null (fail closed)', EXPECTED_BOOTSTRAP_SHA256 === 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715' && bootstrapFileSha256(repo) === EXPECTED_BOOTSTRAP_SHA256 && HELPER_PINS['scripts/local-stack/bootstrap.sh'] === gitBlobId(fs.readFileSync(path.join(repo, 'scripts/local-stack/bootstrap.sh'))) && SERVED_APP_VERIFIER === null); }
+    ok('GATES bootstrap digest is the reviewed constant and equals sha256 of the pinned bootstrap.sh in this tree; served-app verifier pinned in both places, with its import', EXPECTED_BOOTSTRAP_SHA256 === 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715' && bootstrapFileSha256(repo) === EXPECTED_BOOTSTRAP_SHA256 && HELPER_PINS['scripts/local-stack/bootstrap.sh'] === gitBlobId(fs.readFileSync(path.join(repo, 'scripts/local-stack/bootstrap.sh'))) && HELPER_PINS[SERVED_APP_VERIFIER.path] === SERVED_APP_VERIFIER.blob && typeof HELPER_PINS['scripts/served-app/hermetic-dist.mjs'] === 'string'); }
 
   // ---- Password-free psql (planning on fakes; a fake psql binary; no database) ----
   const PW = 's3cr3t:PW\\x';
@@ -503,7 +507,10 @@ process.exit(bad?1:0);
     src = src.replace(/'scripts\/e2e\/stack-ownership\.mjs': '[0-9a-f]{40}'/, `'scripts/e2e/stack-ownership.mjs': '${gitBlobId(Buffer.from(FAKE_D1))}'`)
       .replace(/'scripts\/e2e\/fixtures\/stack-ownership\.fake\.json': '[0-9a-f]{40}'/, `'scripts/e2e/fixtures/stack-ownership.fake.json': '${gitBlobId(Buffer.from(FAKE_FIX))}'`);
     if (boot === 'tamper') fs.appendFileSync(path.join(root, 'scripts/local-stack/bootstrap.sh'), '# drift\n');
-    if (app) src = src.replace('export const SERVED_APP_VERIFIER = null;', `export const SERVED_APP_VERIFIER = { path: 'scripts/e2e/fake-served-app-verify.mjs', blob: '${gitBlobId(Buffer.from(FAKE_APP))}' };`);
+    // The copy's served-app pins point at a selftest fake (the shared verifier needs a built dist and a served copy).
+    const fb = gitBlobId(Buffer.from(FAKE_APP));
+    src = src.replace(/'scripts\/served-app\/served-app-check\.mjs': '[0-9a-f]{40}',\n/, `'scripts/e2e/fake-served-app-verify.mjs': '${fb}',\n`).replace(/  'scripts\/served-app\/hermetic-dist\.mjs': '[0-9a-f]{40}',\n/, '');
+    src = src.replace(/^export const SERVED_APP_VERIFIER = Object\.freeze\(.*$/m, app ? `export const SERVED_APP_VERIFIER = Object.freeze({ path: 'scripts/e2e/fake-served-app-verify.mjs', blob: '${fb}' });` : 'export const SERVED_APP_VERIFIER = null;');
     fs.writeFileSync(pf, src);
     return root;
   };
@@ -577,7 +584,7 @@ process.exit(bad?1:0);
       ok('RUNFAKE no psql call at all when the bootstrap file drifts', !fs.existsSync(path.join(r.st, 'psql.jsonl'))); }
     await RUN('record names another bootstrap digest: RUN_E_D1_SO_BOOTSTRAP_MISMATCH', {}, { RECORD_BOOTSTRAP: 'c'.repeat(64) }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_SO_BOOTSTRAP_MISMATCH', '');
     await RUN('record copies a job-env digest (not the reviewed constant): refused', {}, { RECORD_BOOTSTRAP: BOOT, GB_D1_BOOTSTRAP_SHA256: BOOT, EXPECTED_BOOTSTRAP_SHA256: BOOT }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_SO_BOOTSTRAP_MISMATCH', '');
-    { const r = await RUN('THE REAL TREE GATE: served-app verifier unpinned refuses before the carrier INSERT', { app: false }, {}, 3, 'run-journey refused: RUN_E_APP RUN_E_APP_UNVERIFIED', '');
+    { const r = await RUN('served-app verifier unpinned (null) refuses before the carrier INSERT', { app: false }, {}, 3, 'run-journey refused: RUN_E_APP RUN_E_APP_UNVERIFIED', '');
       ok('RUNFAKE only the read-only system identifier was queried before the app gate refused', fs.readFileSync(path.join(r.st, 'psql.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l).op).join(',') === 'sysid'); }
     await RUN('D1 system identifier read fails (marker on psql streams)', {}, { FAKE_FAIL: 'sysid' }, 3, 'run-journey refused: RUN_E_D1 PAIR_E_PSQL', '');
     await RUN('D1 record missing', {}, { STACK_OWNERSHIP_FILE: (sb) => path.join(sb, 'none.json') }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_HANDLE_OPEN', '');
@@ -678,7 +685,10 @@ process.exit(bad?1:0);
     ['bootstrap identity read from the job env', `${S}/pairing-producer.mjs`, (s) => s.replace(/^export const EXPECTED_BOOTSTRAP_SHA256 = '[0-9a-f]{64}';$/m, "export const EXPECTED_BOOTSTRAP_SHA256 = process.env.GB_D1_BOOTSTRAP_SHA256;"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['bootstrap digest not re-hashed from the pinned file', `${S}/pairing-producer.mjs`, (s) => s.replace("    if (bootstrapFileSha256(root) !== EXPECTED_BOOTSTRAP_SHA256) throw new PairError('RUN_E_D1_BOOTSTRAP_FILE');\n", ''), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['bootstrap.sh unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("  'scripts/local-stack/bootstrap.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa',\n", ''), 'R11_GATES_NOT_FAIL_CLOSED'],
-    ['served-app verifier faked open', `${S}/pairing-producer.mjs`, (s) => s.replace('export const SERVED_APP_VERIFIER = null;', "export const SERVED_APP_VERIFIER = { path: 'x.mjs', blob: 'y' };"), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['served-app verifier swapped for another module', `${S}/pairing-producer.mjs`, (s) => s.replace(/^export const SERVED_APP_VERIFIER = Object\.freeze\(.*$/m, "export const SERVED_APP_VERIFIER = Object.freeze({ path: 'x.mjs', blob: '0000000000000000000000000000000000000000' });"), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['served-app gate back to null', `${S}/pairing-producer.mjs`, (s) => s.replace(/^export const SERVED_APP_VERIFIER = Object\.freeze\(.*$/m, 'export const SERVED_APP_VERIFIER = null;'), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['hermetic-dist import unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace(/  'scripts\/served-app\/hermetic-dist\.mjs': '[0-9a-f]{40}',\n/, ''), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['appverify skips the pin re-check', `${S}/pairing-producer.mjs`, (s) => s.replace("  if (cmd === 'appverify') {\n    const f = pinFailures(root);", "  if (cmd === 'appverify') {\n    const f = [];"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
     ['private psql sets PGPASSFILE only when there is a password', `${S}/private-psql.mjs`, (s) => s.replace('\n    plan.env.PGPASSFILE = passFile;\n', '\n    if (plan.passLine) plan.env.PGPASSFILE = passFile;\n'), 'R11_PSQL_NOT_PRIVATE'],
     ['private psql plans null for a passwordless DSN again', `${S}/private-psql.mjs`, (s) => s.replace("passLine: pw === null ? '' :", 'passLine: pw === null ? null :'), 'R11_PSQL_NOT_PRIVATE'],
