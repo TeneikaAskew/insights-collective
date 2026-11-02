@@ -192,3 +192,73 @@ describe('check-isolated-workflow (parsed YAML)', () => {
     expect(expressionRoots(' github.run_id ')[0]).toMatchObject({ name: 'github', prop: 'run_id' });
   });
 });
+
+// PROPOSAL (unapplied): the one reviewed private input. Variants of the REAL workflow, each changing one structural fact.
+describe('private input: one exact reviewed binding (proposal)', async () => {
+  const { PRIVATE_INPUT, privateInputRuntime } = await import('../../../scripts/ci/check-isolated-workflow.mjs');
+  const doc = () => YAML.parseDocument(WF);
+  const steps = (d: any) => d.getIn(['jobs', 'gradebook-journey', 'steps']);
+  const s0 = (d: any) => steps(d).items.findIndex((it: any) => it.get('id') === 'gb_s0');
+  const S0 = ['jobs', 'gradebook-journey', 'steps'];
+  const variant = (mut: (d: any) => void) => { const d = doc(); mut(d); return d.toString(); };
+  const VAL = '${{ secrets.STORAGE_METADATA_JSON }}';
+
+  it('accepts the committed workflow, whose only secrets use is the S0 binding (control)', async () => {
+    expect(await check(WF)).toEqual([]);
+    expect(WF.match(/\$\{\{[^}]*\bsecrets\b[^}]*\}\}/g)).toEqual([VAL]);
+  });
+  const neg: Array<[string, (d: any) => void, RegExp]> = [
+    ['same binding in the job env', (d) => d.setIn(['jobs', 'gradebook-journey', 'env', 'STORAGE_METADATA_JSON'], VAL), /private-input: STORAGE_METADATA_JSON in jobs\.gradebook-journey\.env/],
+    ['same binding in workflow env', (d) => d.set('env', { STORAGE_METADATA_JSON: VAL }), /private-input: STORAGE_METADATA_JSON in workflow env/],
+    ['same binding on a second gradebook step', (d) => d.setIn([...S0, s0(d) + 1, 'env'], { STORAGE_METADATA_JSON: VAL }), /is not the one reviewed site/],
+    ['same binding on a step of another job', (d) => d.setIn(['jobs', 'learner-quiz-noedge', 'steps', 3, 'env'], { STORAGE_METADATA_JSON: VAL }), /is not the one reviewed site/],
+    ['another secret name at the site', (d) => d.setIn([...S0, s0(d), 'env', 'STORAGE_METADATA_JSON'], '${{ secrets.OTHER }}'), /private-input: the step env must be exactly|secrets: expression/],
+    ['bracket form at the site', (d) => d.setIn([...S0, s0(d), 'env', 'STORAGE_METADATA_JSON'], "${{ secrets['STORAGE_METADATA_JSON'] }}"), /secrets: expression at jobs\.gradebook-journey\.steps\.\d+\.env\.STORAGE_METADATA_JSON/],
+    ['toJSON(secrets) at the site', (d) => d.setIn([...S0, s0(d), 'env', 'STORAGE_METADATA_JSON'], '${{ toJSON(secrets) }}'), /secrets: expression/],
+    ['binding embedded in a longer string', (d) => d.setIn([...S0, s0(d), 'env', 'STORAGE_METADATA_JSON'], `x${VAL}`), /secrets: expression/],
+    ['a second env key on the S0 step', (d) => d.setIn([...S0, s0(d), 'env', 'EXTRA'], 'x'), /the step env must be exactly/],
+    ['the S0 run echoes the input', (d) => d.setIn([...S0, s0(d), 'run'], `${PRIVATE_INPUT.run}echo "$STORAGE_METADATA_JSON"\n`), /the step run is not the reviewed S0 text/],
+    ['an if on the S0 step', (d) => d.setIn([...S0, s0(d), 'if'], 'always()'), /exactly name, id, env and run/],
+    ['a shell override on the S0 step', (d) => d.setIn([...S0, s0(d), 'shell'], 'bash'), /exactly name, id, env and run/],
+    ['a different S0 step id', (d) => d.setIn([...S0, s0(d), 'id'], 'gb_s0x'), /the step id must be gb_s0/],
+    ['a renamed S0 step', (d) => d.setIn([...S0, s0(d), 'name'], 'Something else'), /the step name is not the reviewed S0 name/],
+    ['the job without its environment', (d) => d.deleteIn(['jobs', 'gradebook-journey', 'environment']), /environment must be exactly insights-isolated-storage/],
+    ['another environment name', (d) => d.setIn(['jobs', 'gradebook-journey', 'environment'], 'production'), /environment must be exactly/],
+    ['environment as a mapping', (d) => d.setIn(['jobs', 'gradebook-journey', 'environment'], { name: 'insights-isolated-storage' }), /environment must be exactly/],
+    ['the job if widened', (d) => d.setIn(['jobs', 'gradebook-journey', 'if'], 'always()'), /if must be exactly its own dispatch input/],
+    ['a pull_request trigger added', (d) => d.setIn(['on', 'pull_request'], null), /^triggers:/],
+    ['job-level secrets: inherit', (d) => d.setIn(['jobs', 'gradebook-journey', 'secrets'], 'inherit'), /^secrets: jobs\.gradebook-journey passes secrets$/],
+    ['a secret in a with: of another step', (d) => d.setIn([...S0, s0(d) + 1, 'with'], { x: '${{ secrets.STORAGE_METADATA_JSON }}' }), /secrets: expression/],
+  ];
+  for (const [label, mut, re] of neg) {
+    it(`refuses: ${label}`, async () => { const p = await check(variant(mut)); expect(some(p, re), p.join('\n')).toBe(true); });
+  }
+  it('runtime: the bound job refuses any ref but the reviewed branch, and any event but workflow_dispatch', () => {
+    const d = YAML.parse(WF);
+    const base = { GITHUB_JOB: 'gradebook-journey', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: PRIVATE_INPUT.ref, GITHUB_REPOSITORY: 'TeneikaAskew/insights-collective' };
+    expect(privateInputRuntime(d, base)).toEqual([]);
+    expect(privateInputRuntime(d, { ...base, GITHUB_REF: 'refs/heads/main' })).toEqual([`private-input: runtime ref is not ${PRIVATE_INPUT.ref}`]);
+    expect(privateInputRuntime(d, { ...base, GITHUB_REF: 'refs/tags/claude/gradebook-storage-private-input' }).length).toBe(1);
+    expect(privateInputRuntime(d, { ...base, GITHUB_REF: `${PRIVATE_INPUT.ref}-x` }).length).toBe(1);
+    expect(privateInputRuntime(d, { ...base, GITHUB_EVENT_NAME: 'pull_request' })).toEqual(['private-input: runtime event is not workflow_dispatch']);
+    expect(privateInputRuntime(d, { ...base, GITHUB_JOB: 'learner-quiz', GITHUB_REF: 'refs/heads/main' })).toEqual([]);   // other jobs unaffected
+  });
+  it('runtime: fork and other-owner copies are refused even with the same job, dispatch and exact branch; this repository passes', () => {
+    const d = YAML.parse(WF);
+    const base = { GITHUB_JOB: 'gradebook-journey', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: PRIVATE_INPUT.ref };
+    expect(PRIVATE_INPUT.repository).toBe('TeneikaAskew/insights-collective');
+    expect(privateInputRuntime(d, { ...base, GITHUB_REPOSITORY: 'TeneikaAskew/insights-collective' })).toEqual([]);   // positive control
+    for (const repo of ['OtherOwner/insights-collective', 'TeneikaAskew/insights-collective-fork', 'teneikaaskew/insights-collective',
+      'TeneikaAskew/insights-collective ', 'xTeneikaAskew/insights-collective', 'TeneikaAskew/Insights-Collective']) {
+      expect(privateInputRuntime(d, { ...base, GITHUB_REPOSITORY: repo }), repo).toEqual(['private-input: runtime repository is not TeneikaAskew/insights-collective']);
+    }
+    const none = { ...base } as Record<string, string>;
+    expect(privateInputRuntime(d, none)).toEqual(['private-input: runtime repository is not TeneikaAskew/insights-collective']);   // unset
+    expect(privateInputRuntime(d, { ...base, GITHUB_JOB: 'isolated', GITHUB_REPOSITORY: 'OtherOwner/insights-collective' })).toEqual([]);   // other jobs unaffected
+  });
+  it('runtime: checkWorkflowText applies it only when given the runner environment (--executed)', async () => {
+    expect(await checkWorkflowText(WF, REF, { GITHUB_JOB: 'gradebook-journey', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: 'refs/heads/main', GITHUB_REPOSITORY: 'TeneikaAskew/insights-collective' })).toEqual([`private-input: runtime ref is not ${PRIVATE_INPUT.ref}`]);
+    expect(await checkWorkflowText(WF, REF, { GITHUB_JOB: 'gradebook-journey', GITHUB_EVENT_NAME: 'workflow_dispatch', GITHUB_REF: PRIVATE_INPUT.ref, GITHUB_REPOSITORY: 'OtherOwner/insights-collective' })).toEqual(['private-input: runtime repository is not TeneikaAskew/insights-collective']);
+    expect(await checkWorkflowText(WF, REF)).toEqual([]);
+  });
+});

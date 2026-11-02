@@ -143,14 +143,16 @@ describe('gradebook-journey job (proposal)', () => {
     expect(String(S[d1].name)).toMatch(/snapshot \+ seven migrations \+ Storage composition pins 02ce9f85/);
     expect(runOf(byName(S, 'Remove private outputs'))).toMatch(/"\$RUNNER_TEMP\/gb-st-priv"/);
   });
-  it('private input binding: environment on this job only; the input variable is bound nowhere in this tree (guard change unapplied)', () => {
+  it('private input binding: environment on this job only; the input is bound exactly once, as the whole S0 step env', () => {
     expect(GB.environment).toBe('insights-isolated-storage');
     for (const [name, job] of Object.entries(DOC.jobs as Record<string, { environment?: unknown }>)) if (name !== 'gradebook-journey') expect(job.environment, name).toBeUndefined();
-    expect(DOC.on).toEqual({ workflow_dispatch: expect.anything() });
     expect(Object.keys(DOC.on)).toEqual(['workflow_dispatch']);
-    expect(WF).not.toMatch(/\$\{\{[^}]*\bsecrets\b/);
+    expect(WF.match(/\$\{\{[^}]*\bsecrets\b[^}]*\}\}/g)).toEqual(['${{ secrets.STORAGE_METADATA_JSON }}']);
     expect(GB.env.STORAGE_METADATA_JSON).toBeUndefined();
-    for (const st of S) expect((st as { env?: Record<string, unknown> }).env?.STORAGE_METADATA_JSON, String(st.name)).toBeUndefined();
+    const bound = S.filter((st) => (st as { env?: Record<string, unknown> }).env?.STORAGE_METADATA_JSON !== undefined);
+    expect(bound.length).toBe(1);
+    expect(bound[0].id).toBe('gb_s0');
+    expect((bound[0] as { env?: Record<string, unknown> }).env).toEqual({ STORAGE_METADATA_JSON: '${{ secrets.STORAGE_METADATA_JSON }}' });
   });
   it('leak tripwire: after the journey evidence, right before the stop/removal pair; upload requires its PASS whenever S0 started', () => {
     const leak = at(/leak-scan\.mjs /), stop = S.indexOf(byName(S, 'Stop background servers')), rm = S.indexOf(byName(S, 'Remove private outputs'));

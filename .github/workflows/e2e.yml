@@ -6,9 +6,11 @@
 #
 # Everything runs on the runner's loopback: PostgreSQL 15 and the Supabase services from
 # `supabase start`, the sanitized schema-only snapshot from scripts/local-stack/, synthetic fixtures,
-# the built app, and Chromium. No hosted project, no repository secret, no production connection.
+# the built app, and Chromium. No hosted project, no repository secret, no production connection. One environment
+# secret exists: the private Storage metadata input of the gradebook-journey job (environment insights-isolated-storage,
+# exact test branch, manual approval by the user), bound as the whole value of one env key of its S0 step and nowhere else.
 #
-# Deliberately absent: `secrets.*`, `vars.*`, push/schedule/pull_request_target triggers, write
+# Deliberately absent: every other `secrets.*`, `vars.*`, push/schedule/pull_request_target triggers, write
 # permissions, `supabase link`, `--linked`, `db push`, `functions deploy`, any commit or `git push`.
 # scripts/ci/check-isolated-workflow.mjs enforces that list on the workflow file GitHub is actually executing
 # (GITHUB_WORKFLOW_REF, at GITHUB_WORKFLOW_SHA == the checked-out HEAD). It runs before any dependency install
@@ -1104,6 +1106,8 @@ jobs:
       # caused the HTTP 400 in run 41493619385.
       - name: Storage S0 private input (digests verified; private 0600 outputs only; nothing derived printed)
         id: gb_s0
+        env:
+          STORAGE_METADATA_JSON: ${{ secrets.STORAGE_METADATA_JSON }}
         run: |
           set -o pipefail
           mkdir -m 700 "$RUNNER_TEMP/gb-st-priv"
