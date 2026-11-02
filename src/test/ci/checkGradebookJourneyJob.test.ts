@@ -54,7 +54,7 @@ describe('gradebook-journey job (proposal)', () => {
     }
     expect(at(/seed-auth\.sh/)).toBeLessThan(at(/run-journey\.sh/));
   });
-  it('gives the adapter's served-app gate the verified copy and records it live before D1; copies exactly the 5-file inventory', () => {
+  it("gives the adapter's served-app gate the verified copy and records it live before D1; copies exactly the 5-file inventory", () => {
     const gate = at(/served-app-check\.mjs "\$E2E_BASE_URL"/);
     expect(gate).toBeGreaterThan(at(/cmp -s "\$RUNNER_TEMP\/preview-index\.html"/));
     expect(gate).toBeLessThan(all(/stack-ownership\.mjs write/)[0]);
