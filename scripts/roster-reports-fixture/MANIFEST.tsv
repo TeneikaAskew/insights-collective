@@ -1,0 +1,42 @@
+# ABOUTME: Exact run-owned id manifest for the T-15 roster/reports acceptance fixture (seed.sql). Every row seed.sql
+# ABOUTME: writes is listed here; cleanup.sql and witness.sql touch these ids only. Columns: table, id, label.
+courses	7150a000-0000-4000-8000-000000000001	RR (instructor = e2e-instructor)
+courses	7150a000-0000-4000-8000-000000000002	RR_EMPTY (instructor = e2e-instructor; no published lesson)
+courses	7150a000-0000-4000-8000-000000000003	RR_OTHER (instructor = OTHER_INSTRUCTOR)
+modules	7150a000-0000-4000-8000-000000000011	M1 RR published
+modules	7150a000-0000-4000-8000-000000000012	M2 RR draft
+modules	7150a000-0000-4000-8000-000000000013	M3 RR_EMPTY published
+modules	7150a000-0000-4000-8000-000000000014	M4 RR_OTHER published
+content_items	7150a000-0000-4000-8000-000000000101	I1 M1 published page
+content_items	7150a000-0000-4000-8000-000000000102	I2 M1 published page
+content_items	7150a000-0000-4000-8000-000000000103	I3 M1 published page
+content_items	7150a000-0000-4000-8000-000000000104	I4 M1 published page
+content_items	7150a000-0000-4000-8000-000000000105	I5 M1 UNPUBLISHED page
+content_items	7150a000-0000-4000-8000-000000000106	I6 M2 (draft module) published page
+content_items	7150a000-0000-4000-8000-000000000107	I7 M3 UNPUBLISHED page
+content_items	7150a000-0000-4000-8000-000000000108	I8 M4 published page
+users	7150a000-0000-4000-8000-000000000201	L1 Ada Fixture (no sign-in)
+users	7150a000-0000-4000-8000-000000000202	L2 Grace Fixture (no sign-in)
+users	7150a000-0000-4000-8000-000000000203	L3 Alan Fixture (no sign-in)
+users	7150a000-0000-4000-8000-000000000204	L4 Edsger Fixture (no sign-in)
+users	7150a000-0000-4000-8000-000000000f01	OTHER_INSTRUCTOR Olive Fixture (no sign-in)
+enrollments	7150a000-0000-4000-8000-000000000301	RR L1
+enrollments	7150a000-0000-4000-8000-000000000302	RR L2
+enrollments	7150a000-0000-4000-8000-000000000303	RR L3
+enrollments	7150a000-0000-4000-8000-000000000304	RR L4
+enrollments	7150a000-0000-4000-8000-000000000305	RR e2e-member
+enrollments	7150a000-0000-4000-8000-000000000311	RR_EMPTY L1
+enrollments	7150a000-0000-4000-8000-000000000312	RR_EMPTY e2e-member
+enrollments	7150a000-0000-4000-8000-000000000321	RR_OTHER L2
+progressions	7150a000-0000-4000-8000-000000000401	L1 I1 completed
+progressions	7150a000-0000-4000-8000-000000000402	L1 I2 completed
+progressions	7150a000-0000-4000-8000-000000000403	L1 I3 read
+progressions	7150a000-0000-4000-8000-000000000404	L1 I4 completed
+progressions	7150a000-0000-4000-8000-000000000405	L2 I1 read
+progressions	7150a000-0000-4000-8000-000000000406	L2 I2 completed
+progressions	7150a000-0000-4000-8000-000000000407	L2 I3 started (not done)
+progressions	7150a000-0000-4000-8000-000000000408	member I1 completed
+progressions	7150a000-0000-4000-8000-000000000409	member I5 read (unpublished item: excluded)
+progressions	7150a000-0000-4000-8000-000000000410	member I6 read (draft module: excluded)
+progressions	7150a000-0000-4000-8000-000000000411	L1 I7 read (RR_EMPTY unpublished: excluded)
+progressions	7150a000-0000-4000-8000-000000000412	L2 I8 completed (RR_OTHER: leak canary)
