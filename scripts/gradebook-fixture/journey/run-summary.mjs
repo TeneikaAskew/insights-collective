@@ -13,7 +13,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SHOT_NAMES, WITHHELD_REASONS } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, WITHHELD_REASONS, DIAG_SUFFIX_RE } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { STORAGE_ERR_NAMES, STORAGE_MSG_NAMES } from '../../../e2e/gradebook-roles/journey/observe-core.mjs';
 import { BLOCKED_CODE_RE } from '../../../e2e/gradebook-roles/journey/blocked-class.mjs';
 
 export class SummaryError extends Error {
@@ -113,7 +114,15 @@ const obsPath = (p) => (Object.hasOwn(OBS_PATHS, p) ? OBS_PATHS[p] : null) ?? (p
 /** Fixed tokens from the observe failure list in the message: code, method, path name, and the trailing number (a count or an HTTP status). */
 function obsTokens(msg) {
   const out = [];
-  for (const m of msg.replace(/\u001b\[[0-9;]*m/g, '').matchAll(/"(OBS_[A-Z_]{3,12})(?: (GET|POST|PATCH|PUT|DELETE|HEAD) (\/[^\s"]{1,200}))?(?: ([0-9]{1,3}))?"/g)) {
+  for (const m of msg.replace(/\u001b\[[0-9;]*m/g, '').matchAll(/"(?:OBS_STORAGE ([A-Z_]{2,24}) ([A-Z_]{2,24}) ([A-Z_]{2,24}) ([1-5][0-9]{2}|NA)|(OBS_[A-Z_]{3,12})(?: (GET|POST|PATCH|PUT|DELETE|HEAD) (\/[^\s"]{1,200}))?(?: ([0-9]{1,3}))?)"/g)) {
+    // Storage error category (observe-core storageCategory): each field only from its fixed list, else OTHER.
+    if (m[1] !== undefined) {
+      const f = (v, set) => (set.includes(v) ? v : 'OTHER');
+      out.push(['OBS_STORAGE', f(m[1], STORAGE_ERR_NAMES), f(m[2], STORAGE_ERR_NAMES), f(m[3], STORAGE_MSG_NAMES), m[4]].join(':'));
+      if (out.length >= 6) break;
+      continue;
+    }
+    m.splice(1, 4);
     if (!OBS_CODES.includes(m[1])) { out.push('OTHER'); continue; }
     out.push([m[1], m[2] ?? '', m[3] ? obsPath(m[3]) : '', m[4] ?? ''].filter(Boolean).join(':'));
     if (out.length >= 6) break;
@@ -284,7 +293,7 @@ export function compareSummary(text) {
 }
 
 const SHOT_LINE = /^SHOT (J[0-4][a-d]?-[a-z-]{3,48}) sha256=[0-9a-f]{64} bytes=[1-9][0-9]{0,7} width=[1-9][0-9]{0,4} height=[1-9][0-9]{0,4}$/;
-const WITHHELD_LINE = /^WITHHELD (J[0-4][a-d]?-[a-z-]{3,48}) reason=([A-Z_]{4,24})$/;
+const WITHHELD_LINE = /^WITHHELD (J[0-4][a-d]?-[a-z-]{3,48}) reason=([A-Z_]{4,24})(?: (.{1,400}))?$/;
 /** @param {string} text raw shot-export stdout @param {readonly string[]} names the allowlist @param {readonly string[]} reasons @returns {string} */
 export function shotsSummary(text, names, reasons) {
   const lines = text.split('\n').filter((l) => l !== '');
@@ -295,7 +304,9 @@ export function shotsSummary(text, names, reasons) {
   let at = -1, cap = 0, wh = 0;
   for (const l of lines) {
     const s = SHOT_LINE.exec(l), w = WITHHELD_LINE.exec(l);
-    const i = s ? names.indexOf(s[1]) : w && reasons.includes(w[2]) ? names.indexOf(w[1]) : -1;
+    // A withheld suffix is allowed only on MUTATED and only in the fixed diagnostic grammar (counts, marks, sum).
+    const sfxOk = !w || w[3] === undefined || (w[2] === 'MUTATED' && DIAG_SUFFIX_RE.test(w[3]));
+    const i = s ? names.indexOf(s[1]) : w && sfxOk && reasons.includes(w[2]) ? names.indexOf(w[1]) : -1;
     if (i <= at) throw new SummaryError('SUMMARY_E_SHOTS_LINE');   // unknown, duplicate, out of allowlist order, odd reason
     at = i; if (s) cap++; else wh++;
   }

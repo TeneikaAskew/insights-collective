@@ -54,27 +54,53 @@ export const WITHHELD_REASONS = Object.freeze(['CARRIER_ROUTE', 'INCOMPLETE', 'P
  * In-page capture-window guard (read-only: it observes, it never writes to the page or the network). 'arm' records a
  * token on this document and counts DOM mutations and input/change/pagehide/beforeunload events; 'read' drains pending
  * mutation records, returns the token seen (null on a new document) and the count, and fully detaches: observer
- * disconnected, every listener removed, state dropped. Passed to page.evaluate verbatim; the static contract pins its body.
+ * disconnected, every listener dropped, state dropped. Passed to page.evaluate verbatim; the static contract pins its body.
+ * DIAGNOSTIC ONLY (never a decision input): every counted record or event is also tallied into the current phase
+ * (0 BEFORE_SAMPLE from arm, 1 SCREENSHOT, 2 AFTER_SAMPLE, 3 FINAL) by fixed kind; 'mark:<S|A|F>' drains pending records
+ * into the phase that is ending and advances (forward only). The total n is the same count as before: every record or
+ * event still adds exactly 1 to n, whether delivered, drained at a mark or drained at the read. Only fixed-kind integers
+ * leave the page: never an attribute name or value, node, text, selector or URL.
+ * Kind slots: 0 attributes, 1 childList, 2 characterData, 3 unknown record type, 4 input, 5 change, 6 navigation
+ * (pagehide/beforeunload), then the attribute family of slot 0: 7 STYLE, 8 CLASS, 9 OTHER.
  */
 export function SHOT_GUARD([op, token]) {
   const w = /** @type {any} */ (globalThis);
   const EVENTS = ['input', 'change', 'pagehide', 'beforeunload'];
+  const PHASES = ['B', 'S', 'A', 'F'];
   if (op === 'arm') {
-    const st = { token, n: 0, obs: null, bump: null };
-    st.bump = () => { st.n += 1; };
-    st.obs = new MutationObserver((recs) => { st.n += recs.length; });
+    const st = { token, n: 0, obs: null, bump: null, cur: 0, ph: [0, 1, 2, 3].map(() => [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), tally: null };
+    st.tally = (recs) => {
+      const p = st.ph[st.cur];
+      for (const r of recs) {
+        const t = r ? r.type : null;
+        if (t === 'attributes') { const a = r.attributeName; p[0] += 1; p[a === 'style' ? 7 : a === 'class' ? 8 : 9] += 1; }
+        else if (t === 'childList') p[1] += 1;
+        else if (t === 'characterData') p[2] += 1;
+        else p[3] += 1;
+      }
+      return recs.length;
+    };
+    st.bump = (e) => { st.n += 1; const t = e ? e.type : null; st.ph[st.cur][t === 'input' ? 4 : t === 'change' ? 5 : 6] += 1; };
+    st.obs = new MutationObserver((recs) => { st.n += st.tally(recs); });
     st.obs.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
     for (const ev of EVENTS) w.addEventListener(ev, st.bump, true);
     w.__gbShotGuard = st;
     return token;
   }
   const st = w.__gbShotGuard;
+  if (typeof op === 'string' && op.startsWith('mark:')) {
+    const next = PHASES.indexOf(op.slice(5));
+    if (!st || next <= st.cur) return { phase: -1 };
+    st.n += st.tally(st.obs.takeRecords());
+    st.cur = next;
+    return { phase: next };
+  }
   if (!st) return { token: null, n: -1 };
-  st.n += st.obs.takeRecords().length;
+  st.n += st.tally(st.obs.takeRecords());
   st.obs.disconnect();
   for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);
   delete w.__gbShotGuard;
-  return { token: st.token, n: st.n };
+  return { token: st.token, n: st.n, phases: st.ph };
 }
 
 /**
@@ -87,21 +113,27 @@ export function SHOT_GUARD([op, token]) {
  * @returns {Promise<{ png: Buffer | null, obs: Record<string, unknown> }>}
  */
 export async function captureShot(drv, base, armed, secrets) {
-  let navigations = 0, png = null, before = null, after = null, guard = null, failed = false;
+  let navigations = 0, png = null, before = null, after = null, guard = null, failed = false, marks = 0;
   const unwatch = drv.watchNav(() => { navigations += 1; });
+  // Diagnostic phase boundaries only: a mark that throws or does not advance is just not counted (marks < 3); it never
+  // changes the window, the decision, the guard read or the cleanup.
+  const mark = async (p) => { try { const r = await drv.guard(`mark:${p}`, armed); if (r && r.phase > 0) marks += 1; } catch { /* diagnostic only */ } };
   try {
     await drv.guard('arm', armed);
     before = await drv.sample();
     if (scanPage(before.texts, secrets).length === 0) {            // a dirty page is never captured
+      await mark('S');
       png = await drv.screenshot();
+      await mark('A');
       after = await drv.sample();
+      await mark('F');
     } else after = before;
   } catch { failed = true; } finally {
     try { guard = await drv.guard('read', armed); } catch { failed = true; }
     unwatch();
   }
   if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };
-  return { png, obs: { ...base, before, after, armed, guard, navigations, incomplete: false } };
+  return { png, obs: { ...base, before, after, armed, guard, navigations, marks, incomplete: false } };
 }
 
 const sameSample = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -192,6 +224,37 @@ function writeExclusive(p, data) {
   if (failed) throw new JourneyGateError(failed);
 }
 
+export const DIAG_PHASES = Object.freeze(['BEFORE_SAMPLE', 'SCREENSHOT', 'AFTER_SAMPLE', 'FINAL']);
+/** Column order of each phase's 10 counts (see SHOT_GUARD kind slots). */
+export const DIAG_KINDS = Object.freeze(['attributes', 'childList', 'characterData', 'unknown', 'input', 'change', 'navigation', 'STYLE', 'CLASS', 'OTHER']);
+const DIAG_CAP = 999;
+const isCount = (v) => Number.isInteger(v) && v >= 0;
+/**
+ * The MUTATED diagnostic from a guard read: { phases: 4 x 10 counts capped at 999, marks: 0..3, sum: 'EQ'|'NE' } where sum
+ * compares the uncapped kind total (slots 0-6) with the guard's own n. Anything malformed gives 'NA'. Pure; never a
+ * decision input.
+ */
+export function mutationDiag(obs) {
+  const g = obs && obs.guard, ph = g && g.phases;
+  if (!g || !Array.isArray(ph) || ph.length !== 4 || !ph.every((r) => Array.isArray(r) && r.length === 10 && r.every(isCount))
+    || !isCount(g.n) || !Number.isInteger(obs.marks) || obs.marks < 0 || obs.marks > 3) return 'NA';
+  const total = ph.reduce((t, r) => t + r.slice(0, 7).reduce((a, b) => a + b, 0), 0);
+  return { phases: ph.map((r) => r.map((v) => Math.min(v, DIAG_CAP))), marks: obs.marks, sum: total === g.n ? 'EQ' : 'NE' };
+}
+/** Strict re-validation of a stored diag (export side). Returns the manifest suffix or null when invalid. */
+export function diagSuffix(diag) {
+  if (diag === 'NA') return 'diag=NA';
+  if (!diag || typeof diag !== 'object' || Array.isArray(diag) || Object.keys(diag).sort().join(',') !== 'marks,phases,sum') return null;
+  const { phases, marks, sum } = diag;
+  if (!Array.isArray(phases) || phases.length !== 4 || !phases.every((r) => Array.isArray(r) && r.length === 10 && r.every((v) => isCount(v) && v <= DIAG_CAP))) return null;
+  if (!Number.isInteger(marks) || marks < 0 || marks > 3 || (sum !== 'EQ' && sum !== 'NE')) return null;
+  return `${DIAG_PHASES.map((p, i) => `${p}=${phases[i].join('/')}`).join(' ')} marks=${marks} sum=${sum}`;
+}
+const DN = '(?:0|[1-9][0-9]{0,2})';
+const DROW = `${DN}(?:/${DN}){9}`;
+/** The manifest suffix grammar (summary side). */
+export const DIAG_SUFFIX_RE = new RegExp(`^(?:diag=NA|BEFORE_SAMPLE=${DROW} SCREENSHOT=${DROW} AFTER_SAMPLE=${DROW} FINAL=${DROW} marks=[0-3] sum=(?:EQ|NE))$`);
+
 /**
  * Write the outcome of one shot. A PNG is written only when decideShot says so (and then with a record bound to its
  * sha256); otherwise ONLY <name>.withheld.json {name, withheld:true, reason} is written and the buffer is dropped.
@@ -204,7 +267,9 @@ export function writeShot(dir, name, png, obs, secrets) {
   const d = decideShot(name, obs, secrets);
   if (d.write && (!Buffer.isBuffer(png) || png.length < 67)) d.write = false, d.reason = 'INCOMPLETE';
   if (!d.write) {
-    writeExclusive(path.join(dir, `${name}.withheld.json`), JSON.stringify({ name, withheld: true, reason: d.reason }));
+    const rec = { name, withheld: true, reason: d.reason };
+    if (d.reason === 'MUTATED') rec.diag = mutationDiag(obs);   // diagnostic only: fixed-kind capped counts, or 'NA'
+    writeExclusive(path.join(dir, `${name}.withheld.json`), JSON.stringify(rec));
     return { written: 'withheld', reason: d.reason };
   }
   const sha256 = createHash('sha256').update(png).digest('hex');

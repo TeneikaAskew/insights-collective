@@ -181,11 +181,13 @@ export function checkJourney(root) {
   const coreW = stripJsComments(rd(`${jdir}/shot-core.mjs`));
   const cap = coreW.slice(coreW.indexOf('export async function captureShot('), coreW.indexOf('const sameSample'));
   const cOrder = ["const unwatch = drv.watchNav(() => { navigations += 1; });", "try {", "await drv.guard('arm', armed);", "before = await drv.sample();",
-    "if (scanPage(before.texts, secrets).length === 0) {", "png = await drv.screenshot();", "after = await drv.sample();", "} else after = before;",
+    "if (scanPage(before.texts, secrets).length === 0) {", "await mark('S');", "png = await drv.screenshot();", "await mark('A');", "after = await drv.sample();", "await mark('F');", "} else after = before;",
     "} catch { failed = true; } finally {", "try { guard = await drv.guard('read', armed); } catch { failed = true; }", "unwatch();",
     "if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };"];
   const cAt = cOrder.map((x) => cap.indexOf(x));
-  if (cAt.some((i) => i < 0) || cAt.some((i, k) => k > 0 && i <= cAt[k - 1]) || (cap.match(/drv\.(guard|sample|screenshot|watchNav)\(/g) || []).length !== 6) v.push('R12_SHOT_WINDOW shot-core.mjs');
+  if (cAt.some((i) => i < 0) || cAt.some((i, k) => k > 0 && i <= cAt[k - 1]) || (cap.match(/drv\.(guard|sample|screenshot|watchNav)\(/g) || []).length !== 7
+    // the one extra drv.guard( is the diagnostic mark helper: it may only send 'mark:' ops and must swallow its own errors
+    || !cap.includes("const mark = async (p) => { try { const r = await drv.guard(`mark:${p}`, armed); if (r && r.phase > 0) marks += 1; } catch {  } };")) v.push('R12_SHOT_WINDOW shot-core.mjs');
   // The decision: every check present, and the buffer is written only on { write: true }.
   const coreSrc = stripJsComments(rd(`${jdir}/shot-core.mjs`));
   const dec = coreSrc.slice(coreSrc.indexOf('export function decideShot('), coreSrc.indexOf('export function shotSecrets('));
@@ -200,8 +202,8 @@ export function checkJourney(root) {
   const guard = coreSrc.slice(coreSrc.indexOf('export function SHOT_GUARD('), coreSrc.indexOf('const sameSample'));
   const guardRO = guard.replace(/w\.removeEventListener\(ev, st\.bump, true\)/, '');
   if (!guard || /fetch|XMLHttpRequest|sendBeacon|WebSocket|Storage|cookie|setAttribute|innerHTML|textContent|\.value|appendChild|remove|insert|postMessage|location|history|open\(/.test(guardRO)) v.push('R12_SHOT_GUARD_WRITES shot-core.mjs');
-  const gRead = guard.slice(guard.indexOf('const st = w.__gbShotGuard;'));
-  const gOrder = ['st.n += st.obs.takeRecords().length;', 'st.obs.disconnect();', 'for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);', 'delete w.__gbShotGuard;', 'return { token: st.token, n: st.n };'];
+  const gRead = guard.slice(guard.indexOf('if (!st) return { token: null, n: -1 };'));   // the read path (after the diagnostic mark branch)
+  const gOrder = ['if (!st) return { token: null, n: -1 };', 'st.n += st.tally(st.obs.takeRecords());', 'st.obs.disconnect();', 'for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);', 'delete w.__gbShotGuard;', 'return { token: st.token, n: st.n, phases: st.ph };'];
   const gAt = gOrder.map((x) => gRead.indexOf(x));
   if (gAt.some((i) => i < 0) || gAt.some((i, k) => k > 0 && i <= gAt[k - 1]) || !/const EVENTS = \['input', 'change', 'pagehide', 'beforeunload'\];/.test(guard) || !/for \(const ev of EVENTS\) w\.addEventListener\(ev, st\.bump, true\);/.test(guard)) v.push('R12_SHOT_GUARD_DETACH shot-core.mjs');
   // Route keys used by the plan are exactly the keys observe.ts resolves.

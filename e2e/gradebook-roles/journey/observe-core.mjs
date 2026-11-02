@@ -37,7 +37,11 @@ export function createRecorder(target) {
   };
   const onFin = async (req) => {
     const c = byReq.get(req); if (!c) return;
-    try { const r = await req.response(); c.status = r ? r.status() : null; } catch { c.status = null; }
+    let r = null;
+    try { r = await req.response(); c.status = r ? r.status() : null; } catch { c.status = null; }
+    // DIAGNOSTIC ONLY: a Storage error response is reduced to fixed categories before the call is terminal; the body text
+    // is a local value that is never stored, returned or logged.
+    if (r && isStorageError(c)) { try { c.storage = storageCategory(await r.text()); } catch { c.storage = STORAGE_UNREADABLE; } }
     c.done = true;
   };
   const onFail = (req) => { const c = byReq.get(req); if (c) { c.failed = true; c.done = true; } };
@@ -46,6 +50,44 @@ export function createRecorder(target) {
     calls,
     stop() { target.off('request', onReq); target.off('requestfinished', onFin); target.off('requestfailed', onFail); },
   };
+}
+
+/** Storage error-body fields, reduced to FIXED names (storage-api legacy `error` strings and newer `code` names). */
+const STORAGE_ERR = new Map([
+  ['Unauthorized', 'UNAUTHORIZED'], ['AccessDenied', 'ACCESS_DENIED'], ['Bucket not found', 'BUCKET_NOT_FOUND'], ['NoSuchBucket', 'BUCKET_NOT_FOUND'],
+  ['not_found', 'NOT_FOUND'], ['NoSuchKey', 'NOT_FOUND'], ['Duplicate', 'DUPLICATE'], ['KeyAlreadyExists', 'DUPLICATE'], ['ResourceAlreadyExists', 'DUPLICATE'],
+  ['invalid_mime_type', 'MIME_TYPE'], ['InvalidMimeType', 'MIME_TYPE'], ['Payload too large', 'TOO_LARGE'], ['EntityTooLarge', 'TOO_LARGE'],
+  ['InvalidKey', 'INVALID_KEY'], ['Invalid key', 'INVALID_KEY'], ['InvalidJWT', 'INVALID_JWT'], ['invalid_jwt', 'INVALID_JWT'],
+  ['InvalidRequest', 'INVALID_REQUEST'], ['DatabaseError', 'DATABASE_ERROR'], ['InternalError', 'INTERNAL'], ['Error', 'GENERIC_ERROR'],
+]);
+/** Exact known message strings only (whole-string equality); anything else is OTHER. The message itself never leaves. */
+const STORAGE_MSG = new Map([
+  ['new row violates row-level security policy', 'RLS'], ['jwt expired', 'JWT_EXPIRED'], ['invalid signature', 'JWT_SIGNATURE'],
+  ['jwt malformed', 'JWT_MALFORMED'], ['Bucket not found', 'BUCKET_NOT_FOUND'], ['The resource already exists', 'DUPLICATE'],
+  ['Invalid key', 'INVALID_KEY'], ['mime type not supported', 'MIME_TYPE'],
+]);
+const FIELD_STATES = ['ABSENT', 'OTHER', 'NA'];
+export const STORAGE_ERR_NAMES = Object.freeze([...new Set([...STORAGE_ERR.values(), ...FIELD_STATES, 'UNPARSEABLE', 'SHAPE', 'OVERSIZE', 'UNREADABLE'])]);
+export const STORAGE_MSG_NAMES = Object.freeze([...new Set([...STORAGE_MSG.values(), ...FIELD_STATES])]);
+const STORAGE_MAX_BODY = 4096;
+const STORAGE_UNREADABLE = Object.freeze({ err: 'UNREADABLE', code: 'NA', msg: 'NA', status: 'NA' });
+const isStorageError = (c) => c.url.pathname.startsWith('/storage/v1/') && Number.isInteger(c.status) && c.status >= 400;
+/**
+ * Fixed categories from a Storage error body: err (`error`), code (`code`), msg (`message`, exact known strings only) and
+ * the body's own `statusCode` when it is exactly three digits. Own keys only; non-string values are OTHER. Pure.
+ * @param {unknown} text @returns {{ err: string, code: string, msg: string, status: string }}
+ */
+export function storageCategory(text) {
+  if (typeof text !== 'string') return STORAGE_UNREADABLE;
+  if (text.length > STORAGE_MAX_BODY) return { err: 'OVERSIZE', code: 'NA', msg: 'NA', status: 'NA' };
+  let b;
+  try { b = JSON.parse(text); } catch { return { err: 'UNPARSEABLE', code: 'NA', msg: 'NA', status: 'NA' }; }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { err: 'SHAPE', code: 'NA', msg: 'NA', status: 'NA' };
+  const own = (k) => (Object.prototype.hasOwnProperty.call(b, k) ? b[k] : undefined);
+  const pick = (k, map) => { const v = own(k); return v === undefined ? 'ABSENT' : typeof v === 'string' && map.has(v) ? map.get(v) : 'OTHER'; };
+  const sc = own('statusCode');
+  const status = (typeof sc === 'string' || typeof sc === 'number') && /^[1-5][0-9]{2}$/.test(String(sc)) ? String(sc) : 'NA';
+  return { err: pick('error', STORAGE_ERR), code: pick('code', STORAGE_ERR), msg: pick('message', STORAGE_MSG), status };
 }
 
 /** True once every expectation has at least its count of exact matches and all of them are terminal. */
@@ -60,7 +102,8 @@ export function settled(calls, want, origin) {
  * Verdict for one action. Codes: OBS_NEAR_MISS (same origin+method+path, other query, and not an exact match of another
  * expectation in the same set), OBS_COUNT (started count differs),
  * OBS_PENDING (never reached a terminal event), OBS_FAILED (requestfailed), OBS_STATUS (terminal status not allowed),
- * OBS_ORDER (with ordered: the first exact start of each expectation is not in the declared order).
+ * OBS_ORDER (with ordered: the first exact start of each expectation is not in the declared order). DIAGNOSTIC: an
+ * OBS_STATUS on a Storage call is followed by OBS_STORAGE <err> <code> <msg> <bodyStatus> (fixed names, storageCategory).
  * @param {Call[]} calls @param {Expect[]} want @param {{ origin: string, ordered?: boolean }} opts
  */
 export function evaluate(calls, want, opts) {
@@ -77,7 +120,10 @@ export function evaluate(calls, want, opts) {
     for (const c of exact) {
       if (!c.done) failures.push(`OBS_PENDING ${label}`);
       else if (c.failed) failures.push(`OBS_FAILED ${label}`);
-      else if (w.status && !w.status.includes(c.status)) failures.push(`OBS_STATUS ${label} ${c.status}`);
+      else if (w.status && !w.status.includes(c.status)) {
+        failures.push(`OBS_STATUS ${label} ${c.status}`);
+        if (c.storage) failures.push(`OBS_STORAGE ${c.storage.err} ${c.storage.code} ${c.storage.msg} ${c.storage.status}`);
+      }
     }
     return exact;
   });

@@ -12,14 +12,14 @@ const ABSENT12 = ['J0a', 'J0b', 'J1', 'J2a', 'J2b', 'J2c', 'J3a', 'J3b', 'J4a', 
 const execFileSync = (cmd, args, opts = {}) => execFileSyncRaw(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], ...opts });
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, readPrivateJson } from '../../../../e2e/gradebook-roles/journey/private-dir.mjs';
 import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
-import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
+import { createRecorder, evaluate, settled, runStateFailures, storageCategory, STORAGE_ERR_NAMES, STORAGE_MSG_NAMES } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
 import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
 import { playwrightSummary, compareSummary, shotsSummary, readRaw, GLOBAL_CODES, globalCode, FIXTURE_RANGES } from '../run-summary.mjs';
 import { blockedCode, kindOf, classOf, entryClass, BLOCKED_CODE_RE, BLOCKED_PREFIX, KINDS, CLASSES, ROLES as B_ROLES, PHASES as B_PHASES } from '../../../../e2e/gradebook-roles/journey/blocked-class.mjs';
-import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, captureShot, decideShot, scanPage, shotSecrets, writeShot, mutationDiag, diagSuffix, DIAG_SUFFIX_RE } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
 import { checkJourney } from './static-contract.mjs';
@@ -253,6 +253,53 @@ try {
   OBS('start is what counts: a start finished later still counts once', await obs(async (t) => { const r = start(t, 'POST', `${O}/rest/v1/enrollments`); await tick(); await finish(t, r, 201); }), null);
   { const t = fakeTarget(); const rec = createRecorder(t); rec.stop(); await finish(t, start(t, 'POST', `${O}/rest/v1/enrollments`), 201); ok('OBS requests after stop() are not recorded', rec.calls.length === 0); }
   { const t = fakeTarget(); const rec = createRecorder(t); const r = start(t, 'POST', `${O}/rest/v1/enrollments`); const before = settled(rec.calls, [SPEC], O); await finish(t, r, 201); ok('OBS settled() waits for the terminal event', before === false && settled(rec.calls, [SPEC], O) === true); }
+
+  // ---- Storage error category (run 41493619385 J2c: OBS_STATUS POST storage 400). DIAGNOSTIC ONLY, fixed names. ----
+  stage = 'Storage error category (fixed names; body never echoed)';
+  { const NONCE = 'n0nce'.repeat(6) + 'zz'; const SC = (b) => JSON.stringify(storageCategory(typeof b === 'string' ? b : JSON.stringify(b)));
+    const RLSMSG = 'new row violates row-level security policy';
+    ok('STCAT legacy RLS body (HTTP 400, body statusCode "403", error Unauthorized): UNAUTHORIZED / ABSENT / RLS / 403',
+      SC({ statusCode: '403', error: 'Unauthorized', message: RLSMSG }) === '{"err":"UNAUTHORIZED","code":"ABSENT","msg":"RLS","status":"403"}');
+    ok('STCAT newer body with code AccessDenied and a numeric statusCode', SC({ statusCode: 403, code: 'AccessDenied', error: 'Unauthorized', message: RLSMSG }) === '{"err":"UNAUTHORIZED","code":"ACCESS_DENIED","msg":"RLS","status":"403"}');
+    ok('STCAT bucket missing, duplicate, MIME, size, JWT expired, invalid key each map to their fixed name',
+      SC({ statusCode: '404', error: 'Bucket not found', message: 'Bucket not found' }) === '{"err":"BUCKET_NOT_FOUND","code":"ABSENT","msg":"BUCKET_NOT_FOUND","status":"404"}'
+      && SC({ statusCode: '409', error: 'Duplicate', message: 'The resource already exists' }) === '{"err":"DUPLICATE","code":"ABSENT","msg":"DUPLICATE","status":"409"}'
+      && SC({ statusCode: '415', error: 'invalid_mime_type', message: 'mime type not supported' }) === '{"err":"MIME_TYPE","code":"ABSENT","msg":"MIME_TYPE","status":"415"}'
+      && SC({ statusCode: '413', error: 'Payload too large' }).includes('"err":"TOO_LARGE"') && SC({ statusCode: '400', error: 'InvalidJWT', message: 'jwt expired' }) === '{"err":"INVALID_JWT","code":"ABSENT","msg":"JWT_EXPIRED","status":"400"}'
+      && SC({ error: 'InvalidKey', message: 'Invalid key' }) === '{"err":"INVALID_KEY","code":"ABSENT","msg":"INVALID_KEY","status":"NA"}');
+    const hostile = [
+      [{ statusCode: '403', error: `MARKER ${NONCE}`, message: `${RLSMSG} ${NONCE}` }, '{"err":"OTHER","code":"ABSENT","msg":"OTHER","status":"403"}'],
+      [{ error: { toString: 'Unauthorized' }, message: ['new row violates row-level security policy'], statusCode: '4031' }, '{"err":"OTHER","code":"ABSENT","msg":"OTHER","status":"NA"}'],
+      [JSON.parse('{"__proto__":{"error":"Unauthorized"},"constructor":"x"}'), '{"err":"ABSENT","code":"ABSENT","msg":"ABSENT","status":"NA"}'],
+      [{ statusCode: '  403', error: 'unauthorized', message: 'New row violates row-level security policy' }, '{"err":"OTHER","code":"ABSENT","msg":"OTHER","status":"NA"}'],
+      [`<html>${NONCE}</html>`, '{"err":"UNPARSEABLE","code":"NA","msg":"NA","status":"NA"}'],
+      [JSON.stringify([{ error: 'Unauthorized' }]), '{"err":"SHAPE","code":"NA","msg":"NA","status":"NA"}'],
+      ['null', '{"err":"SHAPE","code":"NA","msg":"NA","status":"NA"}'],
+      [JSON.stringify({ error: 'Unauthorized', pad: 'x'.repeat(5000) }), '{"err":"OVERSIZE","code":"NA","msg":"NA","status":"NA"}'],
+    ];
+    ok('STCAT hostile bodies: near-miss strings, non-string values, inherited keys, bad statusCode, HTML, arrays, oversize all reduce to fixed names; no input text survives',
+      hostile.every(([b, want]) => SC(b) === want) && !hostile.map(([b]) => SC(b)).join().includes(NONCE) && JSON.stringify(storageCategory(undefined)) === '{"err":"UNREADABLE","code":"NA","msg":"NA","status":"NA"}');
+    ok('STCAT every name the category can produce is in the exported fixed lists (summary allowlists)',
+      ['UNAUTHORIZED', 'ACCESS_DENIED', 'BUCKET_NOT_FOUND', 'NOT_FOUND', 'DUPLICATE', 'MIME_TYPE', 'TOO_LARGE', 'INVALID_KEY', 'INVALID_JWT', 'INVALID_REQUEST', 'DATABASE_ERROR', 'INTERNAL', 'GENERIC_ERROR', 'ABSENT', 'OTHER', 'NA', 'UNPARSEABLE', 'SHAPE', 'OVERSIZE', 'UNREADABLE'].every((n) => STORAGE_ERR_NAMES.includes(n))
+      && ['RLS', 'JWT_EXPIRED', 'JWT_SIGNATURE', 'JWT_MALFORMED', 'BUCKET_NOT_FOUND', 'DUPLICATE', 'INVALID_KEY', 'MIME_TYPE', 'ABSENT', 'OTHER', 'NA'].every((n) => STORAGE_MSG_NAMES.includes(n)));
+    // Recorder: only a Storage response with status >= 400 has its body read (once), and only the category is kept.
+    const startB = (t, method, url, body) => { let reads = 0; const req = { url: () => url, method: () => method, _s: null, reads: () => reads,
+      response: async () => (req._s === null ? null : { status: () => req._s, text: async () => { reads += 1; if (body instanceof Error) throw body; return body; } }) }; t.emit('request', req); return req; };
+    const SUP = `${O}/storage/v1/object/course-documents/submissions/c/u/1-a.pdf`;
+    const RLSBODY = JSON.stringify({ statusCode: '403', error: 'Unauthorized', message: RLSMSG });
+    const STW = [{ spec: { method: 'POST', path: '/storage/v1/object/course-documents/submissions/' }, count: 1, status: [200] }];
+    { const t = fakeTarget(); const rec = createRecorder(t); const r = startB(t, 'POST', SUP, RLSBODY); await finish(t, r, 400); rec.stop();
+      const f = evaluate(rec.calls, STW, { origin: O }).failures;
+      ok('STREC a Storage 400: OBS_STATUS then OBS_STORAGE with the fixed category; body read once; the raw body is not on the call',
+        JSON.stringify(f) === JSON.stringify(['OBS_STATUS POST /storage/v1/object/course-documents/submissions/ 400', 'OBS_STORAGE UNAUTHORIZED ABSENT RLS 403']) && r.reads() === 1
+        && !JSON.stringify(Object.fromEntries(Object.entries(rec.calls[0]).filter(([k]) => k !== 'req'))).includes(RLSMSG)); }
+    { const t = fakeTarget(); const rec = createRecorder(t); const r = startB(t, 'POST', SUP, new Error('MARKER')); await finish(t, r, 400); rec.stop();
+      ok('STREC a body that cannot be read: UNREADABLE, the call is still terminal with its status', rec.calls[0].done && rec.calls[0].status === 400 && JSON.stringify(evaluate(rec.calls, STW, { origin: O }).failures) === JSON.stringify(['OBS_STATUS POST /storage/v1/object/course-documents/submissions/ 400', 'OBS_STORAGE UNREADABLE NA NA NA'])); }
+    { const t = fakeTarget(); const rec = createRecorder(t); const a = startB(t, 'POST', SUP, RLSBODY); await finish(t, a, 200); const b = startB(t, 'POST', `${O}/rest/v1/enrollments`, RLSBODY); await finish(t, b, 403); rec.stop();
+      ok('STREC a 2xx Storage response and a non-Storage 4xx are never read; no OBS_STORAGE when the status is allowed', a.reads() === 0 && b.reads() === 0 && !rec.calls.some((c) => c.storage)
+        && evaluate(rec.calls, STW, { origin: O }).failures.length === 0); }
+    { const t = fakeTarget(); const rec = createRecorder(t); const r = startB(t, 'POST', SUP, RLSBODY); const pre = settled(rec.calls, STW, O); await finish(t, r, 400); rec.stop();
+      ok('STREC the category is set before the call becomes terminal (settled waits for it)', pre === false && rec.calls[0].done && rec.calls[0].storage && rec.calls[0].storage.msg === 'RLS'); } }
 
   // ---- J0b course-read oracle (run 41486270908): OLD 69e5f4b one-reader oracle vs NEW three-reader + declared sibling ----
   stage = "J0b course-read oracle (run 41486270908): OLD 69e5f4b vs NEW";
@@ -644,6 +691,14 @@ try {
     const run2 = sum([T('J0a', 'passed'), T('J0b', 'failed', [obsErr])]);
     ok('CASE an observe failure (custom message first): matcher found, OBS tokens as code:method:fixed path name:number; unknown path/code OTHER; nothing echoed',
       run2[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=OBS_STATUS:GET:COURSES:200,OBS_COUNT:POST:STORAGE_COURSE_DOCUMENTS:0,OBS_NEAR_MISS:GET:OTHER,OTHER errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL attempts=1' && !run2.join('\n').includes('MARKER'));
+    // The J2c shape of run 41493619385 plus the new fixed Storage category line; hostile category fields reduce to OTHER.
+    const stErr = { message: 'Error: request-level expectations (fixed codes)\n\nexpect(received).toEqual(expected) // deep equality\n\n+ Array [\n+   "OBS_STATUS POST /storage/v1/object/course-documents/submissions/MARKER/ 400",\n+   "OBS_STORAGE UNAUTHORIZED ABSENT RLS 403",\n+   "OBS_COUNT POST /rest/v1/assignment_submissions 0",\n+   "OBS_COUNT POST /rest/v1/submission_attachments 0",\n+   "OBS_COUNT POST /rest/v1/content_item_progressions 0",\n+ ]', location: loc('e2e/gradebook-roles/journey/observe.ts', 46) };
+    const stHostile = { message: 'Error: request-level expectations (fixed codes)\n\nexpect(received).toEqual(expected) // deep equality\n\n+   "OBS_STORAGE MARKER_X UNAUTHORIZED RLS_NOPE 403",\n+   "OBS_STORAGE UNAUTHORIZED ABSENT RLS 4031",\n+   "OBS_STORAGE unauthorized ABSENT RLS 403",\n+ ]', location: loc('e2e/gradebook-roles/journey/observe.ts', 46) };
+    const run3s = sum([T('J0a', 'passed'), T('J0b', 'failed', [stErr])]), run3h = sum([T('J0a', 'passed'), T('J0b', 'failed', [stHostile])]);
+    ok('CASE storage: OBS_STORAGE:<err>:<code>:<msg>:<bodyStatus> follows the OBS_STATUS token, from fixed lists only; nothing echoed',
+      run3s[1] === 'CASE J0b status=FAILED stage=BODY where=OBSERVE line=46 cat=EXPECT_TO_EQUAL obs=OBS_STATUS:POST:STORAGE_COURSE_DOCUMENTS:400,OBS_STORAGE:UNAUTHORIZED:ABSENT:RLS:403,OBS_COUNT:POST:ASSIGNMENT_SUBMISSIONS:0,OBS_COUNT:POST:SUBMISSION_ATTACHMENTS:0,OBS_COUNT:POST:CONTENT_ITEM_PROGRESSIONS:0 errors=1 all=BODY.OBSERVE.46.EXPECT_TO_EQUAL attempts=1' && !run3s.join('\n').includes('MARKER'));
+    ok('CASE storage hostile: unknown names become OTHER; a non-grammar field (4-digit status, lower case) is not a token at all',
+      run3h[1].includes('obs=OBS_STORAGE:OTHER:UNAUTHORIZED:OTHER:403 ') && !run3h.join('\n').includes('MARKER') && !run3h[1].includes('4031') && !run3h[1].includes('unauthorized'));
     const guardErr = { message: 'Error: requests to non-approved origins (each was blocked before it was sent)\n\nexpect(received).toEqual(expected) // deep equality\n\n+   Object {\n+     "kind": "image",\n+     "origin": "https://MARKER.example",', location: loc('e2e/gradebook-roles/guarded-test.ts', 11) };
     const conErr = { message: 'Error: Test "J0b MARKER" produced 2 console error(s):\n  • MARKER one\n  • expect(MARKER).toBe(\n\nexpect(received).toHaveLength(expected)\n\nExpected length: 0', location: loc('e2e/fixtures/console-errors.fixture.ts', 508) };
     const run3 = sum([T('J0a', 'failed', [guardErr, conErr]), T('J0b', 'failed', [conErr])]);
@@ -870,7 +925,7 @@ try {
     const unput = (g) => { g.document.getElementById('t').textContent = 'Grades'; };
 
     const pos = await cap({});
-    ok('SHOTWINDOW unchanged legitimate positive: write, order watch,arm,sample,screenshot,sample,read,unwatch, fully detached', pos.d === '{"write":true}' && pos.log === 'watch,arm,sample,screenshot,sample,read,unwatch' && pos.pg.detached() && pos.navsLeft === 0 && Buffer.isBuffer(pos.png));
+    ok('SHOTWINDOW unchanged legitimate positive: write, order watch,arm,sample,(mark:S),screenshot,(mark:A),sample,(mark:F),read,unwatch, fully detached', pos.d === '{"write":true}' && pos.log === 'watch,arm,sample,mark:S,screenshot,mark:A,sample,mark:F,read,unwatch' && pos.pg.detached() && pos.navsLeft === 0 && Buffer.isBuffer(pos.png));
     // T's exact case: clean BEFORE -> secret inserted -> screenshot shows it -> secret removed before AFTER.
     const oldT = await oldCap({ 'post:sample#1': put, 'old:read-sample': unput });
     const newT = await cap({ 'post:sample#1': put, 'pre:sample#2': unput });
@@ -899,16 +954,73 @@ try {
     // The guard alone.
     const gRun = async (fn) => { const pg = mkPage(); inWin(pg.g, () => SHOT_GUARD(['arm', 'tok'])); await fn(pg.g); const r = inWin(pg.g, () => SHOT_GUARD(['read', 'tok'])); return { r, pg }; };
     const g0 = await gRun(async () => { await tick(); });
-    ok('SHOTGUARD real DOM: unchanged page reads back the same token and 0 events, then is fully detached', JSON.stringify(g0.r) === '{"token":"tok","n":0}' && g0.pg.detached());
+    ok('SHOTGUARD real DOM: unchanged page reads back the same token and 0 events (all phases zero), then is fully detached', JSON.stringify(g0.r) === JSON.stringify({ token: 'tok', n: 0, phases: [0, 1, 2, 3].map(() => Array(10).fill(0)) }) && g0.pg.detached());
     ok('SHOTGUARD real DOM: a secret written then reverted (not yet delivered to the observer) is counted', (await gRun((w) => { put(w); unput(w); })).r.n >= 2);
     ok('SHOTGUARD real DOM: a field value change (input event) is counted', (await gRun(async (w) => { const x = w.document.getElementById('i'); x.value = 'x'; x.dispatchEvent(new w.Event('input', { bubbles: true })); await tick(); })).r.n >= 1);
     { const pg = mkPage(); const r = inWin(pg.g, () => SHOT_GUARD(['read', 'tok']));
-      ok('SHOTGUARD a replaced document (no guard state) reads token null', r.token === null && r.n === -1); } }
+      ok('SHOTGUARD a replaced document (no guard state) reads token null', r.token === null && r.n === -1); }
+
+    // ---- MUTATED differentiation (run 41493619385: 7 shots MUTATED, cause unknown). DIAGNOSTIC ONLY: fixed-kind counts per
+    // phase, drained at each boundary; the decision, total, refusal, finally, navigation and unknown handling are unchanged.
+    stage = 'Shot guard phase diagnostic (jsdom; diagnostic only)';
+    const K = { attributes: 0, childList: 1, characterData: 2, unknown: 3, input: 4, change: 5, navigation: 6, STYLE: 7, CLASS: 8, OTHER: 9 };
+    const flip = (g) => { put(g); unput(g); };   // two childList records, nothing left changed
+    const only = (ph, at, want) => ph.every((row, i) => row.every((v, k) => v === (i === at && Object.hasOwn(want, k) ? want[k] : 0)));
+    const gaps = [['post:sample#1', 0], ['pre:mark:S#1', 0], ['post:mark:S#1', 1], ['post:screenshot#1', 1], ['post:mark:A#1', 2], ['post:sample#2', 2], ['post:mark:F#1', 3], ['pre:read#1', 3]];
+    const gapRes = [];
+    for (const [hook, at] of gaps) { const r = await cap({ [hook]: flip }); const dg = mutationDiag(r.obs);
+      gapRes.push(r.d === '{"write":false,"reason":"MUTATED"}' && r.obs.guard.n === 2 && dg.marks === 3 && dg.sum === 'EQ' && only(dg.phases, at, { [K.childList]: 2 }) && r.pg.detached()); }
+    ok('SHOTDIAG a transient change in EACH gap (after sample 1, around each mark, after the screenshot, after sample 2, before the read) lands in exactly its phase; decision still MUTATED, n 2, sum EQ, marks 3', gapRes.every(Boolean));
+    { const r = await cap({}); const dg = mutationDiag(r.obs);
+      ok('SHOTDIAG the clean positive still writes; its diag would be all zero with 3 marks (no record is written for a capture)', r.d === '{"write":true}' && dg.marks === 3 && dg.sum === 'EQ' && only(dg.phases, -1, {})); }
+    // Pending records: mutate synchronously in the same task as the mark/read, so the observer callback has NOT delivered them.
+    const syncCap = async (when) => { const pg = mkPage(); const drv = mkDrv(pg); const g0 = drv.guard;
+      drv.guard = (op, t) => (op === when ? (async () => { drv.log.push(op); return inWin(pg.g, () => { flip(pg.g); return SHOT_GUARD([op, t]); }); })() : g0(op, t));
+      const r = await captureShot(drv, base, 'k'.repeat(32), SECRETS); return { r, dg: mutationDiag(r.obs), pg }; };
+    const pS = await syncCap('mark:S'), pF = await syncCap('read');
+    ok('SHOTDIAG pending records at a mark are drained (takeRecords) into the phase that is ending: BEFORE_SAMPLE', only(pS.dg.phases, 0, { [K.childList]: 2 }) && pS.r.obs.guard.n === 2 && pS.dg.sum === 'EQ' && DS('J4c-grades', pS.r.obs) === '{"write":false,"reason":"MUTATED"}');
+    ok('SHOTDIAG pending records at the read are drained into FINAL and still counted in n', only(pF.dg.phases, 3, { [K.childList]: 2 }) && pF.r.obs.guard.n === 2 && pF.dg.sum === 'EQ' && pF.pg.detached());
+    // Kinds and attribute families, with hostile names/values/text: only integers leave the page.
+    const HN = 'data-' + NONCE;
+    const hostileHook = (g) => { const p = g.document.getElementById('t'); p.setAttribute('style', `x:${NONCE}`); p.setAttribute('class', NONCE); p.setAttribute(HN, NONCE);
+      p.setAttribute('__proto__', NONCE); p.setAttribute('constructor', NONCE); p.firstChild.data = `Grades ${NONCE}`; p.firstChild.data = 'Grades';
+      for (const a of ['style', 'class', HN, '__proto__', 'constructor']) p.removeAttribute(a); };
+    const evHook = (g) => { const x = g.document.getElementById('i'); x.dispatchEvent(new g.Event('input', { bubbles: true })); x.dispatchEvent(new g.Event('change', { bubbles: true })); g.dispatchEvent(new g.Event('pagehide')); };
+    { const r = await cap({ 'post:screenshot#1': hostileHook, 'post:sample#2': evHook }); const dg = mutationDiag(r.obs); const sfx = diagSuffix(dg);
+      const okS = dg.phases[1][K.attributes] === 10 && dg.phases[1][K.STYLE] === 2 && dg.phases[1][K.CLASS] === 2 && dg.phases[1][K.OTHER] === 6 && dg.phases[1][K.characterData] === 2;
+      const okA = dg.phases[2][K.input] === 1 && dg.phases[2][K.change] === 1 && dg.phases[2][K.navigation] === 1;
+      const flat = JSON.stringify(r.obs.guard) + JSON.stringify(dg) + sfx;
+      ok('SHOTDIAG hostile attribute names/values and text: STYLE/CLASS/OTHER families and characterData counted in SCREENSHOT; input/change/navigation in AFTER_SAMPLE; sum EQ',
+        okS && okA && dg.sum === 'EQ' && r.d === '{"write":false,"reason":"MUTATED"}');
+      ok('SHOTDIAG nothing but integers and fixed words leave: no nonce, attribute name, selector, URL or text in the guard read, the diag or the manifest suffix',
+        !flat.includes(NONCE) && !/style|constructor|__proto__|data-|Grades|http|#/.test(JSON.stringify(dg) + JSON.stringify(r.obs.guard.phases)) && DIAG_SUFFIX_RE.test(sfx) && Object.keys(r.obs.guard).sort().join() === 'n,phases,token'); }
+    // Exceptions: a failing mark is not counted and changes nothing else; a failing step stays INCOMPLETE with no diag.
+    { const a = await cap({ 'pre:mark:S#1': boom }), b = await cap({ 'pre:mark:A#1': boom, 'post:screenshot#1': flip }), c = await cap({ 'post:mark:S#1': flip, 'pre:screenshot#1': boom });
+      const db = mutationDiag(b.obs);
+      ok('SHOTDIAG a mark that throws: positive still writes (marks 2), detached; the window order is unchanged apart from the missing mark', a.d === '{"write":true}' && a.obs.marks === 2 && a.pg.detached() && a.log === 'watch,arm,sample,screenshot,mark:A,sample,mark:F,read,unwatch');
+      ok('SHOTDIAG a mark that throws after a change: still MUTATED, records stay in the phase that was current (SCREENSHOT), marks 2, sum EQ', b.d === '{"write":false,"reason":"MUTATED"}' && db.marks === 2 && only(db.phases, 1, { [K.childList]: 2 }) && db.sum === 'EQ' && b.pg.detached());
+      ok('SHOTDIAG an exception in the screenshot after a mark: INCOMPLETE, no buffer, guard read in finally, listeners detached, no diag on the record', c.png === null && c.d === '{"write":false,"reason":"INCOMPLETE"}' && c.log.endsWith('read,unwatch') && c.pg.detached() && c.navsLeft === 0); }
+    { const pg = mkPage(); inWin(pg.g, () => SHOT_GUARD(['arm', 'tok']));
+      const back = inWin(pg.g, () => [SHOT_GUARD(['mark:A', 'tok']), SHOT_GUARD(['mark:S', 'tok']), SHOT_GUARD(['mark:Z', 'tok']), SHOT_GUARD(['mark:A', 'tok'])]);
+      const fresh = mkPage(); const none = inWin(fresh.g, () => SHOT_GUARD(['mark:S', 'tok']));
+      inWin(pg.g, () => SHOT_GUARD(['read', 'tok']));
+      ok('SHOTDIAG marks move forward only (backward, repeated or unknown phase is a no-op); a mark on a document with no guard creates nothing', JSON.stringify(back) === '[{"phase":2},{"phase":-1},{"phase":-1},{"phase":-1}]' && JSON.stringify(none) === '{"phase":-1}' && fresh.detached() && pg.detached()); }
+    // Total preserved: the 9cef498 guard (no marks) and this guard (with marks) count the same n for the same changes.
+    { const oldSrc = execFileSync('git', ['show', '9cef49853a47e32906cb66a5d4b8adfa99e06b1a:e2e/gradebook-roles/journey/shot-core.mjs'], { cwd: repo, encoding: 'utf8' });
+      const body = oldSrc.slice(oldSrc.indexOf('export function SHOT_GUARD('), oldSrc.indexOf('/**\n * The capture window')).replace('export function', 'function');
+      const OLD9 = new Function(`${body}; return SHOT_GUARD;`)();
+      const seq = (G, marks, acts) => { const pg = mkPage(); return inWin(pg.g, () => { G(['arm', 'tok']); acts.forEach((f, i) => { f(pg.g); if (marks && i < 3) G([`mark:${'SAF'[i]}`, 'tok']); }); return G(['read', 'tok']).n; }); };
+      const asyncSeq = async (G, marks, acts) => { const pg = mkPage(); inWin(pg.g, () => G(['arm', 'tok'])); for (let i = 0; i < acts.length; i++) { inWin(pg.g, () => acts[i](pg.g)); await tick(); if (marks && i < 3) inWin(pg.g, () => G([`mark:${'SAF'[i]}`, 'tok'])); } return inWin(pg.g, () => G(['read', 'tok'])).n; };
+      const nop = () => {}; const ev = evHook;
+      const plans = [[nop, nop, nop, nop], [flip, nop, nop, nop], [nop, flip, flip, nop], [hostileHook, ev, flip, hostileHook], [ev, ev, ev, ev]];
+      const sync = plans.every((a) => seq(OLD9, false, a) === seq(SHOT_GUARD, true, a));
+      let asy = true; for (const a of plans) asy = asy && (await asyncSeq(OLD9, false, a)) === (await asyncSeq(SHOT_GUARD, true, a));
+      ok('SHOTDIAG total preserved: for 5 change plans (pending and delivered records, events), the 9cef498 guard n equals this guard n with all three marks', sync && asy); } }
   { const d = shotDir(); const png = mkPng();
     const r1 = writeShot(d, 'J4c-grades', png, cleanObs(), SECRETS);
     ok('SHOTWRITE positive writes <name>.png and its record bound to the sha256 (0600)', r1.written === 'png' && r1.sha256 === createHash('sha256').update(png).digest('hex') && JSON.stringify(JSON.parse(fs.readFileSync(path.join(d, 'J4c-grades.scan.json'), 'utf8'))) === JSON.stringify({ name: 'J4c-grades', sha256: r1.sha256, verdict: 'clean', scans: 2, window: 'same-document-unchanged' }) && ['J4c-grades.png', 'J4c-grades.scan.json'].every((f) => (fs.statSync(path.join(d, f)).mode & 0o777) === 0o600));
     const r2 = writeShot(d, 'J4c-progress', png, cleanObs({ project: 'jr-4-learner-readback', expectedPath: PATH_OF.progress, before: samp({ url: `${APPO}${PATH_OF.progress}` }), after: samp({ url: `${APPO}${PATH_OF.progress}` }), guard: { token: 'k'.repeat(32), n: 1 } }), SECRETS);
-    ok('SHOTWRITE a withheld decision writes ONLY <name>.withheld.json with the reason; the buffer is never written', r2.written === 'withheld' && r2.reason === 'MUTATED' && !fs.existsSync(path.join(d, 'J4c-progress.png')) && !fs.existsSync(path.join(d, 'J4c-progress.scan.json')) && fs.readFileSync(path.join(d, 'J4c-progress.withheld.json'), 'utf8') === '{"name":"J4c-progress","withheld":true,"reason":"MUTATED"}');
+    ok('SHOTWRITE a withheld decision writes ONLY <name>.withheld.json with the reason; the buffer is never written', r2.written === 'withheld' && r2.reason === 'MUTATED' && !fs.existsSync(path.join(d, 'J4c-progress.png')) && !fs.existsSync(path.join(d, 'J4c-progress.scan.json')) && fs.readFileSync(path.join(d, 'J4c-progress.withheld.json'), 'utf8') === '{"name":"J4c-progress","withheld":true,"reason":"MUTATED","diag":"NA"}');
     ok('SHOTWRITE a positive decision with no buffer is withheld INCOMPLETE', writeShot(d, 'J4d-certificate', null, cleanObs({ expectedPath: PATH_OF.grades }), SECRETS).reason === 'INCOMPLETE' && !fs.existsSync(path.join(d, 'J4d-certificate.png')));
     ok('SHOTWRITE J0a writes only its withheld record', writeShot(d, 'J0a-catalog-before-publish', png, cleanObs(), SECRETS).reason === 'CARRIER_ROUTE' && !fs.existsSync(path.join(d, 'J0a-catalog-before-publish.png')));
     ok('SHOTWRITE an unknown name or an existing file refuses', SCE(() => writeShot(d, 'J9-other', png, cleanObs(), SECRETS)) === 'SHOT_E_NAME' && SCE(() => writeShot(d, 'J4c-grades', png, cleanObs(), SECRETS)) === 'SHOT_E_EXCLUSIVE_CREATE');
@@ -949,6 +1061,32 @@ try {
   { const r = shotRun(); putW(r, 'J0a-catalog-before-publish', 'CARRIER_ROUTE'); put(r, 'J4c-grades', mkPng()); putW(r, 'J4d-certificate', 'NAVIGATED');
     const l = EX(r);
     ok('SHOTEXPORT withheld shots are reported by name and reason, in allowlist order, and never exported', Array.isArray(l) && l[0] === 'WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE' && l[1].startsWith('SHOT J4c-grades sha256=') && l[2] === 'WITHHELD J4d-certificate reason=NAVIGATED' && l[3] === 'SHOTS 1 captured 2 withheld of 16' && fs.readdirSync(r.exportDir).join() === 'J4c-grades.png'); }
+  // MUTATED diagnostic: a strictly validated fixed-kind record prints its counts; anything else in diag refuses.
+  { const PH = [[1, 2, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], [3, 0, 1, 0, 1, 1, 1, 1, 1, 1], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]];
+    const DG = { phases: PH, marks: 3, sum: 'EQ' };
+    const r = shotRun(); putW(r, 'J2c-submitted-after-reload', 'MUTATED', { diag: DG }); putW(r, 'J4c-grades', 'MUTATED', { diag: 'NA' }); putW(r, 'J4d-certificate', 'MUTATED');
+    const l = EX(r);
+    ok('SHOTEXPORT a MUTATED record with diag prints BEFORE_SAMPLE/SCREENSHOT/AFTER_SAMPLE/FINAL counts, marks and sum; NA and no-diag records stay valid',
+      Array.isArray(l) && l[0] === 'WITHHELD J2c-submitted-after-reload reason=MUTATED BEFORE_SAMPLE=1/2/0/0/0/0/0/1/0/0 SCREENSHOT=0/0/0/0/0/0/0/0/0/0 AFTER_SAMPLE=3/0/1/0/1/1/1/1/1/1 FINAL=0/0/0/0/0/0/0/0/0/0 marks=3 sum=EQ'
+      && l[1] === 'WITHHELD J4c-grades reason=MUTATED diag=NA' && l[2] === 'WITHHELD J4d-certificate reason=MUTATED' && l[3] === 'SHOTS 0 captured 3 withheld of 16');
+    const bad = [{ ...DG, extra: 1 }, { ...DG, marks: 4 }, { ...DG, sum: 'eq' }, { ...DG, phases: PH.slice(0, 3) }, { ...DG, phases: [PH[0].concat(0), PH[1], PH[2], PH[3]] },
+      { ...DG, phases: [[1000, 0, 0, 0, 0, 0, 0, 0, 0, 0], PH[1], PH[2], PH[3]] }, { ...DG, phases: [[-1, 0, 0, 0, 0, 0, 0, 0, 0, 0], PH[1], PH[2], PH[3]] },
+      { ...DG, phases: [['1', 0, 0, 0, 0, 0, 0, 0, 0, 0], PH[1], PH[2], PH[3]] }, { ...DG, phases: [[1.5, 0, 0, 0, 0, 0, 0, 0, 0, 0], PH[1], PH[2], PH[3]] }, 'MARKER', null, [1]];
+    const refused = bad.map((dg) => { const x = shotRun(); putW(x, 'J4c-grades', 'MUTATED', { diag: dg }); return EX(x); });
+    const onOther = (() => { const x = shotRun(); putW(x, 'J4c-grades', 'NAVIGATED', { diag: 'NA' }); return EX(x); })();
+    ok('SHOTEXPORT malformed diag (extra key, marks 4, sum case, 3 phases, 11 counts, over cap, negative, string, float, text, null, array) and diag on a non-MUTATED reason all refuse',
+      refused.every((x) => x === 'SHOT_E_WITHHELD_RECORD') && onOther === 'SHOT_E_WITHHELD_RECORD'); }
+  { const D = path.join(tmp, `wdiag-${process.pid}`); fs.mkdirSync(D, { mode: 0o700 });
+    const obsM = { project: 'jr-4-learner-readback', expectedPath: PATH_OF.grades, appOrigin: APPO, apiOrigin: APIO, before: samp(), after: samp(), armed: 'k'.repeat(32), navigations: 0, incomplete: false, marks: 3,
+      guard: { token: 'k'.repeat(32), n: 2001, phases: [[2000, 0, 0, 0, 0, 0, 0, 0, 2000, 0], [0, 1, 0, 0, 0, 0, 0, 0, 0, 0], Array(10).fill(0), Array(10).fill(0)] } };
+    const w = writeShot(D, 'J4c-grades', null, obsM, SECRETS); const rec = JSON.parse(fs.readFileSync(path.join(D, 'J4c-grades.withheld.json'), 'utf8'));
+    ok('SHOTWRITE a MUTATED record carries the capped diag (2000 -> 999), sum computed on the uncapped counts; decision unchanged',
+      w.written === 'withheld' && w.reason === 'MUTATED' && rec.diag.sum === 'EQ' && rec.diag.phases[0][0] === 999 && rec.diag.phases[0][8] === 999 && rec.diag.marks === 3 && Object.keys(rec).join() === 'name,withheld,reason,diag');
+    const w2 = writeShot(D, 'J4c-progress', null, { ...obsM, expectedPath: PATH_OF.progress, before: samp({ url: `${APPO}${PATH_OF.progress}` }), after: samp({ url: `${APPO}${PATH_OF.progress}` }), guard: { ...obsM.guard, n: 7 } }, SECRETS);
+    const rec2 = JSON.parse(fs.readFileSync(path.join(D, 'J4c-progress.withheld.json'), 'utf8'));
+    ok('SHOTWRITE a diag whose kind total differs from n says sum=NE (never hidden)', w2.reason === 'MUTATED' && rec2.diag.sum === 'NE');
+    const w3 = writeShot(D, 'J4d-certificate', null, { ...obsM, project: 'jr-x' }, SECRETS);
+    ok('SHOTWRITE other withheld reasons carry no diag', w3.reason === 'PERSONA' && fs.readFileSync(path.join(D, 'J4d-certificate.withheld.json'), 'utf8') === '{"name":"J4d-certificate","withheld":true,"reason":"PERSONA"}'); }
   { const cases = [
       ['nonce inside the image data itself (stored deflate) refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from(`\0${NONCE}`), 0))), 'SHOT_E_NONCE_IN_PNG'],
       ['carrier prefix inside the image data refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from('\0gb-journey-pairing:'), 0))), 'SHOT_E_NONCE_IN_PNG'],
@@ -985,6 +1123,13 @@ try {
   { const L = (n) => `SHOT ${n} sha256=${'c'.repeat(64)} bytes=120 width=1280 height=2400`;
     const SS = (t) => { try { return shotsSummary(t, SHOT_NAMES, WITHHELD_REASONS); } catch (e) { return e.code; } };
     ok('SUM shots manifest (captured and withheld) in allowlist order passes', SS(`WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\n${L('J4d-certificate')}\nSHOTS 1 captured 1 withheld of 16\n`) === `WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\n${L('J4d-certificate')}\nSHOTS 1 captured 1 withheld of 16`);
+    { const SFX = 'BEFORE_SAMPLE=1/2/0/0/0/0/0/1/0/0 SCREENSHOT=0/0/0/0/0/0/0/0/0/0 AFTER_SAMPLE=3/0/1/0/1/1/1/1/1/1 FINAL=0/0/0/0/0/0/0/0/0/0 marks=3 sum=EQ';
+      ok('SUM a MUTATED withheld line with the fixed diag suffix (or diag=NA) passes unchanged',
+        SS(`WITHHELD J2c-submitted-after-reload reason=MUTATED ${SFX}\nWITHHELD J4c-grades reason=MUTATED diag=NA\nSHOTS 0 captured 2 withheld of 16`) === `WITHHELD J2c-submitted-after-reload reason=MUTATED ${SFX}\nWITHHELD J4c-grades reason=MUTATED diag=NA\nSHOTS 0 captured 2 withheld of 16`);
+      ok('SUM a suffix on another reason, a malformed suffix (4-digit count, extra field, path, wrong order) refuses',
+        [`WITHHELD J4c-grades reason=NAVIGATED ${SFX}`, `WITHHELD J4c-grades reason=MUTATED ${SFX.replace('1/2/', '1000/2/')}`, `WITHHELD J4c-grades reason=MUTATED ${SFX} x=1`,
+          `WITHHELD J4c-grades reason=MUTATED ${SFX.replace('marks=3', 'marks=/tmp/x')}`, `WITHHELD J4c-grades reason=MUTATED ${SFX.replace(/^BEFORE_SAMPLE=(\S+) SCREENSHOT=(\S+)/, 'SCREENSHOT=$2 BEFORE_SAMPLE=$1')}`]
+          .every((l) => SS(`${l}\nSHOTS 0 captured 1 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE')); }
     ok('SUM shots refusals: out of order, duplicate, unknown name, unknown reason, wrong counts, stray raw line', SS(`${L('J4d-certificate')}\n${L('J0b-detail-before-publish')}\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\n${L('J4c-grades')}\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE'
       && SS(`${L('J9-other-shot')}\nSHOTS 1 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS('WITHHELD J4c-grades reason=BECAUSE\nSHOTS 0 captured 1 withheld of 16') === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\nSHOTS 0 captured 1 withheld of 16`) === 'SUMMARY_E_SHOTS_SHAPE' && SS(`${L('J4c-grades')}\nMARKER /tmp/x\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE'); }
 
@@ -1273,11 +1418,14 @@ process.exit(bad?1:0);
     ['captureShot captures without the pre-scan gate', `${J}/shot-core.mjs`, (s) => s.replace('    if (scanPage(before.texts, secrets).length === 0) {            // a dirty page is never captured', '    {'), 'R12_SHOT_WINDOW'],
     ['captureShot samples BEFORE arming the guard (the 945246b order)', `${J}/shot-core.mjs`, (s) => s.replace("    await drv.guard('arm', armed);\n    before = await drv.sample();", "    before = await drv.sample();\n    await drv.guard('arm', armed);"), 'R12_SHOT_WINDOW'],
     ['captureShot reads the guard BEFORE the after sample', `${J}/shot-core.mjs`, (s) => s.replace("      after = await drv.sample();\n", "      guard = await drv.guard('read', armed);\n      after = await drv.sample();\n"), 'R12_SHOT_WINDOW'],
-    ['captureShot watches navigation only after the first sample', `${J}/shot-core.mjs`, (s) => s.replace("  const unwatch = drv.watchNav(() => { navigations += 1; });\n  try {\n    await drv.guard('arm', armed);\n    before = await drv.sample();", "  let unwatch = () => {};\n  try {\n    await drv.guard('arm', armed);\n    before = await drv.sample();\n    unwatch = drv.watchNav(() => { navigations += 1; });"), 'R12_SHOT_WINDOW'],
+    ['captureShot watches navigation only after the first sample', `${J}/shot-core.mjs`, (s) => s.replace("  const unwatch = drv.watchNav(() => { navigations += 1; });\n", "  let unwatch = () => {};\n").replace("    await drv.guard('arm', armed);\n    before = await drv.sample();", "    await drv.guard('arm', armed);\n    before = await drv.sample();\n    unwatch = drv.watchNav(() => { navigations += 1; });"), 'R12_SHOT_WINDOW'],
     ['captureShot skips the guard read on an exception (no finally)', `${J}/shot-core.mjs`, (s) => s.replace("  } catch { failed = true; } finally {\n    try { guard = await drv.guard('read', armed); } catch { failed = true; }\n    unwatch();\n  }", "    guard = await drv.guard('read', armed);\n    unwatch();\n  } catch { failed = true; }"), 'R12_SHOT_WINDOW'],
     ['captureShot keeps the buffer after an exception', `${J}/shot-core.mjs`, (s) => s.replace('  if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };', '  if (failed || !guard) return { png, obs: { ...base, incomplete: true } };'), 'R12_SHOT_WINDOW'],
     ['guard read only disconnects the observer (the 945246b read)', `${J}/shot-core.mjs`, (s) => s.replace('  for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);\n', ''), 'R12_SHOT_GUARD_DETACH'],
-    ['guard read drops pending mutation records', `${J}/shot-core.mjs`, (s) => s.replace('  st.n += st.obs.takeRecords().length;\n', ''), 'R12_SHOT_GUARD_DETACH'],
+    ['guard read drops pending mutation records', `${J}/shot-core.mjs`, (s) => s.replace('  st.n += st.tally(st.obs.takeRecords());\n  st.obs.disconnect();', '  st.obs.disconnect();'), 'R12_SHOT_GUARD_DETACH'],
+    ['the diagnostic mark rethrows (a failed mark would become INCOMPLETE)', `${J}/shot-core.mjs`, (s) => s.replace('if (r && r.phase > 0) marks += 1; } catch { /* diagnostic only */ } };', 'if (r && r.phase > 0) marks += 1; } catch (e) { throw e; } };'), 'R12_SHOT_WINDOW'],
+    ['a mark is sent before the first sample', `${J}/shot-core.mjs`, (s) => s.replace("    await drv.guard('arm', armed);\n    before = await drv.sample();", "    await drv.guard('arm', armed);\n    await mark('S');\n    before = await drv.sample();"), 'R12_SHOT_WINDOW'],
+    ['guard read returns without its phase tallies dropped from n (read no longer adds drained records)', `${J}/shot-core.mjs`, (s) => s.replace('  st.n += st.tally(st.obs.takeRecords());\n  st.obs.disconnect();', '  st.tally(st.obs.takeRecords());\n  st.obs.disconnect();'), 'R12_SHOT_GUARD_DETACH'],
     ['shot() bypasses captureShot with its own screenshot', `${J}/observe.ts`, (s) => s.replace("  const { png, obs } = await captureShot(drv, base, randomBytes(16).toString('hex'), secrets);", "  const png = await page.screenshot({ fullPage: true, animations: 'disabled' }); const obs = { ...base, incomplete: true };"), 'R12_SHOT_UNSCANNED'],
     ['shot() attaches the raw capture again', `${J}/observe.ts`, (s) => s.replace('  writeShot(dir, name, png, obs, secrets);\n}', "  await info.attach(`${name}.png`, { body: png ?? Buffer.alloc(0), contentType: 'image/png' });\n  writeShot(dir, name, png, obs, secrets);\n}"), 'R12_SHOT_UNSCANNED'],
     ['a second page script appears', `${J}/observe.ts`, (s) => s.replace("    sample: () => sample(page),", "    sample: () => sample(page),\n    x: () => page.evaluate(() => 1),"), 'R3_EVALUATE'],
