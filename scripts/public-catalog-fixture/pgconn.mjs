@@ -1,7 +1,6 @@
 // ABOUTME: Canonical password-free DSN plus a private pgpass file for psql -w. The password never appears in argv, env or output.
 // ABOUTME: `node pgconn.mjs check` validates both and prints only a fixed code; run.sh then calls psql with the canonical DSN.
-import { closeSync, constants, fstatSync, openSync } from 'node:fs';
-import { assessProofStat } from './proof.mjs';
+import { readPrivateFile } from './private-file.mjs';
 
 const LOOP = new Set(['127.0.0.1', 'localhost', '[::1]']);
 export const DB = { DSN: 'PUBLIC_CATALOG_E_DB_DSN', PASSFILE: 'PUBLIC_CATALOG_E_DB_PASSFILE', ENV: 'PUBLIC_CATALOG_E_DB_ENV' };
@@ -26,8 +25,10 @@ export function checkDb(env = process.env, uid = process.getuid()) {
   const f = env.PUBLIC_ACCEPT_DB_PASSFILE;
   if (!f) errors.push(`${DB.PASSFILE}: unset`);
   else {
-    let fd; try { fd = openSync(f, constants.O_RDONLY | constants.O_NOFOLLOW); } catch { errors.push(`${DB.PASSFILE}: unreadable or a symlink`); }
-    if (fd !== undefined) { const bad = assessProofStat(fstatSync(fd), uid); closeSync(fd); if (bad) errors.push(`${DB.PASSFILE}: ${bad.split(': ')[1]}`); }
+    const r = readPrivateFile(f, { max: 4096, privateMode: true, uid });
+    if (r.error) errors.push(`${DB.PASSFILE}: ${r.error}`);
+    else if (!/^[^\n]+\n?$/.test(r.buf.toString('utf8'))) errors.push(`${DB.PASSFILE}: must hold exactly one pgpass line`);
+    r.buf?.fill(0);
   }
   return errors;
 }

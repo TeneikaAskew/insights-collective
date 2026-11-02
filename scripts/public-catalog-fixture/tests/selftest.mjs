@@ -46,7 +46,7 @@ say(checkStackProof(file('p644.json', JSON.stringify(fields), 0o644), RUN)?.star
 say(checkStackProof(file('p400.json', JSON.stringify(fields), 0o400), RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a 0400 proof is refused (mode must be exactly 0600)');
 const hard = path.join(tmp, 'proof-hard.json'); linkSync(file('ph.json', JSON.stringify(fields)), hard);
 say(checkStackProof(hard, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FILE'), 'a hard-linked proof (nlink 2) is refused');
-say(assessProofStat({ isFile: () => true, nlink: 1, uid: 4242, mode: 0o100600 }, 0)?.includes('not owned'), 'a proof owned by another uid is refused');
+say(assessProofStat({ isFile: () => true, nlink: 1, uid: 4242, mode: 0o100600 }, 0)?.endsWith('OWNER'), 'a proof owned by another uid is refused');
 say(assessProofStat({ isFile: () => true, nlink: 1, uid: 0, mode: 0o100600 }, 0) === null, 'owner 0600 single-link file stat is accepted (pure positive)');
 say(assessProofFields({ ...fields, run_id: 'd'.repeat(32) }, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FIELDS'), 'a proof bound to another run is refused');
 say(assessProofFields({ ...fields, db_read: 'b'.repeat(32) }, RUN)?.startsWith('PUBLIC_CATALOG_E_PROOF_FIELDS'), 'a proof whose DB and API reads differ is refused');
@@ -75,12 +75,16 @@ const specs = ['catalog.spec.ts', 'sidebar-rail.spec.ts', 'support.ts'].map((f) 
 say(!/\.fulfill\(|signIn|login|storageState:\s*['"]/i.test(specs), 'specs never fulfil (mock) a response and never sign in');
 say(!/estimatedTime'|formatEstimatedHours/.test(specs), 'specs do not import the production Estimated time formatter as their oracle');
 say(/from '\.\.\/lesson-editor\/egress-test'/.test(specs) && !/route\.abort|KNOWN_THIRD_PARTY|rehearsal/.test(specs), 'specs use the pinned egress boundary; no own route, no third-party exception, no rehearsal tier');
+say(/!\(want \?\? ''\)\.includes\(`\$\{c\.duration\} hour`\)/.test(specs), 'A2 applies the legacy-duration negative only where it discriminates from the expected value');
+{ const { COURSES } = await import('../fixtures.mjs'); const lit = { 'PCA Analytics Course': '2.5 hours', 'PCA BI Course': '12 hours', 'PCA Leading Space Course': '1 hour', 'PCA Newline Name Course': null, 'PCA Unicode Course': 'Under 0.1 hours', 'PCA Published-Flag Draft-Status Course': '4 hours' };
+  const skipped = COURSES.filter((c) => c.published && c.duration != null && (lit[c.title] ?? '').includes(`${c.duration} hour`)).map((c) => c.title);
+  say(JSON.stringify(skipped) === JSON.stringify(['PCA Published-Flag Draft-Status Course']), `A2 legacy negative skipped only for the non-discriminating flags course (${skipped.join(', ')})`); }
 say(/offOrigin, 'no foreign request attempt'\)\.toEqual\(\[\]\)/.test(specs), 'any foreign attempt fails the test');
 say(/^export const UNDER_OWN_CONFIG = process\.env\.PUBLIC_ACCEPT_OWN_CONFIG === '1';$/m.test(specs) && /^export const NOT_OWN_CONFIG_REASON = /m.test(specs), 'support.ts exports the own-config flag and reason the specs import');
 for (const f of ['catalog.spec.ts', 'sidebar-rail.spec.ts']) say(/^test\.skip\(!UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON\);$/m.test(readFileSync(path.join(ROOT, 'e2e/public-catalog', f), 'utf8')), `${f} skips itself outside the lane's own config`);
 const runsh = read('run.sh');
 const at = (t) => runsh.indexOf(t);
-say(at('step pins') < at('step guards') && at('step guards') < at('step pre-stack') && at('step pre-stack') < at('step served') && at('step served') < at('step hermetic') && at('step hermetic') < at('step W0') && at('step W0') < at('step seed'), 'run.sh order: pins, guards, PRE stack, served provenance, hermetic, W0, seed');
+say(at('step pins') < at('step guards') && at('step guards') < at('step pre-contract') && at('step pre-contract') < at('step inventory') && at('step inventory') < at('step served') && at('step served') < at('step hermetic') && at('step hermetic') < at('step W0') && at('step W0') < at('step seed'), 'run.sh order: pins, guards, shared PRE contract, diagnostic inventory, served provenance, hermetic, W0, seed');
 say(at('PUBLIC_CATALOG_E_W2_MISMATCH') > 0 && at('PUBLIC_CATALOG_E_W2_MISMATCH') < at('step probe') && at('PUBLIC_CATALOG_E_W2_FAILED') < at('step probe'), 'a W2 failure or mismatch stops the run before any write probe');
 say(!/\bcat\b/.test(runsh.replace(/^#.*$/gm, '')) && /trap 'rm -rf -- "\$PRIV"' EXIT/.test(runsh) && /umask 077/.test(runsh), 'run.sh prints no raw output (no cat), stages privately with umask 077, always removes private staging');
 say(/env -i PATH="\$PATH" PGPASSFILE=/.test(runsh) && /psql -w/.test(runsh), 'psql runs with a clean env, the private passfile and -w (no prompt, no password in argv)');
@@ -92,7 +96,22 @@ for (const f of ['seed.sql', 'witness.sql', 'pre-stack.sql', 'rls-anon-read.sql'
   const delOk = f === 'rls-anon-write.sql' ? dels.every((d) => /^delete from public\.(courses|modules) where id = '7e57ca7a-0000-4000-8000-\d{12}';$/.test(d)) && /set local role anon;/.test(raw) && /rollback;\s*$/.test(raw) : dels.length === 0;
   say(delOk && !/\b(truncate|drop)\b/i.test(raw.replace(/'[^']*'/g, '')), `${f}: no cleanup SQL (no TRUNCATE/DROP; DELETE only as the anon probe on one fixture id, rolled back)`);
 }
-say(/begin transaction read only;/.test(read('pre-stack.sql')) && (read('pre-stack.sql').match(/^select '/gm) || []).length === 4, 'pre-stack.sql is read-only with exactly 4 checks');
+say(/begin transaction read only;/.test(read('pre-stack.sql')) && !/FAIL/.test(read('pre-stack.sql')) && !/\|\| *'ok'|'\|ok'/.test(runsh), 'pre-stack.sql is a read-only diagnostic inventory and gates nothing (no ok/FAIL gate in run.sh)');
+const preC = await import('../pre-contract.mjs');
+say(Object.keys(preC.PRE_CONTRACT_PINS).length === 0 && preC.checkPreContract(ROOT)[0].startsWith('PUBLIC_CATALOG_E_BLOCKED_NO_PRE_CONTRACT'), 'the shared PRE contract is not integrated: BLOCKED_NO_PRE_CONTRACT (pin table empty, not filled from the expected list)');
+say(/PUBLIC_CATALOG_E_PRE_CONTRACT/.test(runsh) && at('PUBLIC_CATALOG_E_PRE_CONTRACT') < at('step W0'), 'run.sh stops on the missing PRE contract before W0 and the seed');
+const sbc = read('served-build-check.mjs');
+say(/for \(const \[rel, want\] of Object\.entries\(prov\.files\)\)/.test(sbc) && /ASSET_HASH/.test(sbc) && /FOREIGN_REF/.test(sbc), 'served check fetches EVERY provenance file (lazy chunks and imported assets too), not only index references');
+say(/every app-origin response is bound to the hermetic provenance/.test(specs) && /expectedHash\(prov, u\.pathname\)/.test(specs), 'specs bind every app-origin response the browser receives to the provenance');
+const sp = await import('../served-provenance.mjs');
+const fakeProv = { served_index_sha256: 'i'.repeat(64), files: { 'index.html': 'p'.repeat(64), 'assets/a.js': 'a'.repeat(64) } };
+say(sp.expectedHash(fakeProv, '/assets/a.js') === 'a'.repeat(64) && sp.expectedHash(fakeProv, '/') === 'i'.repeat(64) && sp.expectedHash(fakeProv, '/courses/x') === 'i'.repeat(64)
+  && sp.expectedHash(fakeProv, '/assets/lazy.js') === null && sp.expectedHash(fakeProv, '/HERMETIC-PROVENANCE.json') === null && sp.expectedHash(fakeProv, '/assets/../x.js') === null,
+  'expectedHash: pinned file, served index for / and SPA routes; unpinned asset, provenance file and traversal are unbound');
+const pf = read('private-file.mjs');
+say(/O_RDONLY \| constants\.O_NOFOLLOW \| constants\.O_NONBLOCK \| constants\.O_NOCTTY/.test(pf) && /fstatSync\(fd\)/.test(pf) && !/statSync\(file|lstatSync/.test(read('proof.mjs') + read('pgconn.mjs')), 'proof and passfile go through the one opened-handle, non-blocking, bounded reader');
+const fifo = execFileSync('node', [path.join(HERE, 'private-file-controls.mjs')], { encoding: 'utf8', timeout: 60000 });
+say(/^ALL PASS$/m.test(fifo) && !/HANG/.test(fifo), 'FIFO, directory, symlink, missing, hard-link and oversize controls: refused, none hangs');
 const cfg = readFileSync(path.join(ROOT, 'playwright.public-catalog.config.ts'), 'utf8');
 say(/storageState: \{ cookies: \[\], origins: \[\] \}/.test(cfg) && !/globalSetup:|webServer:/.test(cfg) && /trace: 'off'/.test(cfg) && /screenshot: 'off'/.test(cfg), 'config: empty storage, no globalSetup/webServer, traces and screenshots off');
 say(cfg.indexOf('checkHelperPins(ROOT)') < cfg.indexOf("await import('./e2e/support/chromium-executable')") && cfg.indexOf('checkHelperPins(ROOT)') < cfg.indexOf('runGuards(process.env)'), 'config: helper pins are checked before any helper import and before guards');

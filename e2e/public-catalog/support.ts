@@ -4,6 +4,8 @@ import type { Page, Response } from '@playwright/test';
 import { test as boundaryTest, expect } from '../lesson-editor/egress-test';
 // @ts-expect-error: plain ESM data module without type declarations
 import { COURSES, MODULES } from '../../scripts/public-catalog-fixture/fixtures.mjs';
+// @ts-expect-error: plain ESM helper without type declarations
+import { loadProvenance, expectedHash, sha256 } from '../../scripts/public-catalog-fixture/served-provenance.mjs';
 
 export type FixtureCourse = { id: string; title: string; category: string; estimated_hours: number | null; duration: number | null; published: boolean; status: string; created_at: string; visibility: string };
 export const FIXTURE: FixtureCourse[] = COURSES;
@@ -20,13 +22,28 @@ export const NOT_OWN_CONFIG_REASON = 'public-catalog specs run only under playwr
 /** There is one tier. The egress boundary (resolver, allowlist proxy with loopback forced through, route/WebSocket filter,
  *  redirect and service-worker observation) PREVENTS every foreign request, and every attempt FAILS the test, including the
  *  product's cdn.gpteng.co script and i.pravatar.cc avatars. There is no tolerated-third-party list. */
-type Fixtures = { net: { requests: string[]; offOrigin: string[]; courseResponses: Response[] } };
+type Fixtures = { net: { requests: string[]; offOrigin: string[]; courseResponses: Response[]; unbound: string[] } };
+
+/** Every response the browser actually receives from the app origin must be bound to the reviewed hermetic provenance:
+ *  a pinned manifest file hashes to its pin, an SPA route or `/` hashes to the served index, anything else is UNBOUND. */
+let PROV: { files: Record<string, string>; served_index_sha256: string } | null = null;
+function provenance() {
+  if (!PROV) {
+    const r = loadProvenance(process.env.PUBLIC_ACCEPT_SERVED_DIR);
+    if (r.error) throw new Error(`PUBLIC_CATALOG_E_SERVED_${r.error}`);
+    PROV = r.prov;
+  }
+  return PROV!;
+}
 
 export const test = boundaryTest.extend<Fixtures>({
   net: async ({ page, baseURL, boundary }, use) => {
     void boundary; // the auto boundary fixture is installed first and fails the test on any violation
     const allowed = new Set([new URL(baseURL!).origin, API_ORIGIN]);
-    const net = { requests: [] as string[], offOrigin: [] as string[], courseResponses: [] as Response[] };
+    const prov = provenance();
+    const appOrigin = new URL(baseURL!).origin;
+    const net = { requests: [] as string[], offOrigin: [] as string[], courseResponses: [] as Response[], unbound: [] as string[] };
+    const bindings: Promise<void>[] = [];
     const errors: string[] = [];
     page.on('request', (r) => {
       const u = new URL(r.url());
@@ -34,9 +51,22 @@ export const test = boundaryTest.extend<Fixtures>({
       net.requests.push(`${r.method()} ${u.origin}${u.pathname}`);
       if (!allowed.has(u.origin)) net.offOrigin.push(u.origin);
     });
-    page.on('response', (r) => { const u = new URL(r.url()); if (u.origin === API_ORIGIN && u.pathname === '/rest/v1/courses' && r.request().method() === 'GET') net.courseResponses.push(r); });
+    page.on('response', (r) => {
+      const u = new URL(r.url());
+      if (u.origin === API_ORIGIN && u.pathname === '/rest/v1/courses' && r.request().method() === 'GET') net.courseResponses.push(r);
+      if (u.origin === appOrigin) {
+        bindings.push((async () => {
+          const want = expectedHash(prov, u.pathname);
+          let got = '';
+          try { got = r.status() === 200 ? sha256(await r.body()) : `status-${r.status()}`; } catch { got = 'unreadable'; }
+          if (!want || got !== want) net.unbound.push(u.pathname);
+        })());
+      }
+    });
     page.on('pageerror', () => errors.push('pageerror'));
     await use(net);
+    await Promise.all(bindings);
+    expect(net.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]);
     expect(net.offOrigin, 'no foreign request attempt').toEqual([]);
     expect(errors, 'no uncaught page errors').toEqual([]);
   },

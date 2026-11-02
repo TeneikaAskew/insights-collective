@@ -1,13 +1,8 @@
--- ABOUTME: Read-only PRE check of the owned stack, run before W0 and the seed: no outbound-capable extension and no trigger on
--- ABOUTME: the seeded tables that could reach the network or a mailer. Prints one "name|ok" or "name|FAIL" row per check.
--- The lane itself sends no GoTrue request, so the only mail paths are DB-side (pg_net/http/dblink, supabase_functions hooks).
+-- ABOUTME: Read-only DIAGNOSTIC inventory of the owned stack's outbound-capable pieces, written to evidence. It gates NOTHING:
+-- ABOUTME: a prosrc pattern is not a transitive no-egress proof. The gate is the shared owner's reviewed PRE contract (pre-contract.mjs).
 begin transaction read only;
-select 'ext_pg_net|' || case when exists (select 1 from pg_extension where extname = 'pg_net') then 'FAIL' else 'ok' end;
-select 'ext_http|' || case when exists (select 1 from pg_extension where extname = 'http') then 'FAIL' else 'ok' end;
-select 'ext_dblink|' || case when exists (select 1 from pg_extension where extname in ('dblink', 'postgres_fdw')) then 'FAIL' else 'ok' end;
-select 'trigger_egress|' || case when exists (
-  select 1 from pg_trigger t join pg_proc f on f.oid = t.tgfoid
-  where not t.tgisinternal and t.tgrelid in ('public.courses'::regclass, 'public.modules'::regclass)
-    and f.prosrc ~* '(net\.|http_|supabase_functions|pg_net|dblink|pg_notify|mail)'
-) then 'FAIL' else 'ok' end;
+select 'ext_pg_net|' || coalesce((select extversion from pg_extension where extname = 'pg_net'), 'absent');
+select 'ext_http|' || coalesce((select extversion from pg_extension where extname = 'http'), 'absent');
+select 'ext_dblink_fdw|' || coalesce((select string_agg(extname, ',' order by extname) from pg_extension where extname in ('dblink', 'postgres_fdw')), 'absent');
+select 'seeded_table_user_triggers|' || (select count(*) from pg_trigger t where not t.tgisinternal and t.tgrelid in ('public.courses'::regclass, 'public.modules'::regclass));
 rollback;

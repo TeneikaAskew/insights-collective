@@ -19,9 +19,15 @@ const CASES = [
   ['500 server error', 'DELETE', { status: 500, contentType: J, text: '{"code":"XX000"}' }, V.UNVERIFIED, false, true],
   ['502 non-JSON gateway page', 'PATCH', { status: 502, contentType: 'text/html', text: '<html>bad gateway</html>' }, V.UNVERIFIED, false, true],
   ['200 malformed JSON', 'PATCH', { status: 200, contentType: J, text: '[{' }, V.UNVERIFIED, false, true],
+  ['update 201 []', 'PATCH', { status: 201, contentType: J, text: '[]' }, V.UNVERIFIED, false, true],
+  ['update 202 []', 'PATCH', { status: 202, contentType: J, text: '[]' }, V.UNVERIFIED, false, true],
+  ['delete 206 []', 'DELETE', { status: 206, contentType: J, text: '[]' }, V.UNVERIFIED, false, true],
+  ['delete 204 with body []', 'DELETE', { status: 204, contentType: J, text: '[]' }, V.UNVERIFIED, false, true],
   ['204 no body (ambiguous)', 'DELETE', { status: 204, contentType: '', text: '' }, V.UNVERIFIED, false, true],
   ['403 with other code', 'POST', { status: 403, contentType: J, text: '{"code":"PGRST301"}' }, V.UNVERIFIED, false, true],
   ['42501 under status 400', 'POST', { status: 400, contentType: J, text: '{"code":"42501"}' }, V.UNVERIFIED, false, true],
+  // The two cases below are classifier-only synthetic inputs: the OLD probe fetched with redirect:'error' and no catch, so it threw
+  // on a redirect or a network failure and never classified either. They are not reachable OLD divergences.
   ['302 redirect', 'PATCH', { status: 302, contentType: 'text/plain', text: '' }, V.UNVERIFIED, false, true],
   ['network failure (status 0)', 'POST', { status: 0, contentType: '', text: '' }, V.UNVERIFIED, false, true],
 ];
@@ -45,5 +51,8 @@ const reads = [
 for (const [name, res, want] of reads) { const v = classifyRead(res).verdict; if (v !== want) fail++; console.log(`${v === want ? 'PASS' : 'FAIL'} ${name}: ${v}`); }
 const noBody = CASES.every(([, m, r]) => !Object.values(classifyWrite(m, r)).some((x) => typeof x === 'string' && r.text && r.text.length > 8 && x.includes(r.text)));
 if (!noBody) fail++; console.log(`${noBody ? 'PASS' : 'FAIL'} no verdict carries a response body`);
-console.log(`OLD rule mislabelled ${oldMislabelled} of ${CASES.length} write cases as PASS`);
+const SYNTHETIC = new Set(['302 redirect', 'network failure (status 0)']);
+const oldPasses = CASES.filter((c) => c[5]).length;
+const reachable = CASES.filter((c) => c[5] !== c[4] && !SYNTHETIC.has(c[0])).length;
+console.log(`OLD rule: ${oldPasses} of ${CASES.length} write cases PASS in total; ${oldMislabelled} of them are mislabelled (NEW does not pass them); ${reachable} of those are reachable by the OLD probe, ${oldMislabelled - reachable} are classifier-only synthetic (302, status 0)`);
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

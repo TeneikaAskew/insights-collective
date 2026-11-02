@@ -5,7 +5,7 @@
 // before anything is written) does not exist. TRUSTED_PRODUCERS is therefore empty and every real run is BLOCKED with
 // PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER, whatever the proof file says. Adding a producer is a reviewed change: its path and git
 // blob id go here.
-import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
+import { assessStat, readPrivateFile } from './private-file.mjs';
 
 export const TRUSTED_PRODUCERS = Object.freeze({});
 export const P = {
@@ -16,13 +16,11 @@ export const P = {
 };
 const HEX32 = /^[0-9a-f]{32}$/;
 
-/** Pure check of an fstat result, so the owner/mode/link rules are testable without chown. */
+/** Pure check of an fstat result, so the owner/mode/link rules are testable without chown (private-file.mjs rules). */
+export const MAX_PROOF = 4096;
 export function assessProofStat(st, uid) {
-  if (!st.isFile()) return `${P.BAD_FILE}: not a regular file`;
-  if (st.nlink !== 1) return `${P.BAD_FILE}: link count must be 1`;
-  if (st.uid !== uid) return `${P.BAD_FILE}: not owned by this uid`;
-  if ((st.mode & 0o7777) !== 0o600) return `${P.BAD_FILE}: mode must be exactly 0600`;
-  return null;
+  const bad = assessStat(st, uid, { privateMode: true, max: MAX_PROOF });
+  return bad ? `${P.BAD_FILE}: ${bad}` : null;
 }
 
 /** Pure check of the parsed fields against this run. */
@@ -38,11 +36,9 @@ export function assessProofFields(p, runId) {
 
 export function checkStackProof(file, runId, uid = process.getuid()) {
   if (!file) return `${P.NO_PROOF}: PUBLIC_ACCEPT_STACK_PROOF is unset`;
-  let fd;
-  try { fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW); } catch { return `${P.NO_PROOF}: unreadable or a symlink`; }
-  try {
-    const bad = assessProofStat(fstatSync(fd), uid); if (bad) return bad;
-    let p; try { p = JSON.parse(readFileSync(fd, 'utf8')); } catch { return `${P.BAD_FIELDS}: not JSON`; }
-    return assessProofFields(p, runId);
-  } finally { closeSync(fd); }
+  const r = readPrivateFile(file, { max: MAX_PROOF, privateMode: true, uid });
+  if (r.error === 'OPEN') return `${P.NO_PROOF}: unopenable or a symlink`;
+  if (r.error) return `${P.BAD_FILE}: ${r.error}`;
+  let p; try { p = JSON.parse(r.buf.toString('utf8')); } catch { return `${P.BAD_FIELDS}: not JSON`; }
+  return assessProofFields(p, runId);
 }

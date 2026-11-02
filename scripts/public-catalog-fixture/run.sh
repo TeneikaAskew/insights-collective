@@ -3,7 +3,8 @@
 # ABOUTME: local-stack lane) with the hermetic test-served app on loopback. BLOCKED today: no reviewed owned-stack proof producer.
 #
 # Order, each step fails closed with a fixed code and prints no raw output:
-#   helper pins -> guards (targets, canonical DSN + private passfile, anon key, proof consumer) -> PRE stack egress checks ->
+#   helper pins -> guards (targets, canonical DSN + private passfile, anon key, proof consumer) -> shared PRE contract (BLOCKED:
+#   not integrated) -> diagnostic inventory ->
 #   served-asset provenance -> hermetic verify -> W0 (must be pristine) -> seed -> W1 -> browser -> W2 (must equal W1; a W2
 #   failure or mismatch STOPS here, before any write probe) -> anon probe -> W3 (must equal W1).
 # Output contract:
@@ -31,9 +32,10 @@ codes() { grep -oE 'PUBLIC_CATALOG_E_[A-Z_]+' "$1" | sort -u | head -20; }
 step pins;      node --input-type=module -e "import('$HERE/helper-pins.mjs').then((m) => { const e = m.checkHelperPins('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pins.txt" \
                   || { codes "$PRIV/pins.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PINS; }
 step guards;    node "$HERE/guards.mjs" > "$PRIV/guards.txt" 2>&1 || { codes "$PRIV/guards.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_GUARDS; }
-step pre-stack; psqlx -f "$HERE/pre-stack.sql" > "$PRIV/pre.txt" 2>/dev/null || die PUBLIC_CATALOG_E_PRE_STACK_QUERY
-                [ "$(grep -c '|ok$' "$PRIV/pre.txt")" = 4 ] && [ "$(wc -l < "$PRIV/pre.txt")" = 4 ] || { cut -d'|' -f1,2 "$PRIV/pre.txt" >> "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PRE_STACK; }
-                cp "$PRIV/pre.txt" "$EV/pre-stack.txt"
+step pre-contract; node --input-type=module -e "import('$HERE/pre-contract.mjs').then((m) => { const e = m.checkPreContract('$ROOT'); for (const x of e) console.error(x.split(':')[0]); process.exit(e.length ? 2 : 0); })" 2> "$PRIV/pre-contract.txt" \
+                  || { codes "$PRIV/pre-contract.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_PRE_CONTRACT; }
+                # (once integrated: the shared stack-checks.sh net-create/net-verify/stage-pre steps run here, before W0 and the seed)
+step inventory; psqlx -f "$HERE/pre-stack.sql" > "$EV/pre-stack-inventory.txt" 2>/dev/null || die PUBLIC_CATALOG_E_INVENTORY_QUERY  # diagnostic, gates nothing
 step served;    node "$HERE/served-build-check.mjs" > "$PRIV/served.txt" 2>&1 || { codes "$PRIV/served.txt" | tee -a "$EV/STEPS.txt"; die PUBLIC_CATALOG_E_SERVED; }
 step hermetic;  { [ -f "$ROOT/scripts/served-app/hermetic-dist.mjs" ] && [ -n "${PUBLIC_ACCEPT_PRODUCT_DIST:-}" ] && [ -n "${PUBLIC_ACCEPT_SERVED_DIR:-}" ]; } || die PUBLIC_CATALOG_E_NO_HERMETIC_CONTRACT
                 node "$ROOT/scripts/served-app/hermetic-dist.mjs" verify "$PUBLIC_ACCEPT_PRODUCT_DIST" "$PUBLIC_ACCEPT_SERVED_DIR" > "$PRIV/hermetic.txt" 2>&1 || die PUBLIC_CATALOG_E_HERMETIC_VERIFY

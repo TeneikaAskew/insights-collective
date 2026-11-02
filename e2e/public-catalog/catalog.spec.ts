@@ -39,8 +39,10 @@ test.describe('anonymous catalog', () => {
       const el = card(page, title);
       await expect(el).toHaveCount(1);
       expect(await estimatedTimeNodes(el), `${title} Estimated time value node`).toEqual(want ? [`Estimated time: ${want}`] : []);
+      // Legacy-duration negative only where it discriminates: skip it when the legacy text is part of the expected value
+      // (the flags course stores duration 4 and estimated_hours 4, so "4 hour" is inside the correct "4 hours").
       const c = byTitle(title);
-      if (c.duration != null) await expect(el).not.toContainText(`${c.duration} hour`);
+      if (c.duration != null && !(want ?? '').includes(`${c.duration} hour`)) await expect(el).not.toContainText(`${c.duration} hour`);
     }
   });
 

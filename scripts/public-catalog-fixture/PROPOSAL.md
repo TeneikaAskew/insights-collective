@@ -28,8 +28,17 @@ No file in `scripts/local-stack`, `scripts/e2e`, `e2e/support`, the workflows or
 1. **Inputs.** `PUBLIC_ACCEPT_OUT` must not exist; `PUBLIC_ACCEPT_RUN_ID` is 32 hex; `PUBLIC_ACCEPT_TIER` is unset or `authentic`; `PUBLIC_ACCEPT_LIST_ONLY` must be unset.
 2. **Helper pins** (`helper-pins.mjs`). The 4 imported helpers must exist and match their git blob ids (below). Absence or drift refuses.
 3. **Guards** (`guards.mjs`): loopback app and API origins; the shared guard (`assert-safe-target.mjs`, mutating); no `E2E_ISOLATED_TARGET_REF`; anon key; canonical DSN plus private passfile (`pgconn.mjs`); the proof consumer (`proof.mjs`).
-4. **PRE stack egress checks** (`pre-stack.sql`, read only): no `pg_net`, `http`, `dblink` or `postgres_fdw`; no trigger on `public.courses`/`public.modules` whose function mentions net, http, `supabase_functions`, `pg_notify` or mail. The lane sends no GoTrue request, so these are the mail paths it can reach.
-5. **Served-asset provenance** (`served-build-check.mjs`): the served `/` must hash to `served_index_sha256`, every asset it references must be same-origin, listed in `HERMETIC-PROVENANCE.json` and hash to its pinned sha256, and the entry bundle must reference this stack's API origin.
+4. **Shared PRE contract** (`pre-contract.mjs`). This lane consumes the shared owner's reviewed owned-stack PRE contract and writes none of its own. The contract is the T09 one, which keeps pg_net and intercepts its queue: `scripts/local-stack/t09/egress-guard.sql` 4775946e, `egress-sentinels.sql` 5693cf5e, `egress-verify.sql` 17a9c24f and `stack-checks.sh` 9657af04. Those files are on c64a8fc (#140) and f2112ce, not on main.
+   - Its scope is the DB's pg_net path only. It is "intercepted, not verified" and does not control runner or container egress.
+   - The pin table is EMPTY until a composed ref and a reviewed call order exist. Until then every run refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRE_CONTRACT`.
+   - pg_net is never refused or uninstalled here.
+   - `pre-stack.sql` is a read-only **diagnostic inventory** (extension versions, user-trigger count) written to evidence. It gates nothing: a prosrc pattern is not a transitive no-egress proof.
+5. **Served-asset provenance** (`served-build-check.mjs` + `served-provenance.mjs`).
+   - **Every** file in `HERMETIC-PROVENANCE.json` is fetched from the served origin and must hash to its pin. That covers lazy JS/CSS chunks and imported assets, not only what index.html names.
+   - `/` must hash to `served_index_sha256`, and every index reference must be same-origin and pinned.
+   - The entry bundle must name this stack's API origin.
+   - The check cannot enumerate extra paths a server might answer. So the specs also bind **every response the browser actually receives** from the app origin: a pinned file must match its hash, and `/` or an SPA route must match the served index. Anything else is UNBOUND and fails the test.
+   - The local avatar copy stays BLOCKED (missing).
 6. **Hermetic verify**: `scripts/served-app/hermetic-dist.mjs verify` (f169429 contract). Absent today, so the run stops here even if a producer existed.
 7. **W0** must be pristine (`public.courses|0|empty`, `public.modules|0|empty`), then the INSERT-only **seed**, then **W1**.
 8. **Browser specs**, raw output private; only `playwright-summary.txt` (project, location, title, status) reaches evidence.
@@ -46,7 +55,10 @@ No file in `scripts/local-stack`, `scripts/e2e`, `e2e/support`, the workflows or
 ## What this lane needs from the local-stack/PR134 lane (proposed integration, no shared file edited)
 
 1. **A trusted pre-seed owned-stack proof producer.** It must read `stack_id` from the stack's DB and through its PostgREST before anything is written. It writes `{version:2, stack_id, db_read, api_read, run_id, produced_before_seed:true, producer}` to a regular, single-link, owner-only 0600 file.
-   - The consumer opens it with `O_NOFOLLOW` and checks type, link count, uid, exact mode, run binding and the DB/API pairing.
+   - The consumer reads it through `private-file.mjs`, the c74986bc opened-handle pattern. The open uses `O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_NOCTTY`, so a FIFO cannot stall it.
+   - The checks are decided on that descriptor: regular file, one link, this uid, mode exactly 0600, then a bounded read of at most 4 KiB.
+   - Then come the run binding and the DB/API pairing.
+   - The passfile uses the same reader.
    - A correct shape alone is NOT ownership. `TRUSTED_PRODUCERS` is empty, so every real run refuses with `PUBLIC_CATALOG_E_BLOCKED_NO_PRODUCER` until a reviewed producer's path and blob id are added.
 2. **The hermetic served-app contract (f169429) on the composed ref.** Build against the owned stack, derive the served directory with `HERMETIC-PROVENANCE.json` and serve it on loopback. Evidence is labelled "TEST-SERVED MODIFICATION: NOT production bytes".
 3. **Local avatar data for `/`.** CommunityShowcase hotlinks `i.pravatar.cc`, so A10 cannot pass. The fix is either a product change or a provenance-recorded test-served substitution, and either one needs its own review. This lane does not choose it and keeps no exception.
@@ -78,7 +90,7 @@ The previous design pinned the browser to a dead proxy that bypassed all of loop
 ## Independent UI oracles
 
 The specs compare against literal strings and never import `src/lib/estimatedTime.ts`:
-- **A2:** 2.5 hours, 12 hours, 1 hour, nothing for NULL, Under 0.1 hours and 4 hours, each read from the exact "Estimated time:" value node.
+- **A2:** 2.5 hours, 12 hours, 1 hour, nothing for NULL, Under 0.1 hours and 4 hours, each read from the exact "Estimated time:" value node. The legacy-duration negative applies only where it discriminates. The flags course stores duration 4 and estimated_hours 4, so "4 hour" sits inside the correct "4 hours" and is not asserted absent. No fixture data was rewritten.
 - **A7:** an unrelated `pca_keep=1` sentinel must survive Clear category.
 - **A8:** the public module is present and the unpublished one absent.
 - **A9:** compares ids only, so no body is printed.
