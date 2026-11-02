@@ -1496,7 +1496,7 @@ jobs:
           O="${PUBLIC_ACCEPT_OUT:-}/evidence"
           [ -n "${PUBLIC_ACCEPT_OUT:-}" ] && [ -d "$O" ] && [ ! -L "$O" ] || { echo "lane produced no evidence dir"; exit 0; }
           mkdir -p "$PC_EVIDENCE/lane"
-          ALLOW="STEPS.txt pre-stack-inventory.txt W0.txt W1.txt W2.txt W3.txt MANIFEST.json playwright.exit playwright-summary.txt anon-probe.exit anon-probe-summary.txt screenshots.txt"
+          ALLOW="STEPS.txt pre-stack-inventory.txt W0.txt W1.txt W2.txt W3.txt MANIFEST.json playwright.exit playwright-summary.txt anon-probe.exit anon-probe-summary.txt screenshots.txt screenshots.exit"
           for e in $(ls -A "$O"); do case " $ALLOW screenshots " in *" $e "*) ;; *) echo "lane evidence refused: unexpected entry"; exit 1 ;; esac; done
           for f in $ALLOW; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$PC_EVIDENCE/lane/$f"; done
           # screenshots/ is copied only when it is a real dir whose entries are exactly the regular, non-link 0600 PNGs that
@@ -1576,7 +1576,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$PC_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ pcj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-gate.txt" "$E/checks/list.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/lane-inputs.txt" "$E/checks/lane.txt" "$E/lane/STEPS.txt" "$E/lane/W0.txt" "$E/lane/W1.txt" "$E/lane/W2.txt" "$E/lane/W3.txt" "$E/lane/MANIFEST.json" "$E/lane/playwright.exit" "$E/lane/playwright-summary.txt" "$E/lane/anon-probe.exit" "$E/lane/anon-probe-summary.txt" "$E/lane/screenshots.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ pcj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-gate.txt" "$E/checks/list.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/lane-inputs.txt" "$E/checks/lane.txt" "$E/lane/STEPS.txt" "$E/lane/W0.txt" "$E/lane/W1.txt" "$E/lane/W2.txt" "$E/lane/W3.txt" "$E/lane/MANIFEST.json" "$E/lane/playwright.exit" "$E/lane/playwright-summary.txt" "$E/lane/anon-probe.exit" "$E/lane/anon-probe-summary.txt" "$E/lane/screenshots.txt" "$E/lane/screenshots.exit" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

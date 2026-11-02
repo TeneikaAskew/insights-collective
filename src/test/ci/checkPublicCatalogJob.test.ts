@@ -14,7 +14,7 @@ const S: Array<{ name?: string; id?: string; run?: string; if?: string; uses?: s
 const at = (re: RegExp) => { const i = S.findIndex((s) => re.test(s.name ?? '')); expect(i, String(re)).toBeGreaterThanOrEqual(0); return i; };
 const run = (re: RegExp) => S[at(re)].run ?? '';
 const LANE_EVIDENCE = ['STEPS.txt', 'pre-stack-inventory.txt', 'W0.txt', 'W1.txt', 'W2.txt', 'W3.txt', 'MANIFEST.json', 'playwright.exit',
-  'playwright-summary.txt', 'anon-probe.exit', 'anon-probe-summary.txt', 'screenshots.txt'];
+  'playwright-summary.txt', 'anon-probe.exit', 'anon-probe-summary.txt', 'screenshots.txt', 'screenshots.exit'];
 const SHOT_NAMES = ['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-834x1112', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757'];
 
 describe('public-catalog job (static)', () => {
@@ -50,7 +50,7 @@ describe('public-catalog job (static)', () => {
     for (const k of ['PUBLIC_ACCEPT_ANON_KEY', 'PUBLIC_ACCEPT_PRODUCT_DIST="$PC_DIST"', 'PUBLIC_ACCEPT_HERMETIC_DIR="$PC_HERMETIC"', 'PUBLIC_ACCEPT_SERVED_DIR="$PC_SERVED"', 'PUBLIC_ACCEPT_AVATAR_FIXTURE=1']) expect(lane).toContain(k);
     expect(lane).not.toMatch(/PUBLIC_ACCEPT_STACK_PROOF|PUBLIC_ACCEPT_LIST_ONLY=1 bash/);
   });
-  it('copies only the 12 allowlisted lane evidence files, refusing any other entry, and stages them as receipts', () => {
+  it('copies only the 13 allowlisted lane evidence files, refusing any other entry, and stages them as receipts', () => {
     const copy = run(/Copy the lane's evidence/);
     expect(copy).toContain(`ALLOW="${LANE_EVIDENCE.join(' ')}"`);
     expect(copy).toMatch(/\*\) echo "lane evidence refused: unexpected entry"; exit 1/);
