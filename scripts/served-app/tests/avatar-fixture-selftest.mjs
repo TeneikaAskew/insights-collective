@@ -89,6 +89,14 @@ try {
   const aliasD = path.join(tmp, 'alias-d'); fs.symlinkSync(d1, aliasD);
   refuses('N16 symlinked existing parent that resolves into the product dist', path.join(aliasD, 'fixture'));
   refuses('N17 out parent does not exist', path.join(tmp, 'missing-parent', 'fixture'));
+  // RAW strings (never path.join, which folds `..` lexically): the kernel resolves `alias/..` through the symlink.
+  const aliasA = path.join(tmp, 'alias-ha'); fs.symlinkSync(path.join(h1, 'assets'), aliasA);
+  refuses('N20 raw `<symlink to hermetic/assets>/../fixture` (lexically beside, physically hermetic/fixture)', `${aliasA}/../fixture`);
+  check('N20b nothing was created at the physical target hermetic/fixture or the lexical target', !fs.existsSync(path.join(h1, 'fixture')) && !fs.existsSync(path.join(tmp, 'fixture')));
+  refuses('N21 raw `..` segment even when it would land beside the inputs', `${tmp}/o1/../o-dotdot`);
+  check('N21b nothing was created at the lexical target', !fs.existsSync(path.join(tmp, 'o-dotdot')));
+  refuses('N22 raw `.` segment', `${tmp}/./o-dot`);
+  refuses('N23 verify with a raw `<symlink>/..` out dir', `${aliasA}/../o1`, 'verify');
   // A NEW out dir cannot contain existing inputs, so containment in that direction is checked on verify: out = their parent.
   refuses('N18 verify with an out dir that contains both inputs', tmp, 'verify');
   fs.cpSync(path.join(tmp, 'o1'), path.join(h1, 'nested-copy'), { recursive: true });

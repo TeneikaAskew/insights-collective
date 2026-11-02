@@ -15,7 +15,8 @@
 // square SVG, like the provider's 150 px square image, inside the same h-10 w-10 Avatar box.
 //
 // Directories: the out dir must be canonically disjoint from the product dist and the hermetic copy. Each input is resolved
-// with realpath; the out dir's existing parent is resolved with realpath (so a symlinked or `..` alias cannot hide nesting).
+// with realpath; the out dir's existing parent is resolved with realpath (so a symlinked alias cannot hide nesting). A raw
+// out string with a `.` or `..` segment is refused (exit 30), and make()/verify() do ALL out-dir I/O on the resolved path.
 // Neither may equal or contain the other. make() checks this before deriving or creating anything; verify() checks it too.
 // Rules: every `from` string occurs exactly once across the non-.map files of the hermetic copy, in one assets/*.js chunk
 // (never index.html, so served_index_sha256 never changes); afterwards no
@@ -66,6 +67,11 @@ const within = (a, b) => a === b || a.startsWith(b.endsWith(path.sep) ? b : b + 
 
 /** Canonical out path: realpath of the existing parent + basename (make), or realpath of the dir itself (verify). */
 function canonicalOut(outDir, mustExist) {
+  // path.resolve folds `..` LEXICALLY, but the kernel resolves `alias/..` PHYSICALLY (through a symlinked alias). Refuse any
+  // `.`/`..` segment in the raw string so the two can never disagree; callers then do ALL I/O on the returned physical path.
+  if (typeof outDir !== 'string' || outDir.split(/[\\/]+/).some((seg) => seg === '..' || seg === '.')) {
+    throw new ContractError(30, 'out dir must not contain . or .. segments');
+  }
   const abs = path.resolve(outDir);
   if (mustExist) { try { return fs.realpathSync(abs); } catch { throw new ContractError(30, 'out dir cannot be resolved'); } }
   const base = path.basename(abs);
@@ -137,11 +143,11 @@ export function derive(productDist, hermeticDir) {
   return { out, prov };
 }
 
-export function make(productDist, hermeticDir, outDir) {
+export function make(productDist, hermeticDir, rawOutDir) {
+  const outDir = assertDisjoint(productDist, hermeticDir, rawOutDir, false); // physical canonical path; every write below uses it
   let present = true;
   try { fs.lstatSync(outDir); } catch { present = false; }
   if (present) throw new ContractError(24, 'out dir already exists');
-  assertDisjoint(productDist, hermeticDir, outDir, false);
   const { out, prov } = derive(productDist, hermeticDir);
   fs.mkdirSync(outDir, { recursive: false });
   for (const [f, buf] of out) {
@@ -153,8 +159,8 @@ export function make(productDist, hermeticDir, outDir) {
   return prov;
 }
 
-export function verify(productDist, hermeticDir, outDir) {
-  assertDisjoint(productDist, hermeticDir, outDir, true);
+export function verify(productDist, hermeticDir, rawOutDir) {
+  const outDir = assertDisjoint(productDist, hermeticDir, rawOutDir, true); // physical canonical path; every read below uses it
   const { out, prov } = derive(productDist, hermeticDir);
   const want = [...out.keys(), PROVENANCE].sort();
   const got = listFiles(outDir);
