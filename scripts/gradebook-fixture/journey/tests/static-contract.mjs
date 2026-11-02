@@ -70,7 +70,7 @@ export function checkJourney(root) {
     if (/9b6b0000-0000-4000-8000-/.test(s)) v.push(`R5_GRADING_FIXTURE_ID ${f}`);
     if (/supabase\.co|siuqvhscuiycvdrtiqsh/.test(s)) v.push(`R5_HOSTED_REF ${f}`);
   }
-  for (const f of ['seed-journey.sql', 'witness-journey.sql', 'pairing-seed.sql', 'pairing-producer.mjs', 'run-journey.sh']) {
+  for (const f of ['seed-journey.sql', 'witness-journey.sql', 'pairing-seed.sql', 'pairing-producer.mjs', 'run-journey.sh', 'private-psql.mjs', 'run-summary.mjs']) {
     const s = rd(`${sdir}/${f}`);
     if (/9b6b0000-0000-4000-8000-/.test(s)) v.push(`R5_GRADING_FIXTURE_ID ${f}`);
     if (/supabase\.co|siuqvhscuiycvdrtiqsh/.test(s)) v.push(`R5_HOSTED_REF ${f}`);
@@ -112,21 +112,44 @@ export function checkJourney(root) {
 
   // R11 adapter order (run-journey.sh) and producer order (pairing-producer.mjs); D1 before any DB contact; no nonce in shell.
   const sh = rd(`${sdir}/run-journey.sh`).split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
-  const steps = ['pairing-producer.mjs" pins', 'assert-safe-target.mjs" --mutating', 'local-binding.mjs', 'assert-local-dsn.mjs"', 'pairing-producer.mjs" ownership',
-    'composition.sql', 'mktemp -d', 'trap cleanup EXIT', 'pairing-producer.mjs" pair', 'pairing-producer.mjs" seed', 'witness-journey.sql" -At > "$OUT/witness-pre.txt"',
-    'playwright test', 'witness-journey.sql" -At > "$OUT/witness-post.txt"', 'compare-witness.mjs'];
+  const steps = ['pairing-producer.mjs" pins', 'assert-safe-target.mjs" --mutating', 'local-binding.mjs', 'pairing-producer.mjs" dsn', 'mktemp -d',
+    'trap cleanup EXIT', 'pairing-producer.mjs" ownership', 'pairing-producer.mjs" appverify', 'composition.sql', 'pairing-producer.mjs" pair',
+    'pairing-producer.mjs" seed', 'witness-journey.sql" "$RAW/witness-pre.txt"', 'playwright test', 'witness-journey.sql" "$RAW/witness-post.txt"', 'compare-witness.mjs'];
   const at = steps.map((x) => sh.indexOf(x));
   if (at.some((i) => i < 0) || at.some((i, k) => k > 0 && i <= at[k - 1])) v.push('R11_RUNNER_ORDER run-journey.sh');
-  if (/set -x|xtrace|stack_id|pairing:|\bnonce\b/i.test(sh)) v.push('R11_RUNNER_NONCE_OR_TRACE run-journey.sh');
+  if (/set -x|xtrace|stack_id|gb-journey-pairing:|\bnonce\b/i.test(sh)) v.push('R11_RUNNER_NONCE_OR_TRACE run-journey.sh');
+  // No DSN on any command line, and no direct psql: every DB call goes through private-psql.mjs or the producer.
+  if (/SUPABASE_DB_URL/.test(sh) || /(^|[^-\w])psql\s/m.test(sh.replace(/private-psql\.mjs/g, ''))) v.push('R11_RUNNER_DSN_ARGV run-journey.sh');
+  // The evidence dir receives only the fixed composition line and copies of validated RAW summaries.
+  const outWrites = [...sh.matchAll(/[^\n]*"\$OUT\/[^"\n]*"[^\n]*/g)].map((m) => m[0].trim()).filter((l) => !/^\[ "\$\(ls -A "\$OUT"/.test(l) && !/^cat "\$OUT\/compare\.txt" "\$OUT\/playwright-summary\.txt"$/.test(l));
+  if (outWrites.some((l) => !(l === 'echo "COMPOSITION composed-r5" > "$OUT/composition.txt"' || /^cp "\$RAW\/(pairing|seed|playwright-summary|compare-summary)\.out" "\$OUT\/(pairing|seed|playwright-summary|compare)\.txt"$/.test(l)))) v.push('R11_RUNNER_RAW_STAGED run-journey.sh');
+  if (!/--reporter=json --output="\$RAW\/test-results"/.test(sh)) v.push('R11_RUNNER_RAW_STAGED run-journey.sh');
   if (/rm -rf -- "\$PARENT"/.test(sh) === false || (sh.match(/rm -/g) || []).length !== 1) v.push('R11_RUNNER_CLEANUP run-journey.sh');
-  if (!/pairing-producer\.mjs" ownership >&2 \|\| refuse RUN_E_D1 5/.test(sh)) v.push('R11_RUNNER_NO_D1 run-journey.sh');
+  if (!/^step RUN_E_D1 ownership "[^"]+" -- node "\$HERE\/pairing-producer\.mjs" ownership "\$RAW"$/m.test(sh) || !/^step RUN_E_APP appverify "[^"]+" -- node "\$HERE\/pairing-producer\.mjs" appverify$/m.test(sh)) v.push('R11_RUNNER_NO_D1 run-journey.sh');
   const prod = stripJsComments(rd(`${sdir}/pairing-producer.mjs`));
   const pAt = ['o.db.journeyRowCount()', 'o.db.insertCarrier(', 'o.db.readCarrier()', 'assertLivePairing('].map((x) => prod.indexOf(x, prod.indexOf('export async function producePairing')));
   if (pAt.some((i) => i < 0) || pAt.some((i, k) => k > 0 && i <= pAt[k - 1])) v.push('R11_PRODUCER_ORDER pairing-producer.mjs');
   if (/console\.(log|error|warn|info)\([^)]*(nonce|carrier|stack_id|description)/.test(prod)) v.push('R11_PRODUCER_LOGS_NONCE pairing-producer.mjs');
-  const d1 = prod.slice(prod.indexOf('export function stackOwnershipFailures'), prod.indexOf('export async function producePairing'));
-  if (!/record\.api_origin !== o\.apiOrigin/.test(d1) || !/record\.app_origin !== o\.appOrigin/.test(d1) || !/\(st\.mode & 0o777\) !== 0o600/.test(d1) || !/r\.ok !== true \|\| r\.code !== 'SO_OK'/.test(d1) || !/apiOrigin: o\.apiOrigin, appOrigin: o\.appOrigin \}\)/.test(d1) || /disposable/.test(d1)) v.push('R11_PRODUCER_D1_WEAK pairing-producer.mjs');
-  if (!/'scripts\/e2e\/stack-ownership\.mjs': '3875d202ca248991cc8be8448430d469d1a6d396'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
+  const d1 = prod.slice(prod.indexOf('export function readRecordHandle'), prod.indexOf('export async function servedAppFailures'));
+  if (!/O_NONBLOCK/.test(d1) || !/io\.fstatSync\(fd\)/.test(d1) || !/io\.readSync\(fd,/.test(d1) || !/io\.closeSync\(fd\)/.test(d1) || !/RUN_E_D1_HANDLE_GROWTH/.test(d1)
+    || !/RUN_E_D1_HANDLE_CHANGED/.test(d1) || !/record\.api_origin !== o\.apiOrigin/.test(d1) || !/record\.app_origin !== o\.appOrigin/.test(d1)
+    || !/\(st\.mode & 0o777\) !== 0o600/.test(d1) || !/r\.ok !== true \|\| r\.code !== 'SO_OK'/.test(d1) || !/apiOrigin: o\.apiOrigin, appOrigin: o\.appOrigin, expectedBootstrapSha256: o\.expectedBootstrapSha256 \}\)/.test(d1)
+    || !/record\.bootstrap_sha256 !== o\.expectedBootstrapSha256/.test(d1) || /disposable/.test(d1) || /lstatSync/.test(d1)) v.push('R11_PRODUCER_D1_WEAK pairing-producer.mjs');
+  if (!/'scripts\/e2e\/stack-ownership\.mjs': 'ea39300dda9673b66fc6918b75929ca1b5e5d467'/.test(prod) || !/fixtures\/stack-ownership\.fake\.json': 'f1c384ec604bfa377af28b425ff981e2c072a32a'/.test(prod)) v.push('R11_D1_NOT_PINNED pairing-producer.mjs');
+  // Until the shared owner delivers them, both first-write gates are null and refuse.
+  // Gate 1: the reviewed bootstrap digest, pinned with its blob and re-hashed before use. Gate 2 (served-app verifier) is
+  // not delivered, so it stays null and refuses before the first write.
+  if (!/^export const EXPECTED_BOOTSTRAP_SHA256 = 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715';$/m.test(prod)
+    || !/'scripts\/local-stack\/bootstrap\.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa'/.test(prod)
+    || !/bootstrapFileSha256\(root\) !== EXPECTED_BOOTSTRAP_SHA256\) throw new PairError\('RUN_E_D1_BOOTSTRAP_FILE'\)/.test(prod)
+    || /process\.env\.[A-Z_]*BOOTSTRAP/.test(prod) || /record\.bootstrap_sha256\s*[;,)]/.test(prod.replace(/record\.bootstrap_sha256 !== o\.expectedBootstrapSha256/g, ''))
+    || !/^export const SERVED_APP_VERIFIER = null;$/m.test(prod)) v.push('R11_GATES_NOT_FAIL_CLOSED pairing-producer.mjs');
+  if (/spawnSync|execFileSync|SUPABASE_DB_URL/.test(prod)) v.push('R11_PRODUCER_DSN_ARGV pairing-producer.mjs');
+  const ppsql = stripJsComments(rd(`${sdir}/private-psql.mjs`));
+  if (!/argv: \['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'\]/.test(ppsql) || !/spawn\(o\.psqlBin \?\? 'psql', plan\.argv,/.test(ppsql)
+    || !/assertLocalDsn\(/.test(ppsql) || /console\.(log|error)\([^)]*(passLine|pw|dsn)/.test(ppsql) || !/k !== 'SUPABASE_DB_URL'/.test(ppsql)) v.push('R11_PSQL_NOT_PRIVATE private-psql.mjs');
+  const lb = stripJsComments(rd('e2e/gradebook-roles/local-binding.mjs'));
+  if (/execFileSync|spawn/.test(lb) || !/assertLocalDsn\(/.test(lb)) v.push('R11_BINDING_DSN_ARGV local-binding.mjs');
 
   return v;
 }

@@ -238,3 +238,30 @@ The list runs used placeholder loopback env values. No server was listening, and
   - 12 fake-verifier checks (D1).
   - 10 checks against the real shared module (D1REAL), run with the two #154 files at 9fa71e4 checked out into a scratch worktree. This lane's own mode check also uses one O_NOFOLLOW descriptor and fstat. They are SKIPPED, and not counted, in the tree as pushed.
   - Static contract R11 covers the origin checks, the exact mode, `SO_OK`, no use of `disposable`, and the pins.
+
+## 13. 0f3c659 review correction batch (T 00:30:50Z; one batch, UNRUN)
+
+1. **No DSN on any argv.** `private-psql.mjs` checks `SUPABASE_DB_URL` in-process with the pinned `assertLocalDsn` /
+   `parseLibpqDsn`, runs psql with only `-X -q -At -w -v ON_ERROR_STOP=1 -h -p -U -d -f -`, puts the password in a fresh
+   0600 passfile (O_EXCL, removed in `finally`) inside the private raw dir, sends SQL on stdin, and strips
+   `SUPABASE_DB_URL` and every `PG*` override from the child env. The producer no longer spawns psql itself, and
+   `local-binding.mjs` calls `assertLocalDsn` in-process instead of passing the DSN to a child.
+2. **Raw streams private.** Every child's stdout and stderr goes to `$PARENT/raw` (removed by the trap on every exit).
+   Playwright runs with `--reporter=json --output=$PARENT/raw/test-results`; `run-summary.mjs` turns its report into one
+   count line and checks every comparator line against a fixed grammar. The evidence dir holds exactly five fixed files:
+   `compare.txt composition.txt pairing.txt playwright-summary.txt seed.txt` (the old raw `playwright.txt` is gone).
+3. **D1 record handle.** `readRecordHandle` opens with O_RDONLY|O_NOFOLLOW|O_NONBLOCK, fstats the same fd (regular,
+   owner, exact 0600, 2..4096 bytes), reads at most 4097 bytes, refuses growth or shrink, and closes in `finally`. The
+   shared verifier's record must equal the bytes read on that handle. Shared module repinned to ea39300d (#154 7e31eec);
+   the shared file is not edited.
+4. **First-write gates.** Gate 1: `EXPECTED_BOOTSTRAP_SHA256` is the reviewed constant b41a9ed8… (sha256 of
+   `scripts/local-stack/bootstrap.sh`, blob aa34aa29, also pinned), re-hashed from the pinned file before use, never read
+   from the record or the env. Gate 2: `SERVED_APP_VERIFIER` stays null, so `appverify` refuses `RUN_E_APP_UNVERIFIED`
+   before the carrier INSERT. **The adapter remains BLOCKED** until the shared owner delivers a callable, pinnable
+   served-app verifier (or an agreed equivalent) and the job runs it before D1.
+
+Controls (fake tier only): HANDLE FIFO/dir/symlink/missing/oversize/growth/shrink/read/stat/close/bounded loop; PSQL argv,
+passfile mode/content/removal, env stripping, remote/multihost/hostaddr/socket/PGHOST refusals; SUM grammar refusals;
+RUNFAKE end to end on a tree copy with fake psql/npx and an in-process fake API: the happy order, then a marker-bearing
+failure at every post-mktemp step, each checked for one fixed stderr line, no marker/password/DSN/nonce anywhere, parent
+removed, exact evidence inventory.

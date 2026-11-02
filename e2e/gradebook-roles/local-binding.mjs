@@ -1,7 +1,7 @@
 // ABOUTME: Strict local-only binding for the gradebook real-role run, checked when the config LOADS (before any setup,
 // ABOUTME: sign-in or browser): API, DB, app and any relay must be explicit loopback http(s)-free origins; no hosted
 // ABOUTME: isolated project, no production override, no relay mode. Throws a fixed message; never prints a value.
-import { execFileSync } from 'node:child_process';
+import { assertLocalDsn } from '../../scripts/local-db/assert-local-dsn.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,10 +34,11 @@ export function assertStrictLocalBinding(env = process.env, root = process.cwd()
   if (env.E2E_RELAY_TARGET && strictLoopbackOrigin(env.E2E_RELAY_TARGET, 'E2E_RELAY_TARGET').origin !== api.origin) {
     throw new Error('gradebook-roles refused: E2E_RELAY_TARGET differs from the local API origin');
   }
-  // The DB is checked by the repository's own loopback-DSN guard (no network, parse only); its output is not shown.
-  try {
-    execFileSync(process.execPath, [path.join(root, 'scripts/local-db/assert-local-dsn.mjs'), String(env.SUPABASE_DB_URL ?? '')], { stdio: 'ignore' });
-  } catch { throw new Error('gradebook-roles refused: SUPABASE_DB_URL is not a loopback DSN'); }
+  // The DB is checked IN-PROCESS by the repository's own loopback-DSN guard (no network, parse only). The DSN is never
+  // put on a command line, and the guard's reason text is not shown.
+  let dsnOk = false;
+  try { dsnOk = assertLocalDsn(String(env.SUPABASE_DB_URL ?? ''), env).ok === true; } catch { dsnOk = false; }
+  if (!dsnOk) throw new Error('gradebook-roles refused: SUPABASE_DB_URL is not a loopback DSN');
   return { api, app, anonKey };
 }
 

@@ -11,7 +11,9 @@ import { compareWitness, DECLARED_HASHES } from './compare-witness.mjs';
 import { createRecorder, evaluate, settled, runStateFailures } from '../../../../e2e/gradebook-roles/journey/observe-core.mjs';
 import { EventEmitter } from 'node:events';
 import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
-import { producePairing, pinFailures, stackOwnershipFailures, HELPER_PINS, gitBlobId, D1_MODULE } from '../pairing-producer.mjs';
+import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
+import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
+import { playwrightSummary, compareSummary } from '../run-summary.mjs';
 import { checkJourney } from './static-contract.mjs';
 
 const repo = process.cwd();
@@ -307,44 +309,268 @@ try {
     ok('PIN one changed byte in a shared helper refused', JSON.stringify(pinFailures(root).filter((x) => !D1_PATHS.some((d) => x === `RUN_E_PIN ${d}`))) === '["RUN_E_PIN scripts/local-db/assert-local-dsn.mjs"]');
     fs.rmSync(path.join(root, 'e2e/support/chromium-executable.ts'));
     ok('PIN missing helper refused', pinFailures(root).includes('RUN_E_PIN e2e/support/chromium-executable.ts')); }
-  // ---- D1 consumer on a fake verifyRecord (the shared module's contract), plus this lane's stricter checks ----
+  // ---- D1 consumer on a fake verifyRecord (the shared module's contract), plus this lane's handle checks ----
   const recDir = fs.mkdtempSync(path.join(tmp, 'so-')); fs.chmodSync(recDir, 0o700);
-  const REC = { schema: 1, run_id: '1000000001', run_attempt: '1', pg_system_identifier: '7400000000000000001', api_origin: API, app_origin: 'http://127.0.0.1:4173', created_at: '2026-11-02T00:00:00.000Z', disposable: true, bootstrap_sha256: '0'.repeat(64) };
-  const recFile = (obj = REC, mode = 0o600) => { const f = path.join(recDir, `rec-${Math.random().toString(16).slice(2)}.json`); fs.writeFileSync(f, JSON.stringify(obj)); fs.chmodSync(f, mode); return f; };
+  const BOOT = '0'.repeat(64);
+  const REC = { schema: 1, run_id: '1000000001', run_attempt: '1', pg_system_identifier: '7400000000000000001', api_origin: API, app_origin: 'http://127.0.0.1:4173', created_at: '2026-11-02T00:00:00.000Z', disposable: true, bootstrap_sha256: BOOT };
+  const recFile = (obj = REC, mode = 0o600) => { const f = path.join(recDir, `rec-${Math.random().toString(16).slice(2)}.json`); fs.writeFileSync(f, typeof obj === 'string' ? obj : JSON.stringify(obj)); fs.chmodSync(f, mode); return f; };
   const fakeVerify = (res) => { const calls = []; const f = (file, a) => { calls.push({ file, a }); return typeof res === 'function' ? res(file, a) : res; }; f.calls = calls; return f; };
-  const D1o = (over = {}) => ({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: REC }), file: recFile(), runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173', ...over });
+  const D1o = (over = {}) => ({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: REC }), file: recFile(), runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173', expectedBootstrapSha256: BOOT, ...over });
   const D1 = (over) => JSON.stringify(stackOwnershipFailures(D1o(over)));
   { const o = D1o(); const r = stackOwnershipFailures(o);
-    ok('D1 verified record for this run, cluster and origins: accepted', r.length === 0);
-    ok('D1 run id, attempt, LIVE identifier and the bound origins are passed to the shared verifier', o.verifyRecord.calls.length === 1 && JSON.stringify(o.verifyRecord.calls[0].a) === JSON.stringify({ runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173' })); }
-  ok('D1 every shared refusal maps to its own fixed code', ['SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_SYSID_MISMATCH', 'SO_INPUT'].every((c) => D1({ verifyRecord: fakeVerify({ ok: false, code: c, reason: 'x' }) }) === `["RUN_E_D1_${c}"]`));
+    ok('D1 verified record for this run, cluster, origins and pinned bootstrap: accepted', r.length === 0);
+    ok('D1 run id, attempt, LIVE identifier, bound origins and pinned bootstrap are passed to the shared verifier', o.verifyRecord.calls.length === 1 && JSON.stringify(o.verifyRecord.calls[0].a) === JSON.stringify({ runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: API, appOrigin: 'http://127.0.0.1:4173', expectedBootstrapSha256: BOOT })); }
+  ok('D1 every shared refusal maps to its own fixed code', ['SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_BOOTSTRAP_MISMATCH', 'SO_SYSID_MISMATCH', 'SO_INPUT'].every((c) => D1({ verifyRecord: fakeVerify({ ok: false, code: c, reason: 'x' }) }) === `["RUN_E_D1_${c}"]`));
   ok('D1 ok:true with a non-OK code, or an odd code, refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_MODE', record: REC }) }) === '["RUN_E_D1_SO_MODE"]' && D1({ verifyRecord: fakeVerify({ ok: false, code: 'weird text' }) }) === '["RUN_E_D1_MODULE"]');
-  ok('D1 record for another API origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, api_origin: 'http://127.0.0.1:55555' } }) }) === '["RUN_E_D1_API_ORIGIN"]');
-  ok('D1 record for another app origin refused', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, app_origin: 'http://127.0.0.1:5173' } }) }) === '["RUN_E_D1_APP_ORIGIN"]');
-  ok('D1 no run attempt refused before the verifier is called', (() => { const o = D1o({ runAttempt: '' }); return JSON.stringify(stackOwnershipFailures(o)) === '["RUN_E_D1_NO_ATTEMPT"]' && o.verifyRecord.calls.length === 0; })());
-  ok('D1 record file 0400 or 0640 refused (exact 0600 here; the shared check allows 0400)', D1({ file: recFile(REC, 0o400) }) === '["RUN_E_D1_MODE_EXACT"]' && D1({ file: recFile(REC, 0o640) }) === '["RUN_E_D1_MODE_EXACT"]');
-  ok('D1 record owned by another uid refused', D1({ uid: 999999 }) === '["RUN_E_D1_MODE_EXACT"]');
+  ok('D1 record for another API or app origin refused (lane copy of the check)', D1({ file: recFile({ ...REC, api_origin: 'http://127.0.0.1:55555' }), verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, api_origin: 'http://127.0.0.1:55555' } }) }) === '["RUN_E_D1_API_ORIGIN"]' && D1({ file: recFile({ ...REC, app_origin: 'http://127.0.0.1:5173' }), verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, app_origin: 'http://127.0.0.1:5173' } }) }) === '["RUN_E_D1_APP_ORIGIN"]');
+  ok('D1 no run attempt refused before any read', (() => { const o = D1o({ runAttempt: '' }); return JSON.stringify(stackOwnershipFailures(o)) === '["RUN_E_D1_NO_ATTEMPT"]' && o.verifyRecord.calls.length === 0; })());
+  ok('D1 bootstrap identity not pinned (null): RUN_E_D1_BOOTSTRAP_UNPINNED before any read', (() => { const o = D1o({ expectedBootstrapSha256: null }); return JSON.stringify(stackOwnershipFailures(o)) === '["RUN_E_D1_BOOTSTRAP_UNPINNED"]' && o.verifyRecord.calls.length === 0; })());
+  ok('D1 well-formed but different bootstrap digest refused even if the verifier says OK', D1({ expectedBootstrapSha256: 'a'.repeat(64) }) === '["RUN_E_D1_BOOTSTRAP_MISMATCH"]');
+  ok('D1 the shared verifier returning a record other than the bytes read on the handle: RUN_E_D1_HANDLE_CHANGED', D1({ verifyRecord: fakeVerify({ ok: true, code: 'SO_OK', record: { ...REC, run_attempt: '2' } }) }) === '["RUN_E_D1_HANDLE_CHANGED"]');
+  ok('D1 record file 0400 or 0640 refused on the handle', D1({ file: recFile(REC, 0o400) }) === '["RUN_E_D1_MODE_EXACT"]' && D1({ file: recFile(REC, 0o640) }) === '["RUN_E_D1_MODE_EXACT"]');
+  ok('D1 record owned by another uid refused on the handle', D1({ uid: 999999 }) === '["RUN_E_D1_MODE_EXACT"]');
   ok('D1 missing or throwing verifier refused', D1({ verifyRecord: undefined }) === '["RUN_E_D1_MODULE"]' && D1({ verifyRecord: () => { throw new Error('x'); } }) === '["RUN_E_D1_MODULE"]');
   ok('D1 "disposable: true" alone is not accepted: a refused verify with disposable set still refuses', D1({ verifyRecord: fakeVerify({ ok: false, code: 'SO_SYSID_MISMATCH', record: REC }) }) === '["RUN_E_D1_SO_SYSID_MISMATCH"]');
-  // With the REAL shared module (only when its pinned blob is in this tree): its codes reach this lane's consumer unchanged.
+  // Handle: real special files, then injected io for growth / read / close / stat errors.
+  { const fifo = path.join(recDir, 'fifo'); execFileSync('mkfifo', ['-m', '600', fifo]);
+    const t0 = Date.now(); const r = D1({ file: fifo });
+    ok('HANDLE FIFO refused at once (non-blocking open, type on the handle), verifier never called', r === '["RUN_E_D1_HANDLE_TYPE"]' && Date.now() - t0 < 2000); }
+  { const d = path.join(recDir, 'adir'); fs.mkdirSync(d, { mode: 0o700 }); ok('HANDLE directory refused', D1({ file: d }) === '["RUN_E_D1_HANDLE_TYPE"]'); }
+  { const l = path.join(recDir, 'alink.json'); fs.symlinkSync(recFile(), l); ok('HANDLE symlink refused (no-follow open)', D1({ file: l }) === '["RUN_E_D1_HANDLE_OPEN"]'); }
+  ok('HANDLE missing or relative path refused', D1({ file: path.join(recDir, 'none.json') }) === '["RUN_E_D1_HANDLE_OPEN"]' && D1({ file: 'rel.json' }) === '["RUN_E_D1_HANDLE_OPEN"]');
+  ok('HANDLE oversize (5000 bytes) refused', D1({ file: recFile(JSON.stringify({ ...REC, pad: 'x'.repeat(5000) })) }) === '["RUN_E_D1_HANDLE_SIZE"]');
+  ok('HANDLE unparsable bytes refused before the verifier', (() => { const o = D1o({ file: recFile('{not json') }); return JSON.stringify(stackOwnershipFailures(o)) === '["RUN_E_D1_HANDLE_PARSE"]' && o.verifyRecord.calls.length === 0; })());
+  { const real = recFile();
+    const io = (over) => ({ openSync: fs.openSync, fstatSync: fs.fstatSync, readSync: fs.readSync, closeSync: fs.closeSync, ...over });
+    let closed = 0;
+    const counting = (over) => io({ closeSync: (fd) => { closed++; fs.closeSync(fd); }, ...over });
+    ok('HANDLE growth after fstat (more bytes than the stat size) refused, handle closed', (() => { closed = 0; const r = D1({ file: real, io: counting({ fstatSync: (fd) => { const s = fs.fstatSync(fd); return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { size: s.size - 5 }); } }) }); return r === '["RUN_E_D1_HANDLE_GROWTH"]' && closed === 1; })());
+    ok('HANDLE shrink (fewer bytes than the stat size) refused', D1({ file: real, io: counting({ fstatSync: (fd) => { const s = fs.fstatSync(fd); return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { size: s.size + 5 }); } }) }) === '["RUN_E_D1_HANDLE_GROWTH"]');
+    ok('HANDLE read error refused, handle closed', (() => { closed = 0; const r = D1({ file: real, io: counting({ readSync: () => { throw new Error('EIO MARKER'); } }) }); return r === '["RUN_E_D1_HANDLE_READ"]' && closed === 1; })());
+    ok('HANDLE stat error refused, handle closed', (() => { closed = 0; const r = D1({ file: real, io: counting({ fstatSync: () => { throw new Error('x'); } }) }); return r === '["RUN_E_D1_HANDLE_STAT"]' && closed === 1; })());
+    ok('HANDLE close error after a good read refused', D1({ file: real, io: io({ closeSync: (fd) => { fs.closeSync(fd); throw new Error('x'); } }) }) === '["RUN_E_D1_HANDLE_CLOSE"]');
+    ok('HANDLE read loop is bounded (a never-ending reader stops at 4097 bytes)', (() => { const r = D1({ file: real, io: io({ fstatSync: (fd) => { const s = fs.fstatSync(fd); return Object.assign(Object.create(Object.getPrototypeOf(s)), s, { size: 4000 }); }, readSync: (_fd, buf, off, len) => { buf.fill(0x20, off, off + len); return len; } }) }); return r === '["RUN_E_D1_HANDLE_SIZE"]'; })()); }
+  // With the REAL shared module (only when its pinned blob is in this tree).
   if (d1Present && pinFailures(repo).length === 0) {
     const { verifyRecord } = await import(path.join(repo, D1_MODULE));
     const fake = JSON.parse(fs.readFileSync(path.join(repo, 'scripts/e2e/fixtures/stack-ownership.fake.json'), 'utf8'));
-    const R = (over, recOver = {}, mode = 0o600) => JSON.stringify(stackOwnershipFailures({ verifyRecord, file: recFile({ ...fake, ...recOver }, mode), runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin, ...over }));
-    ok('D1REAL shared fake record verifies for its run and cluster', R({}) === '[]');
+    const base = { verifyRecord, runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin, expectedBootstrapSha256: fake.bootstrap_sha256 };
+    const R = (over, recOver = {}, mode = 0o600) => JSON.stringify(stackOwnershipFailures({ ...base, file: recFile({ ...fake, ...recOver }, mode), ...over }));
+    ok('D1REAL shared fake record verifies for its run, cluster and pinned bootstrap', R({}) === '[]');
     ok('D1REAL other live identifier: RUN_E_D1_SO_SYSID_MISMATCH', R({ liveSystemIdentifier: '7400000000000000002' }) === '["RUN_E_D1_SO_SYSID_MISMATCH"]');
     ok('D1REAL other run id or attempt: RUN_E_D1_SO_RUN_MISMATCH', R({ runId: '1000000002' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]' && R({ runAttempt: '2' }) === '["RUN_E_D1_SO_RUN_MISMATCH"]');
     ok('D1REAL empty live read: RUN_E_D1_SO_INPUT, never a pass', R({ liveSystemIdentifier: '' }) === '["RUN_E_D1_SO_INPUT"]');
     ok('D1REAL record for other origins: RUN_E_D1_SO_ORIGIN_MISMATCH from the shared module', R({}, { api_origin: 'http://127.0.0.1:55555' }) === '["RUN_E_D1_SO_ORIGIN_MISMATCH"]' && R({}, { app_origin: 'http://127.0.0.1:5173' }) === '["RUN_E_D1_SO_ORIGIN_MISMATCH"]');
-    ok('D1REAL shared module itself refuses 0400 and a missing attempt (lane checks bypassed)', verifyRecord(recFile(fake, 0o400), { runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin }).code === 'SO_MODE' && verifyRecord(recFile(fake), { runId: fake.run_id, runAttempt: '', liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin }).code === 'SO_INPUT');
+    ok('D1REAL other well-formed bootstrap digest: RUN_E_D1_SO_BOOTSTRAP_MISMATCH from the shared module', R({ expectedBootstrapSha256: 'b'.repeat(64) }) === '["RUN_E_D1_SO_BOOTSTRAP_MISMATCH"]');
+    ok('D1REAL shared module itself refuses 0400, a missing attempt and a FIFO', verifyRecord(recFile(fake, 0o400), base).code === 'SO_MODE' && verifyRecord(recFile(fake), { ...base, runAttempt: '' }).code === 'SO_INPUT' && verifyRecord(path.join(recDir, 'fifo'), base).ok === false);
     ok('D1REAL disposable:false: RUN_E_D1_SO_SCHEMA', R({}, { disposable: false }) === '["RUN_E_D1_SO_SCHEMA"]');
     ok('D1REAL extra key: RUN_E_D1_SO_SCHEMA', R({}, { note: 'x' }) === '["RUN_E_D1_SO_SCHEMA"]');
-    const lnk = path.join(recDir, 'link.json'); fs.symlinkSync(recFile(fake), lnk);
-    ok('D1REAL symlinked record: RUN_E_D1_SO_ABSENT', JSON.stringify(stackOwnershipFailures({ verifyRecord, file: lnk, runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin })) === '["RUN_E_D1_SO_ABSENT"]');
-    ok('D1REAL absent record: RUN_E_D1_SO_ABSENT', JSON.stringify(stackOwnershipFailures({ verifyRecord, file: path.join(recDir, 'none.json'), runId: fake.run_id, runAttempt: fake.run_attempt, liveSystemIdentifier: fake.pg_system_identifier, apiOrigin: fake.api_origin, appOrigin: fake.app_origin })) === '["RUN_E_D1_SO_ABSENT"]');
-  } else console.log('skip D1REAL (shared module 637bae9 not in this tree; not counted)');
+    ok('D1REAL symlinked or absent record: refused on the lane handle', R({ file: path.join(recDir, 'alink.json') }) === '["RUN_E_D1_HANDLE_OPEN"]' && R({ file: path.join(recDir, 'none.json') }) === '["RUN_E_D1_HANDLE_OPEN"]');
+  } else console.log('skip D1REAL (shared #154 module not in this tree; not counted)');
 
-  // ---- Runner adapter refusals that need no stack (helper behaviour; the full run is UNEXECUTED) ----
+  // ---- Served-app gate (before the first write) ----
+  { const root = fs.mkdtempSync(path.join(tmp, 'app-')); fs.mkdirSync(path.join(root, 'v'), { recursive: true });
+    const src = "export async function verifyServedApp({ appOrigin }) { return appOrigin === 'http://127.0.0.1:4173' ? { ok: true } : { ok: false }; }\n";
+    fs.writeFileSync(path.join(root, 'v/app.mjs'), src);
+    const blob = gitBlobId(Buffer.from(src));
+    const A = (verifier, appOrigin = 'http://127.0.0.1:4173', importImpl) => servedAppFailures({ verifier, root, appOrigin, importImpl }).then((x) => JSON.stringify(x));
+    ok('APP no verifier pinned (the real tree): RUN_E_APP_UNVERIFIED', await A(SERVED_APP_VERIFIER) === '["RUN_E_APP_UNVERIFIED"]' && SERVED_APP_VERIFIER === null);
+    ok('APP pinned verifier says ok for this origin: accepted', await A({ path: 'v/app.mjs', blob }) === '[]');
+    ok('APP pinned verifier says no: RUN_E_APP_UNVERIFIED', await A({ path: 'v/app.mjs', blob }, 'http://127.0.0.1:9999') === '["RUN_E_APP_UNVERIFIED"]');
+    ok('APP verifier bytes differ from the pin: RUN_E_APP_VERIFIER_PIN', await A({ path: 'v/app.mjs', blob: 'f'.repeat(40) }) === '["RUN_E_APP_VERIFIER_PIN"]');
+    ok('APP verifier throws or answers more than ok: refused', await A({ path: 'v/app.mjs', blob }, undefined, async () => ({ verifyServedApp: async () => { throw new Error('x'); } })) === '["RUN_E_APP_VERIFIER"]' && await A({ path: 'v/app.mjs', blob }, undefined, async () => ({ verifyServedApp: async () => ({ ok: true, why: 'x' }) })) === '["RUN_E_APP_UNVERIFIED"]');
+    ok('GATES bootstrap digest is the reviewed constant and equals sha256 of the pinned bootstrap.sh in this tree; served-app gate still null (fail closed)', EXPECTED_BOOTSTRAP_SHA256 === 'b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715' && bootstrapFileSha256(repo) === EXPECTED_BOOTSTRAP_SHA256 && HELPER_PINS['scripts/local-stack/bootstrap.sh'] === gitBlobId(fs.readFileSync(path.join(repo, 'scripts/local-stack/bootstrap.sh'))) && SERVED_APP_VERIFIER === null); }
+
+  // ---- Password-free psql (planning on fakes; a fake psql binary; no database) ----
+  const PW = 's3cr3t:PW\\x';
+  const DSN = `postgresql://postgres:${encodeURIComponent(PW)}@127.0.0.1:54322/postgres`;
+  const plan = planPsql(DSN, { SUPABASE_DB_URL: DSN, PGPASSWORD: 'zzz', PATH: '/bin' });
+  ok('PSQL argv is -w with plain -h/-p/-U/-d and SQL on stdin', JSON.stringify(plan.argv) === JSON.stringify(['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-d', 'postgres', '-f', '-']));
+  ok('PSQL argv carries no password, no URI and no conninfo', !plan.argv.some((a) => a.includes('s3cr3t') || a.includes('postgresql') || a.includes('=') && a !== 'ON_ERROR_STOP=1'));
+  ok('PSQL passfile line escapes ":" and "\\" exactly as libpq reads them', plan.passLine === '127.0.0.1:54322:postgres:postgres:s3cr3t\\:PW\\\\x\n');
+  ok('PSQL child env drops SUPABASE_DB_URL and PGPASSWORD', !('SUPABASE_DB_URL' in plan.env) && !('PGPASSWORD' in plan.env) && plan.env.PATH === '/bin');
+  ok('PSQL keyword DSN plans the same way', JSON.stringify(planPsql('host=127.0.0.1 port=54322 dbname=postgres user=postgres password=pw', {}).argv) === JSON.stringify(plan.argv));
+  const PC = (d, env = {}) => { try { planPsql(d, env); return 'ACCEPTED'; } catch (e) { return e.code; } };
+  ok('PSQL remote, multihost, hostaddr, socket-dir and PGHOST-overridden DSNs refused', PC(['postgresql://u', ':p@', 'db.example.com:5432/postgres'].join('')) === 'PSQL_E_DSN' && PC(['postgresql://u', ':p@', '127.0.0.1,remote:5432/postgres'].join('')) === 'PSQL_E_DSN' && PC('host=127.0.0.1 hostaddr=203.0.113.9 dbname=postgres') === 'PSQL_E_DSN' && PC('host=/tmp dbname=postgres user=postgres') === 'PSQL_E_DSN_SHAPE' && PC(DSN, { PGHOST: 'remote' }) === 'PSQL_E_DSN');
+  ok('PSQL a database name psql would expand as conninfo is refused', PC(['postgresql://u', ':p@', '127.0.0.1:5432/a=b'].join('')) !== 'ACCEPTED');
+  { const fb = fs.mkdtempSync(path.join(tmp, 'fpsql-')); const log = path.join(fb, 'log.jsonl');
+    const bin = path.join(fb, 'psql');
+    fs.writeFileSync(bin, `#!/usr/bin/env node\nconst fs=require('fs'),crypto=require('crypto');const i=fs.readFileSync(0,'utf8');const pf=process.env.PGPASSFILE;const st=pf?fs.lstatSync(pf):null;fs.appendFileSync(${JSON.stringify(log)},JSON.stringify({argv:process.argv.slice(2),mode:st?(st.mode&0o777).toString(8):null,sha:pf?crypto.createHash('sha256').update(fs.readFileSync(pf)).digest('hex'):null,pf,dsn:'SUPABASE_DB_URL' in process.env,input:i})+'\\n');process.stderr.write('MARKER-psql-STDERR\\n');process.stdout.write('ROW 1\\n');process.exit(i.includes('FAILME')?3:0);\n`);
+    fs.chmodSync(bin, 0o755);
+    const priv = fs.mkdtempSync(path.join(tmp, 'ppriv-')); fs.chmodSync(priv, 0o700);
+    const lines = await runPsql({ script: 'select 1;\n', privDir: priv, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin });
+    const call = JSON.parse(fs.readFileSync(log, 'utf8').trim().split('\n')[0]);
+    ok('PSQL runPsql returns stdout lines only', JSON.stringify(lines) === '["ROW 1"]');
+    ok('PSQL passfile existed as 0600 in the private dir during the call, with exactly the planned line', call.mode === '600' && path.dirname(call.pf) === fs.realpathSync(priv) && call.sha === createHash('sha256').update(plan.passLine).digest('hex'));
+    ok('PSQL passfile removed after the call; SQL went on stdin; no DSN in the child env', !fs.existsSync(call.pf) && call.input === 'select 1;\n' && call.dsn === false);
+    ok('PSQL raw stderr lands only in the private 0600 log', fs.readFileSync(path.join(priv, 'psql-stderr.log'), 'utf8').includes('MARKER-psql-STDERR') && (fs.statSync(path.join(priv, 'psql-stderr.log')).mode & 0o777) === 0o600);
+    let ec = 'ACCEPTED'; try { await runPsql({ script: 'FAILME', privDir: priv, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin }); } catch (e) { ec = e.code; }
+    ok('PSQL non-zero exit is a fixed code, passfile still removed', ec === 'PSQL_E_EXIT' && fs.readdirSync(priv).every((f) => !f.startsWith('pgpass-')));
+    const open = fs.mkdtempSync(path.join(tmp, 'popen-')); fs.chmodSync(open, 0o755);
+    let ec2 = 'ACCEPTED'; try { await runPsql({ script: 'x', privDir: open, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin }); } catch (e) { ec2 = e.code; }
+    ok('PSQL non-private dir refused before any spawn', ec2 === 'PSQL_E_PRIVATE_DIR');
+    ok('PSQL include script refuses a quoted or spaced path and a non-plain value', (() => { try { includeScript("/a b.sql"); return false; } catch { /* expected */ } try { includeScript('/a.sql', { pairing: "x' \\! id" }); return false; } catch { return true; } })()); }
+
+  // ---- Fixed summaries ----
+  ok('SUM playwright JSON becomes one count line; raw text never echoed', playwrightSummary(JSON.stringify({ stats: { expected: 11, unexpected: 1, flaky: 0, skipped: 0 }, errors: [{ message: 'MARKER secret http://x' }] }), '1') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1');
+  const SUMC = (fn) => { try { fn(); return 'ACCEPTED'; } catch (e) { return e.code; } };
+  ok('SUM non-JSON or odd counts refused', SUMC(() => playwrightSummary('MARKER not json', '1')) === 'SUMMARY_E_PLAYWRIGHT_PARSE' && SUMC(() => playwrightSummary(JSON.stringify({ stats: { expected: '12', unexpected: 0, flaky: 0, skipped: 0 } }), '0')) === 'SUMMARY_E_PLAYWRIGHT_SHAPE');
+  ok('SUM comparator lines pass their grammar', compareSummary('FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison\n') === 'FAIL W_HASH_MISSING_PRE grades\nPROTECTED -\nUNPROVEN-EMPTY grade_history\nFAIL journey witness comparison');
+  ok('SUM a stray raw line (id, URL, message) in comparator output refused', SUMC(() => compareSummary('FAIL W_X\nERROR: MARKER at /tmp/x\nFAIL journey witness comparison\n')) === 'SUMMARY_E_COMPARE_LINE' && SUMC(() => compareSummary('FAIL W_X 9b6c0000-0000-4000-8000-000000000001\nFAIL journey witness comparison')) === 'SUMMARY_E_COMPARE_LINE');
+
+  // ---- Runner, end to end on FAKES: a copy of the tree with fake psql/npx on PATH and an in-process fake API ----
+  // The copy's ONLY edits: the two D1 pins and the two first-write gate constants point at selftest fakes. Every other
+  // byte (runner, producer, private-psql, summaries, SQL, guards) is the real file. Nothing touches a database.
+  const http = await import('node:http');
+  const fakeBin = fs.mkdtempSync(path.join(tmp, 'fbin-'));
+  fs.writeFileSync(path.join(fakeBin, 'psql'), `#!/usr/bin/env node
+const fs=require('fs'),path=require('path'),crypto=require('crypto');
+const S=process.env.FAKE_STATE, fail=process.env.FAKE_FAIL||'';
+const input=fs.readFileSync(0,'utf8');
+let op='other'; const inc=input.match(/\\\\i (\\S+)/);
+if(inc) op=path.basename(inc[1]); else if(/JOURNEY_ROWS/.test(input)) op='precheck'; else if(/'CARRIER '/.test(input)) op='carrier'; else if(/pg_control_system/.test(input)) op='sysid';
+if(op==='witness-journey.sql'){const f=S+'/wcount';const n=fs.existsSync(f)?Number(fs.readFileSync(f,'utf8')):0;fs.writeFileSync(f,String(n+1));op=n===0?'witness-pre':'witness-post';}
+const pf=process.env.PGPASSFILE; let pass=null;
+if(pf){const st=fs.lstatSync(pf);pass={mode:(st.mode&0o777).toString(8),sha:crypto.createHash('sha256').update(fs.readFileSync(pf)).digest('hex'),dir:path.dirname(pf)};}
+fs.appendFileSync(S+'/psql.jsonl',JSON.stringify({op,argv:process.argv.slice(2),pass,dsn:'SUPABASE_DB_URL' in process.env,pgpw:'PGPASSWORD' in process.env})+'\\n');
+if(fail===op){process.stdout.write('MARKER-'+op+'-STDOUT\\n');process.stderr.write('MARKER-'+op+'-STDERR\\n');process.exit(3);}
+process.stderr.write('MARKER-'+op+'-noise\\n');
+const out=(s)=>process.stdout.write(s+'\\n');
+if(op==='sysid') out('SYSID 7400000000000000001');
+else if(op==='composition.sql'){out('MARKER-composition-noise');out('COMPOSITION '+(process.env.FAKE_COMPOSITION||'composed-r5'));}
+else if(op==='precheck') out('JOURNEY_ROWS '+(process.env.FAKE_ROWS||'0'));
+else if(op==='pairing-seed.sql'){const m=input.match(/\\\\set pairing '([^']+)'/);fs.writeFileSync(S+'/carrier',m[1]);if(process.env.FAKE_INSERT!=='0') out('PAIRING_INSERTED');}
+else if(op==='carrier') out('CARRIER '+fs.readFileSync(S+'/carrier','utf8'));
+else if(op==='seed-journey.sql'){const m=input.match(/\\\\set pairing '([^']+)'/);if(!m||m[1]!==fs.readFileSync(S+'/carrier','utf8'))process.exit(4);out('MARKER-seed-noise');out(process.env.FAKE_SEED_PASS);}
+else if(op==='witness-pre'||op==='witness-post'){out('MARKER-witness-noise');}
+`);
+  fs.writeFileSync(path.join(fakeBin, 'npx'), `#!/usr/bin/env node
+const fs=require('fs');
+fs.appendFileSync(process.env.FAKE_STATE+'/npx.jsonl',JSON.stringify({argv:process.argv.slice(2),cwd:process.cwd()})+'\\n');
+process.stderr.write('MARKER-playwright-STDERR\\n');
+const m=process.env.FAKE_FAIL;
+if(m==='playwright-badjson'){process.stdout.write('MARKER-playwright-not-json');process.exit(1);}
+const bad=m==='playwright';
+process.stdout.write(JSON.stringify({config:{marker:'MARKER-playwright-json'},suites:[],errors:bad?[{message:'MARKER-playwright-error'}]:[],stats:{expected:bad?11:12,unexpected:bad?1:0,flaky:0,skipped:0}}));
+process.exit(bad?1:0);
+`);
+  fs.chmodSync(path.join(fakeBin, 'psql'), 0o755); fs.chmodSync(path.join(fakeBin, 'npx'), 0o755);
+  const FAKE_D1 = "import fs from 'node:fs';\nexport function verifyRecord(file, a) { let r; try { r = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return { ok: false, code: 'SO_PARSE' }; }\n  if (r.run_id !== String(a.runId) || r.pg_system_identifier !== String(a.liveSystemIdentifier) || r.api_origin !== a.apiOrigin || r.app_origin !== a.appOrigin) return { ok: false, code: 'SO_RUN_MISMATCH' };\n  if (r.bootstrap_sha256 !== a.expectedBootstrapSha256) return { ok: false, code: 'SO_BOOTSTRAP_MISMATCH' };\n  return { ok: true, code: 'SO_OK', record: r }; }\n";
+  const FAKE_FIX = '{"fake":true}\n';
+  const FAKE_APP = "export async function verifyServedApp({ appOrigin }) { return process.env.FAKE_APP_OK === '1' && appOrigin === 'http://127.0.0.1:4173' ? { ok: true } : { ok: false }; }\n";
+  const buildRunnerTree = ({ boot = true, app = true } = {}) => { // boot: true | 'tamper' (record digest is set per run)
+    const root = fs.mkdtempSync(path.join(tmp, 'rtree-'));
+    for (const d of ['e2e/gradebook-roles', 'scripts/gradebook-fixture']) fs.cpSync(path.join(repo, d), path.join(root, d), { recursive: true });
+    for (const f of ['scripts/e2e/assert-safe-target.mjs', 'scripts/local-db/assert-local-dsn.mjs', 'e2e/support/chromium-executable.ts', 'scripts/local-stack/bootstrap.sh', 'supabase/config.toml', 'playwright.gradebook-roles.config.ts']) {
+      fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true }); fs.copyFileSync(path.join(repo, f), path.join(root, f));
+    }
+    fs.mkdirSync(path.join(root, 'scripts/e2e/fixtures'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'scripts/e2e/stack-ownership.mjs'), FAKE_D1);
+    fs.writeFileSync(path.join(root, 'scripts/e2e/fixtures/stack-ownership.fake.json'), FAKE_FIX);
+    fs.writeFileSync(path.join(root, 'scripts/e2e/fake-served-app-verify.mjs'), FAKE_APP);
+    const pf = path.join(root, 'scripts/gradebook-fixture/journey/pairing-producer.mjs');
+    let src = fs.readFileSync(pf, 'utf8');
+    src = src.replace(/'scripts\/e2e\/stack-ownership\.mjs': '[0-9a-f]{40}'/, `'scripts/e2e/stack-ownership.mjs': '${gitBlobId(Buffer.from(FAKE_D1))}'`)
+      .replace(/'scripts\/e2e\/fixtures\/stack-ownership\.fake\.json': '[0-9a-f]{40}'/, `'scripts/e2e/fixtures/stack-ownership.fake.json': '${gitBlobId(Buffer.from(FAKE_FIX))}'`);
+    if (boot === 'tamper') fs.appendFileSync(path.join(root, 'scripts/local-stack/bootstrap.sh'), '# drift\n');
+    if (app) src = src.replace('export const SERVED_APP_VERIFIER = null;', `export const SERVED_APP_VERIFIER = { path: 'scripts/e2e/fake-served-app-verify.mjs', blob: '${gitBlobId(Buffer.from(FAKE_APP))}' };`);
+    fs.writeFileSync(pf, src);
+    return root;
+  };
+  let apiMode = 'ok', apiState = null; const apiCalls = [];
+  const server = http.createServer((req, res) => {
+    apiCalls.push({ url: req.url, auth: req.headers.authorization ?? null, method: req.method });
+    if (apiMode === '500') { res.statusCode = 500; res.end('MARKER-api-500'); return; }
+    const id = new URL(req.url, 'http://x').searchParams.get('id');
+    let body = '[]';
+    if (id === `eq.${CTRL}`) { let c = ''; try { c = fs.readFileSync(path.join(apiState, 'carrier'), 'utf8'); } catch { /* not inserted */ } body = JSON.stringify(c ? [{ id: CTRL, description: c }] : []); }
+    res.setHeader('content-type', 'application/json'); res.end(body);
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const API_O = `http://127.0.0.1:${server.address().port}`;
+  const { spawn } = await import('node:child_process');
+  const runRunner = (root, extra = {}) => new Promise((resolve) => {
+    const sb = fs.mkdtempSync(path.join(tmp, 'rsb-')); fs.chmodSync(sb, 0o700);
+    const st = fs.mkdtempSync(path.join(tmp, 'rst-')); apiState = st; apiCalls.length = 0;
+    const rec = path.join(sb, 'stack-ownership.json'); fs.writeFileSync(rec, JSON.stringify({ ...REC, api_origin: API_O, bootstrap_sha256: extra.RECORD_BOOTSTRAP ?? EXPECTED_BOOTSTRAP_SHA256 })); fs.chmodSync(rec, 0o600); delete extra.RECORD_BOOTSTRAP;
+    const env = { PATH: `${fakeBin}:${process.env.PATH}`, HOME: process.env.HOME, TMPDIR: sb, RUNNER_TEMP: sb, FAKE_STATE: st, FAKE_SEED_PASS: SEED_PASS,
+      SUPABASE_DB_URL: DSN, VITE_SUPABASE_URL: API_O, E2E_RELAY_TARGET: API_O, VITE_SUPABASE_ANON_KEY: 'anon', E2E_BASE_URL: 'http://127.0.0.1:4173',
+      E2E_INSTRUCTOR_PASSWORD: 'x', E2E_MEMBER_PASSWORD: 'y', STACK_OWNERSHIP_FILE: rec, GITHUB_RUN_ID: '1000000001', GITHUB_RUN_ATTEMPT: '1', FAKE_APP_OK: '1' };
+    for (const [k, v] of Object.entries(extra)) { if (v === undefined) delete env[k]; else env[k] = typeof v === 'function' ? v(sb) : v; }
+    const out = path.join(sb, 'evidence');
+    const child = spawn('bash', [path.join(root, 'scripts/gradebook-fixture/journey/run-journey.sh'), out], { env });
+    let so = '', se = '';
+    const timer = setTimeout(() => child.kill('SIGKILL'), 60_000);
+    child.stdout.on('data', (b) => { so += b; }); child.stderr.on('data', (b) => { se += b; });
+    child.on('close', (rc) => { clearTimeout(timer); resolve({ rc, so, se, sb, st, out }); });
+  });
+  const ALLOWED = {
+    'composition.txt': (s) => s === 'COMPOSITION composed-r5\n',
+    'pairing.txt': (s) => s === 'PASS pairing: carrier written through the DSN, read back through the DSN and the anon API\n',
+    'seed.txt': (s) => s === `${SEED_PASS}\n`,
+    'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\n$/.test(s),
+    'compare.txt': (s) => { try { compareSummary(s); return true; } catch { return false; } },
+  };
+  const verdict = (r, rc, err, files) => {
+    const staged = fs.existsSync(r.out) ? fs.readdirSync(r.out).sort() : [];
+    const texts = staged.map((f) => fs.readFileSync(path.join(r.out, f), 'utf8'));
+    const all = [r.so, r.se, ...texts].join('\n');
+    const left = fs.readdirSync(r.sb).filter((f) => f.startsWith('gb-journey-run.'));
+    const why = [];
+    if (r.rc !== rc) why.push(`rc=${r.rc}`);
+    if (r.se.trim() !== err) why.push('stderr');
+    if (/MARKER|s3cr3t|%3A|postgresql:\/\/|gb-journey-pairing:/.test(all)) why.push('leak');
+    if (left.length) why.push('parent-left');
+    if (staged.join(',') !== files) why.push(`files=${staged.join(',')}`);
+    if (staged.some((f, i) => !ALLOWED[f] || !ALLOWED[f](texts[i]))) why.push('content');
+    return why;
+  };
+  const RUN = async (name, opts, extra, rc, err, files) => {
+    const r = await runRunner(buildRunnerTree(opts), extra);
+    const why = verdict(r, rc, err, files);
+    ok(`RUNFAKE ${name}${why.length ? ` (${why.join(' ')})` : ''}`, why.length === 0);
+    return r;
+  };
+  try {
+    const ALL = 'compare.txt,composition.txt,pairing.txt,playwright-summary.txt,seed.txt';
+    const happy = await RUN('every step on fakes: exit 1 (fake witness fails compare), only the 5 fixed summaries staged, nothing raw, parent removed', {}, {}, 1, '', ALL);
+    { const calls = fs.readFileSync(path.join(happy.st, 'psql.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+      ok('RUNFAKE psql call order: sysid, composition, precheck, carrier insert, readback, seed, witness pre, witness post', JSON.stringify(calls.map((c) => c.op)) === '["sysid","composition.sql","precheck","pairing-seed.sql","carrier","seed-journey.sql","witness-pre","witness-post"]');
+      ok('RUNFAKE every psql argv is -w with plain -h/-p/-U/-d; no password, URI or nonce on any argv', calls.every((c) => JSON.stringify(c.argv) === JSON.stringify(plan.argv)));
+      ok('RUNFAKE every psql child had a 0600 passfile in the run private raw dir with exactly the planned line, and no DSN or PGPASSWORD env', calls.every((c) => c.pass && c.pass.mode === '600' && c.pass.sha === createHash('sha256').update(plan.passLine).digest('hex') && /\/gb-journey-run\.[A-Za-z0-9]{10}\/raw$/.test(c.pass.dir) && !c.dsn && !c.pgpw));
+      const npx = JSON.parse(fs.readFileSync(path.join(happy.st, 'npx.jsonl'), 'utf8').trim());
+      ok('RUNFAKE Playwright gets --reporter=json and a private --output under the run parent', npx.argv.includes('--reporter=json') && npx.argv.some((a) => /^--output=.*\/gb-journey-run\.[A-Za-z0-9]{10}\/raw\/test-results$/.test(a)));
+      ok('RUNFAKE stdout is exactly the staged compare lines plus the Playwright count line', happy.so === `${fs.readFileSync(path.join(happy.out, 'compare.txt'), 'utf8')}PLAYWRIGHT exit=0 expected=12 unexpected=0 flaky=0 skipped=0 global_errors=0\n`); }
+    const apiSeen = [...apiCalls];
+    ok('RUNFAKE carrier API reads: GET, anon key only, carrier then random-id control', apiSeen.length === 2 && apiSeen.every((c) => c.method === 'GET' && c.auth === null) && apiSeen[0].url === `/rest/v1/courses?id=eq.${CTRL}&select=id,description` && /^\/rest\/v1\/courses\?id=eq\.[0-9a-f-]{36}&select=id,description$/.test(apiSeen[1].url) && apiSeen[1].url !== apiSeen[0].url);
+    { const r = await RUN('bootstrap.sh drifted from its pin: refused at step 0 pins, NO database contact', { boot: 'tamper' }, {}, 3, 'run-journey refused: RUN_E_PIN', '');
+      ok('RUNFAKE no psql call at all when the bootstrap file drifts', !fs.existsSync(path.join(r.st, 'psql.jsonl'))); }
+    await RUN('record names another bootstrap digest: RUN_E_D1_SO_BOOTSTRAP_MISMATCH', {}, { RECORD_BOOTSTRAP: 'c'.repeat(64) }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_SO_BOOTSTRAP_MISMATCH', '');
+    await RUN('record copies a job-env digest (not the reviewed constant): refused', {}, { RECORD_BOOTSTRAP: BOOT, GB_D1_BOOTSTRAP_SHA256: BOOT, EXPECTED_BOOTSTRAP_SHA256: BOOT }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_SO_BOOTSTRAP_MISMATCH', '');
+    { const r = await RUN('THE REAL TREE GATE: served-app verifier unpinned refuses before the carrier INSERT', { app: false }, {}, 3, 'run-journey refused: RUN_E_APP RUN_E_APP_UNVERIFIED', '');
+      ok('RUNFAKE only the read-only system identifier was queried before the app gate refused', fs.readFileSync(path.join(r.st, 'psql.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l).op).join(',') === 'sysid'); }
+    await RUN('D1 system identifier read fails (marker on psql streams)', {}, { FAKE_FAIL: 'sysid' }, 3, 'run-journey refused: RUN_E_D1 PAIR_E_PSQL', '');
+    await RUN('D1 record missing', {}, { STACK_OWNERSHIP_FILE: (sb) => path.join(sb, 'none.json') }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_HANDLE_OPEN', '');
+    await RUN('D1 record is a FIFO (no hang)', {}, { STACK_OWNERSHIP_FILE: (sb) => { const f = path.join(sb, 'rec.fifo'); execFileSync('mkfifo', ['-m', '600', f]); return f; } }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_HANDLE_TYPE', '');
+    await RUN('D1 record for another run', {}, { GITHUB_RUN_ID: '1000000009' }, 3, 'run-journey refused: RUN_E_D1 RUN_E_D1_SO_RUN_MISMATCH', '');
+    await RUN('served app not verified', {}, { FAKE_APP_OK: '0' }, 3, 'run-journey refused: RUN_E_APP RUN_E_APP_UNVERIFIED', '');
+    await RUN('composition psql fails (marker on psql streams)', {}, { FAKE_FAIL: 'composition.sql' }, 3, 'run-journey refused: RUN_E_COMPOSITION', '');
+    await RUN('composition is not composed-r5', {}, { FAKE_COMPOSITION: 'baseline-139' }, 3, 'run-journey refused: RUN_E_COMPOSITION', '');
+    await RUN('precheck psql fails', {}, { FAKE_FAIL: 'precheck' }, 3, 'run-journey refused: RUN_E_PAIRING PAIR_E_PSQL', 'composition.txt');
+    await RUN('used stack (journey rows before pairing)', {}, { FAKE_ROWS: '2' }, 3, 'run-journey refused: RUN_E_PAIRING PAIR_E_USED_STACK', 'composition.txt');
+    await RUN('carrier conflict (insert returns no row)', {}, { FAKE_INSERT: '0' }, 3, 'run-journey refused: RUN_E_PAIRING PAIR_E_INSERT', 'composition.txt');
+    apiMode = '500';
+    await RUN('API readback 500 (marker body)', {}, {}, 3, 'run-journey refused: RUN_E_PAIRING PAIR_E_API_STATUS', 'composition.txt');
+    apiMode = 'ok';
+    await RUN('seed psql fails', {}, { FAKE_FAIL: 'seed-journey.sql' }, 3, 'run-journey refused: RUN_E_SEED PAIR_E_PSQL', 'composition.txt,pairing.txt');
+    await RUN('witness pre fails', {}, { FAKE_FAIL: 'witness-pre' }, 3, 'run-journey refused: RUN_E_WITNESS_PRE', 'composition.txt,pairing.txt,seed.txt');
+    await RUN('Playwright report is not JSON (marker)', {}, { FAKE_FAIL: 'playwright-badjson' }, 3, 'run-journey refused: RUN_E_PLAYWRIGHT_SUMMARY', 'composition.txt,pairing.txt,seed.txt');
+    { const r = await RUN('Playwright fails (marker in report, stderr and errors): run continues, exit 1, counts only', {}, { FAKE_FAIL: 'playwright' }, 1, '', ALL);
+      ok('RUNFAKE failed Playwright summary is the fixed count line', fs.readFileSync(path.join(r.out, 'playwright-summary.txt'), 'utf8') === 'PLAYWRIGHT exit=1 expected=11 unexpected=1 flaky=0 skipped=0 global_errors=1\n'); }
+    await RUN('witness post fails', {}, { FAKE_FAIL: 'witness-post' }, 3, 'run-journey refused: RUN_E_WITNESS_POST', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
+  } finally { server.close(); }
+
+  // ---- Runner refusals on THIS tree that need no stack ----
   { const sandbox = fs.mkdtempSync(path.join(tmp, 'runner-')); fs.chmodSync(sandbox, 0o700);
     const runSh = path.join(repo, 'scripts/gradebook-fixture/journey/run-journey.sh');
     const env = { PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: sandbox, RUNNER_TEMP: sandbox };
@@ -362,7 +588,7 @@ try {
   ok(`SC real tree passes (${real.length ? real.join('; ') : 'no violations'})`, real.length === 0);
   const copyTree = () => {
     const root = fs.mkdtempSync(path.join(tmp, 'tree-'));
-    for (const d of ['e2e/gradebook-roles/journey', 'scripts/gradebook-fixture/journey', 'scripts/gradebook-fixture/journey/tests']) {
+    for (const d of ['e2e/gradebook-roles', 'e2e/gradebook-roles/journey', 'scripts/gradebook-fixture/journey', 'scripts/gradebook-fixture/journey/tests']) {
       fs.mkdirSync(path.join(root, d), { recursive: true });
       for (const f of fs.readdirSync(path.join(repo, d))) {
         const s = path.join(repo, d, f);
@@ -408,11 +634,24 @@ try {
     ['runner deletes outside its parent', `${S}/run-journey.sh`, (s) => s.replace('trap cleanup EXIT', 'trap cleanup EXIT\nrm -rf -- "$TMPROOT"'), 'R11_RUNNER_CLEANUP'],
     ['producer reads the API before the DSN', `${S}/pairing-producer.mjs`, (s) => s.replace("  const rows = await o.db.readCarrier();\n", '').replace("  return { version: 2,", "  const rows = await o.db.readCarrier();\n  return { version: 2,"), 'R11_PRODUCER_ORDER'],
     ['producer logs the carrier', `${S}/pairing-producer.mjs`, (s) => s.replace("  trace.push('insert');", "  console.log(carrier);\n  trace.push('insert');"), 'R11_PRODUCER_LOGS_NONCE'],
-    ['producer D1 drops the API origin check', `${S}/pairing-producer.mjs`, (s) => s.replace("if (!record || record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];", ''), 'R11_PRODUCER_D1_WEAK'],
+    ['producer D1 drops the API origin check', `${S}/pairing-producer.mjs`, (s) => s.replace("  if (record.api_origin !== o.apiOrigin) return ['RUN_E_D1_API_ORIGIN'];\n", ''), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 trusts disposable', `${S}/pairing-producer.mjs`, (s) => s.replace("  const record = r.record;", "  const record = r.record;\n  if (record && record.disposable === true) return [];"), 'R11_PRODUCER_D1_WEAK'],
     ['producer D1 accepts ok without SO_OK', `${S}/pairing-producer.mjs`, (s) => s.replace("r.ok !== true || r.code !== 'SO_OK'", "r.ok !== true"), 'R11_PRODUCER_D1_WEAK'],
-    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': '3875d202ca248991cc8be8448430d469d1a6d396',", ''), 'R11_D1_NOT_PINNED'],
-    ['runner hides the D1 refusal code', `${S}/run-journey.sh`, (s) => s.replace('ownership >&2 || refuse RUN_E_D1 5', 'ownership >/dev/null || true'), 'R11_RUNNER_NO_D1'],
+    ['producer D1 module unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("'scripts/e2e/stack-ownership.mjs': 'ea39300dda9673b66fc6918b75929ca1b5e5d467',", ''), 'R11_D1_NOT_PINNED'],
+    ['runner hides the D1 refusal code', `${S}/run-journey.sh`, (s) => s.replace('step RUN_E_D1 ownership', 'true RUN_E_D1 ownership'), 'R11_RUNNER_NO_D1'],
+    ['runner skips the served-app gate', `${S}/run-journey.sh`, (s) => s.replace(/^step RUN_E_APP appverify .*$/m, ''), 'R11_RUNNER_NO_D1'],
+    ['runner passes the DSN to psql on argv', `${S}/run-journey.sh`, (s) => s.replace('node "$HERE/private-psql.mjs" run "$RAW" "$GB/composition.sql" "$RAW/composition.raw"', 'psql "$SUPABASE_DB_URL" -f "$GB/composition.sql" > "$RAW/composition.raw"; true'), 'R11_RUNNER_DSN_ARGV'],
+    ['runner stages raw Playwright output', `${S}/run-journey.sh`, (s) => s.replace('cp "$RAW/playwright-summary.out" "$OUT/playwright-summary.txt"', 'cp "$RAW/playwright.json" "$OUT/playwright-summary.txt"'), 'R11_RUNNER_RAW_STAGED'],
+    ['producer D1 opens blocking (no O_NONBLOCK)', `${S}/pairing-producer.mjs`, (s) => s.replace(/ \| \(fs\.constants\.O_NONBLOCK \?\? 0\)| \| fs\.constants\.O_NONBLOCK/, ''), 'R11_PRODUCER_D1_WEAK'],
+    ['producer D1 drops the bootstrap pin to the verifier', `${S}/pairing-producer.mjs`, (s) => s.replace(', expectedBootstrapSha256: o.expectedBootstrapSha256 })', ' })'), 'R11_PRODUCER_D1_WEAK'],
+    ['bootstrap identity pinned to an arbitrary value', `${S}/pairing-producer.mjs`, (s) => s.replace(/^export const EXPECTED_BOOTSTRAP_SHA256 = '[0-9a-f]{64}';$/m, `export const EXPECTED_BOOTSTRAP_SHA256 = '${'0'.repeat(64)}';`), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['bootstrap identity read from the job env', `${S}/pairing-producer.mjs`, (s) => s.replace(/^export const EXPECTED_BOOTSTRAP_SHA256 = '[0-9a-f]{64}';$/m, "export const EXPECTED_BOOTSTRAP_SHA256 = process.env.GB_D1_BOOTSTRAP_SHA256;"), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['bootstrap digest not re-hashed from the pinned file', `${S}/pairing-producer.mjs`, (s) => s.replace("    if (bootstrapFileSha256(root) !== EXPECTED_BOOTSTRAP_SHA256) throw new PairError('RUN_E_D1_BOOTSTRAP_FILE');\n", ''), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['bootstrap.sh unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("  'scripts/local-stack/bootstrap.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa',\n", ''), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['served-app verifier faked open', `${S}/pairing-producer.mjs`, (s) => s.replace('export const SERVED_APP_VERIFIER = null;', "export const SERVED_APP_VERIFIER = { path: 'x.mjs', blob: 'y' };"), 'R11_GATES_NOT_FAIL_CLOSED'],
+    ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
+    ['private psql drops -w', `${S}/private-psql.mjs`, (s) => s.replace("'-At', '-w',", "'-At',"), 'R11_PSQL_NOT_PRIVATE'],
+    ['binding passes the DSN on argv', 'e2e/gradebook-roles/local-binding.mjs', (s) => s.replace("import path from 'node:path';", "import path from 'node:path';\nimport { execFileSync } from 'node:child_process';"), 'R11_BINDING_DSN_ARGV'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],
     ['error leaks the response body', `${J}/session-setup.ts`, (s) => s.replace('`JOURNEY_SETUP_E_SIGNIN_HTTP_${res.status}_${R}`', '`JOURNEY_SETUP_E_SIGNIN_HTTP ${await res.text()}`'), 'R6_UNSANITIZED_ERROR'],
     ['composition check moved after sign-in', `${J}/session-setup.ts`, (s) => s.replace("  if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n", '').replace("    if (res.status !== 200)", "    if (process.env.GB_COMPOSITION !== 'composed-r5') throw new JourneyGateError('JOURNEY_SETUP_E_COMPOSITION_NOT_R5');\n    if (res.status !== 200)"), 'R6_COMPOSITION_AFTER_SIGNIN'],
