@@ -29,7 +29,7 @@ function buildRoot(name, prePin) {
     const dummy = Buffer.from('TEST HARNESS PRE DUMMY\n'); const rel = 'scripts/local-stack/t09/harness-dummy.sql';
     fs.mkdirSync(path.dirname(path.join(r, rel)), { recursive: true }); fs.writeFileSync(path.join(r, rel), dummy);
     const pc = path.join(r, 'scripts/public-catalog-fixture/pre-contract.mjs'); const src = fs.readFileSync(pc, 'utf8');
-    const out = src.replace('export const PRE_CONTRACT_PINS = Object.freeze({});', `export const PRE_CONTRACT_PINS = Object.freeze({ '${rel}': '${blob(dummy)}' }); // TEST HARNESS ONLY`);
+    const out = src.replace(/export const PRE_CONTRACT_PINS = Object\.freeze\(\{[^}]*\}\);/, `export const PRE_CONTRACT_PINS = Object.freeze({ '${rel}': '${blob(dummy)}' }); // TEST HARNESS ONLY`);
     if (out === src) throw new Error('harness patch did not apply'); fs.writeFileSync(pc, out);
   }
   return r;
@@ -106,7 +106,7 @@ zero('Z8 D1 record missing', HARNESS, 'PAIR_E_D1_SO_ABSENT', { apply: (f) => ({ 
 zero('Z9 D1 record from another bootstrap', HARNESS, 'PAIR_E_D1_BOOTSTRAP', { over: { bootstrap: 'a'.repeat(64) } });
 zero('Z10 D1 record for another run', HARNESS, 'PAIR_E_D1_RUN', { apply: () => ({ env: { GITHUB_RUN_ID: '42' } }) });
 zero('Z11 D1 record mode 0644', HARNESS, 'PAIR_E_D1_SO_MODE', { apply: (f) => { fs.chmodSync(f.env.STACK_OWNERSHIP_FILE, 0o644); return {}; } });
-zero('Z12 PRE contract pins empty (shipped lane)', LANE, 'PAIR_E_PRE_CONTRACT');
+zero('Z12 PRE files absent on this ref (shipped lane pins)', LANE, 'PAIR_E_PRE_CONTRACT');
 zero('Z13 usage', HARNESS, 'PAIR_E_USAGE', { apply: () => ({ argv: ['pair'] }) });
 zero('Z14 PGPASSWORD in the environment', HARNESS, 'PAIR_E_ELIGIBILITY_DB_ENV', { apply: () => ({ env: { PGPASSWORD: 'x' } }) });
 zero('Z15 malformed run id', HARNESS, 'PAIR_E_RUN_ID', { apply: () => ({ env: { PUBLIC_ACCEPT_RUN_ID: 'short' } }) });

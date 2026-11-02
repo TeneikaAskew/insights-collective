@@ -6,11 +6,17 @@
 //   scripts/local-stack/t09/egress-guard.sql 4775946e, egress-sentinels.sql 5693cf5e, egress-verify.sql 17a9c24f,
 //   stack-checks.sh 9657af04 (net-create, net-verify, stage-pre, owned-stop, net-remove, leftovers, stage-evidence).
 // Its own scope: the database's pg_net path only; runner/container egress is not controlled ("intercepted, not verified").
-// Integration means a composed runner ref carrying those blobs plus a reviewed call order for this lane. Until that exists the
-// table below stays EMPTY and every run refuses. It is deliberately not filled from the expected list above.
+// Integration is composed job #157 f0fbd1e7 (tree 28decf1a), whose PRE call order T source-qualified at 04:24Z. The full blob
+// ids below were read from that tree, not filled from the short list underneath. On a ref without these exact files every run
+// refuses (PUBLIC_CATALOG_E_HELPER_ABSENT or _DRIFT). An empty table would refuse with BLOCKED_NO_PRE_CONTRACT.
 import { checkHelperPins } from './helper-pins.mjs';
 
-export const PRE_CONTRACT_PINS = Object.freeze({});
+export const PRE_CONTRACT_PINS = Object.freeze({
+  'scripts/local-stack/t09/egress-guard.sql': '4775946ebfbf8e55668ca821abaac5d4a09e2d23',
+  'scripts/local-stack/t09/egress-sentinels.sql': '5693cf5e8e0961ae9156246a7caee4a05f31dbc2',
+  'scripts/local-stack/t09/egress-verify.sql': '17a9c24f0c6b404cf57901b437b8ee33e336e910',
+  'scripts/local-stack/t09/stack-checks.sh': '9657af04f561a283a49fb387074fc06c0f4161c0',
+});
 export const EXPECTED_T09_PRE = Object.freeze({
   'scripts/local-stack/t09/egress-guard.sql': '4775946e',
   'scripts/local-stack/t09/egress-sentinels.sql': '5693cf5e',

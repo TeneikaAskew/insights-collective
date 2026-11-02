@@ -46,5 +46,5 @@ The course description carrier used by gradebook is NOT used: descriptions rende
 - Static snapshot: the grant and policy above are what the local-stack schema files say; the producer's anon readback on
   the real stack is the check, and anon not seeing the row is PAIR_E_API_MISMATCH (no authenticated or DSN substitute).
 - The nonce is anon-readable through the API by design (that is the binding); it is not a secret and is never printed.
-- TRUSTED_PRODUCERS stays empty and PRE_CONTRACT_PINS stays empty: every run is BLOCKED until concrete job source
+- TRUSTED_PRODUCERS and PRE_CONTRACT_PINS are filled with the exact bytes qualified on composed job #157 (f0fbd1e7, T 04:24Z). Runs stay unrun until a specific run approval; earlier text: every run was BLOCKED until concrete job source
   qualification and a specific run approval.
