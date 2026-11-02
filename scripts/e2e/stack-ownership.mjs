@@ -11,11 +11,16 @@
 // What it proves, and what it does not: run_id/run_attempt tie the stack to THIS workflow run; pg_system_identifier
 // (pg_control_system().system_identifier, fixed at initdb) ties it to the cluster this run initialised, so a consumer
 // that reads the live identifier through its own guarded DSN and finds a different one is pointed at another cluster.
-// `disposable: true` is a DECLARATION by the bootstrap, not a proof; consumers must not treat it as one.
+// `disposable: true` is a DECLARATION by the bootstrap, not a proof; consumers must not treat it as one. run_id and the
+// system identifier alone are caller assertions too: what gives the record weight is WHEN it is written. The runner
+// writes it only AFTER its reviewed checks have passed on this job's fresh stack (owned network created, published
+// ports loopback-only, no Edge container, STAGE PRE egress interception installed, pinned hermetic served app) and
+// BEFORE any consumer write (including a pairing carrier). bootstrap_sha256 names the reviewed bootstrap file; the
+// consumer must pin that exact digest (expectedBootstrapSha256), not merely accept any well-formed one.
 //
 // CLI:
 //   node stack-ownership.mjs write  <api_origin> <app_origin> <bootstrap_file>   (system identifier on stdin, digits only)
-//   node stack-ownership.mjs verify <api_origin> <app_origin>                    (live system identifier on stdin)
+//   node stack-ownership.mjs verify <api_origin> <app_origin> <expected_bootstrap_sha256>   (live sysid on stdin)
 // Both read $STACK_OWNERSHIP_FILE and $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT (both required). One fixed line; exit 0 or 3.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -25,7 +30,7 @@ export const SCHEMA = 1;
 export const KEYS = Object.freeze(['schema', 'run_id', 'run_attempt', 'pg_system_identifier', 'api_origin', 'app_origin',
   'created_at', 'disposable', 'bootstrap_sha256']);
 export const CODES = Object.freeze(['SO_OK', 'SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH',
-  'SO_SYSID_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_INPUT']);
+  'SO_SYSID_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_BOOTSTRAP_MISMATCH', 'SO_INPUT']);
 const MAX_BYTES = 4096;
 const DIGITS = /^[0-9]{1,20}$/;
 const ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost):[0-9]{2,5}$/;
@@ -65,20 +70,24 @@ export function buildRecord({ runId, runAttempt, systemIdentifier, apiOrigin, ap
 /** Reads and parses the file with mode and size limits. Returns { ok, code, reason?, record? }. */
 export function readRecord(file) {
   if (!file) return { ok: false, code: 'SO_ABSENT', reason: 'unset' };
-  // One descriptor for every check and the read (no check-then-use race): O_NOFOLLOW refuses a symlink at open, and
-  // fstat/read act on the opened inode, so the file cannot be swapped between the checks and the read.
+  // One descriptor for every check and the read (no check-then-use race). O_NOFOLLOW refuses a symlink at open;
+  // O_NONBLOCK makes opening a FIFO (or other special file) return at once instead of blocking for a writer, and the
+  // type check below then refuses it. fstat/read act on the opened inode only, the read is bounded, and the
+  // descriptor is always closed.
   let fd;
-  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW); }
+  try { fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
   catch (e) { return { ok: false, code: 'SO_ABSENT', reason: e && e.code === 'ELOOP' ? 'not_regular_file' : 'missing' }; }
   let record;
   try {
-    const st = fs.fstatSync(fd);
+    let st;
+    try { st = fs.fstatSync(fd); } catch { return { ok: false, code: 'SO_ABSENT', reason: 'stat' }; }
     if (!st.isFile()) return { ok: false, code: 'SO_ABSENT', reason: 'not_regular_file' };
     if ((st.mode & 0o777) !== 0o600) return { ok: false, code: 'SO_MODE', reason: 'not_0600' };
     if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return { ok: false, code: 'SO_MODE', reason: 'owner' };
     if (st.size > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' };
     const buf = Buffer.alloc(MAX_BYTES + 1);
-    const n = fs.readSync(fd, buf, 0, MAX_BYTES + 1, 0);
+    let n;
+    try { n = fs.readSync(fd, buf, 0, MAX_BYTES + 1, 0); } catch { return { ok: false, code: 'SO_PARSE', reason: 'read' }; }
     if (n > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' }; // grew after fstat
     try { record = JSON.parse(buf.subarray(0, n).toString('utf8')); } catch { return { ok: false, code: 'SO_PARSE', reason: 'json' }; }
   } finally {
@@ -93,16 +102,19 @@ export function readRecord(file) {
  * Full consumer check: file valid (exactly 0600, owned by the caller), same run AND attempt (both required), the
  * consumer's own bound origins, and the same cluster as a LIVE read. Every expectation is required; none is skipped.
  */
-export function verifyRecord(file, { runId, runAttempt, liveSystemIdentifier, apiOrigin, appOrigin }) {
+export function verifyRecord(file, { runId, runAttempt, liveSystemIdentifier, apiOrigin, appOrigin, expectedBootstrapSha256 }) {
   const r = readRecord(file);
   if (!r.ok) return r;
   if (!DIGITS.test(String(runId ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'run_id_env' };
   if (!DIGITS.test(String(runAttempt ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'run_attempt_env' };
   if (!ORIGIN.test(String(apiOrigin ?? '')) || !ORIGIN.test(String(appOrigin ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'expected_origins' };
+  // The consumer pins the REVIEWED bootstrap identity; a well-formed but different digest is not accepted.
+  if (!HEX64.test(String(expectedBootstrapSha256 ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'expected_bootstrap_sha256' };
   if (r.record.run_id !== String(runId)) return { ok: false, code: 'SO_RUN_MISMATCH', reason: 'run_id' };
   if (r.record.run_attempt !== String(runAttempt)) return { ok: false, code: 'SO_RUN_MISMATCH', reason: 'run_attempt' };
   if (r.record.api_origin !== apiOrigin) return { ok: false, code: 'SO_ORIGIN_MISMATCH', reason: 'api_origin' };
   if (r.record.app_origin !== appOrigin) return { ok: false, code: 'SO_ORIGIN_MISMATCH', reason: 'app_origin' };
+  if (r.record.bootstrap_sha256 !== expectedBootstrapSha256) return { ok: false, code: 'SO_BOOTSTRAP_MISMATCH', reason: 'bootstrap_sha256' };
   const live = String(liveSystemIdentifier ?? '').trim();
   if (!DIGITS.test(live)) return { ok: false, code: 'SO_INPUT', reason: 'live_system_identifier' };
   if (r.record.pg_system_identifier !== live) return { ok: false, code: 'SO_SYSID_MISMATCH', reason: 'pg_system_identifier' };
@@ -137,8 +149,8 @@ async function main(argv) {
     return 0;
   }
   if (cmd === 'verify') {
-    const [apiOrigin, appOrigin] = rest;
-    const r = verifyRecord(file, { runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT, liveSystemIdentifier: stdin, apiOrigin, appOrigin });
+    const [apiOrigin, appOrigin, expectedBootstrapSha256] = rest;
+    const r = verifyRecord(file, { runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT, liveSystemIdentifier: stdin, apiOrigin, appOrigin, expectedBootstrapSha256 });
     console.log(line(r.code, r.ok ? 'verified' : r.reason));
     return r.ok ? 0 : 3;
   }

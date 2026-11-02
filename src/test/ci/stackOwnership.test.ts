@@ -1,6 +1,7 @@
 // ABOUTME: Controls for scripts/e2e/stack-ownership.mjs (schema v1): exact keys, loopback-only origins, mode/size limits,
 // ABOUTME: run and live-cluster binding, no overwrite, fixed CLI lines. The fake fixture is the consumer contract.
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -8,7 +9,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import {
   buildRecord, readRecord, verifyRecord, writeRecord, schemaProblem, KEYS, CODES,
 } from '../../../scripts/e2e/stack-ownership.mjs';
-import { scratchFile } from '../../../scripts/e2e/tests/scratch-files.mjs';
+import { scratchFile, appendGrowth } from '../../../scripts/e2e/tests/scratch-files.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const MOD = path.join(ROOT, 'scripts/e2e/stack-ownership.mjs');
@@ -18,7 +19,8 @@ const dirs: string[] = [];
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'so-')); dirs.push(d); return d; };
 afterEach(() => { while (dirs.length) fs.rmSync(dirs.pop()!, { recursive: true, force: true }); });
 const put = (obj: unknown, mode = 0o600) => scratchFile(tmp(), 'so.json', JSON.stringify(obj), mode);
-const ctx = { runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: 'http://127.0.0.1:54321', appOrigin: 'http://127.0.0.1:4173' };
+const BOOT = '0'.repeat(64); // the fake's bootstrap_sha256
+const ctx = { runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: 'http://127.0.0.1:54321', appOrigin: 'http://127.0.0.1:4173', expectedBootstrapSha256: BOOT };
 
 describe('schema v1', () => {
   it('the committed fake is a valid record with exactly the schema keys', () => {
@@ -51,6 +53,50 @@ describe('verifyRecord (consumer side)', () => {
     expect(verifyRecord(path.join(tmp(), 'nope.json'), ctx).code).toBe('SO_ABSENT');
     expect(verifyRecord(undefined as any, ctx).code).toBe('SO_ABSENT');
   });
+  it('a FIFO (0600, no writer) is refused at once, never blocks', () => {
+    const d = tmp(); const f = path.join(d, 'so.json');
+    execFileSync('mkfifo', ['-m', '600', f]);
+    const t0 = Date.now();
+    expect(verifyRecord(f, ctx)).toMatchObject({ code: 'SO_ABSENT', reason: 'not_regular_file' });
+    expect(Date.now() - t0).toBeLessThan(1000);
+  });
+  it('a FIFO in a child process returns within 2 s (hang control, real module)', () => {
+    const d = tmp(); const f = path.join(d, 'so.json');
+    execFileSync('mkfifo', ['-m', '600', f]);
+    let res: { out: string; status: number | null; signal: string | null };
+    try {
+      res = { out: execFileSync('node', [MOD, 'verify', ctx.apiOrigin, ctx.appOrigin, BOOT], {
+        env: { PATH: process.env.PATH!, STACK_OWNERSHIP_FILE: f, GITHUB_RUN_ID: '1000000001', GITHUB_RUN_ATTEMPT: '1' },
+        input: ctx.liveSystemIdentifier, encoding: 'utf8', timeout: 2000,
+      }), status: 0, signal: null };
+    } catch (e: any) { res = { out: String(e.stdout), status: e.status, signal: e.signal }; }
+    expect(res.signal).toBeNull(); // not killed by the 2 s timeout
+    expect(res).toMatchObject({ out: 'stack-ownership SO_ABSENT reason=not_regular_file\n', status: 3 });
+  });
+  it('a directory is refused (not a regular file)', () => {
+    const d = tmp(); const sub = path.join(d, 'so.json'); fs.mkdirSync(sub, { mode: 0o700 });
+    expect(verifyRecord(sub, ctx).code).toBe('SO_ABSENT');
+  });
+  it('a broken symlink is refused', () => {
+    const d = tmp(); const link = path.join(d, 'so.json'); fs.symlinkSync(path.join(d, 'nowhere.json'), link);
+    expect(verifyRecord(link, ctx)).toMatchObject({ code: 'SO_ABSENT', reason: 'not_regular_file' });
+  });
+  it('a read error on the opened descriptor is a fixed SO_PARSE read, and the descriptor is closed', () => {
+    const f = put(fake());
+    const realRead = fs.readSync; const realClose = fs.closeSync; let closed = 0;
+    (fs as any).readSync = () => { throw Object.assign(new Error('EIO'), { code: 'EIO' }); };
+    (fs as any).closeSync = (fd: number) => { closed += 1; return realClose(fd); };
+    try { expect(verifyRecord(f, ctx)).toMatchObject({ code: 'SO_PARSE', reason: 'read' }); }
+    finally { (fs as any).readSync = realRead; (fs as any).closeSync = realClose; }
+    expect(closed).toBe(1);
+  });
+  it('growth after fstat beyond the limit is SO_SIZE (bounded read)', () => {
+    const f = put(fake());
+    const realFstat = fs.fstatSync;
+    (fs as any).fstatSync = (fd: number) => { const st = realFstat(fd); appendGrowth(f); return st; };
+    try { expect(verifyRecord(f, ctx)).toMatchObject({ code: 'SO_SIZE', reason: 'too_large' }); }
+    finally { (fs as any).fstatSync = realFstat; }
+  });
   it('a symlink is not accepted as the record', () => {
     const d = tmp(); const real = put(fake()); const link = path.join(d, 'link.json'); fs.symlinkSync(real, link);
     expect(verifyRecord(link, ctx).code).toBe('SO_ABSENT');
@@ -80,6 +126,12 @@ describe('verifyRecord (consumer side)', () => {
     expect(verifyRecord(put(fake()), { ...ctx, liveSystemIdentifier: '' }).code).toBe('SO_INPUT');
     expect(verifyRecord(put(fake()), { ...ctx, runId: '' }).code).toBe('SO_INPUT');
   });
+  it('the bootstrap identity is PINNED by the consumer: a well-formed but different digest refuses', () => {
+    expect(verifyRecord(put(fake()), { ...ctx, expectedBootstrapSha256: 'a'.repeat(64) }))
+      .toMatchObject({ code: 'SO_BOOTSTRAP_MISMATCH', reason: 'bootstrap_sha256' });
+    expect(verifyRecord(put(fake()), { ...ctx, expectedBootstrapSha256: undefined as any }))
+      .toMatchObject({ code: 'SO_INPUT', reason: 'expected_bootstrap_sha256' });
+  });
   it('every code is from the fixed list', () => { expect(CODES).toContain('SO_SYSID_MISMATCH'); });
 });
 
@@ -100,7 +152,8 @@ describe('writer', () => {
 });
 
 describe('CLI: one fixed line, exit 0 or 3', () => {
-  const O = ['http://127.0.0.1:54321', 'http://127.0.0.1:4173'];
+  const BOOT_CLI = createHash('sha256').update('echo bootstrap\n').digest('hex');
+  const O = ['http://127.0.0.1:54321', 'http://127.0.0.1:4173', BOOT_CLI];
   const cli = (args: string[], env: Record<string, string>, input: string) => {
     try { return { out: execFileSync('node', [MOD, ...args], { env: { PATH: process.env.PATH!, ...env }, input, encoding: 'utf8' }), code: 0 }; }
     catch (e: any) { return { out: String(e.stdout), code: e.status }; }

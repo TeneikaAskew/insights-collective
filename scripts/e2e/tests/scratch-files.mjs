@@ -15,3 +15,10 @@ export function scratchFile(dir, name, content, mode = 0o600) {
   fs.chmodSync(f, mode);
   return f;
 }
+
+/** Test-only: grows an existing scratch file past the 4 KiB record limit (simulates growth after fstat). */
+export function appendGrowth(file) {
+  const root = fs.realpathSync(os.tmpdir());
+  if (!fs.realpathSync(file).startsWith(root + path.sep)) throw new Error('appendGrowth: file is not under the OS temp dir');
+  fs.appendFileSync(file, ' '.repeat(5000));
+}
