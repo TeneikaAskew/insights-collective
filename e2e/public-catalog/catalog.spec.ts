@@ -1,5 +1,6 @@
 // ABOUTME: Anonymous public catalog on a served build against a real loopback Supabase stack: GET -> render, estimated time,
 // ABOUTME: the ?category= URL contract (pointer and keyboard), Back, the unknown notice, course detail and the private negative.
+import { shot } from './shot';
 import { test, expect, UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON, FIXTURE, FIXTURE_MODULES, ANON_TITLES, byTitle, catalogRows, cards, cardTitles, card, categoryTrigger, estimatedTimeNodes } from './support';
 
 test.skip(!UNDER_OWN_CONFIG, NOT_OWN_CONFIG_REASON);
@@ -15,6 +16,10 @@ const ESTIMATE: Record<string, string | null> = {
 /** The three newest published fixtures, newest first, written out (not derived). */
 const HOME_FEATURED = ['PCA Analytics Course', 'PCA BI Course', 'PCA Leading Space Course'];
 const SENTINEL = 'pca_keep';
+/** The one catalog capture per project (shot-plan.mjs PUBLIC_SHOT_PLAN). */
+const CATALOG_SHOT: Record<string, 'PC-catalog-desktop-1440x900' | 'PC-catalog-tablet-834x1112' | 'PC-catalog-mobile-390x844'> = {
+  desktop: 'PC-catalog-desktop-1440x900', tablet: 'PC-catalog-tablet-834x1112', mobile: 'PC-catalog-mobile-390x844',
+};
 
 const param = (url: string) => new URL(url).searchParams.get('category');
 const MENU = [
@@ -23,13 +28,15 @@ const MENU = [
 ];
 
 test.describe('anonymous catalog', () => {
-  test('A1 GET -> render: the cards are exactly the rows the API served, and exactly the published fixtures', async ({ page, net }) => {
+  test('A1 GET -> render: the cards are exactly the rows the API served, and exactly the published fixtures', async ({ page, net }, info) => {
     const rows = await catalogRows(page, '/courses');
     await expect(cards(page)).toHaveCount(ANON_TITLES.length);
     expect(await cardTitles(page)).toEqual(rows.map((r) => r.title));
     expect(rows.map((r) => r.title)).toEqual(ANON_TITLES);
     expect(await cardTitles(page)).not.toContain('PCA Private Draft Course');
     expect(net.courseResponses.length).toBeGreaterThan(0);
+    // Fixed-name synthetic capture of the asserted catalog, one per project (after every assertion above; it asserts nothing).
+    await shot(page, info, CATALOG_SHOT[info.project.name]);
   });
 
   test('A2 every card shows the literal Estimated time value node from estimated_hours, never the legacy duration', async ({ page, net }) => {

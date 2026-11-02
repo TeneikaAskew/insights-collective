@@ -23,6 +23,13 @@ export const SERVED_APP_PINS = {
   'scripts/served-app/avatars/avatar-fixture-20.svg': '99165ac6ba81ee7cccdb2aea0a1737e2bdba7d84',
   'scripts/served-app/avatars/avatar-fixture-13.svg': 'baa1804a0666ac315393dcba3a682294fb341fcc',
 };
+/** Capture-window boundary the screenshot step IMPORTS as-is (gradebook lane #148 24f69f4c, qualified capture window; same
+ *  blobs on composed job #157). Imported only after this pin passes (shot-plan.mjs loadShotCore). */
+export const SHOT_CORE_PINS = {
+  'e2e/gradebook-roles/journey/shot-core.mjs': '47e3da698356c91d6cbf79b58dad2ac8f27d6af6',
+  'e2e/gradebook-roles/journey/private-dir.mjs': '9aee287e0cac194a8872da1fc6c93feb9943082a',
+  'e2e/gradebook-roles/journey/pairing-proof.mjs': '6a2377ef90510a0394bbba464f7820274d81526e',
+};
 /** D1 stack ownership record (shared owner, draft #154 head 7e31eecf). Imported only after this pin passes. */
 export const D1_PINS = {
   'scripts/e2e/stack-ownership.mjs': 'ea39300dda9673b66fc6918b75929ca1b5e5d467',
