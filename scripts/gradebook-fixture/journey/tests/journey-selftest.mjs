@@ -14,7 +14,7 @@ import { assertPairingProof, assertLivePairing, PAIRING_PREFIX } from '../../../
 import { producePairing, pinFailures, stackOwnershipFailures, servedAppFailures, HELPER_PINS, gitBlobId, D1_MODULE, EXPECTED_BOOTSTRAP_SHA256, SERVED_APP_VERIFIER, SEED_PASS, bootstrapFileSha256 } from '../pairing-producer.mjs';
 import { planPsql, runPsql, includeScript } from '../private-psql.mjs';
 import { playwrightSummary, compareSummary, shotsSummary } from '../run-summary.mjs';
-import { SHOT_NAMES, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, SHOT_PLAN, SHOT_GUARD, WITHHELD_REASONS, decideShot, scanPage, shotSecrets, writeShot } from '../../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { exportShots, sanitizePng, crc32, readHandle as shotReadHandle } from '../shot-export.mjs';
 import zlib from 'node:zlib';
 import { checkJourney } from './static-contract.mjs';
@@ -474,13 +474,48 @@ try {
   ok('SHOTSCAN credential shapes refuse: database URI, JWT, Supabase key, service_role', ['postgresql://u@h/d', 'eyJhbGciOiJIUzI1.eyJyb2xlIjoiYW5vbiJ9.c2lnbmF0dXJlMTI', 'sb_secret_abcdefgh12', 'role SERVICE_ROLE'].every((t) => SC(t) === '["SHOT_E_PATTERN"]'));
   ok('SHOTSCAN odd input refuses', JSON.stringify(scanPage([], SECRETS)) === '["SHOT_E_SCAN_INPUT"]' && JSON.stringify(scanPage([1], SECRETS)) === '["SHOT_E_SCAN_INPUT"]' && JSON.stringify(scanPage(['x'], [])) === '["SHOT_E_SCAN_INPUT"]');
   const shotDir = () => { const d = fs.mkdtempSync(path.join(tmp, 'shots-')); fs.chmodSync(d, 0o700); return d; };
+  // The capture decision on fakes. A clean, unchanged window on the planned persona and path is the legitimate positive.
+  const APPO = 'http://127.0.0.1:4173', APIO = 'http://127.0.0.1:54321';
+  const PATH_OF = { detail: '/courses/9b6c0000-0000-4000-8000-000000000001', progress: '/courses/9b6c0000-0000-4000-8000-000000000001/progress', grades: '/courses/9b6c0000-0000-4000-8000-000000000001/grades' };
+  const samp = (over = {}) => ({ url: `${APPO}${PATH_OF.grades}`, texts: ['Grades\nUpload assignment 10/10', '<html><body>Grades</body></html>', '', 'Insights', `${APPO}${PATH_OF.grades}`], images: [`${APPO}/logo.svg`, '/assets/hero.webp', `${APIO}/storage/v1/object/public/x.png`], surfaces: 0, ...over });
+  const cleanObs = (over = {}) => ({ project: 'jr-4-learner-readback', expectedPath: PATH_OF.grades, appOrigin: APPO, apiOrigin: APIO, before: samp(), after: samp(), armed: 'k'.repeat(32), guard: { token: 'k'.repeat(32), n: 0 }, navigations: 0, incomplete: false, ...over });
+  const DS = (name, obs) => JSON.stringify(decideShot(name, obs, SECRETS));
+  ok('SHOTDECIDE unchanged legitimate positive (planned persona, exact path, same document, no mutation, clean before/after): write', DS('J4c-grades', cleanObs()) === '{"write":true}');
+  ok('SHOTDECIDE J0a catalog (the carrier route) is withheld by rule, whatever the page shows', DS('J0a-catalog-before-publish', cleanObs({ project: 'jr-0-learner-draft' })) === '{"write":false,"reason":"CARRIER_ROUTE"}');
+  ok('SHOTDECIDE clean -> secret during capture -> clean (mutations seen by the guard): withheld MUTATED', DS('J4c-grades', cleanObs({ guard: { token: 'k'.repeat(32), n: 2 } })) === '{"write":false,"reason":"MUTATED"}');
+  ok('SHOTDECIDE navigation during capture, or a replaced document (guard token gone): withheld NAVIGATED', DS('J4c-grades', cleanObs({ navigations: 1 })) === '{"write":false,"reason":"NAVIGATED"}' && DS('J4c-grades', cleanObs({ guard: { token: null, n: -1 } })) === '{"write":false,"reason":"NAVIGATED"}' && DS('J4c-grades', cleanObs({ guard: { token: 'z'.repeat(32), n: 0 } })) === '{"write":false,"reason":"NAVIGATED"}');
+  ok('SHOTDECIDE a field value changed between the samples: withheld CHANGED', DS('J4c-grades', cleanObs({ after: samp({ texts: ['Grades\nUpload assignment 10/10', '<html><body>Grades</body></html>', 'typed', 'Insights', `${APPO}${PATH_OF.grades}`] }) })) === '{"write":false,"reason":"CHANGED"}');
+  ok('SHOTDECIDE wrong route (other path, query, hash, origin) or wrong persona project: withheld ROUTE / PERSONA', DS('J4c-grades', cleanObs({ before: samp({ url: `${APPO}${PATH_OF.progress}` }) })) === '{"write":false,"reason":"ROUTE"}' && DS('J4c-grades', cleanObs({ before: samp({ url: `${APPO}${PATH_OF.grades}?x=1` }) })) === '{"write":false,"reason":"ROUTE"}'
+    && DS('J4c-grades', cleanObs({ before: samp({ url: `${APPO}${PATH_OF.grades}#h` }) })) === '{"write":false,"reason":"ROUTE"}' && DS('J4c-grades', cleanObs({ before: samp({ url: `http://127.0.0.1:9999${PATH_OF.grades}` }) })) === '{"write":false,"reason":"ROUTE"}' && DS('J4c-grades', cleanObs({ project: 'jr-3-instructor-grade' })) === '{"write":false,"reason":"PERSONA"}');
+  ok('SHOTDECIDE a shot name outside the plan refuses (no record at all)', (() => { try { decideShot('J9-other', cleanObs(), SECRETS); return false; } catch (e) { return e.code === 'SHOT_E_NAME'; } })());
+  ok('SHOTDECIDE unsupported surfaces (iframe/canvas/video/embed/object, an off-origin, data: or blob: image): withheld UNSUPPORTED_SURFACE', DS('J4c-grades', cleanObs({ before: samp({ surfaces: 1 }) })) === '{"write":false,"reason":"UNSUPPORTED_SURFACE"}' && DS('J4c-grades', cleanObs({ before: samp({ images: ['https://i.pravatar.cc/150'] }) })) === '{"write":false,"reason":"UNSUPPORTED_SURFACE"}' && ['data:image/png;base64,AAAA', 'blob:http://127.0.0.1:4173/x'].every((src) => DS('J4c-grades', cleanObs({ before: samp({ images: [src] }) })) === '{"write":false,"reason":"UNSUPPORTED_SURFACE"}'));
+  ok('SHOTDECIDE dirty before (never captured) or dirty after: withheld DIRTY_BEFORE / DIRTY_AFTER', DS('J4c-grades', cleanObs({ before: samp({ texts: [`x ${NONCE}`, '', '', '', ''] }) })) === '{"write":false,"reason":"DIRTY_BEFORE"}' && DS('J4c-grades', cleanObs({ before: samp({ texts: ['a', 'member-pw-654321', '', '', ''] }), after: samp({ texts: ['a', 'member-pw-654321', '', '', ''] }) })) === '{"write":false,"reason":"DIRTY_BEFORE"}');
+  ok('SHOTDECIDE incomplete checks (exception mid-window, missing sample or guard): withheld INCOMPLETE', DS('J4c-grades', cleanObs({ incomplete: true })) === '{"write":false,"reason":"INCOMPLETE"}' && DS('J4c-grades', { ...cleanObs(), after: undefined }) === '{"write":false,"reason":"INCOMPLETE"}' && DS('J4c-grades', { ...cleanObs(), guard: undefined }) === '{"write":false,"reason":"INCOMPLETE"}');
+  ok('SHOTDECIDE every plan entry names a journey persona project and a route key', Object.values(SHOT_PLAN).every(([p, k]) => /^jr-[0-4]-/.test(p) && /^[a-z-]+$/.test(k)) && Object.keys(SHOT_PLAN).join() === SHOT_NAMES.join());
+  // The in-page guard, executed in a real DOM (jsdom): it sees mutations, input events and a replaced document.
+  { const { JSDOM } = await import('jsdom');
+    const run = async (fn) => { const dom = new JSDOM('<!doctype html><body><p id="t">Grades</p><input id="i" value=""></body>', { runScripts: 'outside-only' });
+      const g = dom.window; const call = (args) => { const prev = { d: globalThis.document, g: globalThis.__gbShotGuard, M: globalThis.MutationObserver, a: globalThis.addEventListener };
+        globalThis.document = g.document; globalThis.MutationObserver = g.MutationObserver; globalThis.addEventListener = g.addEventListener.bind(g); globalThis.__gbShotGuard = g.__gbShotGuard;
+        try { return SHOT_GUARD(args); } finally { g.__gbShotGuard = globalThis.__gbShotGuard; Object.assign(globalThis, { document: prev.d, __gbShotGuard: prev.g, MutationObserver: prev.M, addEventListener: prev.a }); } };
+      call(['arm', 'tok']); await fn(g); await new Promise((r) => setTimeout(r, 0)); return call(['read', 'tok']); };
+    ok('SHOTGUARD real DOM: unchanged page reads back the same token and 0 events', JSON.stringify(await run(() => {})) === '{"token":"tok","n":0}');
+    ok('SHOTGUARD real DOM: a secret written then reverted during the window is counted', (await run((w) => { const t = w.document.getElementById('t'); t.textContent = `x ${NONCE}`; t.textContent = 'Grades'; })).n >= 2);
+    ok('SHOTGUARD real DOM: a field value change (input event) is counted', (await run((w) => { const i = w.document.getElementById('i'); i.value = 'x'; i.dispatchEvent(new w.Event('input', { bubbles: true })); })).n >= 1);
+    { const dom = new JSDOM('<!doctype html><body></body>'); const prev = globalThis.document; globalThis.document = dom.window.document; delete globalThis.__gbShotGuard;
+      const r = SHOT_GUARD(['read', 'tok']); globalThis.document = prev;
+      ok('SHOTGUARD a replaced document (no guard state) reads token null', r.token === null && r.n === -1); } }
   { const d = shotDir(); const png = mkPng();
-    ok('SHOTWRITE clean capture writes <name>.png and a scan record bound to its sha256, both 0600', writeShot(d, 'J4c-grades', png, [[], []]) === createHash('sha256').update(png).digest('hex') && JSON.stringify(JSON.parse(fs.readFileSync(path.join(d, 'J4c-grades.scan.json'), 'utf8'))) === JSON.stringify({ name: 'J4c-grades', sha256: createHash('sha256').update(png).digest('hex'), verdict: 'clean', scans: 2 }) && ['J4c-grades.png', 'J4c-grades.scan.json'].every((f) => (fs.statSync(path.join(d, f)).mode & 0o777) === 0o600));
-    ok('SHOTWRITE a dirty scan before OR after the capture refuses and writes nothing', SCE(() => writeShot(d, 'J4c-progress', png, [['SHOT_E_NONCE'], []])) === 'SHOT_E_NONCE' && SCE(() => writeShot(d, 'J4c-progress', png, [[], ['SHOT_E_CREDENTIAL']])) === 'SHOT_E_CREDENTIAL' && !fs.existsSync(path.join(d, 'J4c-progress.png')));
-    ok('SHOTWRITE an unscanned capture, an unknown name, or an existing file refuses', SCE(() => writeShot(d, 'J4c-progress', png, [[]])) === 'SHOT_E_NOT_SCANNED' && SCE(() => writeShot(d, 'J9-other', png, [[], []])) === 'SHOT_E_NAME' && SCE(() => writeShot(d, 'J4c-grades', png, [[], []])) === 'SHOT_E_EXCLUSIVE_CREATE');
+    const r1 = writeShot(d, 'J4c-grades', png, cleanObs(), SECRETS);
+    ok('SHOTWRITE positive writes <name>.png and its record bound to the sha256 (0600)', r1.written === 'png' && r1.sha256 === createHash('sha256').update(png).digest('hex') && JSON.stringify(JSON.parse(fs.readFileSync(path.join(d, 'J4c-grades.scan.json'), 'utf8'))) === JSON.stringify({ name: 'J4c-grades', sha256: r1.sha256, verdict: 'clean', scans: 2, window: 'same-document-unchanged' }) && ['J4c-grades.png', 'J4c-grades.scan.json'].every((f) => (fs.statSync(path.join(d, f)).mode & 0o777) === 0o600));
+    const r2 = writeShot(d, 'J4c-progress', png, cleanObs({ project: 'jr-4-learner-readback', expectedPath: PATH_OF.progress, before: samp({ url: `${APPO}${PATH_OF.progress}` }), after: samp({ url: `${APPO}${PATH_OF.progress}` }), guard: { token: 'k'.repeat(32), n: 1 } }), SECRETS);
+    ok('SHOTWRITE a withheld decision writes ONLY <name>.withheld.json with the reason; the buffer is never written', r2.written === 'withheld' && r2.reason === 'MUTATED' && !fs.existsSync(path.join(d, 'J4c-progress.png')) && !fs.existsSync(path.join(d, 'J4c-progress.scan.json')) && fs.readFileSync(path.join(d, 'J4c-progress.withheld.json'), 'utf8') === '{"name":"J4c-progress","withheld":true,"reason":"MUTATED"}');
+    ok('SHOTWRITE a positive decision with no buffer is withheld INCOMPLETE', writeShot(d, 'J4d-certificate', null, cleanObs({ expectedPath: PATH_OF.grades }), SECRETS).reason === 'INCOMPLETE' && !fs.existsSync(path.join(d, 'J4d-certificate.png')));
+    ok('SHOTWRITE J0a writes only its withheld record', writeShot(d, 'J0a-catalog-before-publish', png, cleanObs(), SECRETS).reason === 'CARRIER_ROUTE' && !fs.existsSync(path.join(d, 'J0a-catalog-before-publish.png')));
+    ok('SHOTWRITE an unknown name or an existing file refuses', SCE(() => writeShot(d, 'J9-other', png, cleanObs(), SECRETS)) === 'SHOT_E_NAME' && SCE(() => writeShot(d, 'J4c-grades', png, cleanObs(), SECRETS)) === 'SHOT_E_EXCLUSIVE_CREATE');
     const open = fs.mkdtempSync(path.join(tmp, 'shots-open-')); fs.chmodSync(open, 0o755);
     const link = path.join(tmp, `shots-link-${randomUUID()}`); fs.symlinkSync(shotDir(), link);
-    ok('SHOTWRITE a non-private, symlinked or relative shot dir refuses', SCE(() => writeShot(open, 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR' && SCE(() => writeShot(link, 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR' && SCE(() => writeShot('rel', 'J4c-progress', png, [[], []])) === 'SHOT_E_DIR'); }
+    ok('SHOTWRITE a non-private, symlinked or relative shot dir refuses (nothing written)', SCE(() => writeShot(open, 'J4c-grades', png, cleanObs(), SECRETS)) === 'SHOT_E_DIR' && SCE(() => writeShot(link, 'J4c-grades', png, cleanObs(), SECRETS)) === 'SHOT_E_DIR' && SCE(() => writeShot('rel', 'J4c-grades', png, cleanObs(), SECRETS)) === 'SHOT_E_DIR' && fs.readdirSync(open).length === 0); }
   // PNG re-encoding
   { const clean = mkPng();
     const withMeta = mkPng(pchunk('tEXt', Buffer.from(`Comment\0MARKER gb-journey-pairing:${NONCE}`, 'latin1')), idat(), pchunk('tIME', Buffer.alloc(7)));
@@ -500,17 +535,21 @@ try {
     fs.writeFileSync(proofFile, JSON.stringify({ version: 2, stack_id: NONCE, control_course_id: CTRL, db_read: `gb-journey-pairing:${NONCE}`, api_read: `gb-journey-pairing:${NONCE}`, journey_rows_before_pairing: 0 }), { mode: 0o600 });
     return { par, shots: path.join(par, 'shots'), session: path.join(par, 'session'), proofFile, exportDir: path.join(par, 'export') };
   };
-  const put = (r, name, png, rec = {}) => { fs.writeFileSync(path.join(r.shots, `${name}.png`), png, { mode: 0o600 }); fs.writeFileSync(path.join(r.shots, `${name}.scan.json`), JSON.stringify({ name, sha256: createHash('sha256').update(png).digest('hex'), verdict: 'clean', scans: 2, ...rec }), { mode: 0o600 }); };
+  const put = (r, name, png, rec = {}) => { fs.writeFileSync(path.join(r.shots, `${name}.png`), png, { mode: 0o600 }); fs.writeFileSync(path.join(r.shots, `${name}.scan.json`), JSON.stringify({ name, sha256: createHash('sha256').update(png).digest('hex'), verdict: 'clean', scans: 2, window: 'same-document-unchanged', ...rec }), { mode: 0o600 }); };
+  const putW = (r, name, reason = 'MUTATED', extra = {}) => fs.writeFileSync(path.join(r.shots, `${name}.withheld.json`), JSON.stringify({ name, withheld: true, reason, ...extra }), { mode: 0o600 });
   const EX = (r, over = {}) => { try { return exportShots({ shotDir: r.shots, sessionDir: r.session, proofFile: r.proofFile, exportDir: r.exportDir, ...over }); } catch (e) { return e.code; } };
   { const r = shotRun(); const meta = mkPng(pchunk('iTXt', Buffer.from(`XML:com.adobe.xmp\0\0\0\0\0MARKER ${NONCE}`, 'latin1')), idat());
     put(r, 'J4d-certificate', meta); put(r, 'J0a-catalog-before-publish', mkPng());
     const lines = EX(r);
     const outs = fs.readdirSync(r.exportDir).sort();
-    ok('SHOTEXPORT clean pair exported in allowlist order with exact manifest lines; bytes re-encoded without metadata', Array.isArray(lines) && lines.length === 3 && lines[0].startsWith('SHOT J0a-catalog-before-publish sha256=') && lines[1].startsWith('SHOT J4d-certificate sha256=') && lines[2] === 'SHOTS 2 of 16'
+    ok('SHOTEXPORT clean pair exported in allowlist order with exact manifest lines; bytes re-encoded without metadata', Array.isArray(lines) && lines.length === 3 && lines[0].startsWith('SHOT J0a-catalog-before-publish sha256=') && lines[1].startsWith('SHOT J4d-certificate sha256=') && lines[2] === 'SHOTS 2 captured 0 withheld of 16'
       && outs.join(',') === 'J0a-catalog-before-publish.png,J4d-certificate.png' && !fs.readFileSync(path.join(r.exportDir, 'J4d-certificate.png')).includes(Buffer.from('MARKER')) && lines[1].includes(`sha256=${createHash('sha256').update(fs.readFileSync(path.join(r.exportDir, 'J4d-certificate.png'))).digest('hex')}`));
     ok('SHOTEXPORT export dir 0700, files 0600; scan records are never exported', (fs.statSync(r.exportDir).mode & 0o777) === 0o700 && outs.every((f) => (fs.statSync(path.join(r.exportDir, f)).mode & 0o777) === 0o600) && !outs.some((f) => f.endsWith('.json')));
     ok('SHOTEXPORT the export dir must not exist yet', EX(r) === 'SHOT_E_EXPORT_DIR'); }
-  ok('SHOTEXPORT no shots: just "SHOTS 0 of 16"', JSON.stringify(EX(shotRun())) === '["SHOTS 0 of 16"]');
+  ok('SHOTEXPORT no shots: just the count line', JSON.stringify(EX(shotRun())) === '["SHOTS 0 captured 0 withheld of 16"]');
+  { const r = shotRun(); putW(r, 'J0a-catalog-before-publish', 'CARRIER_ROUTE'); put(r, 'J4c-grades', mkPng()); putW(r, 'J4d-certificate', 'NAVIGATED');
+    const l = EX(r);
+    ok('SHOTEXPORT withheld shots are reported by name and reason, in allowlist order, and never exported', Array.isArray(l) && l[0] === 'WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE' && l[1].startsWith('SHOT J4c-grades sha256=') && l[2] === 'WITHHELD J4d-certificate reason=NAVIGATED' && l[3] === 'SHOTS 1 captured 2 withheld of 16' && fs.readdirSync(r.exportDir).join() === 'J4c-grades.png'); }
   { const cases = [
       ['nonce inside the image data itself (stored deflate) refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from(`\0${NONCE}`), 0))), 'SHOT_E_NONCE_IN_PNG'],
       ['carrier prefix inside the image data refuses', (r) => put(r, 'J4c-grades', mkPng(idat(Buffer.from('\0gb-journey-pairing:'), 0))), 'SHOT_E_NONCE_IN_PNG'],
@@ -521,6 +560,10 @@ try {
       ['PNG bytes changed after the scan refuse', (r) => { put(r, 'J4c-grades', mkPng()); fs.writeFileSync(path.join(r.shots, 'J4c-grades.png'), mkPng(idat(Buffer.from([0, 7, 7, 7, 7, 7, 7]))), { mode: 0o600 }); }, 'SHOT_E_SCAN_MISMATCH'],
       ['a PNG without its record refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J4c-grades.png'), mkPng(), { mode: 0o600 }), 'SHOT_E_UNPAIRED'],
       ['a record without its PNG refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J4c-grades.scan.json'), '{}', { mode: 0o600 }), 'SHOT_E_UNPAIRED'],
+      ['a withheld record next to a PNG refuses', (r) => { put(r, 'J4c-grades', mkPng()); putW(r, 'J4c-grades'); }, 'SHOT_E_UNPAIRED'],
+      ['a withheld record with an unknown reason, an extra key or another name refuses', (r) => putW(r, 'J4c-grades', 'BECAUSE'), 'SHOT_E_WITHHELD_RECORD'],
+      ['a withheld record with an extra key refuses', (r) => putW(r, 'J4c-grades', 'MUTATED', { note: 'x' }), 'SHOT_E_WITHHELD_RECORD'],
+      ['a scan record without the capture-window field refuses', (r) => put(r, 'J4c-grades', mkPng(), { window: undefined }), 'SHOT_E_SCAN_RECORD'],
       ['an unknown file (not allowlisted) refuses', (r) => fs.writeFileSync(path.join(r.shots, 'J9-extra.png'), mkPng(), { mode: 0o600 }), 'SHOT_E_UNKNOWN_FILE'],
       ['a 0644 PNG refuses', (r) => { put(r, 'J4c-grades', mkPng()); fs.chmodSync(path.join(r.shots, 'J4c-grades.png'), 0o644); }, 'SHOT_E_MODE'],
       ['a symlinked PNG refuses (no-follow)', (r) => { put(r, 'J4c-grades', mkPng()); const t = path.join(r.par, 'real.png'); fs.renameSync(path.join(r.shots, 'J4c-grades.png'), t); fs.symlinkSync(t, path.join(r.shots, 'J4c-grades.png')); }, 'SHOT_E_OPEN'],
@@ -541,10 +584,10 @@ try {
     ok('SHOTEXPORT handle: an endless reader stops at the cap', HC({ fstatSync: resize(0), readSync: (_fd, b, off, len) => { b.fill(1, off, off + len); return len; } }) === 'SHOT_E_SIZE'); }
   // Manifest grammar
   { const L = (n) => `SHOT ${n} sha256=${'c'.repeat(64)} bytes=120 width=1280 height=2400`;
-    const SS = (t) => { try { return shotsSummary(t, SHOT_NAMES); } catch (e) { return e.code; } };
-    ok('SUM shots manifest in allowlist order passes', SS(`${L('J0a-catalog-before-publish')}\n${L('J4d-certificate')}\nSHOTS 2 of 16\n`) === `${L('J0a-catalog-before-publish')}\n${L('J4d-certificate')}\nSHOTS 2 of 16`);
-    ok('SUM shots refusals: out of order, duplicate, unknown name, wrong count, stray raw line', SS(`${L('J4d-certificate')}\n${L('J0a-catalog-before-publish')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\n${L('J4c-grades')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE'
-      && SS(`${L('J9-other-shot')}\nSHOTS 1 of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_SHAPE' && SS(`${L('J4c-grades')}\nMARKER /tmp/x\nSHOTS 2 of 16`) === 'SUMMARY_E_SHOTS_LINE'); }
+    const SS = (t) => { try { return shotsSummary(t, SHOT_NAMES, WITHHELD_REASONS); } catch (e) { return e.code; } };
+    ok('SUM shots manifest (captured and withheld) in allowlist order passes', SS(`WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\n${L('J4d-certificate')}\nSHOTS 1 captured 1 withheld of 16\n`) === `WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\n${L('J4d-certificate')}\nSHOTS 1 captured 1 withheld of 16`);
+    ok('SUM shots refusals: out of order, duplicate, unknown name, unknown reason, wrong counts, stray raw line', SS(`${L('J4d-certificate')}\n${L('J0b-detail-before-publish')}\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\n${L('J4c-grades')}\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE'
+      && SS(`${L('J9-other-shot')}\nSHOTS 1 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE' && SS('WITHHELD J4c-grades reason=BECAUSE\nSHOTS 0 captured 1 withheld of 16') === 'SUMMARY_E_SHOTS_LINE' && SS(`${L('J4c-grades')}\nSHOTS 0 captured 1 withheld of 16`) === 'SUMMARY_E_SHOTS_SHAPE' && SS(`${L('J4c-grades')}\nMARKER /tmp/x\nSHOTS 2 captured 0 withheld of 16`) === 'SUMMARY_E_SHOTS_LINE'); }
 
   // ---- Runner, end to end on FAKES: a copy of the tree with fake psql/npx on PATH and an in-process fake API ----
   // The copy's ONLY edits: the two D1 pins and the two first-write gate constants point at selftest fakes. Every other
@@ -588,9 +631,11 @@ const bad=m==='playwright';
   const meta=ch('tEXt',Buffer.from('Comment\0MARKER-png-text '+proof.db_read,'latin1'));
   const png=Buffer.concat([Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]),ch('IHDR',ih),meta,ch('IDAT',zlib.deflateSync(Buffer.from([0,9,9,9,8,8,8]))),ch('IEND',Buffer.alloc(0))]);
   const mode=process.env.FAKE_SHOTS||'two';
-  if(mode!=='none') for(const name of ['J0a-catalog-before-publish','J4d-certificate']){
-    const d=process.env.GB_SHOT_DIR;fs.writeFileSync(path.join(d,name+'.png'),png,{mode:0o600,flag:'wx'});
-    fs.writeFileSync(path.join(d,name+'.scan.json'),JSON.stringify({name,sha256:crypto.createHash('sha256').update(png).digest('hex'),verdict:mode==='dirty'?'dirty':'clean',scans:2}),{mode:0o600,flag:'wx'});
+  const d=process.env.GB_SHOT_DIR;
+  if(mode!=='none') fs.writeFileSync(path.join(d,'J0a-catalog-before-publish.withheld.json'),JSON.stringify({name:'J0a-catalog-before-publish',withheld:true,reason:'CARRIER_ROUTE'}),{mode:0o600,flag:'wx'});
+  if(mode!=='none') for(const name of ['J0b-detail-before-publish','J4d-certificate']){
+    fs.writeFileSync(path.join(d,name+'.png'),png,{mode:0o600,flag:'wx'});
+    fs.writeFileSync(path.join(d,name+'.scan.json'),JSON.stringify({name,sha256:crypto.createHash('sha256').update(png).digest('hex'),verdict:mode==='dirty'?'dirty':'clean',scans:2,window:'same-document-unchanged'}),{mode:0o600,flag:'wx'});
     if(mode==='stray'){fs.writeFileSync(path.join(d,'MARKER-stray.txt'),'x',{mode:0o600});} } }
 process.stdout.write(JSON.stringify({config:{marker:'MARKER-playwright-json'},suites:[],errors:bad?[{message:'MARKER-playwright-error'}]:[],stats:{expected:bad?11:12,unexpected:bad?1:0,flaky:0,skipped:0}}));
 process.exit(bad?1:0);
@@ -654,7 +699,7 @@ process.exit(bad?1:0);
     'seed.txt': (s) => s === `${SEED_PASS}\n`,
     'playwright-summary.txt': (s) => /^PLAYWRIGHT exit=\d+ expected=\d+ unexpected=\d+ flaky=\d+ skipped=\d+ global_errors=\d+\n$/.test(s),
     'compare.txt': (s) => { try { compareSummary(s); return true; } catch { return false; } },
-    'screenshots.txt': (s) => { try { shotsSummary(s, SHOT_NAMES); return true; } catch { return false; } },
+    'screenshots.txt': (s) => { try { shotsSummary(s, SHOT_NAMES, WITHHELD_REASONS); return true; } catch { return false; } },
     'screenshots': () => true, // checked below against its manifest
   };
   const verdict = (r, rc, err, files) => {
@@ -675,7 +720,7 @@ process.exit(bad?1:0);
     if (staged.some((f, i) => !ALLOWED[f] || !ALLOWED[f](texts[i]))) why.push('content');
     if (staged.includes('screenshots')) {
       const man = fs.readFileSync(path.join(r.out, 'screenshots.txt'), 'utf8').split('\n').filter((l) => l.startsWith('SHOT '));
-      const named = man.map((l) => `${l.split(' ')[1]}.png`).sort();
+      const named = man.map((l) => `${l.split(' ')[1]}.png`).sort(); // WITHHELD lines name no file
       if (JSON.stringify(named) !== JSON.stringify(pngs)) why.push('shots-manifest');
       for (const l of man) { const [, n, sh] = l.split(' '); const b = fs.readFileSync(path.join(r.out, 'screenshots', `${n}.png`));
         if (`sha256=${createHash('sha256').update(b).digest('hex')}` !== sh || b.includes(Buffer.from('tEXt')) || (fs.statSync(path.join(r.out, 'screenshots', `${n}.png`)).mode & 0o777) !== 0o600) why.push('shots-bytes'); } }
@@ -696,7 +741,7 @@ process.exit(bad?1:0);
       ok('RUNFAKE every psql child had a 0600 passfile in the run private raw dir with exactly the planned line, and no DSN or PGPASSWORD env', calls.every((c) => c.pass && c.pass.mode === '600' && c.pass.sha === createHash('sha256').update(plan.passLine).digest('hex') && /\/gb-journey-run\.[A-Za-z0-9]{10}\/raw$/.test(c.pass.dir) && !c.dsn && !c.pgpw));
       const npx = JSON.parse(fs.readFileSync(path.join(happy.st, 'npx.jsonl'), 'utf8').trim());
       ok('RUNFAKE Playwright gets --reporter=json and a private --output under the run parent', npx.argv.includes('--reporter=json') && npx.argv.some((a) => /^--output=.*\/gb-journey-run\.[A-Za-z0-9]{10}\/raw\/test-results$/.test(a)));
-      ok('RUNFAKE two clean shots exported, the tEXt chunk carrying a marker and the nonce dropped, manifest matches bytes', fs.readdirSync(path.join(happy.out, 'screenshots')).join(',') === 'J0a-catalog-before-publish.png,J4d-certificate.png' && /^SHOT J0a-catalog-before-publish sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOT J4d-certificate sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOTS 2 of 16\n$/.test(fs.readFileSync(path.join(happy.out, 'screenshots.txt'), 'utf8')));
+      ok('RUNFAKE J0a reported withheld; two clean shots exported with the tEXt chunk (marker + nonce) dropped; manifest matches bytes', fs.readdirSync(path.join(happy.out, 'screenshots')).join(',') === 'J0b-detail-before-publish.png,J4d-certificate.png' && /^WITHHELD J0a-catalog-before-publish reason=CARRIER_ROUTE\nSHOT J0b-detail-before-publish sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOT J4d-certificate sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1\nSHOTS 2 captured 1 withheld of 16\n$/.test(fs.readFileSync(path.join(happy.out, 'screenshots.txt'), 'utf8')));
       ok('RUNFAKE stdout is exactly the staged compare lines plus the Playwright count line', happy.so === `${fs.readFileSync(path.join(happy.out, 'compare.txt'), 'utf8')}PLAYWRIGHT exit=0 expected=12 unexpected=0 flaky=0 skipped=0 global_errors=0\n`); }
     const apiSeen = [...apiCalls];
     ok('RUNFAKE carrier API reads: GET, anon key only, carrier then random-id control', apiSeen.length === 2 && apiSeen.every((c) => c.method === 'GET' && c.auth === null) && apiSeen[0].url === `/rest/v1/courses?id=eq.${CTRL}&select=id,description` && /^\/rest\/v1\/courses\?id=eq\.[0-9a-f-]{36}&select=id,description$/.test(apiSeen[1].url) && apiSeen[1].url !== apiSeen[0].url);
@@ -728,7 +773,7 @@ process.exit(bad?1:0);
     await RUN('a dirty scan record in the shot dir refuses the export (nothing staged from it)', {}, { FAKE_SHOTS: 'dirty' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
     await RUN('a stray file in the shot dir refuses the export', {}, { FAKE_SHOTS: 'stray' }, 3, 'run-journey refused: RUN_E_SHOTS', 'composition.txt,pairing.txt,playwright-summary.txt,seed.txt');
     { const r = await RUN('no screenshots taken: empty screenshots dir, manifest SHOTS 0 of 16', {}, { FAKE_SHOTS: 'none' }, 1, '', ALL);
-      ok('RUNFAKE zero-shot manifest is exactly the count line', fs.readFileSync(path.join(r.out, 'screenshots.txt'), 'utf8') === 'SHOTS 0 of 16\n'); }
+      ok('RUNFAKE zero-shot manifest is exactly the count line', fs.readFileSync(path.join(r.out, 'screenshots.txt'), 'utf8') === 'SHOTS 0 captured 0 withheld of 16\n'); }
   } finally { server.close(); }
 
   // ---- Runner refusals on THIS tree that need no stack ----
@@ -814,9 +859,16 @@ process.exit(bad?1:0);
     ['hermetic-dist import unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace(/  'scripts\/served-app\/hermetic-dist\.mjs': '[0-9a-f]{40}',\n/, ''), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['appverify skips the pin re-check', `${S}/pairing-producer.mjs`, (s) => s.replace("  if (cmd === 'appverify') {\n    const f = pinFailures(root);", "  if (cmd === 'appverify') {\n    const f = [];"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
-    ['shot() captures before scanning', `${J}/observe.ts`, (s) => s.replace("  const before = scanPage(await pageTexts(page), secrets);\n  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });", "  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });\n  const before = scanPage(await pageTexts(page), secrets);"), 'R12_SHOT_UNSCANNED'],
-    ['shot() skips the after-scan', `${J}/observe.ts`, (s) => s.replace('[before, after]', '[before, before]'), 'R12_SHOT_UNSCANNED'],
-    ['shot() attaches the raw capture again', `${J}/observe.ts`, (s) => s.replace("  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);", "  await _info.attach(`${name}.png`, { body: png, contentType: 'image/png' });\n  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);"), 'R12_SHOT_UNSCANNED'],
+    ['shot() captures without the pre-scan gate', `${J}/observe.ts`, (s) => s.replace('    if (scanPage(before.texts, secrets).length === 0) {          // a dirty page is never captured', '    {'), 'R12_SHOT_UNSCANNED'],
+    ['shot() drops the capture-window guard', `${J}/observe.ts`, (s) => s.replace("      await page.evaluate(SHOT_GUARD, ['arm', armed]);\n", ''), 'R12_SHOT_UNSCANNED'],
+    ['shot() keeps the buffer after an exception', `${J}/observe.ts`, (s) => s.replace('    png = null;\n', ''), 'R12_SHOT_UNSCANNED'],
+    ['shot() attaches the raw capture again', `${J}/observe.ts`, (s) => s.replace('  writeShot(dir, name, png, obs, secrets);\n}', "  await info.attach(`${name}.png`, { body: png ?? Buffer.alloc(0), contentType: 'image/png' });\n  writeShot(dir, name, png, obs, secrets);\n}"), 'R12_SHOT_UNSCANNED'],
+    ['a second page script appears', `${J}/observe.ts`, (s) => s.replace("      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);", "      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);\n      await page.evaluate(() => 1);"), 'R3_EVALUATE'],
+    ['decision skips the mutation check', `${J}/shot-core.mjs`, (s) => s.replace("  if (obs.guard.n !== 0) return no('MUTATED');\n", ''), 'R12_SHOT_DECISION'],
+    ['decision skips the route check', `${J}/shot-core.mjs`, (s) => s.replace(/  if \(u\.origin !== obs\.appOrigin.*\n/, ''), 'R12_SHOT_DECISION'],
+    ['J0a no longer withheld by rule', `${J}/shot-core.mjs`, (s) => s.replace("export const WITHHOLD_ALWAYS = Object.freeze({ 'J0a-catalog-before-publish': 'CARRIER_ROUTE' });", 'export const WITHHOLD_ALWAYS = Object.freeze({});'), 'R12_SHOT_DECISION'],
+    ['guard writes to the page', `${J}/shot-core.mjs`, (s) => s.replace('    w.__gbShotGuard = st;\n    return token;', "    w.__gbShotGuard = st;\n    document.body.setAttribute('data-x', '1');\n    return token;"), 'R12_SHOT_GUARD_WRITES'],
+    ['a plan route key observe.ts cannot resolve', `${J}/shot-core.mjs`, (s) => s.replace("'J4c-grades': ['jr-4-learner-readback', 'grades'],", "'J4c-grades': ['jr-4-learner-readback', 'gradebook'],"), 'R12_SHOT_ROUTES'],
     ['a spec takes its own screenshot', `${J}/j4-learner-readback-certificate.spec.ts`, (s) => s.replace("await shot(page, info, 'J4d-certificate');", "await shot(page, info, 'J4d-certificate');\n  await page.screenshot({ path: 'x.png' });"), 'R12_SHOT_UNSCANNED'],
     ['allowlist gains a name no spec uses', `${J}/shot-core.mjs`, (s) => s.replace("'J4d-certificate',\n]);", "'J4d-certificate', 'J9-anything',\n]);"), 'R12_SHOT_ALLOWLIST'],
     ['scan drops the anon key', `${J}/shot-core.mjs`, (s) => s.replace("'E2E_MEMBER_PASSWORD', 'VITE_SUPABASE_ANON_KEY']", "'E2E_MEMBER_PASSWORD']"), 'R12_SHOT_SCAN_WEAK'],

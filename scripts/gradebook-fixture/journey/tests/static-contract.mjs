@@ -51,7 +51,9 @@ export function checkJourney(root) {
     if (/supabase\s*\.\s*(from|rpc|storage|auth)|createClient\s*\(/.test(src)) v.push(`R3_CLIENT_SHORTCUT ${f}`);
     if (/service_role|SERVICE_ROLE|SUPABASE_SERVICE/.test(src)) v.push(`R3_SERVICE_KEY ${f}`);
     if (/createSignedUrl|console\.(log|info|warn|error)\s*\(/.test(src)) v.push(`R3_URL_OR_LOG ${f}`);
-    if (/page\.evaluate\s*\(/.test(src)) v.push(`R3_EVALUATE ${f}`);
+    // The only page script allowed: the read-only capture-window guard, exactly twice, in observe.ts (body pinned by R12).
+    const ev = src.replace(/await page\.evaluate\(SHOT_GUARD, \['arm', armed\]\);/, '').replace(/await page\.evaluate\(SHOT_GUARD, \['read', armed\]\);/, '');
+    if (/\.evaluate\w*\s*\(|addInitScript|exposeFunction|exposeBinding/.test(ev) || (f === 'observe.ts' && (src.match(/page\.evaluate\(SHOT_GUARD/g) || []).length !== 2)) v.push(`R3_EVALUATE ${f}`);
   }
 
   // R4 no invented grade/pass threshold anywhere in the journey lane.
@@ -160,11 +162,31 @@ export function checkJourney(root) {
   // exactly the specs' shot names; the export keeps critical PNG chunks only and refuses the nonce/prefix in the bytes.
   const obs = stripJsComments(rd(`${jdir}/observe.ts`));
   const shotFn = obs.slice(obs.indexOf('export async function shot('));
-  const sAt = ['shotSecrets(process.env, proof)', 'scanPage(await pageTexts(page), secrets)', 'page.screenshot(', 'scanPage(await pageTexts(page), secrets)', 'writeShot(process.env.GB_SHOT_DIR'].map((x, k, a) => shotFn.indexOf(x, k ? shotFn.indexOf(a[k - 1]) + 1 : 0));
-  if (sAt.some((i) => i < 0) || sAt.some((i, k) => k > 0 && i <= sAt[k - 1]) || /attach\(/.test(shotFn) || !/writeShot\([^)]*\[before, after\]\)/.test(shotFn)) v.push('R12_SHOT_UNSCANNED observe.ts');
+  const order = ["shotSecrets(process.env, proof)", "if (!plan || WITHHOLD_ALWAYS[", "const before = await sample(page);", "if (scanPage(before.texts, secrets).length === 0) {",
+    "page.on('framenavigated', onNav);", "await page.evaluate(SHOT_GUARD, ['arm', armed]);", "png = await page.screenshot(", "await page.evaluate(SHOT_GUARD, ['read', armed]);",
+    "after: await sample(page) };", "png = null;", "writeShot(dir, name, png, obs, secrets);"];
+  const sAt = order.map((x) => shotFn.indexOf(x));
+  if (sAt.some((i) => i < 0) || sAt.some((i, k) => k > 0 && i <= sAt[k - 1]) || /attach\(|writeFile|fs\./.test(shotFn) || (shotFn.match(/writeShot\(/g) || []).length !== 2) v.push('R12_SHOT_UNSCANNED observe.ts');
+  // The decision: every check present, and the buffer is written only on { write: true }.
+  const coreSrc = stripJsComments(rd(`${jdir}/shot-core.mjs`));
+  const dec = coreSrc.slice(coreSrc.indexOf('export function decideShot('), coreSrc.indexOf('export function shotSecrets('));
+  const reasons = ["'PERSONA'", "'ROUTE'", "'UNSUPPORTED_SURFACE'", "'DIRTY_BEFORE'", "'NAVIGATED'", "'MUTATED'", "'CHANGED'", "'DIRTY_AFTER'"];
+  const dAt = reasons.map((x) => dec.indexOf(`no(${x})`));
+  if (dAt.some((i) => i < 0) || dAt.some((i, k) => k > 0 && i <= dAt[k - 1]) || !/if \(WITHHOLD_ALWAYS\[name\]\)/.test(dec)
+    || !dec.includes("if (u.origin !== obs.appOrigin || u.pathname !== obs.expectedPath || u.search !== '' || u.hash !== '') return no('ROUTE');")
+    || !dec.includes("if (obs.project !== SHOT_PLAN[name][0]) return no('PERSONA');") || !dec.includes("!/^https?:$/.test(x.protocol)")) v.push('R12_SHOT_DECISION shot-core.mjs');
+  const ws = coreSrc.slice(coreSrc.indexOf('export function writeShot('));
+  if (!/const d = decideShot\(name, obs, secrets\);/.test(ws) || ws.indexOf('if (!d.write) {') < 0 || ws.indexOf("`${name}.png`") < ws.indexOf('if (!d.write) {')) v.push('R12_SHOT_DECISION shot-core.mjs');
+  if (!/^export const WITHHOLD_ALWAYS = Object\.freeze\(\{ 'J0a-catalog-before-publish': 'CARRIER_ROUTE' \}\);$/m.test(coreSrc)) v.push('R12_SHOT_DECISION shot-core.mjs');
+  const guard = coreSrc.slice(coreSrc.indexOf('export function SHOT_GUARD('), coreSrc.indexOf('const sameSample'));
+  if (!guard || /fetch|XMLHttpRequest|sendBeacon|WebSocket|Storage|cookie|setAttribute|innerHTML|textContent|\.value|appendChild|remove|insert|postMessage|location|history|open\(/.test(guard)) v.push('R12_SHOT_GUARD_WRITES shot-core.mjs');
+  // Route keys used by the plan are exactly the keys observe.ts resolves.
+  const planKeys = [...new Set([...coreSrc.matchAll(/^  '[^']+': \['jr-[^']+', '([a-z-]+)'\],$/gm)].map((m) => m[1]))].sort();
+  const pathKeys = [...((obs.match(/const SHOT_PATH: Record<string, string> = \{([\s\S]*?)\};/) || [, ''])[1]).matchAll(/'?([a-z-]+)'?: route\./g)].map((m) => m[1]).sort();
+  if (planKeys.length !== 8 || JSON.stringify(planKeys) !== JSON.stringify(pathKeys)) v.push('R12_SHOT_ROUTES observe.ts');
   for (const f of JOURNEY_SPECS.concat(['observe.ts', 'session-setup.ts', 'progress-oracle.ts'])) {
     const t = stripJsComments(rd(`${jdir}/${f}`));
-    const n = (t.match(/\.screenshot\(|\.attach\(/g) || []).length;
+    const n = (t.match(/\.screenshot\(|\.attach\(/g) || []).length;  // exactly one capture call in the codebase
     if (n !== (f === 'observe.ts' ? 1 : 0)) v.push(`R12_SHOT_UNSCANNED ${f}`);
   }
   const specShots = JOURNEY_SPECS.flatMap((f) => [...stripJsComments(rd(`${jdir}/${f}`)).matchAll(/shot\(page, info, '([^']+)'\)/g)].map((m) => m[1])).sort();

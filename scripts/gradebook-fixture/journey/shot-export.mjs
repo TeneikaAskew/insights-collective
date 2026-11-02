@@ -1,24 +1,29 @@
 // ABOUTME: Screenshot export for the journey adapter (UNRUN proposal): the only way a PNG leaves the run. Accepts only the 16
-// ABOUTME: allowlisted names, each with its matching clean scan record, and re-encodes every PNG with its critical chunks only.
+// ABOUTME: allowlisted names, each with its matching clean record, keeps only critical PNG chunks, and reports withheld shots.
 //
 //   node shot-export.mjs <private shot dir> <private session dir> <pairing proof file> <export dir (must not exist)>
 //
 // For every entry of the shot dir (anything else refuses):
-//   * names: <allowlisted>.png and <allowlisted>.scan.json, in pairs; nothing else
+//   * names: <allowlisted>.png + <allowlisted>.scan.json in pairs, OR <allowlisted>.withheld.json alone; nothing else
 //   * each file read on one O_NOFOLLOW|O_NONBLOCK handle: regular, this uid, exact 0600, bounded size, bounded read,
 //     no growth; closed in finally
-//   * scan record: exact keys {name, sha256, verdict, scans}; verdict "clean", scans 2, sha256 of the PNG bytes as read
-//   * PNG: signature, every chunk CRC checked, IHDR first (sane size/depth/colour type), IDAT contiguous, IEND last with
-//     nothing after it; ancillary chunks (tEXt, iTXt, zTXt, eXIf, tIME, ...) are DROPPED, unknown critical chunks refuse
+//   * scan record: exact keys {name, sha256, verdict, scans, window}; "clean", 2, "same-document-unchanged", sha256 of the
+//     PNG bytes as read. Withheld record: exact keys {name, withheld: true, reason} with a known reason
+// WHAT THE PNG STEP IS (reviewed wording): it strips ancillary chunks and keeps IHDR/PLTE/IDAT/IEND byte for byte. It is
+// NOT a pixel decode/re-encode and NOT pixel-secret detection; privacy rests on the capture rules in shot-core.mjs.
+//   * PNG: signature, every chunk CRC checked, IHDR first (sane size/depth/colour type), IDAT contiguous and inflatable,
+//     IEND last with nothing after it; ancillary chunks (tEXt, iTXt, zTXt, eXIf, tIME, ...) are DROPPED, unknown critical
+//     chunks refuse
 //   * the re-encoded bytes must not contain this run's nonce or the carrier prefix (belt and braces: text chunks are gone)
 // Output: <export dir>/<name>.png (0600) and, on stdout, one "SHOT <name> sha256=<hex> bytes=<n> width=<w> height=<h>" line
-// per exported shot in allowlist order, then "SHOTS <n> of 16". Any refusal: "run-journey refused: SHOT_E_*", exit 3.
+// per exported shot and "WITHHELD <name> reason=<R>" per withheld shot, in allowlist order, then
+// "SHOTS <captured> captured <withheld> withheld of 16". Any refusal: "run-journey refused: SHOT_E_*", exit 3.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { SHOT_NAMES, assertShotDir } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, WITHHELD_REASONS, assertShotDir } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { assertPairingProof, PAIRING_PREFIX } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 
 export class ShotError extends Error {
@@ -111,7 +116,8 @@ export function sanitizePng(buf) {
   return { png, width, height };
 }
 
-const SCAN_KEYS = 'name,scans,sha256,verdict';
+const SCAN_KEYS = 'name,scans,sha256,verdict,window';
+const WITHHELD_KEYS = 'name,reason,withheld';
 /**
  * @param {{ shotDir: string, sessionDir: string, proofFile: string, exportDir: string, uid?: number, io?: typeof fs }} o
  * @returns {string[]} the manifest lines
@@ -124,18 +130,30 @@ export function exportShots(o) {
   if (typeof o.exportDir !== 'string' || !path.isAbsolute(o.exportDir) || fs.existsSync(o.exportDir)) throw new ShotError('SHOT_E_EXPORT_DIR');
   let entries;
   try { entries = fs.readdirSync(shotDir); } catch { throw new ShotError('SHOT_E_DIR'); }
-  const allowed = new Set(SHOT_NAMES.flatMap((n) => [`${n}.png`, `${n}.scan.json`]));
+  const allowed = new Set(SHOT_NAMES.flatMap((n) => [`${n}.png`, `${n}.scan.json`, `${n}.withheld.json`]));
   if (entries.some((e) => !allowed.has(e))) throw new ShotError('SHOT_E_UNKNOWN_FILE');
-  const present = SHOT_NAMES.filter((n) => entries.includes(`${n}.png`) || entries.includes(`${n}.scan.json`));
-  if (present.some((n) => !entries.includes(`${n}.png`) || !entries.includes(`${n}.scan.json`))) throw new ShotError('SHOT_E_UNPAIRED');
+  const has = (n, ext) => entries.includes(`${n}${ext}`);
+  const present = SHOT_NAMES.filter((n) => has(n, '.png') || has(n, '.scan.json') || has(n, '.withheld.json'));
+  for (const n of present) {
+    if (has(n, '.withheld.json') ? (has(n, '.png') || has(n, '.scan.json')) : !(has(n, '.png') && has(n, '.scan.json'))) throw new ShotError('SHOT_E_UNPAIRED');
+  }
   const out = [];
   for (const name of present) {
+    if (has(name, '.withheld.json')) {
+      const wb = readHandle(path.join(shotDir, `${name}.withheld.json`), MAX_SCAN, { uid: o.uid, io: o.io });
+      let w;
+      try { w = JSON.parse(wb.toString('utf8')); } catch { throw new ShotError('SHOT_E_WITHHELD_RECORD'); }
+      if (!w || typeof w !== 'object' || Array.isArray(w) || Object.keys(w).sort().join(',') !== WITHHELD_KEYS || w.name !== name
+        || w.withheld !== true || !WITHHELD_REASONS.includes(w.reason)) throw new ShotError('SHOT_E_WITHHELD_RECORD');
+      out.push({ name, withheld: w.reason });
+      continue;
+    }
     const raw = readHandle(path.join(shotDir, `${name}.png`), MAX_PNG, { uid: o.uid, io: o.io });
     const recBytes = readHandle(path.join(shotDir, `${name}.scan.json`), MAX_SCAN, { uid: o.uid, io: o.io });
     let rec;
     try { rec = JSON.parse(recBytes.toString('utf8')); } catch { throw new ShotError('SHOT_E_SCAN_RECORD'); }
     if (!rec || typeof rec !== 'object' || Array.isArray(rec) || Object.keys(rec).sort().join(',') !== SCAN_KEYS
-      || rec.name !== name || rec.verdict !== 'clean' || rec.scans !== 2 || typeof rec.sha256 !== 'string') throw new ShotError('SHOT_E_SCAN_RECORD');
+      || rec.name !== name || rec.verdict !== 'clean' || rec.scans !== 2 || rec.window !== 'same-document-unchanged' || typeof rec.sha256 !== 'string') throw new ShotError('SHOT_E_SCAN_RECORD');
     if (createHash('sha256').update(raw).digest('hex') !== rec.sha256) throw new ShotError('SHOT_E_SCAN_MISMATCH');
     const { png, width, height } = sanitizePng(raw);
     if (forbidden.some((f) => png.includes(f))) throw new ShotError('SHOT_E_NONCE_IN_PNG');
@@ -144,11 +162,13 @@ export function exportShots(o) {
   try { fs.mkdirSync(o.exportDir, { mode: 0o700 }); } catch { throw new ShotError('SHOT_E_EXPORT_DIR'); }
   const lines = [];
   for (const s of out) {
+    if (s.withheld) { lines.push(`WITHHELD ${s.name} reason=${s.withheld}`); continue; }
     const p = path.join(o.exportDir, `${s.name}.png`);
     try { fs.writeFileSync(p, s.png, { mode: 0o600, flag: 'wx' }); } catch { throw new ShotError('SHOT_E_EXPORT_WRITE'); }
     lines.push(`SHOT ${s.name} sha256=${createHash('sha256').update(s.png).digest('hex')} bytes=${s.png.length} width=${s.width} height=${s.height}`);
   }
-  lines.push(`SHOTS ${out.length} of ${SHOT_NAMES.length}`);
+  const w = out.filter((x) => x.withheld).length;
+  lines.push(`SHOTS ${out.length - w} captured ${w} withheld of ${SHOT_NAMES.length}`);
   return lines;
 }
 function assertShotDirSafe(dir, uid) { try { return assertShotDir(dir, uid); } catch { throw new ShotError('SHOT_E_DIR'); } }

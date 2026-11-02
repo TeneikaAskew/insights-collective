@@ -3,10 +3,11 @@
 import { createHash } from 'node:crypto';
 import { expect, type BrowserContext, type Page, type Request, type TestInfo } from '@playwright/test';
 import { BINDING } from '../fixture';
-import { SUBMISSION_PREFIX } from './ids';
+import { SUBMISSION_PREFIX, J, route } from './ids';
 import { readPrivateJson, writePrivateFile } from './private-dir.mjs';
 import { createRecorder, evaluate, isCandidate, runStateFailures, settled } from './observe-core.mjs';
-import { scanPage, shotSecrets, writeShot } from './shot-core.mjs';
+import { SHOT_GUARD, SHOT_PLAN, WITHHOLD_ALWAYS, scanPage, shotSecrets, writeShot } from './shot-core.mjs';
+import { randomBytes } from 'node:crypto';
 import { assertPairingProof } from './pairing-proof.mjs';
 
 export type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' | 'HEAD';
@@ -78,25 +79,60 @@ export const loadRunState = (): RunState => {
   return s;
 };
 
-/** Everything the page renders as text: visible text, markup, form values, title and URL (read-only Playwright APIs; no
- *  script runs in the page). */
-async function pageTexts(page: Page): Promise<string[]> {
+/** Exact path for each route key of SHOT_PLAN (the static contract checks the key set). */
+const SHOT_PATH: Record<string, string> = {
+  catalog: route.catalog, detail: route.detail, builder: route.builder, progress: route.progress, certificate: route.certificate,
+  'lesson-assignment': route.lesson(J.item.assignment), grader: route.grader, grades: route.grades,
+};
+
+/** What the scan samples: main-document text, markup, form values, title, URL; plus image sources and the count of
+ *  surfaces it cannot sample (read-only Playwright APIs). */
+async function sample(page: Page) {
   const values: string[] = [];
   for (const f of await page.locator('input, textarea, select').all()) values.push(await f.inputValue()); // unreadable: the test fails (closed)
-  return [await page.locator('body').innerText(), await page.content(), values.join('\n'), await page.title(), page.url()];
+  const images: string[] = [];
+  for (const i of await page.locator('img').all()) images.push((await i.getAttribute('src')) ?? '');
+  return {
+    url: page.url(),
+    texts: [await page.locator('body').innerText(), await page.content(), values.join('\n'), await page.title(), page.url()],
+    images,
+    surfaces: await page.locator('iframe, canvas, video, embed, object').count(),
+  };
 }
 
 /**
- * A real screenshot of the page as the persona sees it, kept only if the page text holds neither this run's pairing nonce
- * (nor its carrier prefix) nor a credential, checked before and after the capture. A dirty page fails the test with a
- * fixed code and nothing is written. Clean captures go to the private GB_SHOT_DIR with a scan record bound to their
- * sha256; shot-export.mjs is the only way out of the run.
+ * A real screenshot of a known synthetic route, kept only when the capture window is provably clean (shot-core.mjs
+ * decideShot): right persona and exact path; no unsampled surface; clean sample BEFORE (a dirty page is never captured);
+ * same document, no navigation, no mutation or input during the capture; an identical, clean sample AFTER. Anything else
+ * WITHHOLDS the shot with a fixed reason and the buffer is dropped. The journey's own assertions are not affected.
  */
-export async function shot(page: Page, _info: TestInfo, name: string) {
+export async function shot(page: Page, info: TestInfo, name: string) {
+  const dir = process.env.GB_SHOT_DIR ?? '';
   const proof = assertPairingProof(process.env.GB_JOURNEY_PAIRING_PROOF, { sessionDir: sessionDir() });
   const secrets = shotSecrets(process.env, proof);
-  const before = scanPage(await pageTexts(page), secrets);
-  const png = await page.screenshot({ fullPage: true, animations: 'disabled' });
-  const after = scanPage(await pageTexts(page), secrets);
-  writeShot(process.env.GB_SHOT_DIR ?? '', name, png, [before, after]);
+  const plan = SHOT_PLAN[name as keyof typeof SHOT_PLAN];
+  const base = { project: info.project.name, expectedPath: plan ? SHOT_PATH[plan[1]] : '', appOrigin: BINDING.app.origin, apiOrigin: BINDING.api.origin };
+  if (!plan || WITHHOLD_ALWAYS[name as keyof typeof WITHHOLD_ALWAYS]) { writeShot(dir, name, null, { ...base, incomplete: true }, secrets); return; }
+  let png: Buffer | null = null;
+  let obs: Record<string, unknown> = { ...base, incomplete: true };
+  let navigations = 0;
+  const onNav = (f: { parentFrame(): unknown }) => { if (!f.parentFrame()) navigations += 1; };
+  try {
+    const before = await sample(page);
+    obs = { ...base, before, after: before, guard: { token: null, n: 0 }, armed: '', navigations: 0, incomplete: false };
+    if (scanPage(before.texts, secrets).length === 0) {          // a dirty page is never captured
+      const armed = randomBytes(16).toString('hex');
+      page.on('framenavigated', onNav);
+      await page.evaluate(SHOT_GUARD, ['arm', armed]);
+      png = await page.screenshot({ fullPage: true, animations: 'disabled' });
+      const guard = await page.evaluate(SHOT_GUARD, ['read', armed]);
+      page.off('framenavigated', onNav);
+      obs = { ...obs, armed, guard, navigations, after: await sample(page) };
+    }
+  } catch {
+    page.off('framenavigated', onNav);
+    obs = { ...base, incomplete: true };
+    png = null;
+  }
+  writeShot(dir, name, png, obs, secrets);
 }
