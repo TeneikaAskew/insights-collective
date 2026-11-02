@@ -409,6 +409,36 @@ try {
     const open = fs.mkdtempSync(path.join(tmp, 'popen-')); fs.chmodSync(open, 0o755);
     let ec2 = 'ACCEPTED'; try { await runPsql({ script: 'x', privDir: open, env: { SUPABASE_DB_URL: DSN, PATH: process.env.PATH }, psqlBin: bin }); } catch (e) { ec2 = e.code; }
     ok('PSQL non-private dir refused before any spawn', ec2 === 'PSQL_E_PRIVATE_DIR');
+    // Ambient credentials: libpq reads $PGPASSFILE when set, otherwise $HOME/.pgpass. This fake psql models exactly that
+    // selection and records which file it would read, so a missing explicit passfile is visible.
+    { const home = fs.mkdtempSync(path.join(tmp, 'home-')); fs.writeFileSync(path.join(home, '.pgpass'), '*:*:*:*:MARKER-AMBIENT-PGPASS\n', { mode: 0o600 });
+      const slog = path.join(fb, 'select.jsonl');
+      const sbin = path.join(fb, 'psql-select');
+      fs.writeFileSync(sbin, `#!/usr/bin/env node\nconst fs=require('fs'),path=require('path');fs.readFileSync(0);const pf=process.env.PGPASSFILE||(process.env.HOME?path.join(process.env.HOME,'.pgpass'):null);let body=null;try{body=fs.readFileSync(pf,'utf8');}catch{}fs.appendFileSync(${JSON.stringify(slog)},JSON.stringify({pf,explicit:'PGPASSFILE' in process.env,body,home:process.env.HOME})+'\\n');process.exit(process.env.FAIL_SELECT==='1'?3:0);\n`);
+      fs.chmodSync(sbin, 0o755);
+      const NOPW = 'postgresql://postgres@127.0.0.1:54322/postgres';
+      ok('PSQL passwordless DSN plans an EMPTY passfile line (not null)', planPsql(NOPW, {}).passLine === '');
+      const sel = async (dsn, extra = {}) => { const d = fs.mkdtempSync(path.join(tmp, 'psel-')); fs.chmodSync(d, 0o700); fs.rmSync(slog, { force: true });
+        let code = 'OK'; try { await runPsql({ script: 'select 1;\n', privDir: d, env: { SUPABASE_DB_URL: dsn, PATH: process.env.PATH, HOME: home, ...extra }, psqlBin: sbin }); } catch (e) { code = e.code; }
+        return { code, call: JSON.parse(fs.readFileSync(slog, 'utf8').trim()), left: fs.readdirSync(d).filter((f) => f.startsWith('pgpass-')), d: fs.realpathSync(d) }; };
+      for (const [label, dsn] of [['passwordless', NOPW], ['password-bearing', DSN]]) {
+        const ok1 = await sel(dsn);
+        ok(`PSQL ${label} DSN with HOME/.pgpass present: an explicit private passfile is selected, ~/.pgpass never chosen or read`, ok1.code === 'OK' && ok1.call.explicit && path.dirname(ok1.call.pf) === ok1.d && ok1.call.pf !== path.join(home, '.pgpass') && !String(ok1.call.body).includes('MARKER-AMBIENT') && ok1.call.body === (label === 'passwordless' ? '' : plan.passLine));
+        ok(`PSQL ${label} DSN: private passfile removed after success`, ok1.left.length === 0);
+        const bad = await sel(dsn, { FAIL_SELECT: '1' });
+        ok(`PSQL ${label} DSN: on psql failure, fixed code, ~/.pgpass still never chosen, passfile removed`, bad.code === 'PSQL_E_EXIT' && bad.call.explicit && !String(bad.call.body).includes('MARKER-AMBIENT') && bad.left.length === 0);
+        const ov = await sel(dsn, { PGPASSFILE: path.join(home, '.pgpass') });
+        ok(`PSQL ${label} DSN: an ambient PGPASSFILE pointing at ~/.pgpass is overridden by the private one`, ov.code === 'OK' && path.dirname(ov.call.pf) === ov.d && !String(ov.call.body).includes('MARKER-AMBIENT')); }
+      // Causal: the qualified 20fa2b4 bytes of this module, run the same way, DO select ~/.pgpass for a passwordless DSN.
+      const old = fs.mkdtempSync(path.join(tmp, 'old20fa-'));
+      fs.mkdirSync(path.join(old, 'scripts/gradebook-fixture/journey'), { recursive: true }); fs.mkdirSync(path.join(old, 'scripts/local-db'), { recursive: true });
+      fs.copyFileSync(path.join(repo, 'scripts/local-db/assert-local-dsn.mjs'), path.join(old, 'scripts/local-db/assert-local-dsn.mjs'));
+      fs.writeFileSync(path.join(old, 'scripts/gradebook-fixture/journey/private-psql.mjs'), execFileSync('git', ['show', '20fa2b447c883c6f6fae4374c461d8cb5c01f5c3:scripts/gradebook-fixture/journey/private-psql.mjs'], { cwd: repo }));
+      const oldMod = await import(path.join(old, 'scripts/gradebook-fixture/journey/private-psql.mjs'));
+      const od = fs.mkdtempSync(path.join(tmp, 'oldp-')); fs.chmodSync(od, 0o700); fs.rmSync(slog, { force: true });
+      await oldMod.runPsql({ script: 'select 1;\n', privDir: od, env: { SUPABASE_DB_URL: NOPW, PATH: process.env.PATH, HOME: home }, psqlBin: sbin });
+      const oc = JSON.parse(fs.readFileSync(slog, 'utf8').trim());
+      ok('PSQL causal: the 20fa2b4 module with a passwordless DSN leaves PGPASSFILE unset, so ~/.pgpass (MARKER) is selected; this tree does not', !oc.explicit && oc.pf === path.join(home, '.pgpass') && String(oc.body).includes('MARKER-AMBIENT')); }
     ok('PSQL include script refuses a quoted or spaced path and a non-plain value', (() => { try { includeScript("/a b.sql"); return false; } catch { /* expected */ } try { includeScript('/a.sql', { pairing: "x' \\! id" }); return false; } catch { return true; } })()); }
 
   // ---- Fixed summaries ----
@@ -650,6 +680,8 @@ process.exit(bad?1:0);
     ['bootstrap.sh unpinned', `${S}/pairing-producer.mjs`, (s) => s.replace("  'scripts/local-stack/bootstrap.sh': 'aa34aa297e3ec1a214e33ebb09fc934f6991cbaa',\n", ''), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['served-app verifier faked open', `${S}/pairing-producer.mjs`, (s) => s.replace('export const SERVED_APP_VERIFIER = null;', "export const SERVED_APP_VERIFIER = { path: 'x.mjs', blob: 'y' };"), 'R11_GATES_NOT_FAIL_CLOSED'],
     ['producer spawns psql itself', `${S}/pairing-producer.mjs`, (s) => s.replace("import fs from 'node:fs';", "import fs from 'node:fs';\nimport { spawnSync } from 'node:child_process';"), 'R11_PRODUCER_DSN_ARGV'],
+    ['private psql sets PGPASSFILE only when there is a password', `${S}/private-psql.mjs`, (s) => s.replace('\n    plan.env.PGPASSFILE = passFile;\n', '\n    if (plan.passLine) plan.env.PGPASSFILE = passFile;\n'), 'R11_PSQL_NOT_PRIVATE'],
+    ['private psql plans null for a passwordless DSN again', `${S}/private-psql.mjs`, (s) => s.replace("passLine: pw === null ? '' :", 'passLine: pw === null ? null :'), 'R11_PSQL_NOT_PRIVATE'],
     ['private psql drops -w', `${S}/private-psql.mjs`, (s) => s.replace("'-At', '-w',", "'-At',"), 'R11_PSQL_NOT_PRIVATE'],
     ['binding passes the DSN on argv', 'e2e/gradebook-roles/local-binding.mjs', (s) => s.replace("import path from 'node:path';", "import path from 'node:path';\nimport { execFileSync } from 'node:child_process';"), 'R11_BINDING_DSN_ARGV'],
     ['session saved non-exclusively', `${J}/session-setup.ts`, (s) => s.replace('() => context.storageState())', "() => context.storageState({ path: 'x.json' }))"), 'R6_NON_EXCLUSIVE_SESSION_WRITE'],

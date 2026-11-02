@@ -147,7 +147,8 @@ export function checkJourney(root) {
   if (/spawnSync|execFileSync|SUPABASE_DB_URL/.test(prod)) v.push('R11_PRODUCER_DSN_ARGV pairing-producer.mjs');
   const ppsql = stripJsComments(rd(`${sdir}/private-psql.mjs`));
   if (!/argv: \['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'\]/.test(ppsql) || !/spawn\(o\.psqlBin \?\? 'psql', plan\.argv,/.test(ppsql)
-    || !/assertLocalDsn\(/.test(ppsql) || /console\.(log|error)\([^)]*(passLine|pw|dsn)/.test(ppsql) || !/k !== 'SUPABASE_DB_URL'/.test(ppsql)) v.push('R11_PSQL_NOT_PRIVATE private-psql.mjs');
+    || !/assertLocalDsn\(/.test(ppsql) || /console\.(log|error)\([^)]*(passLine|pw|dsn)/.test(ppsql) || !/k !== 'SUPABASE_DB_URL'/.test(ppsql)
+    || /passLine !== null|passLine: pw === null \? null/.test(ppsql) || !/\n    plan\.env\.PGPASSFILE = passFile;\n/.test(ppsql) || !/'PGPASSFILE'/.test(ppsql)) v.push('R11_PSQL_NOT_PRIVATE private-psql.mjs');
   const lb = stripJsComments(rd('e2e/gradebook-roles/local-binding.mjs'));
   if (/execFileSync|spawn/.test(lb) || !/assertLocalDsn\(/.test(lb)) v.push('R11_BINDING_DSN_ARGV local-binding.mjs');
 

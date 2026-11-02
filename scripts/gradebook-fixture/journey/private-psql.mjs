@@ -4,7 +4,8 @@
 // The DSN is NEVER on any command line (argv is world-readable through /proc). It is read from the environment only,
 // validated by the qualified scripts/local-db/assert-local-dsn.mjs (imported, unchanged, pinned), and split into:
 //   argv:      -X -q -At -w -v ON_ERROR_STOP=1 -h <host> -p <port> -U <user> -d <db> -f -   (no password, no conninfo)
-//   passfile:  one line "host:port:db:user:password" in a fresh 0600 file in a private 0700 dir, removed in finally
+//   passfile:  ALWAYS a fresh 0600 file in a private 0700 dir, removed in finally: one line "host:port:db:user:password",
+//              or EMPTY for a passwordless DSN, so libpq never falls back to an ambient ~/.pgpass (or a PGPASSFILE override)
 // SQL arrives on stdin. stdout is returned to the caller (filtered by it); stderr is written ONLY to a private raw file.
 // Errors are fixed codes: PSQL_E_*.
 //
@@ -44,7 +45,7 @@ const passEscape = (s) => s.replace(/\\/g, '\\\\').replace(/:/g, '\\:');
 /**
  * Pure planning step (fakes drive it): strict in-process DSN check, then password-free argv and a passfile line.
  * @param {string|undefined} dsn @param {Record<string,string|undefined>} env
- * @returns {{ argv: string[], passLine: string|null, env: Record<string,string> }}
+ * @returns {{ argv: string[], passLine: string, env: Record<string,string> }}
  */
 export function planPsql(dsn, env = process.env) {
   const g = assertLocalDsn(String(dsn ?? ''), env);
@@ -62,7 +63,7 @@ export function planPsql(dsn, env = process.env) {
   for (const [k, v] of Object.entries(env)) if (v !== undefined && !STRIP.includes(k) && k !== 'SUPABASE_DB_URL') childEnv[k] = String(v);
   return {
     argv: ['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'],
-    passLine: pw === null ? null : `${passEscape(host)}:${port}:${passEscape(db)}:${passEscape(user)}:${passEscape(pw)}\n`,
+    passLine: pw === null ? '' : `${passEscape(host)}:${port}:${passEscape(db)}:${passEscape(user)}:${passEscape(pw)}\n`,
     env: childEnv,
   };
 }
@@ -87,14 +88,13 @@ export async function runPsql(o) {
   const dir = assertPrivate(o.privDir);
   let passFile = null;
   try {
-    if (plan.passLine !== null) {
-      passFile = path.join(dir, `pgpass-${randomBytes(8).toString('hex')}`);
-      let fd;
-      try { fd = fs.openSync(passFile, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0), 0o600); }
-      catch { passFile = null; throw new PsqlError('PSQL_E_PASSFILE'); }
-      try { fs.writeSync(fd, plan.passLine); fs.fchmodSync(fd, 0o600); } catch { throw new PsqlError('PSQL_E_PASSFILE'); } finally { fs.closeSync(fd); }
-      plan.env.PGPASSFILE = passFile;
-    }
+    // Always an explicit private passfile (empty when passwordless): with PGPASSFILE set, libpq never reads ~/.pgpass.
+    passFile = path.join(dir, `pgpass-${randomBytes(8).toString('hex')}`);
+    let fd;
+    try { fd = fs.openSync(passFile, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0), 0o600); }
+    catch { passFile = null; throw new PsqlError('PSQL_E_PASSFILE'); }
+    try { if (plan.passLine) fs.writeSync(fd, plan.passLine); fs.fchmodSync(fd, 0o600); } catch { throw new PsqlError('PSQL_E_PASSFILE'); } finally { fs.closeSync(fd); }
+    plan.env.PGPASSFILE = passFile;
     const errLog = path.join(dir, 'psql-stderr.log');
     const { status, out, err } = await new Promise((resolve) => {
       let child;
