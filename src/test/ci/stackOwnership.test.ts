@@ -17,7 +17,7 @@ const dirs: string[] = [];
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'so-')); dirs.push(d); return d; };
 afterEach(() => { while (dirs.length) fs.rmSync(dirs.pop()!, { recursive: true, force: true }); });
 const put = (obj: unknown, mode = 0o600) => { const f = path.join(tmp(), 'so.json'); fs.writeFileSync(f, JSON.stringify(obj), { mode }); fs.chmodSync(f, mode); return f; };
-const ctx = { runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001' };
+const ctx = { runId: '1000000001', runAttempt: '1', liveSystemIdentifier: '7400000000000000001', apiOrigin: 'http://127.0.0.1:54321', appOrigin: 'http://127.0.0.1:4173' };
 
 describe('schema v1', () => {
   it('the committed fake is a valid record with exactly the schema keys', () => {
@@ -54,7 +54,15 @@ describe('verifyRecord (consumer side)', () => {
     const d = tmp(); const real = put(fake()); const link = path.join(d, 'link.json'); fs.symlinkSync(real, link);
     expect(verifyRecord(link, ctx).code).toBe('SO_ABSENT');
   });
-  it('group/other-readable file refuses with SO_MODE', () => { expect(verifyRecord(put(fake(), 0o644), ctx).code).toBe('SO_MODE'); });
+  it.each([0o644, 0o400, 0o700, 0o640])('mode %o is not exactly 0600: SO_MODE', (m) => {
+    expect(verifyRecord(put(fake(), m), ctx)).toMatchObject({ code: 'SO_MODE', reason: 'not_0600' });
+  });
+  it('the reviewer-raised gaps are closed: attempt and origins are required and compared', () => {
+    expect(verifyRecord(put(fake()), { ...ctx, runAttempt: '' })).toMatchObject({ code: 'SO_INPUT', reason: 'run_attempt_env' });
+    expect(verifyRecord(put(fake()), { ...ctx, apiOrigin: undefined as any })).toMatchObject({ code: 'SO_INPUT', reason: 'expected_origins' });
+    expect(verifyRecord(put(fake()), { ...ctx, apiOrigin: 'http://127.0.0.1:54322' })).toMatchObject({ code: 'SO_ORIGIN_MISMATCH', reason: 'api_origin' });
+    expect(verifyRecord(put(fake()), { ...ctx, appOrigin: 'http://localhost:4173' })).toMatchObject({ code: 'SO_ORIGIN_MISMATCH', reason: 'app_origin' });
+  });
   it('oversize refuses with SO_SIZE; non-JSON with SO_PARSE; bad shape with SO_SCHEMA', () => {
     const big = path.join(tmp(), 'big.json'); fs.writeFileSync(big, 'x'.repeat(5000), { mode: 0o600 });
     expect(verifyRecord(big, ctx).code).toBe('SO_SIZE');
@@ -91,6 +99,7 @@ describe('writer', () => {
 });
 
 describe('CLI: one fixed line, exit 0 or 3', () => {
+  const O = ['http://127.0.0.1:54321', 'http://127.0.0.1:4173'];
   const cli = (args: string[], env: Record<string, string>, input: string) => {
     try { return { out: execFileSync('node', [MOD, ...args], { env: { PATH: process.env.PATH!, ...env }, input, encoding: 'utf8' }), code: 0 }; }
     catch (e: any) { return { out: String(e.stdout), code: e.status }; }
@@ -100,15 +109,15 @@ describe('CLI: one fixed line, exit 0 or 3', () => {
     const env = { STACK_OWNERSHIP_FILE: f, GITHUB_RUN_ID: '77', GITHUB_RUN_ATTEMPT: '1' };
     expect(cli(['write', 'http://127.0.0.1:54321', 'http://127.0.0.1:4173', boot], env, '7400000000000000009\n'))
       .toEqual({ out: 'stack-ownership SO_OK reason=written\n', code: 0 });
-    expect(cli(['verify'], env, '7400000000000000009')).toEqual({ out: 'stack-ownership SO_OK reason=verified\n', code: 0 });
-    expect(cli(['verify'], { ...env, GITHUB_RUN_ID: '78' }, '7400000000000000009'))
+    expect(cli(['verify', ...O], env, '7400000000000000009')).toEqual({ out: 'stack-ownership SO_OK reason=verified\n', code: 0 });
+    expect(cli(['verify', ...O], { ...env, GITHUB_RUN_ID: '78' }, '7400000000000000009'))
       .toEqual({ out: 'stack-ownership SO_RUN_MISMATCH reason=run_id\n', code: 3 });
-    expect(cli(['verify'], env, '1')).toEqual({ out: 'stack-ownership SO_SYSID_MISMATCH reason=pg_system_identifier\n', code: 3 });
+    expect(cli(['verify', ...O], env, '1')).toEqual({ out: 'stack-ownership SO_SYSID_MISMATCH reason=pg_system_identifier\n', code: 3 });
     expect(cli(['write', 'http://127.0.0.1:54321', 'http://127.0.0.1:4173', boot], env, '7400000000000000009').code).toBe(3); // no overwrite
   });
   it('output never echoes the system identifier, origins or file path', () => {
     const d = tmp(); const f = path.join(d, 'so.json');
-    const r = cli(['verify'], { STACK_OWNERSHIP_FILE: f, GITHUB_RUN_ID: '77' }, '7400000000000000009');
+    const r = cli(['verify', ...O], { STACK_OWNERSHIP_FILE: f, GITHUB_RUN_ID: '77', GITHUB_RUN_ATTEMPT: '1' }, '7400000000000000009');
     expect(r).toEqual({ out: 'stack-ownership SO_ABSENT reason=missing\n', code: 3 });
     expect(r.out).not.toContain(d);
   });

@@ -15,8 +15,8 @@
 //
 // CLI:
 //   node stack-ownership.mjs write  <api_origin> <app_origin> <bootstrap_file>   (system identifier on stdin, digits only)
-//   node stack-ownership.mjs verify                                              (live system identifier on stdin)
-// Both read $STACK_OWNERSHIP_FILE and $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT. Output is ONE fixed line; exit 0 or 3.
+//   node stack-ownership.mjs verify <api_origin> <app_origin>                    (live system identifier on stdin)
+// Both read $STACK_OWNERSHIP_FILE and $GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT (both required). One fixed line; exit 0 or 3.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -25,7 +25,7 @@ export const SCHEMA = 1;
 export const KEYS = Object.freeze(['schema', 'run_id', 'run_attempt', 'pg_system_identifier', 'api_origin', 'app_origin',
   'created_at', 'disposable', 'bootstrap_sha256']);
 export const CODES = Object.freeze(['SO_OK', 'SO_ABSENT', 'SO_MODE', 'SO_SIZE', 'SO_PARSE', 'SO_SCHEMA', 'SO_RUN_MISMATCH',
-  'SO_SYSID_MISMATCH', 'SO_INPUT']);
+  'SO_SYSID_MISMATCH', 'SO_ORIGIN_MISMATCH', 'SO_INPUT']);
 const MAX_BYTES = 4096;
 const DIGITS = /^[0-9]{1,20}$/;
 const ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost):[0-9]{2,5}$/;
@@ -68,7 +68,8 @@ export function readRecord(file) {
   let st;
   try { st = fs.lstatSync(file); } catch { return { ok: false, code: 'SO_ABSENT', reason: 'missing' }; }
   if (!st.isFile()) return { ok: false, code: 'SO_ABSENT', reason: 'not_regular_file' };
-  if ((st.mode & 0o077) !== 0) return { ok: false, code: 'SO_MODE', reason: 'group_or_other_access' };
+  if ((st.mode & 0o777) !== 0o600) return { ok: false, code: 'SO_MODE', reason: 'not_0600' };
+  if (typeof process.getuid === 'function' && st.uid !== process.getuid()) return { ok: false, code: 'SO_MODE', reason: 'owner' };
   if (st.size > MAX_BYTES) return { ok: false, code: 'SO_SIZE', reason: 'too_large' };
   let record;
   try { record = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return { ok: false, code: 'SO_PARSE', reason: 'json' }; }
@@ -77,15 +78,20 @@ export function readRecord(file) {
   return { ok: true, code: 'SO_OK', record };
 }
 
-/** Full consumer check: file valid, same run (and attempt when given), same cluster as a LIVE read. */
-export function verifyRecord(file, { runId, runAttempt, liveSystemIdentifier }) {
+/**
+ * Full consumer check: file valid (exactly 0600, owned by the caller), same run AND attempt (both required), the
+ * consumer's own bound origins, and the same cluster as a LIVE read. Every expectation is required; none is skipped.
+ */
+export function verifyRecord(file, { runId, runAttempt, liveSystemIdentifier, apiOrigin, appOrigin }) {
   const r = readRecord(file);
   if (!r.ok) return r;
   if (!DIGITS.test(String(runId ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'run_id_env' };
+  if (!DIGITS.test(String(runAttempt ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'run_attempt_env' };
+  if (!ORIGIN.test(String(apiOrigin ?? '')) || !ORIGIN.test(String(appOrigin ?? ''))) return { ok: false, code: 'SO_INPUT', reason: 'expected_origins' };
   if (r.record.run_id !== String(runId)) return { ok: false, code: 'SO_RUN_MISMATCH', reason: 'run_id' };
-  if (runAttempt !== undefined && runAttempt !== null && runAttempt !== '' && r.record.run_attempt !== String(runAttempt)) {
-    return { ok: false, code: 'SO_RUN_MISMATCH', reason: 'run_attempt' };
-  }
+  if (r.record.run_attempt !== String(runAttempt)) return { ok: false, code: 'SO_RUN_MISMATCH', reason: 'run_attempt' };
+  if (r.record.api_origin !== apiOrigin) return { ok: false, code: 'SO_ORIGIN_MISMATCH', reason: 'api_origin' };
+  if (r.record.app_origin !== appOrigin) return { ok: false, code: 'SO_ORIGIN_MISMATCH', reason: 'app_origin' };
   const live = String(liveSystemIdentifier ?? '').trim();
   if (!DIGITS.test(live)) return { ok: false, code: 'SO_INPUT', reason: 'live_system_identifier' };
   if (r.record.pg_system_identifier !== live) return { ok: false, code: 'SO_SYSID_MISMATCH', reason: 'pg_system_identifier' };
@@ -120,7 +126,8 @@ async function main(argv) {
     return 0;
   }
   if (cmd === 'verify') {
-    const r = verifyRecord(file, { runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT, liveSystemIdentifier: stdin });
+    const [apiOrigin, appOrigin] = rest;
+    const r = verifyRecord(file, { runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT, liveSystemIdentifier: stdin, apiOrigin, appOrigin });
     console.log(line(r.code, r.ok ? 'verified' : r.reason));
     return r.ok ? 0 : 3;
   }
