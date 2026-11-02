@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# ABOUTME: FAKE psql entry for the narrow-reads tier controls; the behaviour is fake-psql.cjs next to it.
+exec node "$(dirname "$0")/fake-psql.cjs" "$@"

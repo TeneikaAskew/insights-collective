@@ -1316,7 +1316,7 @@ jobs:
         run: npm rebuild
 
       # Static, no database.
-      - name: Narrow-reads tier selftest (synthetic outputs; classifier byte-equal to sql-tier.sh)
+      - name: Narrow-reads tier selftest (synthetic outputs; classifier byte-equal to sql-tier.sh; inventory and contract controls)
         run: |
           mkdir -p "$NR_EVIDENCE"
           scripts/local-stack/narrow-reads/tier.sh --selftest | tee "$NR_EVIDENCE/tier-selftest.txt"
@@ -1334,12 +1334,12 @@ jobs:
           scripts/local-stack/workdir.sh "$W"
           echo "IC_WORKDIR_NR=$W" >> "$GITHUB_ENV"
       - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
-        run: node scripts/local-stack/t09/stack-net.mjs create "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-create.txt"
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-create.txt"
       - name: supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
         run: |
           umask 077
           LOG="$RUNNER_TEMP/nr-start.log"
-          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NR" --network-id "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NR" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
             echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
           fi
           echo "supabase start ok; its key summary is not printed"
@@ -1361,7 +1361,7 @@ jobs:
           node scripts/ci/check-local-target.mjs env
       - name: Published ports loopback-only, mail to the local catcher only
         run: |
-          node scripts/local-stack/t09/stack-net.mjs verify "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-verify.txt"
           node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$NR_EVIDENCE/net-verify.txt"
           scripts/local-stack/t09/stack-checks.sh ports | tee "$NR_EVIDENCE/ports.txt"
           scripts/local-stack/t09/stack-checks.sh mail | tee "$NR_EVIDENCE/mail.txt"
@@ -1372,7 +1372,9 @@ jobs:
       - name: Verify identities
         run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/identities.txt"
       - name: Narrow-reads tier (S0, baseline, OLD, apply, NEW, rollback, OLD, re-apply, NEW)
-        run: scripts/local-stack/narrow-reads/tier.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/tier.txt"
+        # The DSN stays in the environment: tier.sh takes no argument and never puts it on any argv. Its output is fixed
+        # STAGE/TIER lines only; the redact pass is kept as a second layer.
+        run: scripts/local-stack/narrow-reads/tier.sh 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$NR_EVIDENCE/tier.txt"
       - name: Delete local keys (independent of stop; absence verified)
         if: always()
         run: |
@@ -1390,7 +1392,7 @@ jobs:
           echo "supabase stop ok"
       - name: Remove owned network (only the one this job created; absence verified)
         if: always() && steps.nr_prep.outcome == 'success'
-        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-nr-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-remove.txt"
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-nr" | tee "$NR_EVIDENCE/net-remove.txt"
       - name: Nothing left behind
         if: always() && steps.nr_prep.outcome == 'success'
         run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$NR_EVIDENCE/leftovers.txt"
