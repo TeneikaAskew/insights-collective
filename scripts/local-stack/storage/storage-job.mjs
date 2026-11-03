@@ -7,6 +7,7 @@
 //      storage-job.mjs s2 <priv dir>                     apply the private mirror in one transaction (sha256 pinned)
 //      storage-job.mjs s3 <priv dir>                     capture; compare with STOCK(s1) + LIVE policies and limits (read-only)
 //      storage-job.mjs s4 <priv dir> <run id> <attempt>  each probe rolls back; after EACH: residue 0 and the S3 catalog again
+//      storage-job.mjs s4d <priv dir> <run id> <attempt> one N1 origin diagnostic (UNRUN; human-gated): fixed category only
 // <priv dir> must be an existing private 0700 directory owned by the job (checked before any read or write in it). s0 is
 // the ONLY mode that reads the private input (env STORAGE_METADATA_JSON, bound to that one workflow step); every other
 // mode refuses if the variable is present. s0 checks the input's byte length and sha256, converts it in memory, and
@@ -23,6 +24,7 @@ import { StorageError, parsePins, stockPreconditions, expectedAfterMirror, compa
 import { build, LIVE_PINS_SHA256, MIRROR_SHA256 } from './gen-mirror.mjs';
 import { convert, SOURCE_SHA256, SOURCE_BYTES } from './live-pins.mjs';
 import { probeScripts, probeVerdict, PROBE_PINS_SHA256 } from './probes.mjs';
+import { diagScript, diagVerdict } from './diag-n1.mjs';
 import { readHandle } from '../../gradebook-fixture/journey/shot-export.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -91,7 +93,7 @@ export function loadPinned(dir, pinned = PINNED) {
 
 export async function main(argv, env = process.env, out = (l) => console.log(l), psql = runPsql, pinned = PINNED) {
   const [cmd, priv, runId, attempt] = argv;
-  const want = { s0: 2, s1: 2, s2: 2, s3: 2, s4: 4 }[cmd];
+  const want = { s0: 2, s1: 2, s2: 2, s3: 2, s4: 4, s4d: 4 }[cmd];
   if (!want || argv.length !== want || !priv) refuse('ST_E_USAGE');
   if (cmd === 's0') { out(s0(assertPrivateDir(priv), env, pinned)); return; }
   if (Object.prototype.hasOwnProperty.call(env, INPUT_ENV)) refuse('ST_E_INPUT_SCOPE'); // the input is bound to s0 only
@@ -138,6 +140,24 @@ export async function main(argv, env = process.env, out = (l) => console.log(l),
     const same = (await publicIds()) === idsBefore;
     out(`S3 public identities ${same ? 'UNCHANGED PASS' : 'CHANGED FAIL'}`);
     if (!same) refuse('ST_E_S3_PUBLIC');
+    return;
+  }
+  if (cmd === 's4d') {
+    // One bounded N1 origin diagnostic (separate, human-gated step; the s4 verdict and oracle are not changed). Same body,
+    // rollback and transport; only fixed tokens are printed. Residue and the catalog are ALWAYS attempted, then the step
+    // fails on a producer failure, an invalid or unattributable diagnostic, residue or catalog drift.
+    const d = diagScript(runId, attempt);
+    let lines;
+    try { lines = await run(d.script); } catch { lines = null; }
+    const v = diagVerdict(lines);
+    out(v.line);
+    const failures = [];
+    if (!v.ok) failures.push(lines === null ? 'ST_E_S4D_PRODUCER' : 'ST_E_S4D_INVALID');
+    try { out(`S4 N1 DIAG ${residueVerdict(await run(residueSql(d.prefix)))}`); }
+    catch (e) { failures.push(e instanceof StorageError ? e.code : 'ST_E_RESIDUE_READ'); out('S4 N1 DIAG RESIDUE FAIL'); }
+    try { const c = compareInventory(expected, await capture()); out(`S4 N1 DIAG CATALOG ${c.line}`); if (!c.pass) failures.push('ST_E_S4_CATALOG'); }
+    catch (e) { failures.push(e instanceof StorageError ? e.code : 'ST_E_S4_CATALOG'); out('S4 N1 DIAG CATALOG FAIL'); }
+    if (failures.length) refuse(failures[0]);
     return;
   }
   // s4
