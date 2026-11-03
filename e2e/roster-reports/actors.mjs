@@ -57,7 +57,7 @@ export function appendTelemetry(rec, env = process.env) {
   const line = Buffer.from(`${JSON.stringify({ rpc: rec.rpc, actor: rec.actor, status: rec.status })}\n`, 'utf8');
   const p = sinkPath(env);
   let fd;
-  try { fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  try { fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600); }
   catch { fail('RR_SINK_E_OPEN'); }
   try {
     let st;

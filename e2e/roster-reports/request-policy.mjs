@@ -77,7 +77,7 @@ export async function installRequestPolicy(context, apiOrigin, opts = {}) {
   context.on('request', (req) => {
     const c = classifyRequest(req.method(), req.url(), apiOrigin);
     if (c.verdict !== 'telemetry') return;
-    let actor = 'unknown';
+    let actor;
     try { actor = (opts.actorOf ?? (() => 'unknown'))(String(JSON.parse(req.postData() ?? '{}').p_user_id ?? '')); } catch { actor = 'unknown'; }
     const t = { rpc: c.kind.slice('telemetry:'.length), actor };
     if (frozen) {
