@@ -73,7 +73,6 @@ export function r1TraceInstall(el, a) {
       }
       return false;
     };
-    var isRegion = function (n) { return !!n && n.nodeType === 1 && typeof n.id === 'string' && n.id.indexOf('DndLiveRegion') === 0; };
     var see = function (x) {
       x = String(x == null ? '' : x).trim();
       if (x === '') return;
