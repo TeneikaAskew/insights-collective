@@ -137,11 +137,28 @@ describe('roster-reports job (proposal; unrun)', () => {
   it('private raw output stays private: exactly three fixed summary files are copied; private dirs, receipts and the D1 record are removed', () => {
     const copy = byName(S, "Copy the adapter's evidence");
     expect(copy.if).toBe("always() && steps.rr_d1.outcome == 'success'");
-    expect(runOf(copy)).toContain('for f in seed.txt playwright-summary.txt witness.txt; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$RR_EVIDENCE/rr/$f"; done');
+    const c = runOf(copy);
+    expect(c).toContain('for f in seed.txt playwright-summary.txt witness.txt; do');
+    expect(c).toContain('if [ ! -f "$p" ] || [ -L "$p" ]; then echo "summary absent: $f"; continue; fi');
+    expect(c).toContain('[ "$(wc -c < "$p")" -gt 4096 ] || [ "$(wc -l < "$p")" -gt 64 ]');
+    expect(c).toMatch(/cp -- "\$p" "\$RR_EVIDENCE\/rr\/\$f"\n {0}done\n/);
+    expect(c.trimEnd().endsWith('exit "$rc"')).toBe(true);
+    // The fixed-line grammar, taken from the run block itself: fixed tokens and closed key=value pairs pass; free text never does.
+    const g = c.match(/grep -qvE '([^']+)' "\$p"/);
+    expect(g).not.toBeNull();
+    const line = new RegExp(g![1]);
+    for (const ok of ['RR_SEED_OK courses=3 modules=4 items=8 users=5 enrollments=8 progressions=12',
+      'PLAYWRIGHT exit=0 total=11 expected=11 unexpected=0 flaky=0 skipped=0', 'TEST PASS project=rr-instructor case=R1', 'WITNESS UNCHANGED lines=12']) expect(line.test(ok), ok).toBe(true);
+    for (const bad of ["TEST PASS rr-instructor shows 2 learners and the unknown dash", 'WITNESS unchanged lines=12', 'TEST FAIL project=rr-admin msg=Error: boom',
+      'PLAYWRIGHT exit=0 note=a b', 'X k=v\u0000', 'lower start=1', 'TEST PASS case=' + 'a'.repeat(65), 'TEST PASS k=v ', '']) expect(line.test(bad), JSON.stringify(bad)).toBe(false);
     const rm = runOf(byName(S, 'Remove private outputs'));
     for (const p of ['playwright-report-roster-reports', 'test-results', '"$RUNNER_TEMP/rr-out"', '"$RUNNER_TEMP/rr-priv"', '"$RUNNER_TEMP/stack-ownership.json"',
       '"$RUNNER_TEMP/rr-shell-receipt.txt"', '"$RUNNER_TEMP/rr-shell-receipt.txt.bound"', '"$RUNNER_TEMP/rr-launch-recheck.txt"']) expect(rm, p).toContain(p);
     expect(rm).toMatch(/if \[ -e "\$p" \] \|\| \[ -L "\$p" \]; then echo "private output still present: \$p"; rc=1; fi/);
+    // The adapter's random private parent has an outer always() removal of its exact mktemp name shape, verified absent.
+    expect(readFileSync(path.join(ROOT, 'scripts/roster-reports-fixture/run.sh'), 'utf8')).toContain('PARENT="$(mktemp -d "$TMPROOT/rr-run.XXXXXXXXXX")"');
+    expect(rm).toContain('for p in "$RUNNER_TEMP"/rr-run.??????????; do\n  [ -e "$p" ] || [ -L "$p" ] || continue\n  rm -rf -- "$p" || rc=1\n  if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: adapter private parent"; rc=1; fi\ndone');
+    expect(rm.indexOf('rr-run.??????????')).toBeLessThan(rm.indexOf('private-removed.txt'));
     const stage = runOf(S[at(/stack-checks\.sh stage-evidence \$REQ rr-upload/)]);
     for (const f of ['checks/launch-binding.txt', 'checks/d1-write.txt', 'checks/actors.txt', 'checks/roster-reports.txt', 'rr/seed.txt', 'rr/playwright-summary.txt',
       'rr/witness.txt', 'checks/private-removed.txt', 'checks/net-remove.txt', 'checks/leftovers.txt']) expect(stage.split(`"$E/${f}"`).length - 1, f).toBe(1);

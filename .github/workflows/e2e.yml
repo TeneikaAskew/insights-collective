@@ -1577,14 +1577,27 @@ jobs:
           [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
           GB_LANE=roster-reports RR_SESSION_DIR="$RUNNER_TEMP/rr-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/rr-launch-recheck.txt" || { cat "$RUNNER_TEMP/rr-launch-recheck.txt"; exit 1; }
           scripts/roster-reports-fixture/run.sh "$RUNNER_TEMP/rr-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/roster-reports.txt"
-      - name: Copy the adapter's evidence (exactly its three files)
+      # Fixed-line gate: a summary file is staged only if it is a regular, non-symlink file of at most 64 lines and 4096 bytes
+      # whose every line is an upper-case token followed by upper-case tokens or key=value pairs with a closed character set.
+      # Free text (test titles, project strings, messages) never matches, so it is refused and the file is not staged.
+      - name: Copy the adapter's evidence (exactly its three files; fixed-line grammar only)
         if: always() && steps.rr_d1.outcome == 'success'
         run: |
           O="$RUNNER_TEMP/rr-out"
-          [ -d "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
+          [ -d "$O" ] && [ ! -L "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
           mkdir -p "$RR_EVIDENCE/rr"
-          for f in seed.txt playwright-summary.txt witness.txt; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$RR_EVIDENCE/rr/$f"; done
+          rc=0
+          for f in seed.txt playwright-summary.txt witness.txt; do
+            p="$O/$f"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "summary absent: $f"; continue; fi
+            if [ "$(wc -c < "$p")" -gt 4096 ] || [ "$(wc -l < "$p")" -gt 64 ] \
+              || LC_ALL=C grep -qvE '^[A-Z][A-Z0-9_]*( [A-Z][A-Z0-9_]*| [a-z][a-z0-9_]*=[A-Za-z0-9_.,-]{1,64})*$' "$p"; then
+              echo "summary refused (not fixed-line grammar): $f"; rc=1; continue
+            fi
+            cp -- "$p" "$RR_EVIDENCE/rr/$f"
+          done
           ls -A "$RR_EVIDENCE/rr"
+          exit "$rc"
 
       - name: No Edge runtime container exists (read-only; after the run)
         if: always() && steps.rr_prep.outcome == 'success'
@@ -1613,7 +1626,14 @@ jobs:
             rm -rf -- "$p" || rc=1
             if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
           done
-          if [ "$rc" -eq 0 ]; then echo "private Playwright output, adapter dir, private psql dir, shell receipts and D1 record absent" | tee "$RR_EVIDENCE/checks/private-removed.txt"; fi
+          # The adapter's random private parent (run.sh: mktemp -d "$RUNNER_TEMP/rr-run.XXXXXXXXXX") is removed here too, in case its
+          # own EXIT trap never ran (killed, timed out). Only that exact name shape is matched.
+          for p in "$RUNNER_TEMP"/rr-run.??????????; do
+            [ -e "$p" ] || [ -L "$p" ] || continue
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: adapter private parent"; rc=1; fi
+          done
+          if [ "$rc" -eq 0 ]; then echo "private Playwright output, adapter dir and private parent, private psql dir, shell receipts and D1 record absent" | tee "$RR_EVIDENCE/checks/private-removed.txt"; fi
           exit "$rc"
       - name: Stop stack (no backup)
         if: always() && steps.rr_prep.outcome == 'success'
