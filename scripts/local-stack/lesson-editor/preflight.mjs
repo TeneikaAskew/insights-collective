@@ -16,11 +16,9 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 import { checkDsn, childEnv, writePassfile } from './pgconn.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
 // Private passfile (pgconn.mjs rule): the DSN in psql's argv is password-free; the secret path is only in the child env.
 let PF_DIR = '';
 const dropPassfile = () => {
