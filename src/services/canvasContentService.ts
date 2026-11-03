@@ -14,6 +14,55 @@ import type {
   Module
 } from '@/types/canvas';
 
+/** Columns the builder needs to confirm a lesson write. */
+const LESSON_DRAFT_COLUMNS = 'id, title, content, type, published, updated_at';
+
+export interface LessonDraftRow {
+  id: string;
+  title: string;
+  content: string;
+  type: ContentItemType;
+  published: boolean | null;
+  /** Nullable in the schema (DEFAULT now(), no NOT NULL): a NULL here is a known value, not "unavailable". */
+  updated_at: string | null;
+}
+
+/** Raised when a delete returned success but did not remove the requested row (RLS-hidden or already gone). */
+export class DeleteNotAppliedError extends Error {
+  readonly code = 'DELETE_NOT_APPLIED';
+  constructor(readonly kind: 'lesson' | 'section', readonly id: string) {
+    super(
+      kind === 'lesson'
+        ? 'The lesson was not deleted. It may already be gone, or you may not have permission to delete it.'
+        : 'The section was not deleted. It may already be gone, or you may not have permission to delete it.',
+    );
+    this.name = 'DeleteNotAppliedError';
+  }
+}
+
+function assertDeleted(data: unknown, id: string, kind: 'lesson' | 'section'): void {
+  const rows = Array.isArray(data) ? (data as Array<{ id?: unknown }>) : [];
+  if (rows.length !== 1 || rows[0]?.id !== id) throw new DeleteNotAppliedError(kind, id);
+}
+
+/** Raised when a conditional lesson write finds the row changed since it was read. */
+export class LessonSaveConflictError extends Error {
+  readonly current: LessonDraftRow;
+  constructor(current: LessonDraftRow) {
+    super('This lesson was changed somewhere else after you opened it.');
+    this.name = 'LessonSaveConflictError';
+    this.current = current;
+  }
+}
+
+/** Raised when the server definitively did not apply a lesson write (zero rows, or refused locally). */
+export class LessonSaveRejectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LessonSaveRejectedError';
+  }
+}
+
 export class CanvasContentService {
   // Content Items
   static async getContentItems(moduleId: string): Promise<ContentItem[]> {
@@ -222,13 +271,89 @@ export class CanvasContentService {
     return data as unknown as ContentItem;
   }
 
+  /**
+   * AUTHORING ONLY (course builder). Conditional write of a lesson row.
+   *
+   * - Only the columns in `patch` plus `updated_at` are written; `type` and `settings` never are, so
+   *   quiz/assignment child rows cannot be detached by the builder.
+   * - Conditional on `expectedUpdatedAt`: a string matches that exact version; `null` matches a row whose
+   *   version IS NULL (null-safe). `undefined` (version unavailable) is refused: no unconditional writes.
+   * - Returns the row the server stored. A zero-row write is re-read and reported precisely: deleted or
+   *   no access, changed elsewhere (LessonSaveConflictError), or not applied.
+   */
+  private static async conditionalLessonWrite(
+    id: string,
+    patch: { title?: string; content?: string; published?: boolean },
+    expectedUpdatedAt: string | null | undefined,
+  ): Promise<LessonDraftRow> {
+    if (expectedUpdatedAt === undefined) {
+      throw new LessonSaveRejectedError(
+        'This lesson was not saved: its version is unknown, and an unconditional write could overwrite someone else\u2019s change.',
+      );
+    }
+    let query = supabase
+      .from('content_items')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    query = expectedUpdatedAt === null ? query.is('updated_at', null) : query.eq('updated_at', expectedUpdatedAt);
+
+    const { data, error } = await query.select(LESSON_DRAFT_COLUMNS).maybeSingle();
+    if (error) throw error;
+    if (data) return data as unknown as LessonDraftRow;
+
+    const current = await this.getLessonDraftRow(id);
+    if (!current) {
+      throw new LessonSaveRejectedError(
+        'This lesson was not saved: it no longer exists or you no longer have access to it.',
+      );
+    }
+    if (current.updated_at !== expectedUpdatedAt) throw new LessonSaveConflictError(current);
+    throw new LessonSaveRejectedError(
+      'This lesson was not saved: the server changed no rows. You may not have permission to edit it.',
+    );
+  }
+
+  /** AUTHORING ONLY: save a lesson's title and body (see conditionalLessonWrite). */
+  static async saveLessonDraft(
+    id: string,
+    fields: { title: string; content: string },
+    expectedUpdatedAt: string | null | undefined,
+  ): Promise<LessonDraftRow> {
+    return this.conditionalLessonWrite(id, { title: fields.title, content: fields.content }, expectedUpdatedAt);
+  }
+
+  /** AUTHORING ONLY: publish or unpublish one lesson, conditional on its confirmed version. */
+  static async setLessonPublished(
+    id: string,
+    published: boolean,
+    expectedUpdatedAt: string | null | undefined,
+  ): Promise<LessonDraftRow> {
+    return this.conditionalLessonWrite(id, { published }, expectedUpdatedAt);
+  }
+
+  /** AUTHORING ONLY: authoritative read of a lesson row; null when absent or not readable. */
+  static async getLessonDraftRow(id: string): Promise<LessonDraftRow | null> {
+    const { data, error } = await supabase
+      .from('content_items')
+      .select(LESSON_DRAFT_COLUMNS)
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as unknown as LessonDraftRow) ?? null;
+  }
+
+  // A delete that matches no row is not an error to PostgREST: a row hidden by RLS, or already gone,
+  // returns 200 with nothing deleted. Ask for the deleted ids back and refuse unless exactly this row
+  // went, so the builder never drops an item from its list that is still stored.
   static async deleteContentItem(id: string): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('content_items')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) throw error;
+    assertDeleted(data, id, 'lesson');
   }
 
   static async reorderContentItems(
@@ -313,9 +438,11 @@ export class CanvasContentService {
     return data as unknown as Module;
   }
 
+  // Same zero-row rule as deleteContentItem.
   static async deleteModule(id: string): Promise<void> {
-    const { error } = await supabase.from('modules').delete().eq('id', id);
+    const { data, error } = await supabase.from('modules').delete().eq('id', id).select('id');
     if (error) throw error;
+    assertDeleted(data, id, 'section');
   }
 
   // Assignments

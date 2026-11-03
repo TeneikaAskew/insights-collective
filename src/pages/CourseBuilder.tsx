@@ -1,11 +1,13 @@
 // ABOUTME: Instructor course builder — Teachable-mirrored shell with Setup guide, Curriculum, and Lesson views.
 // ABOUTME: Handles the new-course 5-step wizard and orchestrates all lesson/section CRUD.
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/hooks/use-toast';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
 import type { ContentItem, ContentItemType, Module } from '@/types/canvas';
@@ -28,7 +30,17 @@ import {
   type NewCourseWizardResult,
 } from '@/components/course/builder/teachable/NewCourseWizard';
 import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
-import type { LessonDraft } from '@/components/course/builder/LessonEditorPane';
+import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
+import { applyIdOrder, createReorderCoordinator } from '@/components/course/builder/reorderReconcile';
+import { planFor, runCreationPlan, type CreationPlan } from '@/components/course/builder/courseCreation';
+import {
+  LessonSaveQueue,
+  getSharedLessonSaveQueue,
+  resolveSessionStorage,
+  suspendForeignLessonSaveQueues,
+  type LessonSaveSnapshot,
+  type PersistedLesson,
+} from '@/components/course/builder/lessonSaveQueue';
 
 const logger = createLogger('CourseBuilder');
 
@@ -87,16 +99,138 @@ const CourseBuilder = () => {
     (typeof window !== 'undefined' && window.location.pathname.includes('/courses/new/builder'));
   const courseId = isNew ? undefined : rawCourseId;
   const { canEdit, loading: permissionsLoading } = useCoursePermissions(courseId);
+  const { user } = useAuth();
 
   const [course, setCourse] = useState<BuilderCourse | null>(null);
   const [modules, setModules] = useState<BuilderModule[]>([]);
+  // Latest committed modules, read by the reorder coordinator for the idle (confirmed) order.
+  const modulesRef = useRef(modules);
+  modulesRef.current = modules;
+  const reorders = useRef(createReorderCoordinator()).current;
+  // The in-flight or failed wizard creation, kept so a retry resumes it (T-56).
+  const creationPlanRef = useRef<CreationPlan | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
 
   const activeView: BuilderNavKey = (searchParams.get('view') as BuilderNavKey) || 'setup';
   const lessonFromUrl = searchParams.get('lesson');
-  const effectiveLessonId = selectedLessonId || lessonFromUrl;
+  // The URL is the source of truth for the open lesson, so a deep link or a
+  // reload of `?view=lesson&lesson=B` opens B, not the first lesson.
+  const effectiveLessonId = lessonFromUrl || selectedLessonId;
+  const lessonFromUrlRef = useRef(lessonFromUrl);
+  lessonFromUrlRef.current = lessonFromUrl;
+
+  // --- Lesson drafts ---
+  // Drafts live here, not in the editor, so switching lesson, switching view or
+  // leaving the builder never silently drops an edit made inside the debounce.
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
+  const mountedRef = useRef(true);
+  const openLessonRef = useRef<string | null>(null);
+  openLessonRef.current = activeView === 'lesson' ? effectiveLessonId : null;
+
+  // One queue per (signed-in user, course) for the lifetime of the tab: a remounted builder reuses the
+  // queue that still owns in-flight writes, and another user's drafts are never visible here.
+  const userId = user?.id ?? null;
+  const queueScope = userId && courseId ? `${userId}:${courseId}` : null;
+  const saveQueue = useMemo(() => {
+    const create = () =>
+      new LessonSaveQueue({
+        persist: (id, fields, expected) => CanvasContentService.saveLessonDraft(id, fields, expected),
+        read: (id) => CanvasContentService.getLessonDraftRow(id),
+        storage: queueScope ? resolveSessionStorage() : null,
+        storageScope: queueScope ?? '',
+        ownerId: userId,
+        // The supabase client is global: whoever is signed in NOW is who a request would act as.
+        currentUserId: async () => {
+          const { data } = await supabase.auth.getSession();
+          return data.session?.user?.id ?? null;
+        },
+      });
+    return queueScope ? getSharedLessonSaveQueue(queueScope, create) : create();
+  }, [queueScope]);
+
+  // Bind callbacks to this mounted builder; on unmount keep only the toast, so a failure that lands after
+  // the author left is still reported (and says whether the draft can actually be recovered).
+  useEffect(() => {
+    const onFailed = (id: string, snap: LessonSaveSnapshot) => {
+      // The open editor shows the failure inline; tell the author about lessons they have already left.
+      if (mountedRef.current && openLessonRef.current === id) return;
+      const keep = snap.recoverable
+        ? mountedRef.current
+          ? 'Open the lesson to retry; your changes are kept.'
+          : 'Your draft is kept in this browser tab. Reopen the course builder to retry.'
+        : 'Your changes could not be stored in this browser tab, so they will be lost if you close or leave the page. Open the lesson and retry now.';
+      toastRef.current({
+        title: `Lesson \u201c${snap.draft.title || 'Untitled lesson'}\u201d was not saved`,
+        description: `${snap.error ?? ''} ${keep}`,
+        variant: 'destructive',
+      });
+    };
+    saveQueue.setHandlers({
+      onPersisted: (row: PersistedLesson) => {
+        // Reflect only what the server confirmed, only on the lesson it was for.
+        setModules((prev) =>
+          prev.map((m) => ({
+            ...m,
+            items: m.items.map((i) =>
+              i.id === row.id
+                ? {
+                    ...i,
+                    title: row.title,
+                    content: row.content,
+                    ...(row.updated_at !== undefined ? { updated_at: row.updated_at } : {}),
+                    ...(typeof row.published === 'boolean' ? { published: row.published } : {}),
+                  }
+                : i,
+            ),
+          })),
+        );
+      },
+      onFailed,
+    });
+    return () => saveQueue.setHandlers({ onFailed });
+  }, [saveQueue]);
+
+  // Same-tab user switch: suspend every other user's queue (each queue also checks the session user before
+  // every request), and resume this user's own queue if it was suspended. Nothing is deleted: other users'
+  // drafts stay in this tab for their owners and are never loaded here.
+  useEffect(() => {
+    suspendForeignLessonSaveQueues(userId);
+    if (userId) saveQueue.resume();
+  }, [userId, saveQueue]);
+
+  // Re-render the builder only when the set of failed lessons changes, not on
+  // every keystroke (the editor subscribes to its own lesson separately).
+  const failedKey = useSyncExternalStore(
+    saveQueue.subscribe,
+    () => saveQueue.failedIds().join('\n'),
+    () => saveQueue.failedIds().join('\n'),
+  );
+  const failedLessonIds = useMemo(() => (failedKey ? failedKey.split('\n') : []), [failedKey]);
+
+  // Flush on teardown; warn before reload/close while anything is unconfirmed.
+  useEffect(() => {
+    mountedRef.current = true;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!saveQueue.hasUnsaved()) return;
+      void saveQueue.flushAll();
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    const onOnline = () => {
+      void saveQueue.retryFailed();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      window.removeEventListener('online', onOnline);
+      mountedRef.current = false;
+      void saveQueue.flushAll();
+    };
+  }, [saveQueue]);
 
   // --- Data load ---
   useEffect(() => {
@@ -124,8 +258,12 @@ const CourseBuilder = () => {
         if (cancelled) return;
         setCourse(courseData as BuilderCourse);
         setModules(withItems);
-        const firstItem = withItems.flatMap((m) => m.items)[0];
-        if (firstItem) setSelectedLessonId(firstItem.id);
+        const allItems = withItems.flatMap((m) => m.items);
+        // Respect a requested lesson; only default to the first one when the
+        // URL does not name a lesson.
+        const requested = lessonFromUrlRef.current;
+        const requestedExists = !!requested && allItems.some((it) => it.id === requested);
+        setSelectedLessonId(requestedExists ? requested : (allItems[0]?.id ?? null));
       } catch (err: any) {
         logger.error('Failed to load builder', err);
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -138,6 +276,22 @@ const CourseBuilder = () => {
       cancelled = true;
     };
   }, [courseId, isNew, toast]);
+
+  // Register lessons with the save queue (which may restore mirrored drafts) only once this user is
+  // confirmed to be allowed to edit the course.
+  useEffect(() => {
+    if (permissionsLoading || !canEdit) return;
+    modules.forEach((m) =>
+      m.items.forEach((it) =>
+        saveQueue.track({
+          id: it.id,
+          title: it.title ?? '',
+          content: it.content ?? '',
+          updated_at: it.updated_at,
+        }),
+      ),
+    );
+  }, [modules, canEdit, permissionsLoading, saveQueue]);
 
   // --- Wizard finish ---
   const handleWizardFinish = useCallback(
@@ -184,78 +338,21 @@ const CourseBuilder = () => {
         const { data: userData } = await supabase.auth.getUser();
         const instructorId = userData.user?.id ?? null;
 
-        // 1) Upload thumbnail first (if provided)
-        let thumbnailUrl: string | null = null;
-        if (r.thumbnailFile && instructorId) {
-          setStep('thumbnail', 'running');
-          const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
-          const path = `course-thumbnails/${instructorId}-${Date.now()}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from('course-materials')
-            .upload(path, r.thumbnailFile, {
-              upsert: true,
-              contentType: r.thumbnailFile.type,
-            });
-          if (uploadError) {
-            logger.error('Thumbnail upload failed', uploadError);
-            // Do not block course creation on thumbnail failure — surface it
-            // as a non-fatal step error so the user sees what happened.
-            setStep(
-              'thumbnail',
-              'error',
-              `${uploadError.message || 'Upload failed'} — continuing without a thumbnail. You can add one later in Setup.`,
-            );
-          } else {
-            const { data: pub } = supabase.storage
-              .from('course-materials')
-              .getPublicUrl(path);
-            thumbnailUrl = pub.publicUrl;
-            setStep('thumbnail', 'done');
-          }
-        }
-
-        // 2) Create the course
-        setStep('course', 'running');
-        const { data: created, error } = await supabase
-          .from('courses')
-          .insert({
-            title: r.title,
-            description: r.description || '',
-            category: 'General',
-            level: 'beginner',
-            published: false,
-            status: 'draft',
-            instructor_id: instructorId,
-            ...(thumbnailUrl ? { image_url: thumbnailUrl, thumbnail: thumbnailUrl } : {}),
-          })
-          .select('id')
-          .single();
-        if (error) {
-          setStep('course', 'error', error.message);
-          throw error;
-        }
-        setStep('course', 'done');
-
-        // 3) Seed curriculum from the wizard outline
-        if (outline.length > 0) {
-          setStep('curriculum', 'running', '0 of ' + totalLessons + ' lessons');
-          let done = 0;
-          for (const section of outline) {
-            const mod = await CanvasContentService.createModule(created.id, section.title);
-            for (const lesson of section.lessons) {
-              await CanvasContentService.createContentItem({
-                course_id: created.id,
-                module_id: mod.id,
-                type: lesson.type,
-                title: lesson.title,
-                content: '',
-              });
-              done += 1;
-              setStep('curriculum', 'running', `${done} of ${totalLessons} lessons`);
-            }
-          }
-          setStep('curriculum', 'done', `${totalLessons} lesson${totalLessons === 1 ? '' : 's'} created`);
-        }
+        // Same input as a failed attempt resumes that attempt's plan (same ids), so a retry finishes the
+        // same course instead of creating another one.
+        // The plan is bound to the signed-in user; another (or no) account cannot resume it.
+        const plan = planFor(creationPlanRef.current, r, instructorId);
+        creationPlanRef.current = plan;
+        const courseId = await runCreationPlan({
+          plan,
+          result: r,
+          instructorId,
+          client: supabase as any,
+          report: { step: setStep },
+          onThumbnailError: (e) => logger.error('Thumbnail upload failed', e),
+        });
+        creationPlanRef.current = null;
+        const created = { id: courseId };
 
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
         navigate(`/courses/${created.id}/builder`, { replace: true });
@@ -409,32 +506,49 @@ const CourseBuilder = () => {
     [toast],
   );
 
+  // The section leaves the list only after the service confirmed that exactly this row was deleted;
+  // a zero-row delete (RLS-hidden or already gone) throws and the section stays.
   const deleteSection = useCallback(
     async (id: string) => {
       try {
         await CanvasContentService.deleteModule(id);
         setModules((prev) => prev.filter((m) => m.id !== id));
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Section not deleted', description: err.message, variant: 'destructive' });
       }
     },
+    [toast],
+  );
+
+  // Optimistic reorder, one request in flight per scope (see createReorderCoordinator): if the last
+  // request fails, the saved order is reloaded, or the last accepted order is shown if that read fails.
+  const reorderFailedToast = useCallback(
+    (what: 'Sections' | 'Lessons', err: any, restored: 'server' | 'last-confirmed') =>
+      toast({
+        title: `${what} not reordered`,
+        description: `${err?.message ?? 'The new order was not saved.'} ${
+          restored === 'server'
+            ? 'The saved order was reloaded.'
+            : 'The last saved order was restored; reload to check it.'
+        }`,
+        variant: 'destructive',
+      }),
     [toast],
   );
 
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      setModules((prev) => {
-        const byId = new Map(prev.map((m) => [m.id, m] as const));
-        return ordered.map((id) => byId.get(id) as BuilderModule);
+      // Scope per course: a reorder for another course never shares this queue or its send.
+      await reorders.request(`sections:${courseId}`, ordered, {
+        current: () => modulesRef.current.map((m) => m.id),
+        apply: (order) => setModules((prev) => applyIdOrder(prev, order)),
+        send: (order) => CanvasContentService.reorderModules(courseId, order),
+        reload: async () => (await CanvasContentService.getModules(courseId)).map((m) => m.id),
+        onFailed: (err, restored) => reorderFailedToast('Sections', err, restored),
       });
-      try {
-        await CanvasContentService.reorderModules(courseId, ordered);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
     },
-    [courseId, toast],
+    [courseId, reorders, reorderFailedToast],
   );
 
   const addLesson = useCallback(
@@ -453,6 +567,7 @@ const CourseBuilder = () => {
           title,
           content,
         });
+        if (!created) throw new Error('The new lesson could not be read back after creating it.');
         setModules((prev) =>
           prev.map((m) => (m.id === moduleId ? { ...m, items: [...m.items, created] } : m)),
         );
@@ -464,100 +579,78 @@ const CourseBuilder = () => {
     [courseId, toast],
   );
 
+  // Rename is a title edit saved on the lesson's own ordered queue: it can't race the editor's save,
+  // and it is refused (no write) while that lesson has a failed, conflicted or uncertain save.
   const renameLesson = useCallback(
     async (id: string, title: string) => {
-      try {
-        await CanvasContentService.updateContentItem(id, { title });
-        setModules((prev) =>
-          prev.map((m) => ({
-            ...m,
-            items: m.items.map((i) => (i.id === id ? { ...i, title } : i)),
-          })),
-        );
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
+      const r = await saveQueue.rename(id, title);
+      if (!r.ok) toast({ title: 'Lesson not renamed', description: r.reason, variant: 'destructive' });
     },
-    [toast],
+    [toast, saveQueue],
   );
 
   const deleteLesson = useCallback(
     async (id: string) => {
       try {
+        // Throws on a zero-row delete, so a lesson that is still stored keeps its place and its draft.
         await CanvasContentService.deleteContentItem(id);
+        saveQueue.forget(id);
         setModules((prev) =>
           prev.map((m) => ({ ...m, items: m.items.filter((i) => i.id !== id) })),
         );
         if (selectedLessonId === id) setSelectedLessonId(null);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Lesson not deleted', description: err.message, variant: 'destructive' });
       }
     },
-    [selectedLessonId, toast],
+    [selectedLessonId, toast, saveQueue],
   );
 
+  // Publish/unpublish runs on the same per-lesson chain after any pending save, conditional on the
+  // confirmed version, and is refused (no write) while the lesson has an unresolved save.
   const togglePublishLesson = useCallback(
     async (id: string, published: boolean) => {
-      try {
-        await CanvasContentService.updateContentItem(id, { published } as any);
-        setModules((prev) =>
-          prev.map((m) => ({
-            ...m,
-            items: m.items.map((i) => (i.id === id ? { ...i, published } : i)),
-          })),
-        );
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
-    },
-    [toast],
-  );
-
-  const reorderLessons = useCallback(
-    async (moduleId: string, ordered: string[]) => {
-      setModules((prev) =>
-        prev.map((m) => {
-          if (m.id !== moduleId) return m;
-          const byId = new Map(m.items.map((i) => [i.id, i] as const));
-          return { ...m, items: ordered.map((id) => byId.get(id) as ContentItem) };
-        }),
+      const r = await saveQueue.sideWrite(id, (expected) =>
+        CanvasContentService.setLessonPublished(id, published, expected),
       );
-      try {
-        await CanvasContentService.reorderContentItems(moduleId, ordered);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
-    },
-    [toast],
-  );
-
-  const saveLesson = useCallback(
-    async (id: string, draft: LessonDraft) => {
-      try {
-        await CanvasContentService.updateContentItem(id, {
-          title: draft.title,
-          type: draft.type,
-          content: draft.content,
-        } as any);
-        setModules((prev) =>
-          prev.map((m) => ({
-            ...m,
-            items: m.items.map((i) =>
-              i.id === id
-                ? { ...i, title: draft.title, type: draft.type, content: draft.content }
-                : i,
-            ),
-          })),
-        );
-      } catch (err: any) {
+      if (!r.ok) {
         toast({
-          title: 'Error saving lesson',
-          description: err.message,
+          title: published ? 'Lesson not published' : 'Lesson not unpublished',
+          description: r.reason,
           variant: 'destructive',
         });
+        return;
       }
+      const stored = !!r.row?.published;
+      setModules((prev) =>
+        prev.map((m) => ({
+          ...m,
+          items: m.items.map((i) =>
+            i.id === id
+              ? { ...i, published: stored, ...(r.row?.updated_at !== undefined ? { updated_at: r.row.updated_at } : {}) }
+              : i,
+          ),
+        })),
+      );
     },
-    [toast],
+    [toast, saveQueue],
+  );
+
+  // Same rule as reorderSections, scoped to one section's lessons.
+  const reorderLessons = useCallback(
+    async (moduleId: string, ordered: string[]) => {
+      await reorders.request(`lessons:${moduleId}`, ordered, {
+        current: () => (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id),
+        apply: (order) =>
+          setModules((prev) =>
+            prev.map((m) => (m.id === moduleId ? { ...m, items: applyIdOrder(m.items, order) } : m)),
+          ),
+        send: (order) => CanvasContentService.reorderContentItems(moduleId, order),
+        reload: async () => (await CanvasContentService.getContentItems(moduleId)).map((i) => i.id),
+        onFailed: (err, restored) => reorderFailedToast('Lessons', err, restored),
+      });
+    },
+    [reorders, reorderFailedToast],
   );
 
   const handleAddContentTile = useCallback(
@@ -588,6 +681,44 @@ const CourseBuilder = () => {
     }
     return null;
   }, [modules, effectiveLessonId]);
+
+  const requestedLessonMissing =
+    activeView === 'lesson' && !!lessonFromUrl && !loading && !currentLesson;
+
+  // --- Leaving the builder with unconfirmed lesson drafts ---
+  // The app uses <BrowserRouter>, so router-level blocking is unavailable.
+  // Intercept in-app links inside the builder (Preview, breadcrumbs, back
+  // links): save first, and only navigate once every draft is confirmed;
+  // otherwise ask before leaving.
+  const [leaveTarget, setLeaveTarget] = useState<string | null>(null);
+  const leavingRef = useRef(false);
+  const handleLinkCapture = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const anchor = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!anchor || (anchor.target && anchor.target !== '_self') || anchor.hasAttribute('download')) return;
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname) return;
+      if (!saveQueue.hasUnsaved()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (leavingRef.current) return;
+      leavingRef.current = true;
+      const to = `${url.pathname}${url.search}${url.hash}`;
+      void saveQueue.flushAll().then((ok) => {
+        leavingRef.current = false;
+        if (!mountedRef.current) return;
+        if (ok) navigate(to);
+        else setLeaveTarget(to);
+      });
+    },
+    [saveQueue, navigate],
+  );
+
+  const failedLessonTitles = failedLessonIds
+    .filter((id) => id !== (activeView === 'lesson' ? effectiveLessonId : null))
+    .map((id) => ({ id, title: saveQueue.get(id)?.draft.title || 'Untitled lesson' }));
 
   // --- Render ---
   if (showWizard) {
@@ -631,6 +762,7 @@ const CourseBuilder = () => {
   }
 
   return (
+    <div onClickCapture={handleLinkCapture} className="contents">
     <TeachableShell
       courseTitle={course.title}
       published={course.published}
@@ -639,6 +771,29 @@ const CourseBuilder = () => {
       onTogglePublish={handleTogglePublish}
       previewHref={`/courses/${course.id}/learn`}
     >
+      {failedLessonTitles.length > 0 && (
+        <div
+          role="alert"
+          data-testid="builder-unsaved-banner"
+          className="mx-4 sm:mx-6 lg:mx-8 mt-4 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+        >
+          <strong>
+            {failedLessonTitles.length === 1
+              ? '1 lesson has changes that were not saved:'
+              : `${failedLessonTitles.length} lessons have changes that were not saved:`}
+          </strong>{' '}
+          {failedLessonTitles.map((l, idx) => (
+            <span key={l.id}>
+              {idx > 0 && ', '}
+              <button type="button" className="underline" onClick={() => selectLesson(l.id)}>
+                {l.title}
+              </button>
+            </span>
+          ))}
+          . Your changes are kept; open a lesson to retry.
+        </div>
+      )}
+
       {activeView === 'setup' && (
         <SetupGuideView
           course={course}
@@ -677,7 +832,8 @@ const CourseBuilder = () => {
           modules={modules}
           currentItem={currentLesson}
           onSelectLesson={selectLesson}
-          onSaveLesson={saveLesson}
+          saveQueue={saveQueue}
+          requestedLessonMissing={requestedLessonMissing}
           onDeleteLesson={deleteLesson}
           onTogglePublishLesson={togglePublishLesson}
           onAddContent={handleAddContentTile}
@@ -727,6 +883,26 @@ const CourseBuilder = () => {
         )}
       <InstructorBuilderTour active={!!course?.id} />
     </TeachableShell>
+    <ConfirmDialog
+      open={leaveTarget !== null}
+      onOpenChange={(open) => {
+        if (!open) setLeaveTarget(null);
+      }}
+      title="Lesson changes are not saved"
+      description={
+        failedLessonIds.every((id) => saveQueue.get(id)?.recoverable)
+          ? 'Some lesson changes could not be saved. If you leave now they stay only in this browser tab and are offered again when you reopen the builder. Stay to retry, or leave anyway.'
+          : 'Some lesson changes could not be saved, and this browser tab cannot store them. If you leave now they will be lost. Stay to retry, or leave anyway.'
+      }
+      cancelLabel="Stay and retry"
+      confirmLabel="Leave without saving"
+      onConfirm={() => {
+        const to = leaveTarget;
+        setLeaveTarget(null);
+        if (to) navigate(to);
+      }}
+    />
+    </div>
   );
 };
 
