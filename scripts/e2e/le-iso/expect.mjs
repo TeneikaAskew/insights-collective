@@ -6,18 +6,19 @@
 
 /** Every line the host side may print. */
 export const HOST_CODES = Object.freeze([
-  'ISO_INPUT_OK', 'ISO_E_INPUT',
+  'ISO_INPUT_OK', 'ISO_E_INPUT', 'ISO_E_INPUT_ROLLBACK',
   'ISO_IMAGE_OK', 'ISO_E_IMAGE_BUILD', 'ISO_E_IMAGE_CONFIG', 'ISO_E_IMAGE_MANIFEST', 'ISO_E_IMAGE_CLOSURE',
   'ISO_ENDPOINT_OK', 'ISO_E_ENDPOINT_START', 'ISO_E_ENDPOINT_IDENTITY',
-  'ISO_CREATE_OK', 'ISO_E_CREATE', 'ISO_E_CID',
+  'ISO_CREATE_OK', 'ISO_E_CREATE', 'ISO_E_CID', 'ISO_E_CID_UNKNOWN',
   'ISO_CONFIG_OK', 'ISO_E_CONFIG',
   'ISO_RUN_DONE', 'ISO_E_START',
+  'ISO_STOP_OK', 'ISO_E_STOP',
   'ISO_EXIT_OK', 'ISO_E_EXIT_STATE', 'ISO_E_WAIT',
   'ISO_RM_OK', 'ISO_E_RM',
   'ISO_ABSENT', 'ISO_E_ABSENCE_UNDECIDED', 'ISO_E_STILL_PRESENT',
-  'ISO_ENDPOINT_STOPPED', 'ISO_E_ENDPOINT_IDENTITY_CHANGED', 'ISO_E_ENDPOINT_TERMINATION', 'ISO_E_ENDPOINT_CONNS',
+  'ISO_ENDPOINT_STOPPED', 'ISO_E_ENDPOINT_IDENTITY_CHANGED', 'ISO_E_ENDPOINT_TERMINATION', 'ISO_E_ENDPOINT_CONNS', 'ISO_ENDPOINT_KILLED',
   'ISO_IMAGE_REMOVED', 'ISO_E_IMAGE_REMOVE', 'ISO_E_IMAGE_ABSENCE',
-  'ISO_DIRS_REMOVED', 'ISO_E_DIRS',
+  'ISO_DIRS_REMOVED', 'ISO_E_DIRS', 'ISO_PRESERVED_IMAGE', 'ISO_PRESERVED_DIRS',
   'ISO_INNER_PASS', 'ISO_INNER_FAIL', 'ISO_E_INNER_OUTPUT',
 ]);
 
@@ -30,7 +31,7 @@ export const INNER_TESTS = Object.freeze({
   V4: { expected: 'V4_UNREACHABLE', other: ['V4_E_REACHABLE', 'V4_E_OTHER'] },
   V6: { expected: 'V6_UNREACHABLE', other: ['V6_E_REACHABLE', 'V6_E_OTHER'] },
   V6LO: { expected: 'V6LO_REFUSED', other: ['V6LO_E_REACHABLE', 'V6LO_E_OTHER'] },
-  DNS: { expected: 'DNS_NONE', other: ['DNS_E_RESOLVED'] },
+  DNS: { expected: 'DNS_NONE', other: ['DNS_E_RESOLVED', 'DNS_E_UNDECIDED'] },
   DOCKSOCK: { expected: 'DOCKSOCK_ABSENT', other: ['DOCKSOCK_E_PRESENT', 'DOCKSOCK_E_OTHER'] },
   RUN: { expected: 'RUN_EMPTY_OR_ABSENT', other: ['RUN_E_CONTENT', 'RUN_E_OTHER'] },
   ROOTFS: { expected: 'ROOTFS_READONLY', other: ['ROOTFS_E_WRITABLE', 'ROOTFS_E_OTHER'] },
@@ -43,6 +44,9 @@ export const INNER_TESTS = Object.freeze({
   SANDBOX: { expected: 'SANDBOX_ON_NONCE_MATCH', other: ['SANDBOX_E_LAUNCH', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT'] },
 });
 export const INNER_ORDER = Object.freeze(Object.keys(INNER_TESTS));
+
+/** Container resource bounds (passed to docker create and checked in inspect). */
+export const LIMITS = Object.freeze({ NanoCpus: 1_000_000_000, Memory: 1_073_741_824, MemorySwap: 1_073_741_824, PidsLimit: 256, ShmSize: 67_108_864 });
 
 /** Paths inside the container (fixed; the host binds exactly these). */
 export const IN = Object.freeze({ sock: '/iso/sock', out: '/iso/out', tmp: '/tmp' });
@@ -65,6 +69,13 @@ export function expectedConfig({ imageId, uid, gid, repo, sock, out }) {
     Tmpfs: { '/tmp': 'rw,nosuid,nodev,size=64m' },
     Binds: [`${repo}:${repo}:ro,rprivate`, `${sock}:${IN.sock}:ro,rprivate`, `${out}:${IN.out}:rw,rprivate`],
     PortBindings: {},
+    ...LIMITS,
+    // Effective mounts, by destination: exact host source, read/write bit and propagation.
+    EffectiveMounts: [
+      { Type: 'bind', Source: repo, Destination: repo, RW: false, Propagation: 'rprivate' },
+      { Type: 'bind', Source: sock, Destination: IN.sock, RW: false, Propagation: 'rprivate' },
+      { Type: 'bind', Source: out, Destination: IN.out, RW: true, Propagation: 'rprivate' },
+    ].sort((a, b) => a.Destination.localeCompare(b.Destination)),
   };
 }
 
@@ -96,10 +107,25 @@ export function compareInspect(inspect, exp) {
   if (!same(hc.Tmpfs ?? {}, exp.Tmpfs)) bad.push('Tmpfs');
   if (!same(hc.PortBindings ?? {}, exp.PortBindings)) bad.push('PortBindings');
   if (Array.isArray(hc.Mounts) && hc.Mounts.length) bad.push('Mounts');
-  // Effective mounts: exactly the three binds (Tmpfs is not listed in .Mounts). No named or anonymous volume.
+  for (const k of Object.keys(LIMITS)) if (hc[k] !== exp[k]) bad.push(k);
+  // Effective mounts: exactly the three binds (Tmpfs is not listed in .Mounts), each with its exact Source, Destination,
+  // RW bit and Propagation. No named or anonymous volume.
   const m = arr(inspect.Mounts);
-  if (m === null || m.length !== 3 || m.some((x) => x?.Type !== 'bind')) bad.push('EffectiveMounts');
+  const pick = (x) => ({ Type: x?.Type, Source: x?.Source, Destination: x?.Destination, RW: x?.RW, Propagation: x?.Propagation });
+  const got = m === null ? null : m.map(pick).sort((a, b) => String(a.Destination).localeCompare(String(b.Destination)));
+  if (got === null || !same(got, exp.EffectiveMounts)) bad.push('EffectiveMounts');
   return bad;
+}
+
+/**
+ * DNS verdict from a bounded lookup: ONLY an immediate ECONNREFUSED (no reachable resolver; c-ares falls back to the
+ * namespace's own loopback) counts as isolated. A timeout, NXDOMAIN (ENOTFOUND means something answered) or any other
+ * error is undecided, never success.
+ */
+export function dnsVerdict(outcome) {
+  if (outcome === 'resolved') return 'DNS_E_RESOLVED';
+  if (outcome === 'ECONNREFUSED') return 'DNS_NONE';
+  return 'DNS_E_UNDECIDED';
 }
 
 /** The state a finished container must report before removal. */

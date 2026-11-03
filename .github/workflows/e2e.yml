@@ -1792,10 +1792,13 @@ jobs:
           path: le-upload/
 
   # SYNTHETIC lane-isolation feasibility probe (r4 correction, review candidate). It answers one question: can a FROM-scratch
-  # image built from host files, run once with --network none, all caps dropped, no-new-privileges, a read-only root and
-  # exact binds, reach a job-owned DUMMY nonce endpoint only through a mounted unix socket, launch the pinned headless shell
-  # with chromiumSandbox: true, and be torn down with every gate verified? No stack, credentials, fixtures, E1, pairing,
-  # migrations or policy changes; no secrets; no upload; no retry. It proves nothing about the E1 lane or le_procs.
+  # image built from host files, run once with --network none, all caps dropped, no-new-privileges, a read-only root,
+  # CPU/memory/PID bounds and exact binds, reach a job-owned DUMMY nonce endpoint only through a mounted unix socket, launch
+  # the pinned headless shell with chromiumSandbox: true, and be torn down with every gate verified? No stack, credentials,
+  # fixtures, E1, pairing, migrations or policy changes; no secrets; no upload; no retry. It proves nothing about the E1
+  # lane or le_procs. Network scope, stated exactly: the probe IMAGE is never pulled (FROM scratch, --pull=false,
+  # --network none build), but the HOST job does download: `npm ci` from the npm registry, and `playwright install
+  # --with-deps` (apt packages plus the Playwright browser CDN), the same as the other lanes.
   le-isolation-probe:
     name: Lane-isolation synthetic feasibility probe (no stack, no credentials, dummy nonce endpoint only)
     if: inputs.specs == 'le-isolation-probe'

@@ -12,7 +12,7 @@ import dns from 'node:dns/promises';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { IN, INNER_ORDER, INNER_TESTS, mountsVerdict } from './expect.mjs';
+import { IN, INNER_ORDER, INNER_TESTS, dnsVerdict, mountsVerdict } from './expect.mjs';
 
 const FWD_PORT = 54321;
 const results = {};
@@ -71,6 +71,41 @@ function httpGetBody(port, ms = 5000) {
   });
 }
 
+/**
+ * Chromium with its sandbox ON (chromiumSandbox: true; Playwright 1.59.1 defaults it to false). Browser has NO process()
+ * API (only BrowserServer does), so the browser is started with chromium.launchServer, whose process() is the browser's own
+ * ChildProcess, and driven through chromium.connect(wsEndpoint). launchServer listens on 127.0.0.1 inside the container's
+ * own loopback (a permitted in-namespace listener, disclosed). A successful launch whose argv carries no --no-sandbox is
+ * the evidence; Chrome refuses to start when it cannot set up its sandbox. Returns one fixed code; never throws.
+ */
+export async function sandboxCheck(chromium, { shell, url, nonce, readCmdline }) {
+  let server = null, browser = null;
+  try {
+    try {
+      server = await chromium.launchServer({ executablePath: shell, chromiumSandbox: true, headless: true, host: '127.0.0.1', port: 0, timeout: 30000, env: { HOME: IN.tmp, TMPDIR: IN.tmp } });
+    } catch { return 'SANDBOX_E_LAUNCH'; }
+    const pid = server.process()?.pid;
+    let argv = null;
+    try { argv = Number.isInteger(pid) && pid > 0 ? readCmdline(pid).split('\0') : null; } catch { argv = null; }
+    if (!argv || argv.length < 2 || argv.includes('--no-sandbox')) return 'SANDBOX_E_FLAG';
+    try {
+      browser = await chromium.connect(server.wsEndpoint(), { timeout: 15000 });
+      const page = await browser.newPage();
+      await page.goto(url, { timeout: 15000 });
+      const text = (await page.textContent('body', { timeout: 5000 }))?.trim();
+      return text === nonce ? 'SANDBOX_ON_NONCE_MATCH' : 'SANDBOX_E_NONCE';
+    } catch { return 'SANDBOX_E_NONCE'; }
+  } finally {
+    try { await browser?.close(); } catch { /* the server close below ends the browser */ }
+    try { await server?.close(); } catch { /* the container's pid namespace ends with it */ }
+  }
+}
+
+/** The exact stdout: one line per test in INNER_ORDER (a missing result reports that test's first failure code), then END. */
+export function formatResults(res) {
+  return `${INNER_ORDER.map((t) => `LE-ISO ${t} ${res[t] ?? INNER_TESTS[t].other[0]}`).join('\n')}\nLE-ISO END\n`;
+}
+
 async function main() {
   const [repo, shell] = process.argv.slice(2);
   let nonce = null, hostPort = null;
@@ -106,11 +141,14 @@ async function main() {
   const v6lo = hostPort ? await tryConnect({ host: '::1', port: hostPort }) : 'OTHER';
   set('V6LO', v6lo === 'connected' ? 'V6LO_E_REACHABLE' : ['ECONNREFUSED', 'EADDRNOTAVAIL'].includes(v6lo) ? 'V6LO_REFUSED' : 'V6LO_E_OTHER');
 
-  // DNS: a lookup does not resolve. Docker may still write nameserver lines into resolv.conf under --network none (they
-  // are unreachable without a route), so the file's content is not the test; the failed resolution is.
+  // DNS: see dnsVerdict. A timeout is UNDECIDED, never success. Docker may still write nameserver lines into resolv.conf
+  // under --network none, so the file's content is not the test; the refused lookup is.
   {
-    const res = await Promise.race([dns.resolve4('example.com').then(() => 'resolved', () => 'failed'), new Promise((r) => setTimeout(() => r('failed'), 4000).unref())]);
-    set('DNS', res === 'resolved' ? 'DNS_E_RESOLVED' : 'DNS_NONE');
+    const r = new dns.Resolver({ timeout: 1000, tries: 1 });
+    const res = await Promise.race([r.resolve4('example.com').then(() => 'resolved', (e) => (typeof e?.code === 'string' ? e.code : 'OTHER')),
+      new Promise((ok) => setTimeout(() => ok('timeout'), 4000).unref())]);
+    try { r.cancel(); } catch { /* nothing pending */ }
+    set('DNS', dnsVerdict(res));
   }
 
   // DOCKSOCK / RUN: no daemon socket and no host /run content.
@@ -143,33 +181,19 @@ async function main() {
   try { set('MOUNTS', mountsVerdict(readSmall('/proc/self/mountinfo', 1 << 16), { repo })); }
   catch { set('MOUNTS', 'MOUNTS_E_READ'); }
 
-  // SANDBOX: Chromium with its sandbox ON (chromiumSandbox: true; Playwright 1.59.1 defaults to false), reaching only the
-  // forwarder. Chrome refuses to start when the sandbox cannot be set up, so a successful launch means it is on; the
-  // browser's own argv is also checked for --no-sandbox.
+  // SANDBOX: see sandboxCheck. Reaches only the in-container forwarder.
   if (!nonce || !shell || !repo || !fwd) set('SANDBOX', 'SANDBOX_E_INPUT');
   else {
-    let browser;
+    let code = 'SANDBOX_E_LAUNCH';
     try {
-      const req = createRequire(path.join(repo, 'package.json'));
-      const { chromium } = req('playwright-core');
-      browser = await chromium.launch({ executablePath: shell, chromiumSandbox: true, headless: true, timeout: 30000, env: { HOME: IN.tmp, TMPDIR: IN.tmp } });
-      const pid = browser.process?.()?.pid;
-      let flagged = true;
-      try { flagged = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').split('\0').includes('--no-sandbox'); } catch { flagged = true; }
-      if (flagged) set('SANDBOX', 'SANDBOX_E_FLAG');
-      else {
-        const page = await browser.newPage();
-        await page.goto(`http://127.0.0.1:${FWD_PORT}/`, { timeout: 15000 });
-        const text = (await page.textContent('body', { timeout: 5000 }))?.trim();
-        set('SANDBOX', text === nonce ? 'SANDBOX_ON_NONCE_MATCH' : 'SANDBOX_E_NONCE');
-      }
-    } catch { if (!results.SANDBOX) set('SANDBOX', 'SANDBOX_E_LAUNCH'); }
-    finally { try { await browser?.close(); } catch { /* the container's pid namespace is torn down after exit anyway */ } }
+      const { chromium } = createRequire(path.join(repo, 'package.json'))('playwright-core');
+      code = await sandboxCheck(chromium, { shell, url: `http://127.0.0.1:${FWD_PORT}/`, nonce, readCmdline: (pid) => fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8') });
+    } catch { code = 'SANDBOX_E_LAUNCH'; }
+    set('SANDBOX', code);
   }
   if (fwd) fwd.close();
 
-  for (const t of INNER_ORDER) process.stdout.write(`LE-ISO ${t} ${results[t] ?? INNER_TESTS[t].other[0]}\n`);
-  process.stdout.write('LE-ISO END\n');
+  process.stdout.write(formatResults(results));
   process.exit(INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected) ? 0 : 1);
 }
 

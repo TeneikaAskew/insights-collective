@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
-import { CID, IMAGE_ID, IN, INNER_ORDER, absenceVerdict, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
+import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
 
 /** Default dependencies; tests inject fakes. exec never throws and never exposes stderr. */
 export const realDeps = {
@@ -22,7 +22,7 @@ export const realDeps = {
     catch (e) { return { ok: false, stdout: '', status: typeof e?.status === 'number' ? e.status : null }; }
   },
   fs,
-  spawnEndpoint(script, sockDir, ctlDir) { return spawn(process.execPath, [script, sockDir, ctlDir], { stdio: 'ignore' }); },
+  spawnEndpoint(script, sockDir, ctlDir) { return spawn(process.execPath, [script, sockDir, ctlDir], { stdio: 'ignore' }); }, // caller attaches 'error' at once
   sleep(ms) { return new Promise((r) => setTimeout(r, ms)); },
   uid: () => process.getuid(), gid: () => process.getgid(),
 };
@@ -47,6 +47,7 @@ export function buildImage(d, { ctl, node, shell }) {
   const shellDir = path.dirname(shell);
   for (const e of fsx.readdirSync(shellDir, { withFileTypes: true })) if (e.isFile()) files.add(path.join(shellDir, e.name));
   const manifest = [];
+  const uid = d.uid(), gid = d.gid();
   try {
     fsx.mkdirSync(root, { recursive: true, mode: 0o700 });
     for (const f of [...files].sort()) {
@@ -59,7 +60,6 @@ export function buildImage(d, { ctl, node, shell }) {
       if (sha(fsx, dst) !== h) return 'ISO_E_IMAGE_MANIFEST';
       manifest.push(`${h}  ${f}`);
     }
-    const uid = d.uid(), gid = d.gid();
     fsx.mkdirSync(path.join(root, 'etc'), { recursive: true, mode: 0o755 });
     fsx.writeFileSync(path.join(root, 'etc/passwd'), `probe:x:${uid}:${gid}::/tmp:/nonexistent\n`, { flag: 'wx', mode: 0o644 });
     fsx.writeFileSync(path.join(root, 'etc/group'), `probe:x:${gid}:\n`, { flag: 'wx', mode: 0o644 });
@@ -87,6 +87,8 @@ export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, 
     '--user', `${uid}:${gid}`, '--network', 'none', '--ipc', 'private', '--cgroupns', 'private',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only',
     '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m', '--restart', 'no', '--log-driver', 'none', '--init',
+    '--cpus', String(LIMITS.NanoCpus / 1e9), '--memory', String(LIMITS.Memory), '--memory-swap', String(LIMITS.MemorySwap),
+    '--pids-limit', String(LIMITS.PidsLimit), '--shm-size', String(LIMITS.ShmSize),
     '-v', `${repo}:${repo}:ro,rprivate`, '-v', `${sock}:${IN.sock}:ro,rprivate`, '-v', `${out}:${IN.out}:rw,rprivate`,
     '-e', 'HOME=/tmp', '-e', 'TMPDIR=/tmp',
     imageId, node, path.join(repo, 'scripts/e2e/le-iso/inner-probe.mjs'), repo, shell];
@@ -97,27 +99,40 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   const out = (c) => say.push(c);
   const fsx = d.fs;
   const H = path.join(temp, 'le-iso-host'), S = path.join(temp, 'le-iso-sock'), O = path.join(temp, 'le-iso-out');
-  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false;
+  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false, createTried = false;
   const fail = (c) => { ok = false; out(c); };
 
-  // Inputs: absolute existing paths, fresh dirs (an existing dir is never reused).
+  // Inputs: absolute existing paths, fresh dirs (an existing dir is never reused). A partial setup removes ONLY the dirs
+  // this run created (empty, non-recursive) and verifies they are gone; a pre-existing dir is never touched.
+  const created = [];
   try {
     for (const p of [repo, node, shell, temp]) if (!path.isAbsolute(p ?? '') || !fsx.existsSync(p)) throw new Error('input');
     for (const p of [H, S, O]) if (fsx.existsSync(p)) throw new Error('exists');
-    for (const p of [H, S, O]) fsx.mkdirSync(p, { mode: 0o700 });
+    for (const p of [H, S, O]) { fsx.mkdirSync(p, { mode: 0o700 }); created.push(p); }
     out('ISO_INPUT_OK');
-  } catch { fail('ISO_E_INPUT'); return { ok, say }; }
+  } catch {
+    fail('ISO_E_INPUT');
+    try {
+      for (const p of created.reverse()) fsx.rmdirSync(p);
+      if (created.some((p) => fsx.existsSync(p))) throw new Error('left');
+    } catch { fail('ISO_E_INPUT_ROLLBACK'); }
+    return { ok, say };
+  }
 
   try {
     const b = (d.buildImage ?? buildImage)(d, { ctl: H, node, shell });
     if (typeof b === 'string') { fail(b); } else { imageId = b.id; if (b.code === 'ISO_IMAGE_OK') out(b.code); else fail(b.code); }
 
     if (ok) {
-      child = d.spawnEndpoint(path.join(repo, 'scripts/e2e/le-iso/host-endpoint.mjs'), S, H);
+      let spawnError = false;
+      try {
+        child = d.spawnEndpoint(path.join(repo, 'scripts/e2e/le-iso/host-endpoint.mjs'), S, H);
+        child.on('error', () => { spawnError = true; }); // an async spawn failure is a fixed code, never an uncaught exception
+      } catch { child = null; spawnError = true; }
       let rec = null;
-      for (let i = 0; i < 50 && !rec; i++) { try { rec = fsx.readFileSync(path.join(H, 'ready'), 'utf8'); } catch { await d.sleep(200); } }
+      for (let i = 0; i < 50 && !rec && !spawnError; i++) { try { rec = fsx.readFileSync(path.join(H, 'ready'), 'utf8'); } catch { await d.sleep(200); } }
       const m = rec?.match(/^(\d+) (\d+) (\d+)\n$/);
-      if (!m) fail('ISO_E_ENDPOINT_START');
+      if (spawnError || !m || !child || !Number.isInteger(child.pid)) fail('ISO_E_ENDPOINT_START');
       else {
         endpoint = { pid: Number(m[1]), start: m[2] };
         let st = null;
@@ -128,12 +143,16 @@ export async function runProbe(d, { repo, node, shell, temp }) {
 
     if (ok) {
       const cidfile = path.join(H, 'lane.cid');
+      createTried = true;
       const c = d.exec('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
       let read = null;
       try { read = fsx.readFileSync(cidfile, 'utf8').trim(); } catch { read = null; }
-      if (read && CID.test(read)) cid = read;
+      const said = c.stdout.trim();
+      const fromFile = read && CID.test(read) ? read : null, fromOut = CID.test(said) ? said : null;
+      // Run identity: the cidfile, else create's stdout. Two valid ids that disagree leave the identity UNKNOWN (cid null).
+      cid = fromFile && fromOut && fromFile !== fromOut ? null : fromFile ?? fromOut;
       if (!c.ok) fail('ISO_E_CREATE');
-      else if (!cid || c.stdout.trim() !== cid) fail('ISO_E_CID');
+      else if (!cid || !fromFile || fromFile !== fromOut) fail('ISO_E_CID');
       else out('ISO_CREATE_OK');
     }
 
@@ -153,55 +172,87 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       else { out('ISO_RUN_DONE'); for (const t of INNER_ORDER) out(`LE-ISO ${t} ${cls.results[t]}`); innerPass = cls.pass && r.ok; }
     }
   } finally {
-    // Teardown, always, each gate with its own code; no retry.
+    // Teardown, always; each gate has its own code; no retry. The run identity (control dir with lane.cid, image.id, ready,
+    // final) and the bound dirs are PRESERVED unless cleanup is positively established: container absent, endpoint gone.
+    let containerGone = !createTried; // nothing was created, so nothing can survive
+    if (createTried && !cid) fail('ISO_E_CID_UNKNOWN');
     if (cid) {
-      const w = d.exec('docker', ['wait', cid], { timeout: 60000 });
+      // Explicit, bounded stop: `docker start -a` returning (or its client being killed on timeout) does not stop the
+      // container. stop sends SIGTERM to init, then SIGKILL after 10 s; it succeeds on an already-exited container too.
+      const st = d.exec('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
+      if (!st.ok || st.stdout.trim() !== cid) fail('ISO_E_STOP'); else out('ISO_STOP_OK');
+      const w = d.exec('docker', ['wait', cid], { timeout: 30000 });
       const i = d.exec('docker', ['container', 'inspect', cid]);
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
+      const stopped = w.ok && /^-?\d+$/.test(w.stdout.trim()) && i.ok && !!obj && obj.Id === cid && exitStateOk(obj);
       if (!w.ok) fail('ISO_E_WAIT');
-      else if (!i.ok || !obj || obj.Id !== cid || !exitStateOk(obj)) fail('ISO_E_EXIT_STATE');
+      else if (!stopped) fail('ISO_E_EXIT_STATE');
       else out('ISO_EXIT_OK');
-      const rm = d.exec('docker', ['rm', cid]);
-      if (!rm.ok || rm.stdout.trim() !== cid) fail('ISO_E_RM'); else out('ISO_RM_OK');
-      const ls = d.exec('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}']);
-      const v = absenceVerdict(ls.ok, ls.stdout, cid);
-      if (v === 'absent') out('ISO_ABSENT'); else fail(v === 'present' ? 'ISO_E_STILL_PRESENT' : 'ISO_E_ABSENCE_UNDECIDED');
-    }
-    if (child) {
-      let same = false;
-      try { same = !!endpoint && starttimeOf(fsx, endpoint.pid) === endpoint.start && endpoint.pid === child.pid; } catch { same = false; }
-      if (!same) fail('ISO_E_ENDPOINT_IDENTITY_CHANGED');
-      else {
-        const exited = new Promise((r) => { if (child.exitCode !== null) r(child.exitCode); else child.once('exit', (code) => r(code)); });
-        child.kill('SIGTERM');
-        const code = await Promise.race([exited, d.sleep(10000).then(() => 'timeout')]);
-        let gone = false;
-        try { fsx.statSync(`/proc/${endpoint.pid}`); gone = false; } catch (e) { gone = e?.code === 'ENOENT'; }
-        if (code !== 0 || !gone) fail('ISO_E_ENDPOINT_TERMINATION');
-        else {
-          let fin = null;
-          try { fin = fsx.readFileSync(path.join(H, 'final'), 'utf8').match(/^(\d+) (\d+)\n$/); } catch { fin = null; }
-          if (!fin || Number(fin[1]) < 1 || Number(fin[2]) !== 0) fail('ISO_E_ENDPOINT_CONNS'); else out('ISO_ENDPOINT_STOPPED');
-        }
+      if (stopped) {
+        // rm only a container positively seen stopped (no -f); then require a successful, empty listing.
+        const rm = d.exec('docker', ['rm', cid], { timeout: 30000 });
+        if (!rm.ok || rm.stdout.trim() !== cid) fail('ISO_E_RM'); else out('ISO_RM_OK');
+        const ls = d.exec('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}'], { timeout: 30000 });
+        const v = absenceVerdict(ls.ok, ls.stdout, cid);
+        if (v === 'absent') { out('ISO_ABSENT'); containerGone = true; } else fail(v === 'present' ? 'ISO_E_STILL_PRESENT' : 'ISO_E_ABSENCE_UNDECIDED');
       }
     }
-    if (imageId) {
-      const r = d.exec('docker', ['image', 'rm', imageId]);
+    // Endpoint termination goes through our own ChildProcess handle: until Node reaps it (the 'exit' event), its pid cannot
+    // be reused, so the handle IS the identity. The /proc start-time record is checked as well; a mismatch is a failure but
+    // never a reason to leave our own child running. SIGTERM, bounded wait, then one bounded SIGKILL; reaped = gone.
+    let endpointGone = !child || !Number.isInteger(child.pid);
+    if (child && Number.isInteger(child.pid)) {
+      let reaped = child.exitCode !== null || child.signalCode !== null;
+      const exited = reaped ? Promise.resolve(child.exitCode) : new Promise((r) => child.once('exit', (code) => { reaped = true; r(code); }));
+      if (endpoint) {
+        let same = false;
+        try { same = endpoint.pid === child.pid && starttimeOf(fsx, endpoint.pid) === endpoint.start; } catch { same = false; }
+        if (!same && !reaped) fail('ISO_E_ENDPOINT_IDENTITY_CHANGED');
+      }
+      let code = reaped ? child.exitCode : null;
+      if (!reaped) {
+        try { child.kill('SIGTERM'); } catch { /* reported below by the reap check */ }
+        code = await Promise.race([exited, d.sleep(10000).then(() => 'timeout')]);
+        if (code === 'timeout') {
+          try { child.kill('SIGKILL'); } catch { /* reported below */ }
+          await Promise.race([exited, d.sleep(5000)]);
+          fail('ISO_E_ENDPOINT_TERMINATION');
+          if (reaped) out('ISO_ENDPOINT_KILLED');
+        }
+      }
+      let procGone = true;
+      if (endpoint) { try { fsx.statSync(`/proc/${endpoint.pid}`); procGone = false; } catch (e) { procGone = e?.code === 'ENOENT'; } }
+      endpointGone = reaped && procGone;
+      if (!endpointGone) fail('ISO_E_ENDPOINT_TERMINATION');
+      else if (code !== 'timeout') {
+        let fin = null;
+        try { fin = fsx.readFileSync(path.join(H, 'final'), 'utf8').match(/^(\d+) (\d+)\n$/); } catch { fin = null; }
+        if (code !== 0) fail('ISO_E_ENDPOINT_TERMINATION');
+        else if (!fin || Number(fin[1]) < 1 || Number(fin[2]) !== 0) fail('ISO_E_ENDPOINT_CONNS');
+        else if (endpoint) out('ISO_ENDPOINT_STOPPED');
+      }
+    }
+    if (imageId && !containerGone) fail('ISO_PRESERVED_IMAGE');
+    else if (imageId) {
+      const r = d.exec('docker', ['image', 'rm', imageId], { timeout: 60000 });
       if (!r.ok) fail('ISO_E_IMAGE_REMOVE');
       else {
-        const ls = d.exec('docker', ['image', 'ls', '-a', '-q', '--no-trunc']);
+        const ls = d.exec('docker', ['image', 'ls', '-a', '-q', '--no-trunc'], { timeout: 30000 });
         const ids = ls.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
         if (!ls.ok || ids.some((x) => !IMAGE_ID.test(x))) fail('ISO_E_IMAGE_ABSENCE');
         else if (ids.includes(imageId)) fail('ISO_E_IMAGE_ABSENCE');
         else out('ISO_IMAGE_REMOVED');
       }
     }
-    try {
-      for (const p of [H, S, O]) fsx.rmSync(p, { recursive: true, force: false });
-      if ([H, S, O].some((p) => fsx.existsSync(p))) throw new Error('left');
-      out('ISO_DIRS_REMOVED');
-    } catch { fail('ISO_E_DIRS'); }
+    if (!containerGone || !endpointGone) fail('ISO_PRESERVED_DIRS');
+    else {
+      try {
+        for (const p of [H, S, O]) fsx.rmSync(p, { recursive: true, force: false });
+        if ([H, S, O].some((p) => fsx.existsSync(p))) throw new Error('left');
+        out('ISO_DIRS_REMOVED');
+      } catch { fail('ISO_E_DIRS'); }
+    }
   }
   out(innerPass ? 'ISO_INNER_PASS' : 'ISO_INNER_FAIL');
   return { ok: ok && innerPass, say };
