@@ -8,6 +8,7 @@ import { expectCalls } from './observe';
 import { r1Code, r1DropKind, r1ScrollKind } from '../../scripts/builder-authoring-fixture/codes.mjs';
 import { r1TraceInstall, r1TraceRead, r1TraceDescription, settleR1Read, R1_TRACE_ANNOTATION, R1_TRACE_TTL, R1_TRACE_READ_DEADLINE_MS }
   from '../../scripts/builder-authoring-fixture/r1-trace.mjs';
+import { r1MonitorInstall, r1MonitorRead, r1MonitorDescription, R1_MONITOR_ANNOTATION } from '../../scripts/builder-authoring-fixture/r1-monitor.mjs';
 import { shot } from './shot';
 
 const sectionTitle = (id: string) => A.sections.find((s) => s.id === id)!.title;
@@ -40,6 +41,10 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
     // the result. The read is bounded, and the recorder removes itself after its ttl even if the read never lands.
     const traceInstalled = await handle.evaluate(r1TraceInstall, { moving, target, ttlMs: R1_TRACE_TTL.spec }, { timeout: 5_000 })
       .then((v) => v === 'INSTALLED').catch(() => false);
+    // TEST-ONLY monitor observation (DIAGNOSTIC; r1-monitor.mjs): one listener in dnd-kit's own monitor, installed before
+    // focus like the trace and read once in finally. Fixed words only; never changes the result.
+    const monitorInstalled: string = await handle.evaluate(r1MonitorInstall, { moving, target, ttlMs: R1_TRACE_TTL.spec }, { timeout: 5_000 })
+      .catch(() => 'NOT_INSTALLED');
     try {
       await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
         await handle.focus();
@@ -60,6 +65,8 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
     } finally {
       const read = await settleR1Read(() => page.evaluate(r1TraceRead), R1_TRACE_READ_DEADLINE_MS);
       info.annotations.push({ type: R1_TRACE_ANNOTATION, description: r1TraceDescription(traceInstalled, read.snap, read.state) });
+      const mon = await settleR1Read(() => page.evaluate(r1MonitorRead), R1_TRACE_READ_DEADLINE_MS);
+      info.annotations.push({ type: R1_MONITOR_ANNOTATION, description: r1MonitorDescription(monitorInstalled, mon.snap, mon.state) });
     }
   });
   await test.step('db_settled', async () => {
