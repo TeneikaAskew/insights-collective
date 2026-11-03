@@ -115,4 +115,18 @@ ok('negative-control harness: an assertion failing INSIDE it after a real proof 
   assert.equal(thrown, injected); assert.equal(thrown.fallbackCleanupError, undefined);
   assert.equal(kept.length, 1); assert.equal(fs.existsSync(kept[0]), false);
 });
+ok('negative-control harness: when its fallback removal ALSO fails the primary survives; after a pass the failure surfaces', () => {
+  const outer = [];
+  withKeptRoots(outer, () => {
+    const kept = []; let thrown; const primary = new Error('BA_K1_E_INJECTED'), fb = Object.assign(new Error('fallback failed'), { code: 'EPERM' });
+    try { withOwnRoot((root) => { writeProof(root); return 'v'; }, (d) => { kept.push(d); outer.push(d); throw new Error('rm failed'); }); } catch { /* the kept root */ }
+    const orig = console.error, lines = []; console.error = (l) => lines.push(String(l));
+    try { try { withKeptRoots(kept, () => { throw primary; }, () => { throw fb; }); } catch (e) { thrown = e; } } finally { console.error = orig; }
+    assert.equal(thrown, primary, 'the primary is not masked'); assert.equal(thrown.fallbackCleanupError, fb);
+    assert.deepEqual(lines, ['FALLBACK_CLEANUP_SECONDARY roots=1 code=EPERM']);
+    assert.throws(() => withKeptRoots(kept, () => 'v', () => { throw fb; }), (e) => e === fb);
+    assert.ok(fs.existsSync(kept[0]), 'the failing fallback really did not remove it');
+  });
+  assert.equal(outer.length, 1); assert.equal(fs.existsSync(outer[0]), false);
+});
 console.log(`PASS builder-authoring K1 shot selftest (${n} checks)`);
