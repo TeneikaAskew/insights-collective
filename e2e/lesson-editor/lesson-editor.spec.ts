@@ -315,34 +315,61 @@ test.describe('owner, real backend and TipTap, desktop', () => {
   test.use({ storageState: stateFor('OWNER'), viewport: { width: 1440, height: 900 } });
 
   test('E1 save: the returned row is exactly the stored row, the trigger advanced the version, reload keeps it', async ({ page, context }, info) => {
+    // Each phase is a test.step titled from the frozen E1_STEPS list (step-codes.mjs): a failure is reported publicly only as
+    // that fixed title, never a message. tests/step-codes-selftest.mjs checks this block uses exactly the list, in order.
     const obs = observe(context);
-    await openLesson(page, A);
-    const before = dbLesson(A);
-    // Baseline pinned to the fixture, so the expected body below is independent of anything this run wrote or read back.
-    expect(before.content, 'E1 baseline: lesson A holds exactly the seeded fixture body').toBe(SEEDED_A_HTML);
-    await expect(editor(page), 'E1 baseline: the editor shows exactly the seeded body').toHaveText(SEEDED_A_TEXT);
-    await title(page).fill('E1 saved title');
-    await typeInBody(page, E1_APPEND);
-    await saved(page);
-    await obs.settle(A);
-    const stored = dbLesson(A);
-    const last = obs.of(A).at(-1)!;
-    expect(last.state).toBe('finished');
-    expect([last.status, last.rows, last.cond]).toEqual([200, 1, 'eq']);
-    expect({ id: last.row!.id, title: last.row!.title, content: last.row!.content, updated_at: last.row!.updated_at })
-      .toEqual({ id: stored.id, title: stored.title, content: stored.content, updated_at: stored.updated_at });
-    expect(stored.title).toBe('E1 saved title');
-    // Exact full body (seeded + appended) in all three places; a lost "Body A" or a lost append fails each one.
-    expect(e1Body('html', last.row!.content), 'E1 returned row body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
-    expect(e1Body('html', stored.content), 'E1 DB body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
-    expect(stored.type).toBe('page');
-    expect(new Date(stored.updated_at!) > new Date(before.updated_at!), 'trigger advanced updated_at').toBe(true);
-    await page.reload();
-    await expect(title(page)).toHaveValue('E1 saved title', { timeout: 30_000 });
-    await expect(editor(page)).toBeVisible();
-    await expect.poll(async () => e1Body('text', await editor(page).innerText()), { timeout: 20_000, message: 'E1 reloaded editor body is exactly seeded + appended' })
-      .toEqual({ ok: true, got: E1_EXPECTED_TEXT });
-    await info.attach('E1-db.json', { body: Buffer.from(JSON.stringify({ before: rowEvidence(before), stored: rowEvidence(stored) })), contentType: 'application/json' });
+    let before!: DbRow;
+    let stored!: DbRow;
+    let last!: Write;
+    await test.step('E1_OPEN', async () => {
+      await openLesson(page, A);
+    });
+    await test.step('E1_BASELINE', async () => {
+      before = dbLesson(A);
+      // Baseline pinned to the fixture, so the expected body below is independent of anything this run wrote or read back.
+      expect(before.content, 'E1 baseline: lesson A holds exactly the seeded fixture body').toBe(SEEDED_A_HTML);
+      await expect(editor(page), 'E1 baseline: the editor shows exactly the seeded body').toHaveText(SEEDED_A_TEXT);
+    });
+    await test.step('E1_EDIT_TITLE', async () => {
+      await title(page).fill('E1 saved title');
+    });
+    await test.step('E1_EDIT_BODY', async () => {
+      await typeInBody(page, E1_APPEND);
+    });
+    await test.step('E1_SAVED', async () => {
+      await saved(page);
+    });
+    await test.step('E1_SETTLE', async () => {
+      await obs.settle(A);
+    });
+    await test.step('E1_ROW', async () => {
+      stored = dbLesson(A);
+      last = obs.of(A).at(-1)!;
+      expect(last.state).toBe('finished');
+      expect([last.status, last.rows, last.cond]).toEqual([200, 1, 'eq']);
+      expect({ id: last.row!.id, title: last.row!.title, content: last.row!.content, updated_at: last.row!.updated_at })
+        .toEqual({ id: stored.id, title: stored.title, content: stored.content, updated_at: stored.updated_at });
+      expect(stored.title).toBe('E1 saved title');
+    });
+    await test.step('E1_BODY', async () => {
+      // Exact full body (seeded + appended) in all three places; a lost "Body A" or a lost append fails each one.
+      expect(e1Body('html', last.row!.content), 'E1 returned row body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
+      expect(e1Body('html', stored.content), 'E1 DB body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
+      expect(stored.type).toBe('page');
+      expect(new Date(stored.updated_at!) > new Date(before.updated_at!), 'trigger advanced updated_at').toBe(true);
+    });
+    await test.step('E1_RELOAD', async () => {
+      await page.reload();
+      await expect(title(page)).toHaveValue('E1 saved title', { timeout: 30_000 });
+      await expect(editor(page)).toBeVisible();
+    });
+    await test.step('E1_RELOAD_BODY', async () => {
+      await expect.poll(async () => e1Body('text', await editor(page).innerText()), { timeout: 20_000, message: 'E1 reloaded editor body is exactly seeded + appended' })
+        .toEqual({ ok: true, got: E1_EXPECTED_TEXT });
+    });
+    await test.step('E1_EVIDENCE', async () => {
+      await info.attach('E1-db.json', { body: Buffer.from(JSON.stringify({ before: rowEvidence(before), stored: rowEvidence(stored) })), contentType: 'application/json' });
+    });
   });
 
   test('E2 navigation within 800 ms of the last input: switch lesson and Preview each flush the edit themselves', async ({ page, context }) => {

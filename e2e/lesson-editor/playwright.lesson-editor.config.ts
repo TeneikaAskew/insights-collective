@@ -25,6 +25,10 @@ export default defineConfig({
     video: 'off',
     screenshot: 'off',
     serviceWorkers: 'block',
+    // Bounded waits: an action or navigation that cannot complete fails at its own step instead of using the whole test
+    // timeout (run 41691596496 spent the full 120 s with no step boundary to report).
+    actionTimeout: 30_000,
+    navigationTimeout: 30_000,
   },
   projects: [
     {
