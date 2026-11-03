@@ -94,6 +94,12 @@ export function summarizeReport(report, exit) {
   const globalErrors = Array.isArray(report.errors) ? report.errors.length : 0;
   const lines = [];
   let passed = 0, failed = 0, skipped = 0, missing = 0, duplicate = 0;
+  // Separate finite counts (they do not change the verdict): executed entries (at least one result), and entries with the
+  // report shape of a test never attempted (status skipped, ZERO results). That shape does not prove WHY it was not
+  // attempted (a failed dependency project is one cause, not the only one), so the name is neutral. intended_skip_unattempted
+  // is the subset planned as intentional skips: their skip call never ran, so they are not intentional skip results.
+  let executedPassed = 0, executedFailed = 0, unattempted = 0, intendedUnattempted = 0;
+  const notAttempted = (h) => h.status === 'skipped' && h.results.length === 0;
   for (const want of INVENTORY) {
     const hits = seen.filter((x) => x.project === want.project && x.case === want.case);
     const tag = `project=${want.project} case=${want.case}`;
@@ -104,16 +110,24 @@ export function summarizeReport(report, exit) {
     if (want.expect === 'skipped') {
       // An intentional skip is exactly one first-try result that is itself skipped: a retried, re-run or executed entry fails.
       if (h.status === 'skipped' && singleAttempt(h, 'skipped')) { skipped += 1; lines.push(`TEST SKIP ${tag} reason=intentional`); }
-      else { failed += 1; lines.push(`TEST FAIL ${tag} stage=not_skipped status=${h.status} attempts=${attempts}`); }
+      else if (notAttempted(h)) { failed += 1; unattempted += 1; intendedUnattempted += 1; lines.push(`TEST FAIL ${tag} reason=intended_skip_unattempted attempts=0`); }
+      else {
+        // An attempted violation (executed, retried, or several results) is an executed failure too.
+        failed += 1; if (attempts > 0) executedFailed += 1;
+        lines.push(`TEST FAIL ${tag} stage=not_skipped status=${h.status} attempts=${attempts}`);
+      }
       continue;
     }
-    if (h.status === 'expected' && singleAttempt(h, 'passed')) { passed += 1; lines.push(`TEST PASS ${tag}`); continue; }
+    if (h.status === 'expected' && singleAttempt(h, 'passed')) { passed += 1; executedPassed += 1; lines.push(`TEST PASS ${tag}`); continue; }
     failed += 1;
+    if (notAttempted(h)) { unattempted += 1; lines.push(`TEST FAIL ${tag} reason=unattempted attempts=0`); continue; }
+    if (attempts > 0) executedFailed += 1;
     lines.push(`TEST FAIL ${tag} status=${h.status} attempts=${attempts} stage=${h.stage} error=${h.error}`);
   }
   const ok = exit === 0 || exit === '0' ? missing === 0 && duplicate === 0 && failed === 0 && unknown === 0 && globalErrors === 0
     && passed === INVENTORY.filter((x) => x.expect === 'passed').length && skipped === INVENTORY.filter((x) => x.expect === 'skipped').length : false;
-  lines.unshift(`PLAYWRIGHT exit=${exit} entries=${seen.length + unknown} passed=${passed} failed=${failed} skipped=${skipped} missing=${missing} duplicate=${duplicate} unknown=${unknown} global_errors=${globalErrors}`);
+  lines.unshift(`PLAYWRIGHT exit=${exit} entries=${seen.length + unknown} passed=${passed} failed=${failed} skipped=${skipped} missing=${missing} duplicate=${duplicate} unknown=${unknown} global_errors=${globalErrors}`,
+    `PLAYWRIGHT_BREAKDOWN executed_passed=${executedPassed} executed_failed=${executedFailed} unattempted=${unattempted} intended_skip_unattempted=${intendedUnattempted} intended_skipped=${skipped}`);
   lines.push(`VERDICT ${ok ? 'PASS' : 'FAIL'}`);
   return { ok, lines };
 }

@@ -1,9 +1,11 @@
 // ABOUTME: BA-R1/BA-R2 (EXECUTABLE, no injection): a section reorder made with the keyboard and a lesson reorder made with
 // ABOUTME: the pointer are stored with dense positions 0..n-1, sent as exactly one RPC, and rendered in that order after reload.
+import type { Page } from '@playwright/test';
 import { test, expect } from './guarded-test';
 import { A, route } from './ids';
 import { storedSections, storedLessons, shownSectionTitles, sectionCard, shownLessonTitles } from './helpers';
 import { expectCalls } from './observe';
+import { r1Code, r1DropKind, r1ScrollKind } from '../../scripts/builder-authoring-fixture/codes.mjs';
 import { shot } from './shot';
 
 const sectionTitle = (id: string) => A.sections.find((s) => s.id === id)!.title;
@@ -23,13 +25,28 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
   const expected = [before[1], before[0], ...before.slice(2)];
   await test.step('ui_reorder', async () => {
     // Move the first section down one place with the keyboard sensor (Space, ArrowDown, Space): exactly one RPC.
-    const handle = (await sectionCard(page, sectionTitle(before[0]))).getByRole('button', { name: 'Reorder section' });
-    await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
-      await handle.focus();
-      await page.keyboard.press('Space');
-      await page.keyboard.press('ArrowDown');
-      await page.keyboard.press('Space');
-    }, { count: 1, status: [200, 204] });
+    // Interaction unchanged. On failure only, the error is one fixed code: BA_R1_E_<request verdict>_<dnd-kit drop
+    // announcement>_<window scrolled or not>, so the cause is named without any free text.
+    const [moving, target] = [before[0], before[1]];
+    let handle: ReturnType<Page['getByRole']>;
+    try { handle = (await sectionCard(page, sectionTitle(moving))).getByRole('button', { name: 'Reorder section' }); }
+    catch { throw new Error('BA_R1_E_LOCATE'); }
+    // Diagnostic reads never abort or default: a failed read is null and reduces to its UNAVAILABLE word.
+    let scrollBefore: unknown = null;
+    try {
+      await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
+        await handle.focus();
+        scrollBefore = await page.evaluate(() => window.scrollY).catch(() => null);
+        await page.keyboard.press('Space');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Space');
+      }, { count: 1, status: [200, 204] });
+    } catch (e) {
+      const texts = await page.locator('[id^="DndLiveRegion"]')
+        .evaluateAll((els) => els.map((el) => el.textContent ?? '')).catch(() => null);
+      const scrollAfter = await page.evaluate(() => window.scrollY).catch(() => null);
+      throw new Error(r1Code(e instanceof Error ? e.message : null, r1DropKind(texts, moving, target), r1ScrollKind(scrollBefore, scrollAfter)));
+    }
   });
   await test.step('db_settled', async () => {
     await expect.poll(() => storedSections(page, A.course)).toEqual(expected);

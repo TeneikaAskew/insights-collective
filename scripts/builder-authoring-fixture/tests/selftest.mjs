@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { A, B, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
 import { summarizeReport, compareWitness, manifest, checkLines, errorClass, failedStage, childCode, readBounded, LINE, SummaryError } from '../summary.mjs';
-import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS } from '../codes.mjs';
+import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS, OBS_KINDS, R1_DROPS, R1_SCROLLS, obsKind, r1DropKind, r1ScrollKind, r1Code } from '../codes.mjs';
 import { spawnSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -135,9 +135,97 @@ ok('(4) an intentional skip with two results, a retried result or an executed re
     const t = goodTests(); mutate(t[idx]);
     const r = summarizeReport(report(t), 0);
     assert.equal(r.ok, false);
-    assert.match(firstFail(r), /^TEST FAIL project=ba-768 case=D1 stage=not_skipped status=skipped attempts=[0-9]+$/);
+    assert.match(firstFail(r), /^TEST FAIL project=ba-768 case=D1 (stage=not_skipped status=skipped attempts=[0-9]+|reason=intended_skip_unattempted attempts=0)$/);
     assert.ok(checkLines(r.lines));
   }
+});
+ok('(B) intended-skip breakdown: executed, retried or multi-result violations are executed failures; zero attempts is unattempted; a valid skip is neither', () => {
+  const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
+  const bd = (mutate) => { const t = goodTests(); mutate(t[idx]); return summarizeReport(report(t), 1).lines[1]; };
+  const bdLine = (ep, ef, u, iu, is) => `PLAYWRIGHT_BREAKDOWN executed_passed=${ep} executed_failed=${ef} unattempted=${u} intended_skip_unattempted=${iu} intended_skipped=${is}`;
+  assert.equal(bd(() => {}), bdLine(11, 0, 0, 0, 4));                                          // valid intentional skip
+  assert.equal(bd((e) => { e.results[0].status = 'passed'; e.status = 'expected'; }), bdLine(11, 1, 0, 0, 3)); // executed
+  assert.equal(bd((e) => { e.results[0].retry = 1; }), bdLine(11, 1, 0, 0, 3));                // retried
+  assert.equal(bd((e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); }), bdLine(11, 1, 0, 0, 3)); // two results
+  assert.equal(bd((e) => { e.results = []; }), bdLine(11, 0, 1, 1, 3));                        // zero attempts
+  // an expected-pass entry: executed failure versus zero attempts
+  const r1 = INVENTORY.findIndex((x) => x.project === 'ba-1440' && x.case === 'R1');
+  const t = goodTests(); t[r1] = entry('ba-1440', 'R1', 'unexpected');
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(10, 1, 0, 0, 4));
+  t[r1] = { projectName: 'ba-1440', status: 'skipped', results: [], c: 'R1' };
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(10, 0, 1, 0, 4));
+  assert.ok(!summarizeReport(report(t), 1).lines.join('\n').includes('dependency'));
+});
+
+ok('hosted run 41564184929 shape: 1 executed failure, 4 passes, 10 unattempted (4 of them intended skips) are told apart; still FAIL', () => {
+  const t = goodTests();
+  const i = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
+  t[i('ba-1440', 'R1')] = entry('ba-1440', 'R1', 'unexpected', { error: { message: 'Error: BA_OBS_E_COUNT_ZERO' }, steps: [{ title: 'ui_reorder', error: {} }] });
+  for (const p of ['ba-768', 'ba-390']) for (const c of ['R1', 'R2', 'C1', 'D1', 'D2']) t[i(p, c)] = { projectName: p, status: 'skipped', results: [], c };
+  const r = summarizeReport(report(t), 1);
+  assert.equal(r.ok, false);
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=0 duplicate=0 unknown=0 global_errors=0');
+  assert.equal(r.lines[1], 'PLAYWRIGHT_BREAKDOWN executed_passed=4 executed_failed=1 unattempted=10 intended_skip_unattempted=4 intended_skipped=0');
+  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=unexpected attempts=1 stage=ui_reorder error=BA_OBS_E_COUNT_ZERO'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=R1 reason=unattempted attempts=0'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-390 case=D2 reason=intended_skip_unattempted attempts=0'));
+  assert.equal(r.lines.filter((l) => l.includes('reason=unattempted ')).length, 6);
+  assert.equal(r.lines.filter((l) => l.includes('reason=intended_skip_unattempted')).length, 4);
+  assert.ok(checkLines(r.lines));
+  // exit 0 with the same shape still fails: an incomplete inventory is never accepted
+  assert.equal(summarizeReport(report(t), 0).ok, false);
+});
+ok('R1 diagnostic codes: obsKind is finite; every composed BA_R1_E_<obs>_<drop>_<scroll> code is listed and grammar-safe', () => {
+  assert.equal(obsKind(['OBS_COUNT POST /rest/v1/rpc/reorder_modules 0'], 1), 'COUNT_ZERO');
+  assert.equal(obsKind(['OBS_NEAR_MISS x', 'OBS_COUNT x 2'], 1), 'COUNT_OVER');
+  assert.equal(obsKind(['OBS_STATUS x 403'], 1), 'STATUS');
+  assert.equal(obsKind(['OBS_PENDING x'], 1), 'PENDING');
+  assert.equal(obsKind(['OBS_COUNT x NaN'], 1), 'OTHER');
+  assert.equal(obsKind(['__proto__'], 1), 'OTHER'); assert.equal(obsKind(null, 1), 'OTHER');
+  for (const o of OBS_KINDS) {
+    assert.equal(errorClass(`Error: BA_OBS_E_${o}`), `BA_OBS_E_${o}`);
+    for (const d of R1_DROPS) for (const sc of R1_SCROLLS) {
+      const c = `BA_R1_E_${o}_${d}_${sc}`;
+      assert.equal(errorClass(`Error: ${c}`), c); assert.ok(c.length <= 64 && LINE.test(`TEST FAIL error=${c}`));
+    }
+  }
+  assert.equal(errorClass('BA_R1_E_COUNT_ZERO_DROP_SELF_SIDEWAYS'), 'unlisted');
+  assert.equal(errorClass('BA_R1_E_LOCATE'), 'BA_R1_E_LOCATE');
+});
+ok('(A) R1 reducers: rejected baseline, final and live-region reads are UNAVAILABLE; valid no-drop, still, self and target are named', () => {
+  const M = '9b6e0000-0000-4000-8000-0000000000a1', T = '9b6e0000-0000-4000-8000-0000000000a2';
+  const drop = (x) => `Draggable item ${M} was dropped${x}`;
+  // rejected live-region reads
+  for (const bad of [null, undefined, 'text', [], [1], [null], ['ok', 2], { length: 1 }]) assert.equal(r1DropKind(bad, M, T), 'DROP_UNAVAILABLE');
+  for (const [m, t] of [['', T], [M, ''], [M, M], [null, T], [M, 7]]) assert.equal(r1DropKind([drop('.')], m, t), 'DROP_UNAVAILABLE');
+  // valid live-region reads
+  assert.equal(r1DropKind(['', `Picked up draggable item ${M}.`], M, T), 'NO_DROP');
+  assert.equal(r1DropKind([drop('.')], M, T), 'DROP_NONE');
+  assert.equal(r1DropKind(['', `  ${drop(` over droppable area ${T}`)} `], M, T), 'DROP_TARGET');
+  assert.equal(r1DropKind([drop(` over droppable area ${M}`)], M, T), 'DROP_SELF');
+  assert.equal(r1DropKind([drop(' over droppable area 9b6e0000-0000-4000-8000-0000000000a3')], M, T), 'DROP_OTHER');
+  // scroll: rejected baseline, rejected final, both valid
+  for (const bad of [null, undefined, NaN, Infinity, '0', {}]) {
+    assert.equal(r1ScrollKind(bad, 0), 'SCROLL_UNAVAILABLE'); assert.equal(r1ScrollKind(0, bad), 'SCROLL_UNAVAILABLE');
+  }
+  assert.equal(r1ScrollKind(0, 0), 'STILL'); assert.equal(r1ScrollKind(120, 120), 'STILL'); assert.equal(r1ScrollKind(0, 312.5), 'SCROLLED');
+  // primary category preserved; unlisted words never print
+  assert.equal(r1Code('BA_OBS_E_COUNT_ZERO', 'DROP_SELF', 'SCROLLED'), 'BA_R1_E_COUNT_ZERO_DROP_SELF_SCROLLED');
+  assert.equal(r1Code('BA_OBS_E_NEAR_MISS', 'DROP_UNAVAILABLE', 'SCROLL_UNAVAILABLE'), 'BA_R1_E_NEAR_MISS_DROP_UNAVAILABLE_SCROLL_UNAVAILABLE');
+  for (const m of [null, 'Error: BA_OBS_E_COUNT_ZERO', 'BA_OBS_E_EVIL', 'BA_OBS_E___PROTO__', 'timeout 5000ms']) assert.equal(r1Code(m, 'NO_DROP', 'STILL'), 'BA_R1_E_OTHER_NO_DROP_STILL');
+  assert.equal(r1Code('BA_OBS_E_STATUS', '__proto__', 'SIDEWAYS'), 'BA_R1_E_STATUS_DROP_UNAVAILABLE_SCROLL_UNAVAILABLE');
+});
+ok('(A) R1 spec wiring: reads go through the reducers, failed reads are null, and no NO_DROP / STILL / 0 default remains', () => {
+  const src = fs.readFileSync(path.join(HERE, '..', '..', '..', 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8');
+  const code = src.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  assert.match(code, /throw new Error\(r1Code\(e instanceof Error \? e\.message : null, r1DropKind\(texts, moving, target\), r1ScrollKind\(scrollBefore, scrollAfter\)\)\)/);
+  assert.match(code, /scrollBefore = await page\.evaluate\(\(\) => window\.scrollY\)\.catch\(\(\) => null\)/);
+  assert.match(code, /let scrollBefore: unknown = null;/);
+  assert.match(code, /\.catch\(\(\) => null\);\n\s*const scrollAfter = await page\.evaluate\(\(\) => window\.scrollY\)\.catch\(\(\) => null\);/);
+  for (const banned of ["'NO_DROP'", "'STILL'", "'SCROLLED'", 'scrollBefore = 0', 'catch(() => scrollBefore)']) assert.ok(!code.includes(banned), banned);
+  assert.match(code, /catch \{ throw new Error\('BA_R1_E_LOCATE'\); \}/);
+  // the interaction is unchanged: focus, Space, ArrowDown, Space
+  assert.match(code, /await handle\.focus\(\);[\s\S]*?press\('Space'\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);/);
 });
 
 // ---- (1) finite maps: hostile values, inherited keys, grammar ----
