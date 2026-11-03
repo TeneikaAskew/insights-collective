@@ -400,7 +400,7 @@ ok('(D) a read before the ttl clears the expiry timer (nothing fires later)', as
 });
 
 // ---- summary: the R1TRACE line ----
-const TITLES = { R1: 'BA-R1 a', R1S: 'BA-R1S a', R2: 'BA-R2 a', C1: 'BA-C1 a', D1: 'BA-D1 a', D2: 'BA-D2 a' };
+const TITLES = { R1: 'BA-R1 a', R1S: 'BA-R1S a', R2: 'BA-R2 a', C1: 'BA-C1 a', D1: 'BA-D1 a', D2: 'BA-D2 a', K1: 'BA-K1 a' };
 const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: x.expect === 'passed' ? 'expected' : 'skipped',
   results: [{ status: x.expect === 'passed' ? 'passed' : 'skipped', retry: 0, steps: [] }], c: x.case }));
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });

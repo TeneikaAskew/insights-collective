@@ -40,7 +40,7 @@ if (process.argv[1] && process.argv[1].endsWith('summary.mjs') && m) {
   fs.writeFileSync(path.join(dir, 'ba-shots.mjs'), `
 import fs from 'node:fs';
 if (${JSON.stringify(mode)}.split('+').includes('shots_refuse')) { console.log('ba-shots refused: __proto__'); process.exit(3); }
-fs.mkdirSync(process.argv[5], { mode: 0o700 }); console.log('SHOTS captured=0 withheld=0 not_taken=10 planned=10');`);
+fs.mkdirSync(process.argv[5], { mode: 0o700 }); console.log('SHOTS captured=0 withheld=0 not_taken=13 planned=13');`);
   fs.writeFileSync(path.join(dir, 'ba-db.mjs'), `
 import fs from 'node:fs';
 fs.writeFileSync(${JSON.stringify(path.join(dir, 'post-attempted'))}, 'x');
@@ -52,7 +52,7 @@ const scenario = (mode, pw = 1) => {
   const raw = path.join(d, 'raw'), out = path.join(d, 'out'), stubs = path.join(d, 'stubs');
   for (const x of [raw, out, stubs, path.join(d, 'run'), path.join(d, 'shots')]) fs.mkdirSync(x, { mode: 0o700 });
   fs.writeFileSync(path.join(out, 'pairing.txt'), 'PAIRING PASS dsn_write=1 dsn_read=match api_read=match\n');
-  fs.writeFileSync(path.join(out, 'seed.txt'), 'BA_SEED_OK courses=2 sections=5 lessons=5\n');
+  fs.writeFileSync(path.join(out, 'seed.txt'), 'BA_SEED_OK courses=3 sections=7 lessons=8\n');
   stub(stubs, mode);
   const script = `set -euo pipefail\numask 077\nrefuse() { echo "builder-authoring refused: $1" >&2; exit "\${2:-3}"; }\n`
     + `HERE=${JSON.stringify(stubs)}; RAW=${JSON.stringify(raw)}; OUT=${JSON.stringify(out)}; PW=${pw}; BA_NONCE=0123456789abcdef\n`

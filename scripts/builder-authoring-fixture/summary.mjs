@@ -36,8 +36,8 @@ export function readBounded(file, max, { uid = typeof process.getuid === 'functi
   } catch (e) { throw e instanceof SummaryError ? e : new SummaryError('read'); } finally { try { fs.closeSync(fd); } catch { /* closed */ } }
 }
 
-const CASE_RE = /^BA-(R1S|R1|R2|C1|D1|D2) /;
-const CASES = Object.freeze(Object.assign(Object.create(null), { R1: 'R1', R1S: 'R1S', R2: 'R2', C1: 'C1', D1: 'D1', D2: 'D2' }));
+const CASE_RE = /^BA-(R1S|R1|R2|C1|K1|D1|D2) /;
+const CASES = Object.freeze(Object.assign(Object.create(null), { R1: 'R1', R1S: 'R1S', R2: 'R2', C1: 'C1', K1: 'K1', D1: 'D1', D2: 'D2' }));
 
 /**
  * The failure stage, from the STAGES map only: depth first, the first failing step whose title is an own key of STAGES;
@@ -156,7 +156,7 @@ export function summarizeReport(report, exit) {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const KINDS = ['b_course', 'b_module', 'b_item', 'a_course', 'a_module', 'a_item'];
+const KINDS = ['b_course', 'b_module', 'b_item', 's_course', 's_module', 's_item', 'a_course', 'a_module', 'a_item'];
 const OTHERS = ['other_courses', 'other_modules', 'other_items'];
 const LEARNER = ['enrollments', 'progressions', 'certificates'];
 /** Columns each A projection leaves out (witness.sql); the probe must report exactly rows x this many excluded keys. */
@@ -169,7 +169,7 @@ export function parseWitness(text) {
   for (const line of text.split('\n')) {
     if (line === '') continue;
     let m;
-    if ((m = line.match(/^(b_course|b_module|b_item|a_course|a_module|a_item) ([0-9a-f-]{36}) ([0-9a-f]{32})$/)) && UUID.test(m[2])) {
+    if ((m = line.match(/^(b_course|b_module|b_item|s_course|s_module|s_item|a_course|a_module|a_item) ([0-9a-f-]{36}) ([0-9a-f]{32})$/)) && UUID.test(m[2])) {
       if (w.rows.get(m[1]).has(m[2])) throw new SummaryError('witness_duplicate');
       w.rows.get(m[1]).set(m[2], m[3]);
     } else if ((m = line.match(/^(other_courses|other_modules|other_items) ([0-9]{1,9}) ([0-9a-f]{32}|none)$/))) {
@@ -210,9 +210,9 @@ export function probeFields(p, kind, rows) {
 export function compareWitness(preText, postText) {
   const pre = parseWitness(preText), post = parseWitness(postText);
   const bad = [];
-  const expectPre = { b_course: 1, b_module: 2, b_item: 0, a_course: 1, a_module: 3, a_item: 5 };
+  const expectPre = { b_course: 1, b_module: 2, b_item: 0, s_course: 1, s_module: 2, s_item: 3, a_course: 1, a_module: 3, a_item: 5 };
   for (const [k, n] of Object.entries(expectPre)) if (pre.rows.get(k).size !== n) bad.push(`pre_${k}`);
-  for (const k of ['b_course', 'b_module', 'b_item', 'a_course', 'a_module']) if (!sameMap(pre.rows.get(k), post.rows.get(k))) bad.push(k);
+  for (const k of ['b_course', 'b_module', 'b_item', 's_course', 's_module', 's_item', 'a_course', 'a_module']) if (!sameMap(pre.rows.get(k), post.rows.get(k))) bad.push(k);
   const gone = new Set([A.deletable.id, A.vanishing.id]);
   const keptPre = new Map([...pre.rows.get('a_item')].filter(([id]) => !gone.has(id)));
   if (![...gone].every((id) => pre.rows.get('a_item').has(id)) || !sameMap(keptPre, post.rows.get('a_item'))) bad.push('a_item');
@@ -225,7 +225,7 @@ export function compareWitness(preText, postText) {
   const learnerEmpty = LEARNER.every((k) => pre.learner.get(k) === 0 && post.learner.get(k) === 0);
   const lines = [];
   if (bad.length === 0) {
-    lines.push(`WITNESS PASS b_rows=${pre.rows.get('b_course').size + pre.rows.get('b_module').size + pre.rows.get('b_item').size} a_course=1 a_sections=3 a_lessons_kept=${keptPre.size} a_lessons_deleted=2 other=unchanged`);
+    lines.push(`WITNESS PASS b_rows=${pre.rows.get('b_course').size + pre.rows.get('b_module').size + pre.rows.get('b_item').size} s_rows=${pre.rows.get('s_course').size + pre.rows.get('s_module').size + pre.rows.get('s_item').size} a_course=1 a_sections=3 a_lessons_kept=${keptPre.size} a_lessons_deleted=2 other=unchanged`);
     lines.push(`WITNESS_SCOPE b=whole_rows a_course_fields=${fields.a_course} a_module_fields=${fields.a_module} a_item_fields=${fields.a_item} excluded=updated_at,position probe=sensitive`);
   } else {
     for (const k of [...new Set(bad)]) lines.push(`WITNESS FAIL kind=${k}`);
@@ -238,22 +238,26 @@ export function compareWitness(preText, postText) {
   return { ok, lines };
 }
 
-/** The run dir holds report.json plus exactly one created-<project>.json per project ({"id":<uuid>}), distinct. */
+/** The run dir holds report.json plus exactly one created-<project>.json and one copied-<project>.json per project
+ *  ({"id":<uuid>}); all six ids are distinct (a copy is never the scratch course). */
 export function manifest(runDir, opts = {}) {
   let entries;
   try { entries = fs.readdirSync(runDir).sort(); } catch { throw new SummaryError('run_dir'); }
-  const allowed = new Set(['report.json', ...PROJECTS.map((p) => `created-${p}.json`)]);
+  const allowed = new Set(['report.json', ...PROJECTS.flatMap((p) => [`created-${p}.json`, `copied-${p}.json`])]);
   if (entries.some((e) => !allowed.has(e))) return { ok: false, lines: ['MANIFEST FAIL reason=unknown_file', 'VERDICT FAIL'] };
-  const ids = [], missingP = [];
+  const ids = { created: [], copied: [] }, missingP = [];
   for (const p of PROJECTS) {
-    if (!entries.includes(`created-${p}.json`)) { missingP.push(p); continue; }
-    const id = createdId(readBounded(path.join(runDir, `created-${p}.json`), 64, opts));
-    if (!id) return { ok: false, lines: ['MANIFEST FAIL reason=bad_id', 'VERDICT FAIL'] };
-    ids.push(id);
+    for (const kind of ['created', 'copied']) {
+      if (!entries.includes(`${kind}-${p}.json`)) { if (!missingP.includes(p)) missingP.push(p); continue; }
+      const id = createdId(readBounded(path.join(runDir, `${kind}-${p}.json`), 64, opts));
+      if (!id) return { ok: false, lines: ['MANIFEST FAIL reason=bad_id', 'VERDICT FAIL'] };
+      ids[kind].push(id);
+    }
   }
-  if (new Set(ids).size !== ids.length) return { ok: false, lines: ['MANIFEST FAIL reason=duplicate_id', 'VERDICT FAIL'] };
+  const all = [...ids.created, ...ids.copied];
+  if (new Set(all).size !== all.length) return { ok: false, lines: ['MANIFEST FAIL reason=duplicate_id', 'VERDICT FAIL'] };
   const ok = missingP.length === 0;
-  return { ok, lines: [`MANIFEST created=${ids.length}${ok ? ` projects=${PROJECTS.join(',')}` : ` missing=${missingP.join(',')}`}`, `VERDICT ${ok ? 'PASS' : 'FAIL'}`] };
+  return { ok, lines: [`MANIFEST created=${ids.created.length} copied=${ids.copied.length}${ok ? ` projects=${PROJECTS.join(',')}` : ` missing=${missingP.join(',')}`}`, `VERDICT ${ok ? 'PASS' : 'FAIL'}`] };
 }
 
 /** The exact record recordCreatedCourse writes: {"id":"<uuid v4>"} and nothing else. */

@@ -14,7 +14,7 @@ import { runPsql, includeScript } from '../gradebook-fixture/journey/private-psq
 import { assertPairingProof, PAIRING_PREFIX } from '../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-export const SEED_OK = 'BA_SEED_OK courses=2 sections=5 lessons=5';
+export const SEED_OK = 'BA_SEED_OK courses=3 sections=7 lessons=8';
 class DbError extends Error { constructor(code) { super(code); this.code = code; } }
 const psql = async (script, privDir) => { try { return await runPsql({ script, privDir }); } catch { throw new DbError('BA_DB_E_PSQL'); } };
 
