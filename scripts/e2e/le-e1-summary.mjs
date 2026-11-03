@@ -10,6 +10,7 @@
 // project; only status words, counts and error COUNTS are read, never titles beyond that check, messages or stacks.
 // With setup PASS a missing or unreadable report is a refusal, not a silent "unattempted".
 import fs from 'node:fs';
+import { failedStep } from '../../e2e/lesson-editor/step-codes.mjs';
 
 const STATUSES = new Set(['passed', 'failed', 'timedOut', 'skipped', 'interrupted']);
 const refuse = (code) => { console.log(`LE-E1 REFUSED ${code}`); process.exit(2); };
@@ -104,9 +105,9 @@ export function e1Result(report) {
   if ([ex, un, fl, sk].includes(null)) return { code: 'LE_SUM_E_STATS' };
   const globalErrors = errorsOf(report?.errors);
   if (globalErrors < 0) return { code: 'LE_SUM_E_REPORT' };
-  if (globalErrors > 0) return { result: 'failed' };
+  if (globalErrors > 0) return { result: 'failed', step: 'unknown' };
   const attempted = t.results.filter((r) => r.status !== 'skipped');
-  if (attempted.length === 0 || t.expectedStatus === 'skipped' || t.status === 'skipped') return { result: 'unattempted' };
+  if (attempted.length === 0 || t.expectedStatus === 'skipped' || t.status === 'skipped') return { result: 'unattempted', step: 'none' };
   const only = t.results[0];
   const clean = t.results.length === 1
     && only.retry === 0
@@ -114,7 +115,11 @@ export function e1Result(report) {
     && errorsOf(only.errors) === 0 && only.error == null
     && t.expectedStatus === 'passed' && t.status === 'expected'
     && ex === 1 && un === 0 && fl === 0 && sk === 0;
-  return { result: clean ? 'passed' : 'failed' };
+  if (clean) return { result: 'passed', step: 'none' };
+  // Not a clean pass: Playwright's own status word for a single attempt (failed, timedOut or interrupted), else 'failed'.
+  // The step is the fixed E1 phase code from step-codes.mjs (titles only, never a message) or 'unknown'.
+  const single = t.results.length === 1 && only.status !== 'passed';
+  return { result: single ? only.status : 'failed', step: single ? failedStep(only) : 'unknown' };
 }
 
 /** run.sh setup stage labels (its quiet labels), in the order setup runs them. */
@@ -147,7 +152,7 @@ export function setupFacts(text) {
   return { stage, contract, code };
 }
 
-export function lines({ commit, setup, stage, code = 'none', contract, result, cleanup }) {
+export function lines({ commit, setup, stage, code = 'none', contract, result, step = 'none', cleanup }) {
   return [
     `LE-E1 tier: authentic isolated LOCAL stack; commit=${commit}; not production, not deployed backend`,
     `LE-E1 setup: ${setup}`,
@@ -156,6 +161,7 @@ export function lines({ commit, setup, stage, code = 'none', contract, result, c
     `LE-E1 backend-contract: ${contract}`,
     "LE-E1 selection: 1 test (--grep 'E1 save')",
     `LE-E1 result: ${result}`,
+    `LE-E1 failed step: ${step}`,
     `LE-E1 cleanup: ${cleanup}`,
   ];
 }
@@ -174,6 +180,7 @@ function main(argv) {
   if (setup === 'FAIL' && stage === 'none') refuse('LE_SUM_E_SETUP_INCONSISTENT');
   if (!/^\d{1,3}$/.test(pw ?? '')) refuse('LE_SUM_E_EXIT');
   let result = 'unattempted';
+  let step = 'none';
   if (setup === 'PASS') {
     // Playwright's JSON reporter writes with the process umask; the job runs it under umask 077, so only 0600 is accepted.
     const r = readPrivateBounded(file);
@@ -183,9 +190,10 @@ function main(argv) {
     const c = e1Result(report);
     if (c.code) refuse(c.code);
     result = c.result;
-    if (result === 'passed' && pw !== '0') result = 'failed';
+    step = c.step;
+    if (result === 'passed' && pw !== '0') { result = 'failed'; step = 'unknown'; }
   }
-  for (const l of lines({ commit, setup, stage, code, contract, result, cleanup })) console.log(l);
+  for (const l of lines({ commit, setup, stage, code, contract, result, step, cleanup })) console.log(l);
   process.exit(result === 'passed' && setup === 'PASS' && contract === 'PASS' && cleanup === 'PASS' ? 0 : 1);
 }
 

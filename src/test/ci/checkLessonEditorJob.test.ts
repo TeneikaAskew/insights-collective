@@ -129,8 +129,8 @@ describe('lesson-editor job (proposal)', () => {
       };
     };
     const E1 = [E1_IDENTITY.title];
-    expect(e1Result(rep(E1))).toEqual({ result: 'passed' });
-    expect(e1Result(rep(E1, { status: 'failed' }))).toEqual({ result: 'failed' });
+    expect(e1Result(rep(E1))).toMatchObject({ result: 'passed' });
+    expect(e1Result(rep(E1, { status: 'failed' }))).toMatchObject({ result: 'failed' });
     // selection: exactly one test; a zero-case (setup-only) report refuses
     expect(e1Result(rep([E1_IDENTITY.title, 'E2 other'])).code).toBe('LE_SUM_E_SELECTION');
     expect(e1Result(rep([])).code).toBe('LE_SUM_E_SELECTION');
@@ -146,25 +146,36 @@ describe('lesson-editor job (proposal)', () => {
     expect(e1Result({ ...rep(E1), stats: undefined }).code).toBe('LE_SUM_E_STATS');
     expect(e1Result({ ...rep(E1), errors: 'x' }).code).toBe('LE_SUM_E_REPORT');
     // attempted and non-skipped
-    expect(e1Result(rep(E1, { results: [] }))).toEqual({ result: 'unattempted' });
-    expect(e1Result(rep(E1, { results: [{ status: 'skipped' }], expectedStatus: 'skipped', tStatus: 'skipped', stats: { expected: 0, unexpected: 0, flaky: 0, skipped: 1 } }))).toEqual({ result: 'unattempted' });
+    expect(e1Result(rep(E1, { results: [] }))).toMatchObject({ result: 'unattempted' });
+    expect(e1Result(rep(E1, { results: [{ status: 'skipped' }], expectedStatus: 'skipped', tStatus: 'skipped', stats: { expected: 0, unexpected: 0, flaky: 0, skipped: 1 } }))).toMatchObject({ result: 'unattempted' });
     // global / beforeAll / afterAll errors fail a passed test
-    expect(e1Result(rep(E1, { errors: [{ message: 'globalSetup' }] }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [{ message: 'afterAll' }] }] }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [], error: { message: 'hook' } }] }))).toEqual({ result: 'failed' });
+    expect(e1Result(rep(E1, { errors: [{ message: 'globalSetup' }] }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [{ message: 'afterAll' }] }] }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [], error: { message: 'hook' } }] }))).toMatchObject({ result: 'failed' });
     // the single attempt must be retry 0: a sole retry:1 (or a missing retry) result is not a first-attempt pass
-    expect(e1Result(rep(E1, { results: [{ retry: 1, status: 'passed', errors: [] }] }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { results: [{ status: 'passed', errors: [] }] }))).toEqual({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ retry: 1, status: 'passed', errors: [] }] }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ status: 'passed', errors: [] }] }))).toMatchObject({ result: 'failed' });
     // retries and flaky never pass; stats must agree
-    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'failed', errors: [{}] }, { retry: 1, status: 'passed', errors: [] }], tStatus: 'flaky', stats: { expected: 0, unexpected: 0, flaky: 1, skipped: 0 } }))).toEqual({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'failed', errors: [{}] }, { retry: 1, status: 'passed', errors: [] }], tStatus: 'flaky', stats: { expected: 0, unexpected: 0, flaky: 1, skipped: 0 } }))).toMatchObject({ result: 'failed' });
     // a second attempt fails even when the report's own test status and stats claim a clean pass
-    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [] }, { retry: 1, status: 'passed', errors: [] }] }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { stats: { expected: 1, unexpected: 1, flaky: 0, skipped: 0 } }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { stats: { expected: 2, unexpected: 0, flaky: 0, skipped: 0 } }))).toEqual({ result: 'failed' });
-    expect(e1Result(rep(E1, { expectedStatus: 'failed' }))).toEqual({ result: 'failed' });
+    expect(e1Result(rep(E1, { results: [{ retry: 0, status: 'passed', errors: [] }, { retry: 1, status: 'passed', errors: [] }] }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { stats: { expected: 1, unexpected: 1, flaky: 0, skipped: 0 } }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { stats: { expected: 2, unexpected: 0, flaky: 0, skipped: 0 } }))).toMatchObject({ result: 'failed' });
+    expect(e1Result(rep(E1, { expectedStatus: 'failed' }))).toMatchObject({ result: 'failed' });
     const out = lines({ commit: 'a'.repeat(40), setup: 'PASS', stage: 'none', contract: 'PASS', result: 'passed', cleanup: 'PASS' });
-    expect(out).toHaveLength(8);
+    expect(out).toHaveLength(9);
     expect(out).toContain('LE-E1 setup code: none');
+    expect(out).toContain('LE-E1 failed step: none');
+    // r3: a single non-clean attempt reports Playwright's own status word and ONE fixed step code, never a message
+    const step = (status: string, steps: unknown[]) => e1Result(rep(E1, { status: status === 'passed' ? 'passed' : 'failed', results: [{ retry: 0, status, errors: [{ message: 'SECRET message' }], steps }] }));
+    expect(step('timedOut', [{ title: 'E1_OPEN', steps: [] }, { title: 'E1_EDIT_BODY', steps: [] }])).toEqual({ result: 'timedOut', step: 'E1_EDIT_BODY' });
+    expect(step('failed', [{ title: 'E1_OPEN' }, { title: 'E1_RELOAD', steps: [{ title: 'E1_RELOAD_BODY', error: { message: 'SECRET' } }] }])).toEqual({ result: 'failed', step: 'E1_RELOAD_BODY' });
+    expect(step('failed', [{ title: 'SECRET step', error: { message: 'x' } }])).toEqual({ result: 'failed', step: 'unknown' });
+    expect(step('interrupted', [])).toEqual({ result: 'interrupted', step: 'unknown' });
+    expect(e1Result(rep(E1))).toEqual({ result: 'passed', step: 'none' });
+    expect(JSON.stringify(step('failed', [{ title: 'E1_ROW', error: { message: 'SECRET row' } }]))).not.toMatch(/SECRET/);
+    const bad = lines({ commit: 'a'.repeat(40), setup: 'PASS', stage: 'none', contract: 'PASS', result: 'timedOut', step: 'E1_EDIT_BODY', cleanup: 'PASS' });
+    for (const l of bad.filter((x) => x.startsWith('LE-E1 failed step: '))) expect(l).toMatch(/^LE-E1 failed step: (none|unknown|E1_(OPEN|BASELINE|EDIT_TITLE|EDIT_BODY|SAVED|SETTLE|ROW|BODY|RELOAD|RELOAD_BODY|EVIDENCE))$/);
     expect(out.join('\n')).not.toMatch(/SECRET|returned row/);
   });
 });
