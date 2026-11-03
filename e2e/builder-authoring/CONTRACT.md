@@ -135,6 +135,30 @@ The next authorized run reports one fixed code instead of `assertion`, still fai
 - `BA_OBS_E_<obs>`: the same verdict kind for every other action observed with `expectCalls` (R2, D1, D2). C1 does not use
   `expectCalls`, so it never emits these codes.
 
+## R1 task-barrier TEST EXPERIMENT (bounded, falsifiable; not a fix)
+
+`reorder.spec.ts` adds exactly one `await page.evaluate(() => new Promise((r) => setTimeout(r, 0)))` between the pickup
+Space and ArrowDown. Nothing else changes: keys Space/ArrowDown/Space, the one terminal exact `reorder_modules` call
+(200/204), the DB dense order and id-set checks, reload, and the passive trace. No loop, repeated key, fixed-duration wait
+or oracle relaxation; no product change. The saved keyboard-announcement wait stays UNAPPLIED.
+- Why: dnd-kit 6.3.1's KeyboardSensor adds its document keydown listener in a `setTimeout` queued during the pickup
+  (`core.esm.js:1158`). An equal-delay timer queued later runs after it, so the barrier's resolution follows that attach,
+  provided the attach timer was already queued when the barrier was scheduled.
+- What a pass would and would not show: the barrier also lets other queued work run (React effects, layout, scroll
+  handling), so a pass supports task-order sensitivity of R1, not a unique sensor cause, and is not a readiness guarantee.
+  A fail keeps the passive trace words for the next source step.
+- Model basis and its limits (`lesson-persistence/wp08-r1-unfinished-drag/`): the real CurriculumView + DndContext +
+  KeyboardSensor and the real recorder in jsdom reproduced all 12 trace words of run 41585514764 and window STILL only
+  when ArrowDown and the final Space arrived before the attach task, with the unprevented ArrowDown scrolling the inner
+  `overflow-y-auto` container. jsdom keys are dispatched synchronously, unlike awaited Playwright input; scrolling,
+  layout and the browser's default ArrowDown scroll were emulated; geometry stays OPEN.
+- Baseline kept: the no-barrier RED runs 41577484430 (DROP_SELF) and 41585514764 (unfinished drag) and their receipts
+  stay as they are; history is not rewritten.
+- Controls: a static check requires exactly one barrier, positioned after the pickup Space and before ArrowDown, with
+  nothing else between them, keys unchanged, four `page.evaluate` calls in the spec (scrollBefore, barrier, scrollAfter,
+  trace read), one `setTimeout`, the existing six `expect.poll` only, no fixed waits or loops, and the R1 block ending at
+  the exact one-call 200/204 oracle.
+
 ## R1 passive trace (diagnostic only; source and fake controls, not yet run)
 
 Run 41569423594 (4392d99e) reported `BA_R1_E_COUNT_ZERO_NO_DROP_STILL`: zero EXACT reorder RPC matches, no drop

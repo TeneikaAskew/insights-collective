@@ -45,6 +45,10 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
         await handle.focus();
         scrollBefore = await page.evaluate(() => window.scrollY).catch(() => null);
         await page.keyboard.press('Space');
+        // TEST EXPERIMENT (bounded, falsifiable; not a proven fix or readiness guarantee): one zero-delay page task
+        // queued after the pickup, so it runs after any equal-delay timer the pickup queued (dnd-kit's keyboard listener
+        // attach). It can also let React/layout work run. Original no-barrier RED baseline: runs 41577484430, 41585514764.
+        await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('Space');
       }, { count: 1, status: [200, 204] });

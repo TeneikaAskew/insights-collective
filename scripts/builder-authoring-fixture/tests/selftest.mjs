@@ -224,8 +224,9 @@ ok('(A) R1 spec wiring: reads go through the reducers, failed reads are null, an
   assert.match(code, /\.catch\(\(\) => null\);\n\s*const scrollAfter = await page\.evaluate\(\(\) => window\.scrollY\)\.catch\(\(\) => null\);/);
   for (const banned of ["'NO_DROP'", "'STILL'", "'SCROLLED'", 'scrollBefore = 0', 'catch(() => scrollBefore)']) assert.ok(!code.includes(banned), banned);
   assert.match(code, /catch \{ throw new Error\('BA_R1_E_LOCATE'\); \}/);
-  // the interaction is unchanged: focus, Space, ArrowDown, Space
-  assert.match(code, /await handle\.focus\(\);[\s\S]*?press\('Space'\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);/);
+  // the keys are unchanged: focus, Space, ArrowDown, Space; the one task barrier (TEST EXPERIMENT, see CONTRACT.md) sits
+  // between the pickup Space and ArrowDown and nothing else is added (trace-selftest checks it in detail)
+  assert.match(code, /await handle\.focus\(\);[\s\S]*?press\('Space'\);\s*await page\.evaluate\(\(\) => new Promise\(\(r\) => setTimeout\(r, 0\)\)\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);/);
 });
 
 ok('the R1 trace fake-DOM controls (tests/trace-selftest.mjs) pass, so the existing job selftest step runs them', () => {
