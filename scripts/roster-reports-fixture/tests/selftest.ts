@@ -556,6 +556,17 @@ ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verifie
     ok(pol.refused.count === 42 && aborted.at(-1) === 'blockedbyclient', 'diag: a refusal after finalize is still aborted and counted (consumed after the awaited close)');
     ok(COUNT_CAP === 99_999 && forbiddenMessage('setup', 'admin', recs, 10 ** 9)?.includes(' count=99999 ') === true, 'diag: count capped');
   }
+  // Boundary beyond FORBIDDEN_KEEP: 16 identical refusals, then a PATCH. count is every refusal (17); distinct is sampled
+  // from the 16 retained records only, so the 17th (PATCH) is not represented (distinct=1).
+  {
+    let handler: ((r: any) => Promise<unknown>) | null = null;
+    const pol: any = await installRequestPolicy({ route: async (_p: string, h: any) => { handler = h; }, on: () => {} } as any, A_ORIGIN, { actorOf });
+    const fire = (m: string, u: string) => handler!({ request: () => ({ method: () => m, url: () => u }), abort: async () => {}, fallback: async () => {} });
+    for (let i = 0; i < FORBIDDEN_KEEP; i += 1) await fire('POST', `${A_ORIGIN}/rest/v1/rpc/log_audit_event`);
+    await fire('PATCH', `${A_ORIGIN}/rest/v1/x`);
+    ok(pol.refused.count === 17 && pol.forbidden.length === 16 && pol.forbiddenReport('setup', 'admin') === 'RR_POLICY_E_FORBIDDEN scope=setup actor=admin count=17 distinct=1 method=POST resource=rpc rpc=log_audit_event',
+      `diag: >16 boundary: 16 identical then PATCH -> count=17 distinct=1 (${pol.forbiddenReport('setup', 'admin')})`);
+  }
   // Original error preserved: the first failure is kept and rethrown unchanged (no wrapping, no new message).
   ok(/if \(failure !== null\) throw failure;/.test(setupSrc) && !/new Error\([^)]*failure/.test(setupSrc) && !/failure = new Error/.test(setupSrc), 'diag: the first failure is rethrown as is (never wrapped)');
 }
