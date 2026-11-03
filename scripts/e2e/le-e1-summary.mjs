@@ -2,7 +2,10 @@
 // ABOUTME: Derives the six fixed LE-E1 summary lines (lesson-editor lane README section 3) from the PRIVATE Playwright JSON
 // ABOUTME: report of an E1-only run. Prints to stdout only; copies no title, message, stack, body or path from the report.
 //
-// Usage: le-e1-summary.mjs <private report.json> <playwright exit> <commit 40-hex> <setup PASS|FAIL> <contract PASS|FAIL> <cleanup PASS|FAIL>
+// Usage: le-e1-summary.mjs <private report.json> <playwright exit> <commit 40-hex> <setup PASS|FAIL> <private setup.txt> <cleanup PASS|FAIL>
+// The setup stage and the backend-contract verdict are read from the PRIVATE redacted run.sh setup output, never inferred from
+// the setup step outcome: contract PASS needs its exact PASS line, FAIL its FAIL line, and neither means it was not attempted.
+// The refusal stage is printed only as one of SETUP_STAGES; any other text is "unclassified" (no copied text).
 // Refuses (exit 2, one fixed line) unless the report holds exactly ONE test whose title contains "E1 save" in the lane
 // project; only status words, counts and error COUNTS are read, never titles beyond that check, messages or stacks.
 // With setup PASS a missing or unreadable report is a refusal, not a silent "unattempted".
@@ -114,10 +117,33 @@ export function e1Result(report) {
   return { result: clean ? 'passed' : 'failed' };
 }
 
-export function lines({ commit, setup, contract, result, cleanup }) {
+/** run.sh setup stage labels (its quiet labels), in the order setup runs them. */
+export const SETUP_STAGES = Object.freeze(['preflight', 'personas', 'fixture', 'read', 'quizhash', 'owner change', 'backend contract']);
+const CONTRACT_PASS = /^PASS le-contract: \d+ checks on the LOCAL isolated stack \(says nothing about the deployed backend\)$/;
+
+/**
+ * From the redacted setup output: the stage run.sh refused at (first "FAIL le-run:" line, mapped onto SETUP_STAGES, else
+ * "unclassified"; "none" if there is no such line) and the backend-contract verdict (PASS / FAIL / unattempted).
+ */
+export function setupFacts(text) {
+  const ls = String(text).split('\n');
+  const first = ls.find((l) => l.startsWith('FAIL le-run: '));
+  let stage = 'none';
+  if (first !== undefined) {
+    const rest = first.slice('FAIL le-run: '.length);
+    stage = SETUP_STAGES.find((s) => rest === s || rest.startsWith(`${s} exited `) || rest.startsWith(`${s} (`) || rest.startsWith(`${s}: `)) ?? 'unclassified';
+  }
+  const pass = ls.filter((l) => CONTRACT_PASS.test(l)).length;
+  const fail = ls.some((l) => l.startsWith('FAIL le-contract: '));
+  const contract = pass === 1 && !fail ? 'PASS' : fail ? 'FAIL' : pass > 1 ? 'FAIL' : 'unattempted';
+  return { stage, contract };
+}
+
+export function lines({ commit, setup, stage, contract, result, cleanup }) {
   return [
     `LE-E1 tier: authentic isolated LOCAL stack; commit=${commit}; not production, not deployed backend`,
     `LE-E1 setup: ${setup}`,
+    `LE-E1 setup refused at: ${stage}`,
     `LE-E1 backend-contract: ${contract}`,
     "LE-E1 selection: 1 test (--grep 'E1 save')",
     `LE-E1 result: ${result}`,
@@ -126,10 +152,17 @@ export function lines({ commit, setup, contract, result, cleanup }) {
 }
 
 function main(argv) {
-  const [file, pw, commit, setup, contract, cleanup] = argv;
+  const [file, pw, commit, setup, setupFile, cleanup] = argv;
   if (argv.length !== 6) refuse('LE_SUM_E_USAGE');
   if (!/^[0-9a-f]{40}$/.test(commit ?? '')) refuse('LE_SUM_E_COMMIT');
-  for (const v of [setup, contract, cleanup]) if (v !== 'PASS' && v !== 'FAIL') refuse('LE_SUM_E_FLAG');
+  for (const v of [setup, cleanup]) if (v !== 'PASS' && v !== 'FAIL') refuse('LE_SUM_E_FLAG');
+  // The redacted setup output is written under umask 077 into the private parent; same-descriptor bounded read, 0600 only.
+  const so = readPrivateBounded(setupFile, { max: 256 * 1024 });
+  if (!so.ok) refuse('LE_SUM_E_SETUP_OUTPUT');
+  const { stage, contract } = setupFacts(so.text);
+  // Consistency: a passed setup step must show the contract PASS and no refusal; a failed one must show a refusal.
+  if (setup === 'PASS' && (contract !== 'PASS' || stage !== 'none')) refuse('LE_SUM_E_SETUP_INCONSISTENT');
+  if (setup === 'FAIL' && stage === 'none') refuse('LE_SUM_E_SETUP_INCONSISTENT');
   if (!/^\d{1,3}$/.test(pw ?? '')) refuse('LE_SUM_E_EXIT');
   let result = 'unattempted';
   if (setup === 'PASS') {
@@ -143,7 +176,7 @@ function main(argv) {
     result = c.result;
     if (result === 'passed' && pw !== '0') result = 'failed';
   }
-  for (const l of lines({ commit, setup, contract, result, cleanup })) console.log(l);
+  for (const l of lines({ commit, setup, stage, contract, result, cleanup })) console.log(l);
   process.exit(result === 'passed' && setup === 'PASS' && contract === 'PASS' && cleanup === 'PASS' ? 0 : 1);
 }
 

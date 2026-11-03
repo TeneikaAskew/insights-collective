@@ -1681,25 +1681,8 @@ jobs:
           f() { [ "$1" = success ] && echo PASS || echo FAIL; }
           PW=$(cat "$LE_PRIV/pw-exit" 2>/dev/null || echo 255)
           node scripts/e2e/le-e1-summary.mjs "$LE_PRIV/evidence/report.json" "$PW" "$(git rev-parse HEAD)" \
-            "$(f '${{ steps.le_setup.outcome }}')" "$(f '${{ steps.le_setup.outcome }}')" "$(f '${{ steps.le_lane_cleanup.outcome }}')" | tee "$LE_EVIDENCE/checks/le-e1.txt"
+            "$(f '${{ steps.le_setup.outcome }}')" "$LE_PRIV/setup.txt" "$(f '${{ steps.le_lane_cleanup.outcome }}')" | tee "$LE_EVIDENCE/checks/le-e1.txt"
 
-      # Owned lifetime, not names: every lane process was started with this run's private LE_OWNED_RUN marker, which its whole
-      # tree inherits (workers, egress proxy, every browser, whatever its name, process group or session). Status mapped
-      # explicitly: 0 = a marked process is alive, 1 = none, anything else = UNRESOLVED. Probe output is discarded.
-      - name: No lane process survives (owned-lifetime marker scan; runner-user processes only; bounded)
-        id: le_procs
-        if: always() && steps.le_prep.outcome == 'success'
-        run: |
-          if [ "${{ steps.le_inputs.outcome }}" != success ]; then
-            echo "no lane process was started (lane inputs did not complete)" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 0
-          fi
-          st=255
-          for _ in $(seq 1 10); do st=0; node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" >/dev/null 2>&1 || st=$?; [ "$st" -eq 0 ] || break; sleep 1; done
-          case "$st" in
-            1) echo "no lane Playwright, browser, proxy or setup process remains" | tee "$LE_EVIDENCE/checks/le-procs.txt" ;;
-            0) echo "lane processes UNRESOLVED: a process of this run is still alive" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
-            *) echo "lane processes UNRESOLVED: the owned-process probe did not answer present or absent" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
-          esac
       - name: No Edge runtime container exists (read-only; after the run)
         if: always() && steps.le_prep.outcome == 'success'
         run: scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$LE_EVIDENCE/checks/no-edge-end.txt"
@@ -1713,22 +1696,6 @@ jobs:
             echo "no owned background server was launched" | tee "$LE_EVIDENCE/checks/owned-stop.txt"
             scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
           fi
-      - name: Remove private outputs (lane private parent with keys, DB password, sessions, report and output; psql dir; D1 record; verified)
-        id: le_private
-        if: always()
-        run: |
-          rc=0
-          for p in "$RUNNER_TEMP/le-private" "$RUNNER_TEMP/le-priv" "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/le-shell-receipt.txt" \
-                   "$RUNNER_TEMP/le-shell-receipt.txt.bound" test-results playwright-report; do
-            rm -rf -- "$p" || rc=1
-            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
-          done
-          # The lane's TMPDIR was inside the private parent; no preflight passfile dir may exist in the default temp roots either.
-          for root in /tmp "$RUNNER_TEMP"; do
-            if compgen -G "$root/le-pf-*" > /dev/null; then echo "private output still present: a preflight passfile dir in a default temp root"; rc=1; fi
-          done
-          if [ "$rc" -eq 0 ]; then echo "lane private parent (keys, DB password, run marker, TMPDIR, proof, sessions, report, output), psql dir, shell receipts and D1 record absent" | tee "$LE_EVIDENCE/checks/private-removed.txt"; fi
-          exit "$rc"
       - name: Stop stack (no backup)
         id: le_stop
         if: always() && steps.le_prep.outcome == 'success'
@@ -1752,6 +1719,47 @@ jobs:
             0) echo "psql UNRESOLVED: a psql process is still alive after the stack stop" | tee "$LE_EVIDENCE/checks/psql-procs.txt"; exit 1 ;;
             *) echo "psql UNRESOLVED: the psql process probe did not answer present or absent" | tee "$LE_EVIDENCE/checks/psql-procs.txt"; exit 1 ;;
           esac
+      # Owned lifetime, not names: every lane process was started with this run's private LE_OWNED_RUN marker, which its whole
+      # tree inherits (workers, egress proxy, every browser, whatever its name, process group or session). Status mapped
+      # explicitly: 0 = a marked process is alive, 1 = none, anything else = UNRESOLVED. Probe stderr is discarded; its stdout is
+      # only ever one fixed reason code, checked against the list below. It runs AFTER the stack stop (run 41676587739 lead,
+      # UNCONFIRMED: running stack containers at the runner uid can refuse an environ read) and BEFORE the private parent that
+      # holds the run marker is removed.
+      - name: No lane process survives (owned-lifetime marker scan; runner-user processes only; bounded)
+        id: le_procs
+        if: always() && steps.le_prep.outcome == 'success'
+        run: |
+          if [ "${{ steps.le_inputs.outcome }}" != success ]; then
+            echo "no lane process was started (lane inputs did not complete)" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 0
+          fi
+          st=255; why=
+          for i in $(seq 1 10); do st=0; why=$(node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" 2>/dev/null) || st=$?; [ "$st" -eq 0 ] || break; sleep 1; done
+          # Only a fixed reason code from the scanner's closed list is recorded; anything else (or nothing) is "unclassified".
+          case "$why" in
+            LE_PROCS_E_TOKEN|LE_PROCS_E_PROCDIR|LE_PROCS_E_STAT|LE_PROCS_E_ENVIRON_EACCES|LE_PROCS_E_ENVIRON_EPERM|LE_PROCS_E_ENVIRON_OTHER|LE_PROCS_E_UNCLASSIFIED) ;;
+            *) why=unclassified ;;
+          esac
+          case "$st" in
+            1) echo "no lane Playwright, browser, proxy or setup process remains" | tee "$LE_EVIDENCE/checks/le-procs.txt" ;;
+            0) echo "lane processes UNRESOLVED: a process of this run is still alive" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
+            *) echo "lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: $why)" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
+          esac
+      - name: Remove private outputs (lane private parent with keys, DB password, sessions, report and output; psql dir; D1 record; verified)
+        id: le_private
+        if: always()
+        run: |
+          rc=0
+          for p in "$RUNNER_TEMP/le-private" "$RUNNER_TEMP/le-priv" "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/le-shell-receipt.txt" \
+                   "$RUNNER_TEMP/le-shell-receipt.txt.bound" test-results playwright-report; do
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
+          done
+          # The lane's TMPDIR was inside the private parent; no preflight passfile dir may exist in the default temp roots either.
+          for root in /tmp "$RUNNER_TEMP"; do
+            if compgen -G "$root/le-pf-*" > /dev/null; then echo "private output still present: a preflight passfile dir in a default temp root"; rc=1; fi
+          done
+          if [ "$rc" -eq 0 ]; then echo "lane private parent (keys, DB password, run marker, TMPDIR, proof, sessions, report, output), psql dir, shell receipts and D1 record absent" | tee "$LE_EVIDENCE/checks/private-removed.txt"; fi
+          exit "$rc"
       - name: Remove owned network (only the one this job created; absence verified)
         id: le_net
         if: always() && steps.le_prep.outcome == 'success'

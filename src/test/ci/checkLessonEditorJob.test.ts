@@ -9,8 +9,8 @@ import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { laneProblems, LE_PROJECTS } from '../../../scripts/e2e/gb-launch-binding';
-import { E1_IDENTITY, e1Result, lines, readPrivateBounded } from '../../../scripts/e2e/le-e1-summary.mjs';
-import { scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
+import { E1_IDENTITY, e1Result, lines, readPrivateBounded, setupFacts, SETUP_STAGES } from '../../../scripts/e2e/le-e1-summary.mjs';
+import { REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -21,7 +21,8 @@ const S = LE.steps as Step[];
 const runOf = (s: Step) => String(s.run ?? '');
 const at = (re: RegExp) => { const i = S.findIndex((s) => re.test(runOf(s))); expect(i, String(re)).toBeGreaterThan(-1); return i; };
 const id = (x: string) => { const i = S.findIndex((s) => s.id === x); expect(i, x).toBeGreaterThan(-1); return i; };
-const TEARDOWN = ['le_procs', 'le_owned_stop', 'le_private', 'le_stop', 'le_producers', 'le_net', 'le_left'];
+// le_procs runs after the stack stop (containers gone) and before the private parent holding the run marker is removed.
+const TEARDOWN = ['le_owned_stop', 'le_stop', 'le_producers', 'le_procs', 'le_private', 'le_net', 'le_left'];
 
 describe('lesson-editor job (proposal)', () => {
   it('passes the shared workflow policy and is its own dispatch option', async () => {
@@ -64,6 +65,9 @@ describe('lesson-editor job (proposal)', () => {
     expect(e1).toMatch(/umask 077/);
     expect(e1).not.toMatch(/LE_ALLOWED_ORIGINS|LE_EGRESS_CONTROL|LE_ALLOW_SHIM|PGPASSWORD/);
     expect(runOf(S[id('le_summary')])).toMatch(/le-e1-summary\.mjs "\$LE_PRIV\/evidence\/report\.json"/);
+    // run 41676587739: the contract flag must come from the private setup output, never from the setup step outcome twice
+    expect(runOf(S[id('le_summary')])).toContain(`"$(f '\${{ steps.le_setup.outcome }}')" "$LE_PRIV/setup.txt" "$(f '\${{ steps.le_lane_cleanup.outcome }}')"`);
+    expect(runOf(S[id('le_summary')]).match(/steps\.le_setup\.outcome/g)).toHaveLength(1);
     // D: one private TMPDIR under the owned parent for setup and E1; the removal step also refuses a default-root le-pf-* dir
     expect(inputs).toContain('mkdir -m 700 "$P" "$P/tmp" "$P/proof" "$P/pair-raw"');
     for (const x of ['le_setup', 'le_e1']) expect(runOf(S[id(x)])).toContain('TMPDIR="$LE_PRIV/tmp" LE_OWNED_RUN="$TOKEN"');
@@ -158,9 +162,29 @@ describe('lesson-editor job (proposal)', () => {
     expect(e1Result(rep(E1, { stats: { expected: 1, unexpected: 1, flaky: 0, skipped: 0 } }))).toEqual({ result: 'failed' });
     expect(e1Result(rep(E1, { stats: { expected: 2, unexpected: 0, flaky: 0, skipped: 0 } }))).toEqual({ result: 'failed' });
     expect(e1Result(rep(E1, { expectedStatus: 'failed' }))).toEqual({ result: 'failed' });
-    const out = lines({ commit: 'a'.repeat(40), setup: 'PASS', contract: 'PASS', result: 'passed', cleanup: 'PASS' });
-    expect(out).toHaveLength(6);
+    const out = lines({ commit: 'a'.repeat(40), setup: 'PASS', stage: 'none', contract: 'PASS', result: 'passed', cleanup: 'PASS' });
+    expect(out).toHaveLength(7);
     expect(out.join('\n')).not.toMatch(/SECRET|returned row/);
+  });
+});
+
+describe('setupFacts: stage and contract verdict from the private setup output (fixed vocabulary only)', () => {
+  const OK = 'PASS le-contract: 9 checks on the LOCAL isolated stack (says nothing about the deployed backend)';
+  it('reads the contract verdict from its own lines, not from the setup outcome', () => {
+    expect(setupFacts(`x\n${OK}\n`)).toEqual({ stage: 'none', contract: 'PASS' });
+    expect(setupFacts('FAIL le-contract: 2 check(s) failed\nFAIL le-run: backend contract exited 1 (child stderr withheld: 0 bytes)\n')).toEqual({ stage: 'backend contract', contract: 'FAIL' });
+    // the run 41676587739 shape: refused before the contract ran, so the contract is "unattempted", never FAIL
+    expect(setupFacts('FAIL le-run: preflight exited 1 (child stderr withheld: 120 bytes)\nFAIL le-run: preflight (read-only; nothing was written)\n')).toEqual({ stage: 'preflight', contract: 'unattempted' });
+    expect(setupFacts(`${OK}\n${OK}\n`).contract).toBe('FAIL');
+    expect(setupFacts(`${OK} extra\n`).contract).toBe('unattempted');
+    expect(setupFacts(`  ${OK}\n`).contract).toBe('unattempted');
+  });
+  it('maps the first refusal onto the closed stage list and copies no other text', () => {
+    for (const st of SETUP_STAGES) expect(setupFacts(`FAIL le-run: ${st} exited 1 (child stderr withheld: 3 bytes)\n`).stage).toBe(st);
+    expect(setupFacts('FAIL le-run: personas file unreadable\n').stage).toBe('unclassified');
+    expect(setupFacts('FAIL le-run: private dir exists (never reused)\n').stage).toBe('unclassified');
+    expect(setupFacts('FAIL le-run: SECRET-TEXT\n').stage).toBe('unclassified');
+    expect(setupFacts('FAIL le-run: fixture exited 1\nFAIL le-run: preflight exited 1\n').stage).toBe('fixture');
   });
 });
 
@@ -254,24 +278,26 @@ describe('le-e1-summary private report reader (same descriptor; fakes and real n
 
 describe('le_procs: owned-lifetime marker probe, explicit 0/1/other mapping (shell stand-in, no real process probe)', () => {
   const BODY = String((S.find((s) => s.id === 'le_procs') ?? {}).run ?? '');
-  const run = (seqs: string, inputs = 'success') => {
+  const run = (seqs: string, inputs = 'success', why = '') => {
     const body = BODY.replace('${{ steps.le_inputs.outcome }}', inputs);
     const prelude = [
       'N=0',
+      `WHY='${why}'`,
       "tee() { while IFS= read -r l; do printf '%s\\n' \"$l\"; done; }",
       'sleep() { :; }',
       'seq() { i=$1; while [ "$i" -le "$2" ]; do echo "$i"; i=$((i+1)); done; }',
-      seqs === 'none' ? '' : `node() { [ "$1" = scripts/e2e/le-owned-procs.mjs ] || return 99; N=$((N+1)); set -- ${seqs}; [ "$N" -le $# ] && k=$N || k=$#; eval "v=\\\${$k}"; echo RAW-PROBE-OUT; echo RAW-PROBE-ERR >&2; return "$v"; }`,
-      "trap 'echo CALLS=$N >&2' EXIT",
+      // the probe runs inside $( ), a subshell, so the call index is the loop variable i and each call is counted on fd 3
+      seqs === 'none' ? '' : `node() { [ "$1" = scripts/e2e/le-owned-procs.mjs ] || return 99; echo CALL >&3; set -- ${seqs}; [ "$i" -le $# ] && k=$i || k=$#; eval "v=\\\${$k}"; [ -n "$WHY" ] && echo "$WHY" || echo RAW-PROBE-OUT; echo RAW-PROBE-ERR >&2; return "$v"; }`,
+      'exec 3>&2',
     ].join('\n');
     const r = spawnSync('/bin/bash', ['-e', '-c', `${prelude}\n${body}`], { encoding: 'utf8', env: { PATH: '/nonexistent' } });
-    return { status: r.status, out: r.stdout, err: r.stderr, calls: Number(/CALLS=(\d+)/.exec(r.stderr)?.[1] ?? -1) };
+    return { status: r.status, out: r.stdout, err: r.stderr, calls: (r.stderr.match(/^CALL$/gm) ?? []).length };
   };
   const ABSENT = 'no lane Playwright, browser, proxy or setup process remains\n';
   const ALIVE = 'lane processes UNRESOLVED: a process of this run is still alive\n';
-  const NOANSWER = 'lane processes UNRESOLVED: the owned-process probe did not answer present or absent\n';
+  const NOANSWER = 'lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: unclassified)\n';
   it('uses the marker scan, never a name regex', () => {
-    expect(BODY).toContain('node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" >/dev/null 2>&1');
+    expect(BODY).toContain('why=$(node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" 2>/dev/null) || st=$?');
     expect(BODY).not.toMatch(/pgrep|chrome-headless-shell|playwright test/);
   });
   it('maps 1 and 0->1 to absent, persistent 0 to alive, and 2, 3, 127, a missing tool or no probe to UNRESOLVED', () => {
@@ -279,6 +305,14 @@ describe('le_procs: owned-lifetime marker probe, explicit 0/1/other mapping (she
     const alive = run('0'); expect([alive.status, alive.out, alive.calls]).toEqual([1, ALIVE, 10]);
     for (const seq of ['2', '3', '127', '0 3']) { const r = run(seq); expect([r.status, r.out], seq).toEqual([1, NOANSWER]); expect(r.out + r.err).not.toMatch(/RAW-PROBE/); }
     const missing = run('none'); expect([missing.status, missing.out]).toEqual([1, NOANSWER]);
+  });
+  it('records only a reason code from the closed list, and the code never turns UNRESOLVED into absent', () => {
+    for (const why of REASONS) {
+      const r = run('3', 'success', why);
+      expect([r.status, r.out]).toEqual([1, `lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: ${why})\n`]);
+    }
+    for (const why of ['LE_PROCS_E_BOGUS', 'secret value', 'LE_PROCS_E_TOKEN extra']) expect(run('3', 'success', why).out).toBe(NOANSWER);
+    expect(run('1', 'success', 'LE_PROCS_E_ENVIRON_EACCES').out).toBe(ABSENT);
   });
   it('claims "no process was started" only when the lane inputs never completed', () => {
     const r = run('0', 'failure');
@@ -308,9 +342,14 @@ describe('le-owned-procs scanner (fake /proc; nothing is written or probed)', ()
     expect(scan({ 10: { stat: gone } , 11: { env: gone } })).toEqual({ count: 0 });
   });
   it('fails closed on an unreadable /proc, an own process it cannot read, a stat error or a malformed token', () => {
-    expect(scan({}, { readdirErr: true })).toEqual({ error: true });
-    expect(scan({ 10: { env: denied } })).toEqual({ error: true });
-    expect(scan({ 10: { stat: denied } })).toEqual({ error: true });
-    for (const token of ['', 'abc', TOK.toUpperCase(), `${TOK}\n`]) expect(scan({}, { token })).toEqual({ error: true });
+    expect(scan({}, { readdirErr: true })).toEqual({ error: true, code: 'LE_PROCS_E_PROCDIR' });
+    expect(scan({ 10: { env: denied } })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES' });
+    expect(scan({ 10: { env: Object.assign(new Error('x'), { code: 'EPERM' }) } })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EPERM' });
+    expect(scan({ 10: { env: Object.assign(new Error('x'), { code: 'EIO' }) } })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_OTHER' });
+    expect(scan({ 10: { stat: denied } })).toEqual({ error: true, code: 'LE_PROCS_E_STAT' });
+    // an unreadable process of ANOTHER uid is not read at all, so it never decides anything
+    expect(scan({ 10: { uid: 0, env: denied } })).toEqual({ count: 0 });
+    for (const token of ['', 'abc', TOK.toUpperCase(), `${TOK}\n`]) expect(scan({}, { token })).toEqual({ error: true, code: 'LE_PROCS_E_TOKEN' });
+    for (const c of ['LE_PROCS_E_PROCDIR', 'LE_PROCS_E_ENVIRON_EACCES', 'LE_PROCS_E_STAT', 'LE_PROCS_E_TOKEN']) expect(REASONS).toContain(c);
   });
 });
