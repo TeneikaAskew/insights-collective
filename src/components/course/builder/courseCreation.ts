@@ -14,6 +14,8 @@ export interface PlannedLesson {
   title: string;
   type: OutlineLesson['type'];
   position: number;
+  /** Starting lesson text (copied lessons carry their source text). */
+  content: string;
   /** Planned id of the assignment or quiz row for an assessment lesson. */
   childId: string | null;
 }
@@ -72,7 +74,7 @@ export function fingerprintOf(r: NewCourseWizardResult): string {
   return JSON.stringify({
     t: r.title,
     d: r.description || '',
-    o: (r.outline ?? []).map((s) => [s.title, s.lessons.map((l) => [l.title, l.type])]),
+    o: (r.outline ?? []).map((s) => [s.title, s.lessons.map((l) => [l.title, l.type, l.content ?? ''])]),
     f: f ? [f.name, f.size, f.type, f.lastModified] : null,
   });
 }
@@ -96,6 +98,7 @@ export function createPlan(
         title: l.title,
         type: l.type,
         position: li,
+        content: l.content ?? '',
         childId: isAssessment(l.type) ? uuid() : null,
       })),
     })),
@@ -263,7 +266,7 @@ export async function runCreationPlan({ plan, result: r, instructorId, client, r
               module_id: s.id,
               type: l.type,
               title: l.title,
-              content: '',
+              content: l.content,
               position: l.position,
               settings: {},
               published: false,
