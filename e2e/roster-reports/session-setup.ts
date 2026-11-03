@@ -11,8 +11,7 @@ import { chromiumExecutableOption } from '../support/chromium-executable';
 import { assertStrictLocalBinding } from '../gradebook-roles/local-binding.mjs';
 import { newGuardedContext } from '../gradebook-roles/origin-guard.mjs';
 import { installRequestPolicy } from './request-policy.mjs';
-import { actorOf } from './actors.mjs';
-import { appendTelemetry } from '../../scripts/roster-reports-fixture/policy-log.mjs';
+import { actorOf, appendTelemetry } from './actors.mjs';
 import { RR } from './expected';
 
 export const ROLES = {
