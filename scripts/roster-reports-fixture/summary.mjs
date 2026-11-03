@@ -182,25 +182,41 @@ export function compareWitness(expectedSeed, pre, post, policyLog) {
   return { ok: verdict === 'PASS', verdict, lines };
 }
 
+// Phase classification for the CLI: every step that can throw gets its own fixed code, so a refusal names the phase
+// (which input failed to parse, or which reducer threw) and never echoes the input, the parser message or a path.
+// Only a code in the FINITE set below passes through a boundary unchanged: the reader's own codes, the telemetry shape code
+// and the phase codes. Any other message, even one shaped like SUMMARY_E_*, is foreign and becomes the phase code (inside a
+// phase) or SUMMARY_E_INPUT (the CLI catch). Set#has matches own entries only, so 'constructor' and friends never match.
+export const OWN_CODES = new Set(['SUMMARY_E_OPEN', 'SUMMARY_E_NOT_FILE', 'SUMMARY_E_PRIVATE_FILE', 'SUMMARY_E_TOO_LARGE', 'SUMMARY_E_TELEMETRY_SHAPE',
+  'SUMMARY_E_CASES_JSON', 'SUMMARY_E_REPORT_JSON', 'SUMMARY_E_REPORT_REDUCER', 'SUMMARY_E_WITNESS_REDUCER']);
+export const ownCode = (e) => (e instanceof Error && typeof e.message === 'string' && OWN_CODES.has(e.message) ? e.message : null);
+export function phase(code, fn) {
+  try { return fn(); } catch (e) { throw new Error(ownCode(e) ?? code); }
+}
+export function playwrightSummary(casesText, reportText, pwExit, variant) {
+  const cases = phase('SUMMARY_E_CASES_JSON', () => JSON.parse(casesText));
+  const report = phase('SUMMARY_E_REPORT_JSON', () => JSON.parse(reportText));
+  return phase('SUMMARY_E_REPORT_REDUCER', () => summarizePlaywright(report, pwExit, variant, cases));
+}
+
 function main(argv) {
   const [mode, ...a] = argv;
   try {
     if (mode === 'playwright' && a.length === 3 && ['default', 'pending'].includes(a[2])) {
-      const cases = JSON.parse(readBounded(path.join(HERE, 'cases.json'), 65536));
-      const r = summarizePlaywright(JSON.parse(readBounded(a[0], LIMIT, { privateFile: true })), a[1], a[2], cases);
+      const r = playwrightSummary(readBounded(path.join(HERE, 'cases.json'), 65536), readBounded(a[0], LIMIT, { privateFile: true }), a[1], a[2]);
       console.log(r.lines.join('\n'));
       return r.ok ? 0 : 1;
     }
     if (mode === 'witness' && a.length === 4) {
-      const r = compareWitness(readBounded(a[0]), readBounded(a[1], LIMIT, { privateFile: true }), readBounded(a[2], LIMIT, { privateFile: true }), readBounded(a[3], 256 * 1024, { privateFile: true }));
+      const ins = [readBounded(a[0]), readBounded(a[1], LIMIT, { privateFile: true }), readBounded(a[2], LIMIT, { privateFile: true }), readBounded(a[3], 256 * 1024, { privateFile: true })];
+      const r = phase('SUMMARY_E_WITNESS_REDUCER', () => compareWitness(...ins));
       console.log(r.lines.join('\n'));
       return r.verdict === 'PASS' ? 0 : r.verdict === 'INCOMPLETE' ? 4 : 1;
     }
     console.log('SUMMARY_E_USAGE');
     return 2;
   } catch (e) {
-    const code = /^SUMMARY_E_[A-Z_]+$/.test(String(e?.message)) ? e.message : 'SUMMARY_E_INPUT';
-    console.log(code);
+    console.log(ownCode(e) ?? 'SUMMARY_E_INPUT');
     return 3;
   }
 }
