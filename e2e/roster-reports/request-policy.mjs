@@ -33,8 +33,8 @@ export const KNOWN_RPCS = enumOf('admin_user_role_counts', 'blog_post_authors', 
   'search_admin_users', 'search_form_submissions', 'select_random_questions', 'start_quiz_attempt', 'update_user_roles');
 export const DIAG_ACTORS = enumOf('admin', 'instructor', 'member', 'unknown');
 export const DIAG_SCOPES = enumOf('setup', 'test');
-export const FORBIDDEN_KEEP = 16; // bounded: at most this many records are kept; count keeps counting (capped)
-export const COUNT_CAP = 99_999;
+export const FORBIDDEN_KEEP = 16; // bounded: only the first 16 refusals (observation order) are kept as records
+export const COUNT_CAP = 99_999; // count counts every refusal but saturates here: count=99999 means 99999 OR MORE
 const own = (map, v, fallback) => (typeof v === 'string' && Object.hasOwn(map, v) ? map[v] : fallback);
 
 /** The finite category of a refused request. Never returns any substring of the URL. */
@@ -61,7 +61,9 @@ export function forbiddenCategory(method, rawUrl) {
 /**
  * The fixed-code refusal line for a policy: null when nothing was refused, else
  * 'RR_POLICY_E_FORBIDDEN scope=<setup|test> actor=<enum> count=<n> distinct=<n> method=<enum> resource=<enum> rpc=<enum>',
- * describing the FIRST refused request (the earliest is the most likely cause) plus totals.
+ * Field meanings: method/resource/rpc describe the first refusal in OBSERVATION order only (not a likely or root cause);
+ * count is every refusal, capped at COUNT_CAP; distinct is the number of distinct finite categories among the RETAINED
+ * records only (the first FORBIDDEN_KEEP), i.e. a sample, not the number of unique requests.
  */
 export function forbiddenMessage(scope, actor, forbidden, count) {
   const n = Math.min(Number.isInteger(count) && count > 0 ? count : forbidden.length, COUNT_CAP);
