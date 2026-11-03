@@ -250,7 +250,7 @@ describe('T-18 r2 A: a copy result applies only to the current intent, account a
     expect(continueBtn()).toBeDisabled();
   });
 
-  it('A5 clearing the course while its read is in flight leaves no outline and blocks continuing', async () => {
+  it('A5 (handler control: the select is disabled while loading, so a user cannot do this) clearing the course while its read is in flight leaves no outline and blocks continuing', async () => {
     render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
     toOutlineStep();
     const select = await openCopy();
@@ -265,7 +265,7 @@ describe('T-18 r2 A: a copy result applies only to the current intent, account a
     expect(continueBtn()).toBeDisabled();
   });
 
-  it('A6 reselecting: the slower read of the first course never replaces the second course, and only the second is created', async () => {
+  it('A6 (handler control: the select is disabled while loading, so a user cannot do this) reselecting: the slower read of the first course never replaces the second course, and only the second is created', async () => {
     render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
     toOutlineStep();
     const select = await openCopy();
@@ -377,6 +377,102 @@ describe('T-18 r2 A: a copy result applies only to the current intent, account a
       ['Essay', '<p>Write</p>'],
     ]);
   });
+
+  it('A14 an account switch while the course list is loading: no list, no loading left, nothing adopted or written', async () => {
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    const g = newGate();
+    ctl.gate.set('courses', g);
+    fireEvent.click(screen.getByText('Copy from another course'));
+    await waitFor(() => expect(g.arrived).toBe(true));
+    signedInAs('u2');
+    g.release();
+    expect(await screen.findByText(/different account/)).toBeInTheDocument();
+    const select = screen.getByLabelText('Course to copy') as HTMLSelectElement;
+    expect(select.disabled).toBe(true);
+    expect([...select.options].map((o) => o.value)).toEqual(['']);
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+    expect(continueBtn()).toBeDisabled();
+    expect(courseCount()).toBe(SEEDED_COURSES);
+  });
+
+  it('A15 an account switch while the source is being read: nothing adopted, no loading left, nothing written', async () => {
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    const select = await openCopy();
+    const g = newGate();
+    ctl.gate.set('modules', g);
+    fireEvent.change(select, { target: { value: 'src-1' } });
+    await waitFor(() => expect(g.arrived).toBe(true));
+    signedInAs('u2');
+    g.release();
+    expect(await screen.findByText(/different account/)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('First')).not.toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).not.toBeInTheDocument();
+    expect(continueBtn()).toBeDisabled();
+    expect(courseCount()).toBe(SEEDED_COURSES);
+  });
+
+  it('A16 an account switch during the final ownership check at Create is refused, with no destination write', async () => {
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    await adopt('src-1');
+    const g = newGate();
+    ctl.gate.set('courses', g);
+    await createFromConfirm();
+    await waitFor(() => expect(g.arrived).toBe(true));
+    signedInAs('u2');
+    g.release();
+    expect(await screen.findByText(/different account/)).toBeInTheDocument();
+    expect(finish).not.toHaveBeenCalled();
+    expect(courseCount()).toBe(SEEDED_COURSES);
+  });
+
+  it('A17 the result handed to the builder page names the adopted source and account', async () => {
+    const onFinish = vi.fn().mockResolvedValue(undefined);
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={onFinish} />);
+    toOutlineStep();
+    await adopt('src-1');
+    await createFromConfirm();
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
+    expect(onFinish.mock.calls[0][0].copySource).toEqual({ courseId: 'src-1', actorId: 'u1' });
+  });
+
+  it('A18 AI -> copy while an AI draft is pending: the copy can be adopted and created, and the late draft changes nothing', async () => {
+    let releaseAi!: (v: any) => void;
+    (mockSupabaseClient.functions.invoke as any).mockReturnValue(new Promise((r) => (releaseAi = r)));
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    fireEvent.change(screen.getByPlaceholderText(/Add a strong course description/), { target: { value: 'A long enough description' } });
+    fireEvent.click(screen.getByRole('button', { name: /Generate outline/ }));
+    await adopt('src-1'); // Continue becomes enabled while the AI request is still pending
+    await createFromConfirm();
+    await waitFor(() => expect(finish).toHaveBeenCalledTimes(1));
+    await act(async () => releaseAi({ data: { sections: [{ title: 'AI section', lessons: [] }] }, error: null }));
+    await flush();
+    expect(finish.mock.calls[0][0].outline.map((s: any) => s.title)).toEqual(['First', 'Second']);
+    await waitFor(() => expect(createdItems().map((i) => i.title)).toEqual(['One', 'Two', 'Essay']));
+  });
+
+  it('A19 a superseded AI request finishing late does not clear the busy state of the newer AI request', async () => {
+    const releases: ((v: any) => void)[] = [];
+    (mockSupabaseClient.functions.invoke as any).mockImplementation(() => new Promise((r) => releases.push(r)));
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    fireEvent.change(screen.getByPlaceholderText(/Add a strong course description/), { target: { value: 'A long enough description' } });
+    fireEvent.click(screen.getByRole('button', { name: /Generate outline/ }));
+    await openCopy();
+    fireEvent.click(screen.getByText('Generate with AI'));
+    fireEvent.click(screen.getByRole('button', { name: /Generate outline/ }));
+    expect(releases).toHaveLength(2);
+    await act(async () => releases[0]({ data: { sections: [{ title: 'Old AI', lessons: [] }] }, error: null }));
+    await flush();
+    expect(screen.getByRole('button', { name: /Generate outline/ })).toBeDisabled();
+    expect(screen.queryByDisplayValue('Old AI')).not.toBeInTheDocument();
+    await act(async () => releases[1]({ data: { sections: [{ title: 'New AI', lessons: [] }] }, error: null }));
+    await flush();
+    expect(screen.getByDisplayValue('New AI')).toBeInTheDocument();
+  });
 });
 
 describe('T-18 r2 reads fail closed: errors, empty source, limits and incomplete replies', () => {
@@ -433,6 +529,19 @@ describe('T-18 r2 reads fail closed: errors, empty source, limits and incomplete
 // Credential-shaped samples are assembled from parts so no literal in this file looks like a real secret.
 const J = (...p: string[]) => p.join('');
 const jwt = J('ey', 'JhbGciOiJIUzI1NiJ9', '.', 'ey', 'JzdWIiOiJ0ZXN0LW9ubHkifQ', '.', 'dGVzdC1vbmx5LXNpZw');
+// r4: forms URL parsing reads as a credential although the text as written does not spell one.
+const CONTROL_NEGATIVE: [string, string][] = [
+  ['tab entity inside a query key', J("<a href='https://example.test/?to&#9;", "ken=SECRETMARK'>x</a>")],
+  ['nested tab entity inside a query key', J("<a href='https://example.test/?to&amp;#9;", "ken=SECRETMARK'>x</a>")],
+  ['line feed entity inside a relative query key', J("<a href='/a?to&#10;", "ken=SECRETMARK'>x</a>")],
+  ['nested line feed entity inside a relative query key', J("<a href='/a?to&amp;#10;", "ken=SECRETMARK'>x</a>")],
+  ['carriage return entity inside a query key', J("<a href='/a?to&#13;", "ken=SECRETMARK'>x</a>")],
+  ['literal tab inside a query key', J("<a href='/a?to\t", "ken=SECRETMARK'>x</a>")],
+  ['literal line feed inside a query key', J("<a href='/a?to\n", "ken=SECRETMARK'>x</a>")],
+  ['backslash user and password', J('<a href="https:\\\\', 'user', ':', 'SECRETMARK', '@example.test/a">x</a>')],
+  ['mixed backslash and slash user and password', J('<a href="https:\\/', 'user', ':', 'SECRETMARK', '@example.test/a">x</a>')],
+  ['other control character inside a link', '<a href="/a?x&#1;=1">x</a>'],
+];
 const NEGATIVE: [string, string][] = [
   ['signed storage link', J('<a href="https://proj.example.co/storage/v1/object/', 'sign', '/course-materials/a.pdf?t', 'oken=', 'abc">x</a>')],
   ['signed storage path without query', J('https://proj.example.co/storage/v1/object/', 'sign', '/b/a.pdf')],
@@ -443,6 +552,17 @@ const NEGATIVE: [string, string][] = [
   ['bare signed token in text', `<p>Use ${jwt} to sign in</p>`],
   ['api key on an embed', J('<iframe src="https://maps.example.com/embed?', 'key', '=EXAMPLE&q=x"></iframe>')],
   ['mixed-case signature key', J('//cdn.example.com/v.mp4?Si', 'g=00&se=2030')],
+  ['relative signed storage link', J('<a href="/storage/v1/object/', 'sign', '/b/a.pdf?t', 'oken=abc">x</a>')],
+  ['relative link with an access token', J('<a href="/files/a.pdf?access_', 'token=abc">x</a>')],
+  ['query-only relative link with a signature', J('<a href="?s', 'ig=00">x</a>')],
+  ['entity-obfuscated user and password', J('<a href="https:&#47;&#47;', 'admin', ':', 'pw', '&#64;files.example.com/a">x</a>')],
+  ['hex-entity signed path', J('<a href="&#x2F;storage&#x2F;v1&#x2F;object&#x2F;', 'sign', '&#x2F;b&#x2F;a.pdf">x</a>')],
+  ['named-entity token query', J('<a href="/a.pdf&quest;t', 'oken&equals;abc">x</a>')],
+  ['nested entity token query', J('<a href="/a.pdf&amp;#63;t', 'oken=abc">x</a>')],
+  ['percent-encoded token query', J('<a href="/a.pdf%3Ft', 'oken%3Dabc">x</a>')],
+  ['unsupported named entity in a link', '<a href="https&bogus;//files.example.com/a">x</a>'],
+  ['encoding nested too deep to check', '<a href="/a&amp;amp;amp;amp;amp;#63;x=1">x</a>'],
+  ...CONTROL_NEGATIVE,
 ];
 const POSITIVE: [string, string][] = [
   ['public storage object', '<img src="https://proj.example.co/storage/v1/object/public/course-materials/a.png">'],
@@ -452,6 +572,14 @@ const POSITIVE: [string, string][] = [
   ['the word token in prose', '<p>A token economy rewards students. Your password is never shown.</p>'],
   ['rich text', '<h2>Intro</h2><ul><li><strong>Bold</strong> and <em>em</em></li></ul>'],
   ['plain text', 'Read chapter 2 before class.'],
+  ['relative link with an ordinary query', '<a href="/courses/1/modules?tab=2&amp;page=3#top">modules</a>'],
+  ['typographic entities', '<p>Week&nbsp;1 &mdash; &ldquo;Intro&rdquo; &copy; 2026&hellip;</p>'],
+  ['ampersand and percent in prose', '<p>Q&A session: 50% of the grade, R&D notes.</p>'],
+  ['numeric entities in an ordinary link', '<a href="https:&#47;&#47;docs.example.org&#47;guide">guide</a>'],
+  ['rich text with literal newlines and tabs between tags', '<ul>\n\t<li><a href="/courses/1?tab=2">One</a></li>\n\t<li>Two</li>\n</ul>'],
+  ['a tab entity in ordinary text', '<p>Name:&#9;value</p>'],
+  ['a Windows path in prose', '<p>Save it to C:\\Users\\me\\notes.txt</p>'],
+  ['a backslash in an ordinary public link', '<a href="https://docs.example.org/a\\b">doc</a>'],
 ];
 
 describe('T-18 r2 B: credential-bearing lesson text fails closed; ordinary text copies unchanged', () => {
@@ -467,8 +595,9 @@ describe('T-18 r2 B: credential-bearing lesson text fails closed; ordinary text 
     db.tables.content_items.get('i3').content = `<p>Key: ${jwt}</p>`;
     const err = await loadCourseOutline(reader, 'src-1', 'u1').catch((e) => e);
     expect(err).toBeInstanceOf(CopyUnsupportedContentError);
-    expect(err.lessons).toEqual(['"Essay"']);
+    expect(err.lessons).toEqual(['section 2, lesson 1']);
     expect(err.message).not.toContain(jwt);
+    expect(err.message).not.toContain('Essay');
   });
 
   it('B4 in the wizard, a credential-bearing source shows the refusal, adopts nothing and cannot be created', async () => {
@@ -479,6 +608,38 @@ describe('T-18 r2 B: credential-bearing lesson text fails closed; ordinary text 
     fireEvent.change(select, { target: { value: 'src-1' } });
     expect(await screen.findByText(/sign-in key, password or signed access token/)).toBeInTheDocument();
     expect(screen.queryByDisplayValue('First')).not.toBeInTheDocument();
+    expect(continueBtn()).toBeDisabled();
+    expect(courseCount()).toBe(SEEDED_COURSES);
+  });
+
+  it('B6 an entity-obfuscated credential under a sensitive title: no adopt, no write, and neither the title nor the link is shown', async () => {
+    const title = J('Private ', 'TITLEMARK', ' lesson');
+    const link = NEGATIVE.find(([n]) => n === 'entity-obfuscated user and password')![1];
+    Object.assign(db.tables.content_items.get('i2'), { title, content: link });
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    const select = await openCopy();
+    fireEvent.change(select, { target: { value: 'src-1' } });
+    const alert = await screen.findByText(/section 1, lesson 2/);
+    expect(alert.textContent).not.toContain('TITLEMARK');
+    expect(alert.textContent).not.toContain('files.example.com');
+    expect(screen.queryByDisplayValue(title)).not.toBeInTheDocument();
+    expect(continueBtn()).toBeDisabled();
+    expect(courseCount()).toBe(SEEDED_COURSES);
+  });
+
+  it.each(CONTROL_NEGATIVE)('B7 in the wizard, %s: no adopt, no write, and neither the title nor the link is shown', async (_n, link) => {
+    const title = J('Private ', 'TITLEMARK', ' lesson');
+    Object.assign(db.tables.content_items.get('i2'), { title, content: link });
+    render(<NewCourseWizard open onCancel={vi.fn()} onFinish={finish} />);
+    toOutlineStep();
+    const select = await openCopy();
+    fireEvent.change(select, { target: { value: 'src-1' } });
+    const alert = await screen.findByText(/section 1, lesson 2/);
+    expect(alert.textContent).not.toContain('TITLEMARK');
+    expect(alert.textContent).not.toContain('SECRETMARK');
+    expect(alert.textContent).not.toContain('example.test');
+    expect(screen.queryByDisplayValue(title)).not.toBeInTheDocument();
     expect(continueBtn()).toBeDisabled();
     expect(courseCount()).toBe(SEEDED_COURSES);
   });

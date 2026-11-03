@@ -30,8 +30,8 @@ export class CopyReadError extends Error {
 export class CopyUnsupportedContentError extends Error {
   constructor(readonly lessons: string[]) {
     super(
-      `These lessons contain a link with a sign-in key, password or signed access token, which is not copied: ${lessons.join(', ')}. ` +
-        'Replace those links in the source course with ordinary links, then copy again.',
+      `Not copied: ${lessons.join('; ')} contain a link with a sign-in key, password or signed access token, or a ` +
+        'link written in a form that cannot be checked. Replace those links in the source course with ordinary links, then copy again.',
     );
     this.name = 'CopyUnsupportedContentError';
   }
@@ -76,7 +76,7 @@ export async function assertCourseOwned(client: Client, courseId: string, userId
 }
 
 // Query and fragment keys that carry a credential or a signature. Bounded on purpose: an ordinary link
-// (page, anchor, video start time, public storage object) is copied unchanged.
+// (page, anchor, video start time, public storage object, relative course link) is copied unchanged.
 const CREDENTIAL_KEYS = new Set([
   'token', 'access_token', 'refresh_token', 'id_token', 'auth', 'auth_token', 'authorization', 'jwt',
   'apikey', 'api_key', 'api-key', 'key', 'secret', 'client_secret', 'password', 'passwd', 'pwd',
@@ -85,43 +85,145 @@ const CREDENTIAL_KEYS = new Set([
 ]);
 const JWT_SHAPE = /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/;
 const URL_SHAPE = /(?:https?:)?\/\/[^\s"'<>()]+/gi;
+// Absolute or relative: a Supabase signed object path, a credential key in any query or fragment, or a
+// user part before a host (`//user@host`, `//user:pass@host`).
 const SIGNED_PATH = /\/storage\/v1\/object\/sign\//i;
+const PARAM = /[?&#]\s*([A-Za-z0-9_.-]+)\s*=/g;
+const USERINFO = /\/\/[^\s/?#@"'<>]+@/;
 
-const decodeAmp = (s: string) => s.replace(/&amp;|&#0*38;|&#x0*26;/gi, '&');
+// Entities that may spell a reference (decoded before scanning), and common typographic ones (harmless).
+// Any other named entity is an unsupported form and refuses the copy rather than being guessed at.
+const NAMED: Record<string, string> = {
+  amp: '&', sol: '/', colon: ':', quest: '?', equals: '=', num: '#', period: '.', commat: '@', percnt: '%',
+  lt: '<', gt: '>', quot: '"', apos: "'", lowbar: '_', hyphen: '-', dash: '-', bsol: '\\',
+};
+const TYPOGRAPHIC = new Set([
+  'nbsp', 'ensp', 'emsp', 'thinsp', 'shy', 'zwj', 'zwnj', 'ndash', 'mdash', 'lsquo', 'rsquo', 'sbquo', 'ldquo',
+  'rdquo', 'bdquo', 'laquo', 'raquo', 'hellip', 'middot', 'bull', 'copy', 'reg', 'trade', 'deg', 'times',
+  'divide', 'plusmn', 'euro', 'pound', 'cent', 'yen', 'sect', 'para', 'frac12', 'frac14', 'frac34', 'prime',
+]);
 
-const hasCredentialKey = (params: URLSearchParams) => [...params.keys()].some((k) => CREDENTIAL_KEYS.has(k.toLowerCase()));
+class Unsupported extends Error {}
 
-/** True if `text` holds a credential or signed reference this copy refuses to carry. */
-export function hasCredentialReference(text: unknown): boolean {
-  if (text == null) return false;
-  const t = decodeAmp(String(text));
-  if (JWT_SHAPE.test(t)) return true;
-  for (const m of t.matchAll(URL_SHAPE)) {
-    const raw = m[0].startsWith('//') ? `https:${m[0]}` : m[0];
-    let u: URL;
-    try {
-      u = new URL(raw);
-    } catch {
-      return true; // a link that cannot be read cannot be shown safe
+function decodeEntitiesOnce(s: string): string {
+  return s.replace(/&(#[xX][0-9a-fA-F]+|#[0-9]+);?|&([A-Za-z][A-Za-z0-9]*);/g, (_m, num: string, name: string) => {
+    if (num) {
+      const code = num[1] === 'x' || num[1] === 'X' ? parseInt(num.slice(2), 16) : parseInt(num.slice(1), 10);
+      if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) throw new Unsupported();
+      return String.fromCodePoint(code);
     }
-    if (u.username || u.password) return true;
-    if (SIGNED_PATH.test(u.pathname)) return true;
-    if (hasCredentialKey(u.searchParams)) return true;
-    if (u.hash.length > 1 && hasCredentialKey(new URLSearchParams(u.hash.slice(1)))) return true;
+    const key = name.toLowerCase();
+    if (key in NAMED) return NAMED[key];
+    if (TYPOGRAPHIC.has(key)) return ' ';
+    throw new Unsupported();
+  });
+}
+
+/** Entity-decoded until stable (nested encodings included); more than a few rounds is unsupported. */
+function normalized(text: string): string {
+  let t = text;
+  for (let i = 0; i < 4; i++) {
+    const next = decodeEntitiesOnce(t);
+    if (next === t) return t;
+    t = next;
+  }
+  throw new Unsupported();
+}
+
+/** Percent-escapes decoded where they form valid UTF-8; anything else is left as written. */
+const percentDecoded = (t: string) =>
+  t.replace(/(?:%[0-9A-Fa-f]{2})+/g, (run) => {
+    try {
+      return decodeURIComponent(run);
+    } catch {
+      return run;
+    }
+  });
+
+/** A C0 control other than tab, LF and CR, or DEL. */
+function hasAmbiguousControl(t: string): boolean {
+  for (let i = 0; i < t.length; i++) {
+    const c = t.charCodeAt(i);
+    if ((c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) || c === 0x7f) return true;
   }
   return false;
 }
 
-/** Throws CopyUnsupportedContentError naming every lesson (or section) that carries a credential reference. */
-export function assertNoCredentialReferences(sections: OutlineSection[]): void {
-  const flagged: string[] = [];
-  for (const s of sections) {
-    if (hasCredentialReference(s.title)) flagged.push(`section "${String(s.title).slice(0, 80)}"`);
-    for (const l of s.lessons) {
-      if (hasCredentialReference(l.title) || hasCredentialReference(l.content)) flagged.push(`"${String(l.title).slice(0, 80)}"`);
+function scan(t: string): boolean {
+  if (JWT_SHAPE.test(t) || SIGNED_PATH.test(t) || USERINFO.test(t)) return true;
+  for (const m of t.matchAll(PARAM)) if (CREDENTIAL_KEYS.has(m[1].toLowerCase())) return true;
+  for (const m of t.matchAll(URL_SHAPE)) {
+    try {
+      new URL(m[0].startsWith('//') ? `https:${m[0]}` : m[0]);
+    } catch {
+      return true; // a link that cannot be read cannot be shown safe
     }
   }
+  return false;
+}
+
+/**
+ * True if `text` holds a credential or signed reference this copy refuses to carry, in any supported spelling
+ * (absolute, protocol-relative or relative; HTML entities, nested entities or percent-escapes), or a form it
+ * cannot normalise. It only reads the text; nothing is rewritten.
+ */
+export function hasCredentialReference(text: unknown): boolean {
+  if (text == null) return false;
+  let t: string;
+  try {
+    t = normalized(String(text));
+  } catch {
+    return true;
+  }
+  // Any other C0 control or DEL after decoding is ambiguous in a reference: refused.
+  if (hasAmbiguousControl(t)) return true;
+  const forms = [t, percentDecoded(t)];
+  // As URL parsing reads them: tab, LF and CR removed (so `to&#9;ken` is `token`) and, for the special
+  // schemes, a backslash read as a slash (so `https:\\user:pw@host` carries credentials). Scanned in addition to
+  // the text as written, never instead of it.
+  for (const f of [...forms]) forms.push(f.replace(/[\t\n\r]/g, '').replace(/\\/g, '/'));
+  return forms.some(scan);
+}
+
+/** Throws CopyUnsupportedContentError naming each flagged section or lesson by position only (never its text). */
+export function assertNoCredentialReferences(sections: OutlineSection[]): void {
+  const flagged: string[] = [];
+  sections.forEach((s, si) => {
+    if (hasCredentialReference(s.title)) flagged.push(`section ${si + 1}`);
+    s.lessons.forEach((l, li) => {
+      if (hasCredentialReference(l.title) || hasCredentialReference(l.content)) flagged.push(`section ${si + 1}, lesson ${li + 1}`);
+    });
+  });
   if (flagged.length > 0) throw new CopyUnsupportedContentError(flagged);
+}
+
+/** The copy a wizard result claims to carry, as the builder page receives it. */
+export interface CopyHandoff {
+  courseId: string;
+  actorId: string;
+}
+
+/**
+ * The builder page's check before any upload or insert for a copied course: the account signed in now is the
+ * one that adopted the copy, it still owns the source, the outline carries no credential reference, and the
+ * account is unchanged after those awaited reads. Any failure throws and nothing is written.
+ */
+export async function assertCopyHandoff(
+  client: Client,
+  auth: { getUser: () => Promise<{ data: { user: { id: string } | null } }> },
+  copy: CopyHandoff | undefined,
+  outline: OutlineSection[],
+  actorId: string | null,
+): Promise<void> {
+  if (!copy || !copy.courseId || !actorId || copy.actorId !== actorId) {
+    throw new CopyReadError('The copied outline was loaded for a different account. Go back and choose the course again.');
+  }
+  await assertCourseOwned(client, copy.courseId, actorId);
+  assertNoCredentialReferences(outline);
+  const { data } = await auth.getUser();
+  if (data.user?.id !== actorId) {
+    throw new CopyReadError('You are signed in as a different account now. Go back and choose the course again.');
+  }
 }
 
 /**

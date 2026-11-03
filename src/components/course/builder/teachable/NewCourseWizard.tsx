@@ -32,6 +32,8 @@ export interface NewCourseWizardResult {
   outlineMethod: 'ai' | 'scratch' | 'copy';
   aiDescription?: string;
   outline?: OutlineSection[];
+  /** For a copy: the source course and the account that adopted it. The builder page re-checks both. */
+  copySource?: { courseId: string; actorId: string };
 }
 
 export type CreationStepStatus = 'pending' | 'running' | 'done' | 'error' | 'skipped';
@@ -119,6 +121,14 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     return userId;
   };
 
+  // After an awaited read: the account must still be the one the read was made for.
+  const requireActor = async (userId: string) => {
+    const { data } = await supabase.auth.getUser();
+    if (data.user?.id !== userId) {
+      throw new Error('You are signed in as a different account now. Choose "Copy from another course" again.');
+    }
+  };
+
   const clearCopy = () => {
     setCopySourceId('');
     setCopyAdopted(null);
@@ -129,6 +139,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   // Entering copy always re-lists for the account signed in now; a list kept from earlier is not reused.
   const startCopy = async () => {
     const intent = bumpIntent();
+    setGenerating(false); // an AI draft still in flight is obsolete and no longer blocks Continue
     setOutlineMethod('copy');
     // Never carry another method's outline into a copy.
     setOutline([]);
@@ -138,6 +149,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     try {
       const userId = await currentUserId();
       const courses = await listCopyableCourses(supabase, userId);
+      await requireActor(userId);
       if (intent !== intentRef.current) return;
       setCopyCourses({ userId, courses });
     } catch (err: any) {
@@ -163,6 +175,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
       }
       // Ownership is checked again here, against the account signed in now, before anything is read.
       const sections = await loadCourseOutline(supabase, id, userId);
+      await requireActor(userId);
       if (intent !== intentRef.current) return;
       setOutline(sections);
       setCopyAdopted({ sourceId: id, userId });
@@ -181,6 +194,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     }
     if (m === outlineMethod) return;
     bumpIntent();
+    setGenerating(false);
     const leavingCopy = outlineMethod === 'copy';
     if (leavingCopy) {
       // A copied outline never carries into another method.
@@ -207,7 +221,8 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     } catch (err: any) {
       if (intent === intentRef.current) setGenError(err?.message || 'Failed to generate outline');
     } finally {
-      setGenerating(false);
+      // A superseded request does not touch the busy state of whatever replaced it.
+      if (intent === intentRef.current) setGenerating(false);
     }
   };
 
@@ -250,6 +265,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           throw new Error('The copied outline was loaded for a different account. Go back and choose the course again.');
         }
         await assertCourseOwned(supabase, copyAdopted.sourceId, userId);
+        await requireActor(userId);
         assertNoCredentialReferences(outline);
         if (intent !== intentRef.current) throw new Error('The copy changed while it was being checked. Please try again.');
       }
@@ -268,6 +284,9 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
           outlineMethod,
           aiDescription: aiDescription.trim(),
           outline: finalOutline,
+          ...(outlineMethod === 'copy' && copyAdopted
+            ? { copySource: { courseId: copyAdopted.sourceId, actorId: copyAdopted.userId } }
+            : {}),
         },
         setProgressSteps,
       );

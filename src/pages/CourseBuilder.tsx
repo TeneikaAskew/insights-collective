@@ -33,6 +33,7 @@ import type { BuilderCourse, BuilderModule } from '@/components/course/builder/t
 import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
 import { applyIdOrder, createReorderCoordinator } from '@/components/course/builder/reorderReconcile';
 import { planFor, runCreationPlan, type CreationPlan } from '@/components/course/builder/courseCreation';
+import { assertCopyHandoff } from '@/components/course/builder/copyCourseOutline';
 import {
   LessonSaveQueue,
   getSharedLessonSaveQueue,
@@ -337,6 +338,12 @@ const CourseBuilder = () => {
       try {
         const { data: userData } = await supabase.auth.getUser();
         const instructorId = userData.user?.id ?? null;
+
+        // A copy is created only for the account that adopted it, from a source it still owns (T-18). This
+        // runs before any upload or insert; a refusal writes nothing.
+        if (r.outlineMethod === 'copy') {
+          await assertCopyHandoff(supabase as any, supabase.auth as any, r.copySource, outline, instructorId);
+        }
 
         // Same input as a failed attempt resumes that attempt's plan (same ids), so a retry finishes the
         // same course instead of creating another one.
