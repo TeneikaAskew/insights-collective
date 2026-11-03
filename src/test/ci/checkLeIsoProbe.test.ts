@@ -9,8 +9,8 @@ import type { Browser, BrowserServer, BrowserType } from 'playwright-core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
-import { absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INNER_ORDER, INNER_TESTS, mountsVerdict, parseLdd } from '../../../scripts/e2e/le-iso/expect.mjs';
-import { formatResults, sandboxCheck } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
+import { absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
+import { formatResults, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
 import { buildImage, createArgs, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -141,11 +141,11 @@ describe('le-iso pure rules', () => {
     expect(exitStateOk({ State: { Status: 'running', Running: true, Restarting: false, Pid: 9, Dead: false } })).toBe(false);
   });
   it('mount verdict refuses an unexpected mount such as a docker socket', () => {
-    const mi = (p: string) => `1 2 0:1 / ${p} rw - x x rw`;
-    const base = ['/', IN.sock, IN.out, IN.tmp, REPO, '/proc', '/dev'].map(mi).join('\n');
+    const mi = (p: string, opts = 'rw') => `1 2 0:1 / ${p} ${opts} - x x rw`;
+    const base = [...['/', IN.sock, IN.out, IN.tmp, REPO, '/proc', '/dev'].map((p) => mi(p)), mi(INIT_PATH, 'ro,relatime')].join('\n');
     expect(mountsVerdict(base, { repo: REPO })).toBe('MOUNTS_EXACT');
-    expect(mountsVerdict(`${base}\n${mi('/var/run/docker.sock')}`, { repo: REPO })).toBe('MOUNTS_E_UNEXPECTED');
-    expect(mountsVerdict(['/', IN.sock].map(mi).join('\n'), { repo: REPO })).toBe('MOUNTS_E_MISSING');
+    expect(mountsVerdict(`${base}\n${mi('/var/run/docker.sock')}`, { repo: REPO })).toBe('MOUNTS_E_UNEXPECTED_OTHER');
+    expect(mountsVerdict(['/', IN.sock].map((p) => mi(p)).join('\n'), { repo: REPO })).toBe('MOUNTS_E_MISSING');
   });
   it('the image builder refuses an unresolvable closure before writing anything', async () => {
     const d = { exec: () => ({ ok: true, stdout: '\tlibx.so => not found\n' }), fs: {}, uid: () => 1, gid: () => 1 };
@@ -451,7 +451,7 @@ describe('le-iso container termination (fakes only)', () => {
     const order = r.calls.map((c) => c[1]).filter((x) => ['start', 'stop', 'wait', 'rm'].includes(x));
     expect(order).toEqual(['start', 'stop', 'wait', 'rm']);
     const stop = r.calls.find((c) => c[1] === 'stop');
-    expect(stop).toEqual(['docker', 'stop', '--time', '10', CIDV]);
+    expect(stop).toEqual(['docker', 'stop', '-t', '10', CIDV]);
     expect(r.say).toEqual(expect.arrayContaining(['ISO_STOP_OK', 'ISO_EXIT_OK', 'ISO_RM_OK', 'ISO_ABSENT', 'ISO_DIRS_REMOVED']));
     expect(r.ok).toBe(false);
   });
@@ -541,7 +541,7 @@ describe('le-iso sandbox check against the pinned Playwright API (fake chromium;
   });
   it('maps launch refusal, a --no-sandbox argv, an unreadable argv and a wrong body to fixed codes, closing what it opened', async () => {
     const a = fakeChromium({ launchThrows: true });
-    expect(await sandboxCheck(a.chromium, args(a))).toBe('SANDBOX_E_LAUNCH');
+    expect(await sandboxCheck(a.chromium, args(a))).toBe('SANDBOX_E_LAUNCH_NO_USABLE_SANDBOX');
     const b = fakeChromium({ argv: '/s/chrome-headless-shell\0--no-sandbox\0' });
     expect(await sandboxCheck(b.chromium, args(b))).toBe('SANDBOX_E_FLAG');
     expect(b.closed).toEqual(['server']);
@@ -555,6 +555,94 @@ describe('le-iso sandbox check against the pinned Playwright API (fake chromium;
     expect(classifyInner(formatResults(all))).toMatchObject({ ok: true, pass: true });
     const { SANDBOX, ...missing } = all;
     expect(classifyInner(formatResults(missing))).toMatchObject({ ok: true, pass: false, results: { SANDBOX: 'SANDBOX_E_LAUNCH' } });
+  });
+});
+
+describe('le-iso r5 corrections for run 41724586201 (fakes only)', () => {
+  const mi = (p: string, opts = 'rw') => `1 2 0:1 / ${p} ${opts} - x x rw`;
+  const okPoints = ['/', IN.sock, IN.out, IN.tmp, REPO, '/proc', '/proc/kcore', '/sys', '/sys/firmware', '/dev', '/dev/shm', '/etc/hosts'];
+  const withInit = (opts = 'ro,nosuid') => [...okPoints.map((p) => mi(p)), mi(INIT_PATH, opts)].join('\n');
+  it('TMP: the tmpfs states mode 0700 and the probe uid:gid explicitly, in create AND in the inspect expectation', () => {
+    expect(tmpfsSpec(1001, 118)).toBe('rw,nosuid,nodev,size=64m,mode=0700,uid=1001,gid=118');
+    expect(() => tmpfsSpec(-1, 118)).toThrow(); expect(() => tmpfsSpec(1001, Number.NaN)).toThrow();
+    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL });
+    expect(a[a.indexOf('--tmpfs') + 1]).toBe('/tmp:rw,nosuid,nodev,size=64m,mode=0700,uid=1001,gid=118');
+    expect(a.filter((x) => x === '--tmpfs')).toHaveLength(1);
+    expect(expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O }).Tmpfs).toEqual({ '/tmp': tmpfsSpec(1001, 118) });
+    // every other security flag is still present, unchanged
+    for (const f of ['--read-only', '--init']) expect(a).toContain(f);
+    expect(a.slice(a.indexOf('--cap-drop'), a.indexOf('--cap-drop') + 2)).toEqual(['--cap-drop', 'ALL']);
+    expect(a.slice(a.indexOf('--security-opt'), a.indexOf('--security-opt') + 2)).toEqual(['--security-opt', 'no-new-privileges']);
+    expect(a.slice(a.indexOf('--network'), a.indexOf('--network') + 2)).toEqual(['--network', 'none']);
+    expect(a).not.toContain('--cap-add'); expect(a).not.toContain('--privileged');
+    expect(a.join(' ')).not.toMatch(/seccomp|apparmor|unconfined|mode=1777/);
+  });
+  it('TMP: the in-container verdict requires 0700 owned by this uid:gid, then a write; errno is classed', () => {
+    const dir = (mode: number, uid = process.getuid!(), gid = process.getgid!(), isDir = true) => ({ lstatSync: () => ({ isDirectory: () => isDir, mode, uid, gid }) });
+    expect(tmpVerdict(dir(0o40700), '/tmp', () => 'ok')).toBe('TMP_WRITABLE');
+    expect(tmpVerdict(dir(0o40755, 0, 0), '/tmp', () => 'ok')).toBe('TMP_E_MODE'); // the run-2 state: root-owned 0755
+    expect(tmpVerdict(dir(0o41777), '/tmp', () => 'ok')).toBe('TMP_E_MODE');
+    expect(tmpVerdict(dir(0o40700, process.getuid!() + 1), '/tmp', () => 'ok')).toBe('TMP_E_MODE');
+    expect(tmpVerdict(dir(0o40700, undefined, undefined, false), '/tmp', () => 'ok')).toBe('TMP_E_MODE');
+    expect(tmpVerdict(dir(0o40700), '/tmp', () => 'EACCES')).toBe('TMP_E_DENIED');
+    expect(tmpVerdict(dir(0o40700), '/tmp', () => 'EROFS')).toBe('TMP_E_ROFS');
+    expect(tmpVerdict(dir(0o40700), '/tmp', () => 'ENOSPC')).toBe('TMP_E_OTHER');
+    expect(tmpVerdict({ lstatSync: () => { throw new Error('x'); } }, '/tmp', () => 'ok')).toBe('TMP_E_OTHER');
+  });
+  it('MOUNTS: the --init binary is accepted only at exactly /sbin/docker-init, read-only, and is required', () => {
+    expect(mountsVerdict(withInit(), { repo: REPO })).toBe('MOUNTS_EXACT');
+    expect(mountsVerdict(withInit('rw,nosuid'), { repo: REPO })).toBe('MOUNTS_E_INIT_RW');
+    expect(mountsVerdict(okPoints.map((p) => mi(p)).join('\n'), { repo: REPO })).toBe('MOUNTS_E_MISSING');
+    // a stray sbin mount beside the allowed init binary is still refused, by category
+    expect(mountsVerdict(`${withInit()}\n${mi('/sbin/other-init', 'ro')}`, { repo: REPO })).toBe('MOUNTS_E_UNEXPECTED_SBIN');
+  });
+  it('MOUNTS: unexpected points are reported by closed category only, never by path, and MULTI when mixed', () => {
+    const cat = (extra: string[]) => mountsVerdict(`${withInit()}\n${extra.map((p) => mi(p)).join('\n')}`, { repo: REPO });
+    expect(cat(['/etc/passwd'])).toBe('MOUNTS_E_UNEXPECTED_ETC');
+    expect(cat(['/dev/kmsg'])).toBe('MOUNTS_E_UNEXPECTED_DEV');
+    expect(cat(['/sys/kernel/security'])).toBe('MOUNTS_E_UNEXPECTED_SYS');
+    expect(cat([`${REPO}/node_modules`])).toBe('MOUNTS_E_UNEXPECTED_REPO');
+    expect(cat(['/iso/other'])).toBe('MOUNTS_E_UNEXPECTED_ISO');
+    expect(cat(['/tmp/x'])).toBe('MOUNTS_E_UNEXPECTED_TMP');
+    expect(cat(['/usr/sbin/x'])).toBe('MOUNTS_E_UNEXPECTED_SBIN');
+    expect(cat(['/var/run/docker.sock'])).toBe('MOUNTS_E_UNEXPECTED_OTHER');
+    expect(cat(['/etc/passwd', '/var/run/docker.sock'])).toBe('MOUNTS_E_UNEXPECTED_MULTI');
+    for (const c of ['ETC', 'DEV', 'SYS', 'REPO', 'ISO', 'TMP', 'SBIN', 'OTHER', 'MULTI']) expect(INNER_TESTS.MOUNTS.other).toContain(`MOUNTS_E_UNEXPECTED_${c}`);
+  });
+  it('STOP: uses -t (no deprecated --time), still requires exactly the run id, and classes a mismatch without printing it', async () => {
+    const notice = `Flag --time has been deprecated, use --timeout instead\n${CIDV}\n`; // the source-predicted Docker 28 stdout for --time
+    expect(stopOutputCategory(notice, CIDV)).toBe('ISO_STOP_OUTPUT_ID_PLUS_LINES');
+    expect(stopOutputCategory('', CIDV)).toBe('ISO_STOP_OUTPUT_EMPTY');
+    expect(stopOutputCategory('other\n', CIDV)).toBe('ISO_STOP_OUTPUT_OTHER');
+    expect(stopOutputCategory(`${CIDV}\nextra\n`, CIDV)).toBe('ISO_STOP_OUTPUT_OTHER');
+    const n = await run({ stopOut: notice });
+    expect(n.say).toEqual(expect.arrayContaining(['ISO_E_STOP_OUTPUT', 'ISO_STOP_OUTPUT_ID_PLUS_LINES']));
+    expect(n.say).not.toContain('ISO_STOP_OK');
+    expect(n.say.join('\n')).not.toMatch(/deprecated|[0-9a-f]{64}/);
+    expect(n.ok).toBe(false);
+    const g = await run({});
+    expect(g.calls.find((c) => c[1] === 'stop')).toEqual(['docker', 'stop', '-t', '10', CIDV]);
+    expect(g.calls.some((c) => c.includes('--time'))).toBe(false);
+    for (const code of ['ISO_STOP_OUTPUT_EMPTY', 'ISO_STOP_OUTPUT_ID_PLUS_LINES', 'ISO_STOP_OUTPUT_OTHER']) expect(HOST_CODES).toContain(code);
+  });
+  it('SANDBOX: launch errors are classed (tmpdir, no usable sandbox, timeout, other) and the sandbox stays requested ON', async () => {
+    expect(launchErrorCode(Object.assign(new Error("EACCES: permission denied, mkdtemp '/tmp/playwright-artifacts-XXXXXX'"), { code: 'EACCES', syscall: 'mkdtemp' }))).toBe('SANDBOX_E_LAUNCH_TMPDIR');
+    expect(launchErrorCode(new Error('browserType.launchServer: EACCES: permission denied, mkdtemp'))).toBe('SANDBOX_E_LAUNCH_TMPDIR');
+    expect(launchErrorCode(new Error('Browser logs: [FATAL:zygote_host_impl_linux.cc] No usable sandbox! If you are running on Ubuntu'))).toBe('SANDBOX_E_LAUNCH_NO_USABLE_SANDBOX');
+    expect(launchErrorCode(Object.assign(new Error('Timeout 30000ms exceeded'), { name: 'TimeoutError' }))).toBe('SANDBOX_E_LAUNCH_TIMEOUT');
+    expect(launchErrorCode(new Error('something else'))).toBe('SANDBOX_E_LAUNCH');
+    expect(launchErrorCode(undefined)).toBe('SANDBOX_E_LAUNCH');
+    const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
+    expect(inner).toMatch(/chromiumSandbox: true/);
+    expect(inner).not.toMatch(/--no-sandbox'\]|chromiumSandbox: false|--disable-setuid-sandbox|--disable-namespace-sandbox/);
+  });
+  it('SECCOMP: a new closed inner test sits right after ID, and every inner code stays inside its closed list', () => {
+    expect(INNER_ORDER.slice(0, 2)).toEqual(['ID', 'SECCOMP']);
+    expect(INNER_TESTS.SECCOMP).toEqual({ expected: 'SECCOMP_FILTER', other: ['SECCOMP_E_NONE', 'SECCOMP_E_READ'] });
+    const all = Object.fromEntries(INNER_ORDER.map((t) => [t, INNER_TESTS[t].expected]));
+    expect(classifyInner(formatResults({ ...all, TMP: 'TMP_E_MODE', MOUNTS: 'MOUNTS_E_UNEXPECTED_SBIN', SANDBOX: 'SANDBOX_E_LAUNCH_TMPDIR' })))
+      .toMatchObject({ ok: true, pass: false });
+    expect(classifyInner(formatResults({ ...all, MOUNTS: 'MOUNTS_E_UNEXPECTED' }))).toEqual({ ok: false }); // r4 generic code retired
   });
 });
 

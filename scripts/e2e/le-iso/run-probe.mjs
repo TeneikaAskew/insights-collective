@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
+import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd, stopOutputCategory, tmpfsSpec } from './expect.mjs';
 
 /**
  * A genuinely bounded client exec. At `timeout` the client gets SIGTERM, after `grace` SIGKILL, and after another `grace`
@@ -114,7 +114,7 @@ export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, 
   return ['create', '--cidfile', cidfile,
     '--user', `${uid}:${gid}`, '--network', 'none', '--ipc', 'private', '--cgroupns', 'private',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only',
-    '--tmpfs', '/tmp:rw,nosuid,nodev,size=64m', '--restart', 'no', '--log-driver', 'none', '--init',
+    '--tmpfs', `/tmp:${tmpfsSpec(uid, gid)}`, '--restart', 'no', '--log-driver', 'none', '--init',
     '--cpus', String(LIMITS.NanoCpus / 1e9), '--memory', String(LIMITS.Memory), '--memory-swap', String(LIMITS.MemorySwap),
     '--pids-limit', String(LIMITS.PidsLimit), '--shm-size', String(LIMITS.ShmSize),
     '-v', `${repo}:${repo}:ro,rprivate`, '-v', `${sock}:${IN.sock}:ro,rprivate`, '-v', `${out}:${IN.out}:rw,rprivate`,
@@ -221,9 +221,13 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       // failing on a created container); the inspect below must then VERIFY the created-never-started state.
       let waited = true;
       if (startInvoked) {
-        const st = await x('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
+        // r5: `-t`, not `--time`. Docker CLI 28.x deprecated --time; cobra prints the pflag deprecation notice through
+        // c.Print -> OutOrStderr, and the docker root command sets Out to stdout, so the notice preceded the id on stdout.
+        // `-t` is the shorthand in CLI v24.0.9 and v27.5.1 (of --time) and v28.0.4 and v29.0.0 (of --timeout), as checked in
+        // docker/cli cli/command/container/stop.go at those tags. The identity check stays exact.
+        const st = await x('docker', ['stop', '-t', '10', cid], { timeout: 30000 });
         if (st.timedOut) fail('ISO_E_STOP_TIMEOUT'); else if (!st.ok) fail('ISO_E_STOP_STATUS');
-        else if (st.stdout.trim() !== cid) fail('ISO_E_STOP_OUTPUT'); else out('ISO_STOP_OK');
+        else if (st.stdout.trim() !== cid) { fail('ISO_E_STOP_OUTPUT'); out(stopOutputCategory(st.stdout, cid)); } else out('ISO_STOP_OK');
         const w = await x('docker', ['wait', cid], { timeout: 30000 });
         waited = w.ok && /^-?\d+$/.test(w.stdout.trim());
         if (w.timedOut) fail('ISO_E_WAIT_TIMEOUT'); else if (!waited) fail('ISO_E_WAIT');

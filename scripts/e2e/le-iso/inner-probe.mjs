@@ -12,7 +12,7 @@ import dns from 'node:dns/promises';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { IN, INNER_ORDER, INNER_TESTS, dnsVerdict, mountsVerdict } from './expect.mjs';
+import { IN, INNER_ORDER, INNER_TESTS, dnsVerdict, launchErrorCode, mountsVerdict } from './expect.mjs';
 
 const FWD_PORT = 54321;
 const results = {};
@@ -83,7 +83,7 @@ export async function sandboxCheck(chromium, { shell, url, nonce, readCmdline })
   try {
     try {
       server = await chromium.launchServer({ executablePath: shell, chromiumSandbox: true, headless: true, host: '127.0.0.1', port: 0, timeout: 30000, env: { HOME: IN.tmp, TMPDIR: IN.tmp } });
-    } catch { return 'SANDBOX_E_LAUNCH'; }
+    } catch (e) { return launchErrorCode(e); }
     const pid = server.process()?.pid;
     let argv = null;
     try { argv = Number.isInteger(pid) && pid > 0 ? readCmdline(pid).split('\0') : null; } catch { argv = null; }
@@ -99,6 +99,18 @@ export async function sandboxCheck(chromium, { shell, url, nonce, readCmdline })
     try { await browser?.close(); } catch { /* the server close below ends the browser */ }
     try { await server?.close(); } catch { /* the container's pid namespace ends with it */ }
   }
+}
+
+/**
+ * TMP (r5): /tmp must be a directory of mode 0700 owned by this uid:gid (the explicit tmpfs mode/uid/gid), then writable.
+ * Errno is reduced to closed classes. Returns one fixed code; never throws.
+ */
+export function tmpVerdict(fsx, dir, tryWrite) {
+  let st;
+  try { st = fsx.lstatSync(dir); } catch { return 'TMP_E_OTHER'; }
+  if (!st.isDirectory() || (st.mode & 0o7777) !== 0o700 || st.uid !== process.getuid() || st.gid !== process.getgid()) return 'TMP_E_MODE';
+  const r = tryWrite(dir);
+  return r === 'ok' ? 'TMP_WRITABLE' : r === 'EACCES' || r === 'EPERM' ? 'TMP_E_DENIED' : r === 'EROFS' ? 'TMP_E_ROFS' : 'TMP_E_OTHER';
 }
 
 /** The exact stdout: one line per test in INNER_ORDER (a missing result reports that test's first failure code), then END. */
@@ -118,6 +130,11 @@ async function main() {
   // ID: no_new_privs set and every capability set empty.
   try { const st = readSmall('/proc/self/status', 65536); set('ID', !nnp(st) ? 'ID_E_NNP' : !capsZero(st) ? 'ID_E_CAPS' : 'ID_NNP_NOCAPS'); }
   catch { set('ID', 'ID_E_READ'); }
+
+  // SECCOMP (r5): the process runs under a seccomp filter (Seccomp: 2). Diagnostic for the sandbox: Docker's default
+  // profile denies clone/unshare with CLONE_NEWUSER without CAP_SYS_ADMIN, which Chromium's namespace sandbox needs.
+  try { const v = (readSmall('/proc/self/status', 65536).split('\n').find((l) => l.startsWith('Seccomp:')) ?? '').split(/\s+/)[1]; set('SECCOMP', v === '2' ? 'SECCOMP_FILTER' : v === undefined ? 'SECCOMP_E_READ' : 'SECCOMP_E_NONE'); }
+  catch { set('SECCOMP', 'SECCOMP_E_READ'); }
 
   // IFACES: only loopback exists.
   try { const k = Object.keys(os.networkInterfaces()); set('IFACES', k.length === 1 && k[0] === 'lo' ? 'IF_LO_ONLY' : 'IF_E_EXTRA'); }
@@ -167,7 +184,7 @@ async function main() {
   const ro = (r) => r === 'EROFS' || r === 'EACCES';
   { const r = tryWrite('/'); set('ROOTFS', r === 'ok' ? 'ROOTFS_E_WRITABLE' : ro(r) ? 'ROOTFS_READONLY' : 'ROOTFS_E_OTHER'); }
   { const r = repo ? tryWrite(repo) : 'OTHER'; set('REPO', r === 'ok' ? 'REPO_E_WRITABLE' : ro(r) ? 'REPO_READONLY' : 'REPO_E_OTHER'); }
-  set('TMP', tryWrite(IN.tmp) === 'ok' ? 'TMP_WRITABLE' : 'TMP_E_DENIED');
+  set('TMP', tmpVerdict(fs, IN.tmp, tryWrite));
   set('OUT', tryWrite(IN.out) === 'ok' ? 'OUT_WRITABLE' : 'OUT_E_DENIED');
   { const r = tryWrite('/dev/shm'); set('SHM', r === 'ok' ? 'SHM_PRIVATE_WRITABLE' : r === 'ENOENT' ? 'SHM_E_ABSENT' : 'SHM_E_OTHER'); }
 

@@ -13,6 +13,7 @@ export const HOST_CODES = Object.freeze([
   'ISO_CONFIG_OK', 'ISO_E_CONFIG',
   'ISO_RUN_DONE', 'ISO_E_START', 'ISO_E_START_TIMEOUT',
   'ISO_STOP_OK', 'ISO_E_STOP_STATUS', 'ISO_E_STOP_TIMEOUT', 'ISO_E_STOP_OUTPUT', 'ISO_STOP_SKIPPED_NEVER_STARTED',
+  'ISO_STOP_OUTPUT_EMPTY', 'ISO_STOP_OUTPUT_ID_PLUS_LINES', 'ISO_STOP_OUTPUT_OTHER',
   'ISO_EXIT_OK', 'ISO_CREATED_NEVER_STARTED', 'ISO_E_EXIT_STATE', 'ISO_E_WAIT', 'ISO_E_WAIT_TIMEOUT', 'ISO_E_CLIENT_UNREAPED',
   'ISO_RM_OK', 'ISO_E_RM',
   'ISO_ABSENT', 'ISO_E_ABSENCE_UNDECIDED', 'ISO_E_STILL_PRESENT',
@@ -22,9 +23,14 @@ export const HOST_CODES = Object.freeze([
   'ISO_INNER_PASS', 'ISO_INNER_FAIL', 'ISO_E_INNER_OUTPUT',
 ]);
 
+/** Closed categories for an unexpected mount point (first path component class). */
+export const MOUNT_CATEGORIES = Object.freeze(['SBIN', 'ETC', 'DEV', 'SYS', 'PROC', 'REPO', 'ISO', 'TMP', 'OTHER']);
+
 /** In-container tests and the ONLY result each may report (`expected`), plus the other allowed codes. */
 export const INNER_TESTS = Object.freeze({
   ID: { expected: 'ID_NNP_NOCAPS', other: ['ID_E_NNP', 'ID_E_CAPS', 'ID_E_READ'] },
+  // r5: the kernel reports a seccomp filter on the container process (Docker's default profile; mode 2 = filter).
+  SECCOMP: { expected: 'SECCOMP_FILTER', other: ['SECCOMP_E_NONE', 'SECCOMP_E_READ'] },
   IFACES: { expected: 'IF_LO_ONLY', other: ['IF_E_EXTRA', 'IF_E_READ'] },
   FWD: { expected: 'FWD_NONCE_MATCH', other: ['FWD_E_MISMATCH', 'FWD_E_CONNECT', 'FWD_E_LISTEN', 'FWD_E_INPUT'] },
   HOSTLO: { expected: 'HOSTLO_REFUSED', other: ['HOSTLO_E_REACHABLE', 'HOSTLO_E_OTHER', 'HOSTLO_E_INPUT'] },
@@ -36,12 +42,17 @@ export const INNER_TESTS = Object.freeze({
   RUN: { expected: 'RUN_EMPTY_OR_ABSENT', other: ['RUN_E_CONTENT', 'RUN_E_OTHER'] },
   ROOTFS: { expected: 'ROOTFS_READONLY', other: ['ROOTFS_E_WRITABLE', 'ROOTFS_E_OTHER'] },
   REPO: { expected: 'REPO_READONLY', other: ['REPO_E_WRITABLE', 'REPO_E_OTHER'] },
-  TMP: { expected: 'TMP_WRITABLE', other: ['TMP_E_DENIED'] },
+  // r5: TMP_E_MODE = /tmp is not a directory of mode 0700 owned by the probe uid:gid; errno split into closed classes.
+  TMP: { expected: 'TMP_WRITABLE', other: ['TMP_E_DENIED', 'TMP_E_ROFS', 'TMP_E_MODE', 'TMP_E_OTHER'] },
   OUT: { expected: 'OUT_WRITABLE', other: ['OUT_E_DENIED'] },
   SHM: { expected: 'SHM_PRIVATE_WRITABLE', other: ['SHM_E_ABSENT', 'SHM_E_OTHER'] },
   EXEC: { expected: 'EXEC_ALLOWED_NO_GAIN', other: ['EXEC_E_GAIN', 'EXEC_E_SPAWN'] },
-  MOUNTS: { expected: 'MOUNTS_EXACT', other: ['MOUNTS_E_UNEXPECTED', 'MOUNTS_E_MISSING', 'MOUNTS_E_READ'] },
-  SANDBOX: { expected: 'SANDBOX_ON_NONCE_MATCH', other: ['SANDBOX_E_LAUNCH', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT'] },
+  // r5: an unexpected mount point is reported by closed category only (never a path); MULTI = more than one category.
+  MOUNTS: { expected: 'MOUNTS_EXACT', other: [...MOUNT_CATEGORIES.map((c) => `MOUNTS_E_UNEXPECTED_${c}`), 'MOUNTS_E_UNEXPECTED_MULTI',
+    'MOUNTS_E_INIT_RW', 'MOUNTS_E_MISSING', 'MOUNTS_E_READ'] },
+  // r5: a launch failure is classified (closed list) from the error in-process; the message itself is never printed.
+  SANDBOX: { expected: 'SANDBOX_ON_NONCE_MATCH', other: ['SANDBOX_E_LAUNCH', 'SANDBOX_E_LAUNCH_TMPDIR', 'SANDBOX_E_LAUNCH_NO_USABLE_SANDBOX',
+    'SANDBOX_E_LAUNCH_TIMEOUT', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT'] },
 });
 export const INNER_ORDER = Object.freeze(Object.keys(INNER_TESTS));
 
@@ -68,6 +79,23 @@ export const LIMITS = Object.freeze({ NanoCpus: 1_000_000_000, Memory: 1_073_741
 export const IN = Object.freeze({ sock: '/iso/sock', out: '/iso/out', tmp: '/tmp' });
 
 /**
+ * Docker's in-container init path when --init is set (moby v28.0.4 daemon/oci_linux.go: inContainerInitPath =
+ * "/sbin/" + DefaultInitBinary, DefaultInitBinary = "docker-init"; added as a bind mount with options bind,ro).
+ */
+export const INIT_PATH = '/sbin/docker-init';
+
+/**
+ * The /tmp tmpfs options. runc mounts a tmpfs over an EXISTING target with mode=<target's mode> prepended to the data
+ * (runc libcontainer/rootfs_linux.go "If the original target exists, copy the mode for the tmpfs mount"); the image's /tmp
+ * is root-owned 0755, so without an explicit mode the probe uid cannot write. r5 states mode/uid/gid explicitly (later
+ * options win), giving the probe uid alone a private 0700 /tmp: narrower than the conventional 1777. No new mount.
+ */
+export function tmpfsSpec(uid, gid) {
+  if (!Number.isInteger(uid) || !Number.isInteger(gid) || uid < 0 || gid < 0) throw new Error('tmpfsSpec: integer uid/gid required');
+  return `rw,nosuid,nodev,size=64m,mode=0700,uid=${uid},gid=${gid}`;
+}
+
+/**
  * The exact config the host expects from `docker inspect <cid>`. repo = absolute repo path (bound read-only at the same
  * path), sock/out = host dirs, imageId = the locally built image id, uid/gid = the runner's ids.
  */
@@ -82,7 +110,7 @@ export function expectedConfig({ imageId, uid, gid, repo, sock, out }) {
     RestartPolicy: { Name: 'no', MaximumRetryCount: 0 },
     LogConfig: { Type: 'none' },
     AutoRemove: false, Init: true,
-    Tmpfs: { '/tmp': 'rw,nosuid,nodev,size=64m' },
+    Tmpfs: { '/tmp': tmpfsSpec(uid, gid) },
     Binds: [`${repo}:${repo}:ro,rprivate`, `${sock}:${IN.sock}:ro,rprivate`, `${out}:${IN.out}:rw,rprivate`],
     PortBindings: {},
     ...LIMITS,
@@ -211,19 +239,62 @@ export function classifyInner(stdout) {
   return { ok: true, pass: INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected), results };
 }
 
-/** Mounts the container may show in /proc/self/mountinfo (mount points only). Docker's own masks are allowed. */
+/** The closed category of a mount point that is not allowed (never the path itself). */
+export function mountCategory(p, { repo }) {
+  if (repo && (p === repo || p.startsWith(`${repo}/`))) return 'REPO';
+  if (p.startsWith('/iso/') || p === '/iso') return 'ISO';
+  const top = p.split('/')[1] ?? '';
+  return top === 'sbin' || top === 'usr' ? 'SBIN' : top === 'etc' ? 'ETC' : top === 'dev' ? 'DEV' : top === 'sys' ? 'SYS'
+    : top === 'proc' ? 'PROC' : top === 'tmp' ? 'TMP' : 'OTHER';
+}
+
+/**
+ * Mounts the container may show in /proc/self/mountinfo (mount points only). Docker's own masks are allowed, and (r5) the
+ * --init binary at exactly INIT_PATH, which must be present and mounted read-only. An unexpected point is reported only by
+ * closed category.
+ */
 export function mountsVerdict(mountinfo, { repo }) {
   const points = [];
+  let initRo = null;
   for (const line of String(mountinfo).split('\n')) {
     if (!line.trim()) continue;
     const f = line.split(' ');
     if (f.length < 10) return 'MOUNTS_E_READ';
-    points.push(f[4].replace(/\\040/g, ' '));
+    const p = f[4].replace(/\\040/g, ' ');
+    points.push(p);
+    if (p === INIT_PATH) initRo = f[5].split(',').includes('ro');
   }
-  const exact = new Set(['/', IN.sock, IN.out, IN.tmp, repo, '/etc/resolv.conf', '/etc/hostname', '/etc/hosts', '/dev', '/dev/pts',
-    '/dev/shm', '/dev/mqueue', '/dev/console', '/proc', '/sys', '/sys/fs/cgroup']);
+  const exact = new Set(['/', IN.sock, IN.out, IN.tmp, repo, INIT_PATH, '/etc/resolv.conf', '/etc/hostname', '/etc/hosts', '/dev',
+    '/dev/pts', '/dev/shm', '/dev/mqueue', '/dev/console', '/proc', '/sys', '/sys/fs/cgroup']);
   const allowedPrefix = (p) => p.startsWith('/proc/') || p.startsWith('/sys/firmware') || p.startsWith('/sys/devices/virtual/powercap');
-  for (const p of points) if (!exact.has(p) && !allowedPrefix(p)) return 'MOUNTS_E_UNEXPECTED';
-  for (const need of ['/', IN.sock, IN.out, IN.tmp, repo]) if (!points.includes(need)) return 'MOUNTS_E_MISSING';
+  const cats = new Set(points.filter((p) => !exact.has(p) && !allowedPrefix(p)).map((p) => mountCategory(p, { repo })));
+  if (cats.size > 1) return 'MOUNTS_E_UNEXPECTED_MULTI';
+  if (cats.size === 1) return `MOUNTS_E_UNEXPECTED_${[...cats][0]}`;
+  for (const need of ['/', IN.sock, IN.out, IN.tmp, repo, INIT_PATH]) if (!points.includes(need)) return 'MOUNTS_E_MISSING';
+  if (initRo !== true) return 'MOUNTS_E_INIT_RW';
   return 'MOUNTS_EXACT';
+}
+
+/**
+ * Closed category of a `docker stop` stdout that is NOT exactly the run id (the run still fails ISO_E_STOP_OUTPUT; this only
+ * classifies). ID_PLUS_LINES = the id is the last line but other lines came first (e.g. a CLI deprecation notice).
+ */
+export function stopOutputCategory(stdout, cid) {
+  const lines = String(stdout).split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  if (lines.length === 0) return 'ISO_STOP_OUTPUT_EMPTY';
+  if (lines.length > 1 && lines.at(-1) === cid) return 'ISO_STOP_OUTPUT_ID_PLUS_LINES';
+  return 'ISO_STOP_OUTPUT_OTHER';
+}
+
+/**
+ * Classify a Chromium launch error in-process (the message is read, never printed). NO_USABLE_SANDBOX = Chrome's fatal
+ * "No usable sandbox!" (content/browser/zygote_host/zygote_host_impl_linux.cc); TMPDIR = Playwright's mkdtemp under
+ * os.tmpdir() failed (playwright-core 1.59.1 server/browserType.js); TIMEOUT = Playwright TimeoutError.
+ */
+export function launchErrorCode(e) {
+  const msg = typeof e?.message === 'string' ? e.message : '';
+  if (msg.includes('No usable sandbox')) return 'SANDBOX_E_LAUNCH_NO_USABLE_SANDBOX';
+  if (e?.syscall === 'mkdtemp' || /mkdtemp/.test(msg)) return 'SANDBOX_E_LAUNCH_TMPDIR';
+  if (e?.name === 'TimeoutError') return 'SANDBOX_E_LAUNCH_TIMEOUT';
+  return 'SANDBOX_E_LAUNCH';
 }
