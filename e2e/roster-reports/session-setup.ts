@@ -96,5 +96,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
     try { policy?.assertClosed(); } catch (e) { if (failure === null) failure = e; }
     if (failure !== null) throw failure;
   }
-  console.log('[roster-reports setup] association proven; admin, instructor and member sessions saved');
+  // stderr, never stdout: run.sh captures this process's whole stdout as the JSON reporter's report, and summary.mjs
+  // parses that file whole, so any stdout line here makes the report unparseable (run 41613979959, SUMMARY_E_INPUT).
+  console.error('[roster-reports setup] association proven; admin, instructor and member sessions saved');
 }

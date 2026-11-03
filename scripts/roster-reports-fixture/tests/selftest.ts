@@ -9,7 +9,7 @@ import { classifyRequest, installRequestPolicy, forbiddenCategory, forbiddenMess
 import * as ActorsModule from '../../../e2e/roster-reports/actors.mjs';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE, readBounded, classifyCode } from '../summary.mjs';
+import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE, readBounded, classifyCode, phase, playwrightSummary, OWN_CODES, ownCode } from '../summary.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -298,6 +298,64 @@ const sumCli = (args: string[]) => { try { execFileSync('node', [path.join(ROOT,
     const loose = w('sink4', L2); fs.chmodSync(loose, 0o644);
     ok(sumCli(['witness', e, w('pre4', pre), w('post4', post11), loose]) === 3, 'witness CLI: a non-private sink is an input error (exit 3)');
   } finally { fs.rmSync(d, { recursive: true, force: true }); }
+}
+// 7d. Report framing (run 41613979959: SUMMARY_E_INPUT). run.sh captures the whole Playwright stdout as the JSON report and
+// summary.mjs parses that file whole, so (a) no lane code that runs in the runner process may write to stdout, and (b) each
+// CLI phase refuses with its own fixed code: cases JSON, report JSON, report reducer, witness reducer. The parser is NOT
+// made tolerant: a framed report still fails, now as SUMMARY_E_REPORT_JSON, and no input text reaches the output.
+{
+  const casesText = read('scripts/roster-reports-fixture/cases.json');
+  const goodReport = JSON.stringify(rep(cases.default));
+  const SETUP_LINE = '[roster-reports setup] association proven; admin, instructor and member sessions saved\n';
+  const code = (fn: () => unknown) => { try { fn(); return 'OK'; } catch (e) { return String((e as Error).message); } };
+  const viaPhase = playwrightSummary(casesText, goodReport, 0, 'default');
+  ok(viaPhase.ok && JSON.stringify(viaPhase.lines) === JSON.stringify(sp(rep(cases.default), 0).lines), 'phases: a clean report gives exactly the reducer result');
+  ok(code(() => playwrightSummary(casesText, SETUP_LINE + goodReport, 0, 'default')) === 'SUMMARY_E_REPORT_JSON', 'phases: a stdout line before the report is SUMMARY_E_REPORT_JSON (not tolerated)');
+  ok(code(() => playwrightSummary(casesText, goodReport + '\nlate stdout\n', 0, 'default')) === 'SUMMARY_E_REPORT_JSON', 'phases: a stdout line after the report is SUMMARY_E_REPORT_JSON');
+  ok(code(() => playwrightSummary(casesText, '', 0, 'default')) === 'SUMMARY_E_REPORT_JSON', 'phases: an empty report is SUMMARY_E_REPORT_JSON');
+  ok(code(() => playwrightSummary('{"default": [', goodReport, 0, 'default')) === 'SUMMARY_E_CASES_JSON', 'phases: unparseable cases.json is SUMMARY_E_CASES_JSON');
+  ok(code(() => playwrightSummary('{}', goodReport, 0, 'default')) === 'SUMMARY_E_REPORT_REDUCER', 'phases: a reducer throw (cases without default) is SUMMARY_E_REPORT_REDUCER');
+  ok(code(() => playwrightSummary('{"default": [', 'x' + goodReport, 0, 'default')) === 'SUMMARY_E_CASES_JSON', 'phases: cases.json is classified before the report');
+  ok(code(() => phase('SUMMARY_E_WITNESS_REDUCER', () => { throw new Error('SUMMARY_E_TELEMETRY_SHAPE'); })) === 'SUMMARY_E_TELEMETRY_SHAPE', 'phases: an inner SUMMARY_E code passes through unchanged');
+  ok(code(() => phase('SUMMARY_E_WITNESS_REDUCER', () => { throw new TypeError('secret-marker /private/path'); })) === 'SUMMARY_E_WITNESS_REDUCER', 'phases: a foreign throw becomes the phase code, its message dropped');
+  ok(code(() => phase('SUMMARY_E_REPORT_JSON', () => { throw new Error('SUMMARY_E_x lower'); })) === 'SUMMARY_E_REPORT_JSON', 'phases: a near-miss code is not passed through');
+  // r3 (safety hold 10:19): pass-through is a FINITE set, not a pattern. Every genuine code passes both boundaries;
+  // a matching-looking foreign message (prefix, long, constructor-like, non-Error) never does.
+  const GENUINE = ['SUMMARY_E_OPEN', 'SUMMARY_E_NOT_FILE', 'SUMMARY_E_PRIVATE_FILE', 'SUMMARY_E_TOO_LARGE', 'SUMMARY_E_TELEMETRY_SHAPE', 'SUMMARY_E_CASES_JSON', 'SUMMARY_E_REPORT_JSON', 'SUMMARY_E_REPORT_REDUCER', 'SUMMARY_E_WITNESS_REDUCER'];
+  ok(OWN_CODES.size === GENUINE.length && GENUINE.every((g) => OWN_CODES.has(g)), 'own codes: exactly the reader, telemetry and phase codes');
+  const sumCodes = [...new Set(read('scripts/roster-reports-fixture/summary.mjs').match(/SUMMARY_E_[A-Z_]+/g) ?? [])].filter((c) => c !== 'SUMMARY_E_INPUT' && c !== 'SUMMARY_E_USAGE');
+  ok(sumCodes.every((c) => OWN_CODES.has(c)) && sumCodes.length === OWN_CODES.size, `own codes: every code summary.mjs can throw is in the set and nothing else (${sumCodes.length})`);
+  for (const g of GENUINE) ok(code(() => phase('SUMMARY_E_REPORT_JSON', () => { throw new Error(g); })) === g && ownCode(new Error(g)) === g, `genuine code passes both boundaries (${g})`);
+  const FOREIGN: [string, unknown][] = [['matching prefix', new Error('SUMMARY_E_SYNTHETIC_PRIVATE_MARKER')], ['long', new Error('SUMMARY_E_' + 'A'.repeat(1000))],
+    ['genuine plus suffix', new Error('SUMMARY_E_OPEN_X')], ['genuine with trailing newline', new Error('SUMMARY_E_OPEN\n')], ['constructor', new Error('constructor')],
+    ['__proto__', new Error('__proto__')], ['non-Error object', { message: 'SUMMARY_E_OPEN' }], ['string throw', 'SUMMARY_E_OPEN']];
+  for (const [what, thrown] of FOREIGN) {
+    ok(code(() => phase('SUMMARY_E_WITNESS_REDUCER', () => { throw thrown; })) === 'SUMMARY_E_WITNESS_REDUCER', `phase: foreign ${what} becomes the phase code`);
+    ok(ownCode(thrown) === null, `CLI catch: foreign ${what} is not an own code (falls back to SUMMARY_E_INPUT)`);
+  }
+  const sumSrc2 = read('scripts/roster-reports-fixture/summary.mjs').replace(/^\s*\/\/.*$/gm, '');
+  ok(!/\/\^SUMMARY_E_\[A-Z_\]\+\$\//.test(sumSrc2) && (sumSrc2.match(/ownCode\(e\)/g) ?? []).length === 2, 'summary source: no pattern-based pass-through; ownCode at both exception-to-output boundaries');
+  // CLI end to end on private 0600 files: stdout is exactly one fixed code, exit 3; the clean report still summarises.
+  const d = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rr-frame-'));
+  try {
+    const w = (n: string, t: string) => { const p = path.join(d, n); fs.writeFileSync(p, t, { mode: 0o600 }); fs.chmodSync(p, 0o600); return p; };
+    const cli = (args: string[]) => { try { return { rc: 0, out: execFileSync('node', [path.join(ROOT, 'scripts/roster-reports-fixture/summary.mjs'), ...args], { stdio: 'pipe' }).toString() }; } catch (e) { const x = e as { status: number; stdout: Buffer }; return { rc: x.status, out: String(x.stdout) }; } };
+    const framed = cli(['playwright', w('framed.json', SETUP_LINE + goodReport), '0', 'default']);
+    ok(framed.rc === 3 && framed.out === 'SUMMARY_E_REPORT_JSON\n', `CLI: the run's framing (setup line + report) is exit 3 SUMMARY_E_REPORT_JSON (got ${framed.rc})`);
+    ok(!framed.out.includes('roster-reports setup') && !framed.out.includes(d), 'CLI: no input text or path in the refusal');
+    const clean = cli(['playwright', w('clean.json', goodReport), '0', 'default']);
+    ok(clean.rc === 0 && clean.out.trim().split('\n').every((l) => STAGE.test(l)) && /PLAYWRIGHT exit=0 global_errors=0 verdict=PASS$/.test(clean.out.trim()), 'CLI: a clean report summarises (exit 0, stageable)');
+    const loose = w('loose.json', goodReport); fs.chmodSync(loose, 0o644);
+    ok(cli(['playwright', loose, '0', 'default']).out === 'SUMMARY_E_PRIVATE_FILE\n', 'CLI: the private-file guard on the report is unchanged');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  for (const c of ['SUMMARY_E_CASES_JSON', 'SUMMARY_E_REPORT_JSON', 'SUMMARY_E_REPORT_REDUCER', 'SUMMARY_E_WITNESS_REDUCER']) ok(STAGE.test(c), `phase code stageable (${c})`);
+  // Producer side: lane code that runs in the Playwright runner process (config, global setup and their lane imports) never
+  // writes to stdout. Specs and fixtures run in workers, whose stdout the JSON reporter captures into the report instead.
+  const noStdout = (rel: string) => !/\bconsole\.(log|info|debug|dir|table)\s*\(|process\.stdout\b/.test(read(rel).replace(/^\s*\/\/.*$/gm, ''));
+  for (const rel of ['playwright.roster-reports.config.ts', 'e2e/roster-reports/session-setup.ts', 'e2e/roster-reports/request-policy.mjs', 'e2e/roster-reports/actors.mjs', 'e2e/roster-reports/expected.ts']) {
+    ok(noStdout(rel), `producer: ${rel} writes nothing to stdout (the JSON report owns it)`);
+  }
+  ok(/--reporter=json --output="\$RAW\/test-results"\) > "\$RAW\/playwright\.json" 2> "\$RAW\/playwright\.err"/.test(read('scripts/roster-reports-fixture/run.sh')), 'run.sh: stdout is the report and stderr is private (contract the producer checks rely on)');
 }
 ok(!compareWitness('', pre, pre, '').ok, 'witness: empty committed projection fails');
 for (const [what, r] of [['pass', compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 1)), L2)],
