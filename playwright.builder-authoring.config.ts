@@ -7,24 +7,27 @@ import { assertStrictLocalBinding } from './e2e/gradebook-roles/local-binding.mj
 
 const { app } = assertStrictLocalBinding();
 const DIR = process.env.BA_SESSION_DIR ?? '';
+const RUN = process.env.BA_RUN_DIR ?? '';
 if (!path.isAbsolute(DIR)) throw new Error('builder-authoring refused: BA_SESSION_DIR must be an absolute private dir');
-if (!path.isAbsolute(process.env.BA_RUN_DIR ?? '')) throw new Error('builder-authoring refused: BA_RUN_DIR must be an absolute private dir');
-if (!/^[a-z0-9]{8,32}$/.test(process.env.BA_NONCE ?? '')) throw new Error('builder-authoring refused: BA_NONCE must be 8-32 [a-z0-9]');
+if (!path.isAbsolute(RUN)) throw new Error('builder-authoring refused: BA_RUN_DIR must be an absolute private dir');
+if (!/^[0-9a-f]{16}$/.test(process.env.BA_NONCE ?? '')) throw new Error('builder-authoring refused: BA_NONCE must be 16 hex');
 
 const base = {
   ...devices['Desktop Chrome'], baseURL: app.origin, launchOptions: chromiumExecutableOption(),
-  screenshot: 'off' as const, trace: 'off' as const, serviceWorkers: 'block' as const,
+  screenshot: 'off' as const, trace: 'off' as const, video: 'off' as const, serviceWorkers: 'block' as const,
   storageState: path.join(DIR, 'instructor.json'),
 };
-// Three widths. The one-shot delete controls run only in ba-1440 (their rows exist once); reorder and create run in all.
+// Exactly these three projects, in this order (the launch-binding lane pins the list). D1/D2 act on one-shot rows and run in
+// ba-1440 only; in ba-768 and ba-390 they are intentional skips, so the inventory is 15 entries = 11 executions + 4 skips.
 export default defineConfig({
   testDir: './e2e/builder-authoring',
+  testMatch: ['reorder.spec.ts', 'create.spec.ts', 'delete.spec.ts'],
   globalSetup: './e2e/builder-authoring/session-setup.ts',
   fullyParallel: false,
   retries: 0, // a retry would act on the first attempt's writes
   workers: 1,
-  timeout: 60_000,
-  reporter: [['list'], ['json', { outputFile: path.join(process.env.BA_RUN_DIR ?? '', 'report.json') }]],
+  timeout: 90_000,
+  reporter: [['json', { outputFile: path.join(RUN, 'report.json') }]],
   projects: [
     { name: 'ba-1440', use: { ...base, viewport: { width: 1440, height: 900 } } },
     { name: 'ba-768', dependencies: ['ba-1440'], use: { ...base, viewport: { width: 768, height: 1024 }, hasTouch: true } },

@@ -2,7 +2,6 @@
 // ABOUTME: 9b6e0000-... namespace, disjoint from the gradebook (9b6b/9b6c), public-catalog and shared e2e seeds.
 
 export const INSTRUCTOR_ID = 'e2e00000-0000-4000-8000-000000000002'; // e2e-instructor (local actors step)
-export const OTHER_AUTHOR_ID = 'e2e00000-0000-4000-8000-000000000001'; // e2e-admin: the "changed account" persona (PENDING controls only)
 
 /** Course A: three sections, three lessons in section A1. Reordered and deleted through the UI. */
 export const A = {
@@ -34,13 +33,32 @@ export const B = {
   ],
 };
 
-/** Wizard-created courses carry this marker plus the run nonce in their title; cleanup requires both. */
-export const CREATED_TITLE_PREFIX = 'BA Wizard Course';
-export const createdTitle = (nonce) => `${CREATED_TITLE_PREFIX} ${nonce}`;
-
 export const SEEDED_COURSES = [A.course, B.course];
 export const SEEDED_MODULES = [...A.sections, ...B.sections].map((s) => s.id);
 export const SEEDED_ITEMS = [...A.lessons, A.deletable, A.vanishing].map((l) => l.id);
+
+/** Wizard-created courses carry this marker plus the run nonce in their title (the same nonce in every project). */
+export const CREATED_TITLE_PREFIX = 'BA Wizard Course';
+export const createdTitle = (nonce) => `${CREATED_TITLE_PREFIX} ${nonce}`;
+
+/** The three viewport projects, in run order (each depends on the one before). */
+export const PROJECTS = Object.freeze(['ba-1440', 'ba-768', 'ba-390']);
+/** Every case id. D1 and D2 act on one-shot rows, so they execute in ba-1440 only and are intentionally skipped elsewhere. */
+export const CASES = Object.freeze(['R1', 'R2', 'C1', 'D1', 'D2']);
+export const ONLY_1440 = Object.freeze(['D1', 'D2']);
+/** The exact 15-entry inventory: 11 executions plus 4 intentional skips. */
+export const INVENTORY = Object.freeze(PROJECTS.flatMap((project) => CASES.map((c) => ({
+  project, case: c, expect: ONLY_1440.includes(c) && project !== 'ba-1440' ? 'skipped' : 'passed',
+}))));
+
+/** Real screenshots (gradebook capture rules, builder plan): name -> [project, route key]. */
+export const SHOT_PLAN = Object.freeze({
+  ba_r1_1440: ['ba-1440', 'curriculum-a'], ba_r1_768: ['ba-768', 'curriculum-a'], ba_r1_390: ['ba-390', 'curriculum-a'],
+  ba_r2_1440: ['ba-1440', 'curriculum-a'], ba_r2_768: ['ba-768', 'curriculum-a'], ba_r2_390: ['ba-390', 'curriculum-a'],
+  ba_c1_1440: ['ba-1440', 'curriculum-created'], ba_c1_768: ['ba-768', 'curriculum-created'], ba_c1_390: ['ba-390', 'curriculum-created'],
+  ba_d2_refused_1440: ['ba-1440', 'curriculum-a'],
+});
+export const SHOT_NAMES = Object.freeze(Object.keys(SHOT_PLAN));
 
 export const route = {
   curriculum: (course) => `/courses/${course}/builder?view=curriculum`,
