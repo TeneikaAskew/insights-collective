@@ -7,6 +7,10 @@
 //   POST /rest/v1/rpc/has_admin_access         -> 'read-rpc' (STABLE role check)
 //   POST /rest/v1/rpc/is_course_instructor     -> 'read-rpc'
 //   POST /rest/v1/rpc/get_user_roles           -> 'read-rpc'
+//   POST /rest/v1/rpc/platform_stats           -> 'read-rpc' (zero-arg STABLE SECURITY DEFINER aggregate: three SELECT counts,
+//                                                 no DML; called by the landing page's CTASection on Index's first render,
+//                                                 before the auth redirect. Pinned: identities.tsv function 5ab548ca...,
+//                                                 grant 85d64555...; selftest fails if either pin or the body changes)
 //   POST /rest/v1/rpc/log_security_event       -> 'telemetry' (inserts one public.security_events row; every one is
 //                                                 tracked to success/failed/pending and reconciled against the witness)
 //   anything else non-GET to the API           -> 'forbidden': route.abort('blockedbyclient'), recorded as a FINITE category
@@ -14,7 +18,7 @@
 // Requests to other origins are left to the origin guard (route.fallback()). Install this AFTER installOriginGuard so it
 // runs first (Playwright runs the most recently added matching route first).
 
-export const READ_RPCS = Object.freeze(['has_admin_access', 'is_course_instructor', 'get_user_roles']);
+export const READ_RPCS = Object.freeze(['has_admin_access', 'is_course_instructor', 'get_user_roles', 'platform_stats']);
 export const TELEMETRY_RPCS = Object.freeze(['log_security_event']);
 
 // Forbidden-request DIAGNOSTICS (fixed enums only). A refused request is recorded as { method, resource, rpc }: method and

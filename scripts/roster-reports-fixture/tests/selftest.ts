@@ -142,16 +142,49 @@ ok(titled.size === 12, 'specs carry exactly 12 case ids');
 
 // 6. Request policy: exact allowlist, everything else forbidden before send.
 const A = 'http://127.0.0.1:54321';
+const PS_BODY_SHA256 = '196a799acbc0451f86ccd11a69c3a4f044274230c2c9fa810751a47308caf98d'; // schema/03_functions.sql platform_stats() as reviewed (lines 1797-1813)
 const cls = (m: string, u: string) => classifyRequest(m, u, A).verdict;
 ok(cls('GET', `${A}/rest/v1/courses?select=*`) === 'allow' && cls('HEAD', `${A}/rest/v1/enrollments`) === 'allow', 'policy: GET/HEAD allowed');
 ok(cls('POST', `${A}/auth/v1/token?grant_type=password`) === 'allow' && cls('POST', `${A}/auth/v1/token?grant_type=refresh_token`) === 'allow', 'policy: token grants allowed');
 ok(cls('POST', `${A}/auth/v1/token?grant_type=pkce`) === 'forbid' && cls('POST', `${A}/auth/v1/logout`) === 'forbid', 'policy: other auth POSTs forbidden');
-ok(['has_admin_access', 'is_course_instructor', 'get_user_roles'].every((r) => cls('POST', `${A}/rest/v1/rpc/${r}`) === 'allow'), 'policy: exactly the 3 read RPCs allowed');
+ok(['has_admin_access', 'is_course_instructor', 'get_user_roles', 'platform_stats'].every((r) => cls('POST', `${A}/rest/v1/rpc/${r}`) === 'allow'), 'policy: exactly the 4 read RPCs allowed');
 ok(cls('POST', `${A}/rest/v1/rpc/log_security_event`) === 'telemetry', 'policy: log_security_event is telemetry');
 ok(cls('POST', `${A}/rest/v1/rpc/course_roster_stats`) === 'forbid' && cls('POST', `${A}/rest/v1/rpc/has_admin_access?x=1`) === 'forbid', 'policy: unknown RPC or RPC with a query forbidden');
 ok(['POST', 'PATCH', 'PUT', 'DELETE'].every((m) => cls(m, `${A}/rest/v1/enrollments`) === 'forbid'), 'policy: table writes forbidden');
 ok(cls('POST', `${A}/storage/v1/object/x`) === 'forbid' && cls('POST', 'not a url') === 'forbid', 'policy: storage write and unparseable forbidden');
 ok(cls('POST', 'http://127.0.0.1:8080/x') === 'pass' && cls('POST', 'http://127.0.0.1:54322/rest/v1/x') === 'pass', 'policy: other origins left to the origin guard');
+
+// 6b. platform_stats read contract (runs 41579692950: setup refused POST rpc/platform_stats from Index's CTASection).
+// Exactly POST <api>/rest/v1/rpc/platform_stats with no query is allowed; every neighbour keeps its old verdict. The
+// allowance is tied to the reviewed function: if the pinned identity, grant, or body changes, these checks fail.
+{
+  const PS = `${A}/rest/v1/rpc/platform_stats`;
+  const v = (m: string, u: string) => classifyRequest(m, u, A);
+  ok(JSON.stringify(v('POST', PS)) === '{"verdict":"allow","kind":"read-rpc:platform_stats"}', 'platform_stats: exact POST, no query -> allow (read-rpc)');
+  for (const [m, u, want] of [
+    ['POST', `${PS}?x=1`, 'forbid'], ['POST', `${PS}?`, 'allow'], ['POST', `${PS}/`, 'forbid'], ['POST', `${PS}/x`, 'forbid'], ['POST', `${A}/rest/v1/rpc/Platform_Stats`, 'forbid'],
+    ['POST', `${A}/rest/v1/rpc/platform_statsx`, 'forbid'], ['POST', `${A}/rest/v1/rpc/platform_stats_x`, 'forbid'], ['POST', `${A}/rest/v1/rpc/%70latform_stats`, 'forbid'],
+    ['POST', `${A}/rest/v1/rpc/xplatform_stats`, 'forbid'], ['POST', `${A}/rest/v1/platform_stats`, 'forbid'], ['POST', `${A}/rest/v1/rpc/rpc/platform_stats`, 'forbid'],
+    ['PATCH', PS, 'forbid'], ['PUT', PS, 'forbid'], ['DELETE', PS, 'forbid'], ['OPTIONS', PS, 'forbid'], ['BREW', PS, 'forbid'],
+    ['GET', PS, 'allow'], ['HEAD', PS, 'allow'],
+    ['POST', `${A}/rest/v1/rpc/log_audit_event`, 'forbid'], ['POST', `${A}/rest/v1/rpc/admin_user_role_counts`, 'forbid'], ['POST', `${A}/rest/v1/rpc/course_roster_stats`, 'forbid'],
+    ['POST', `${A}/rest/v1/rpc/start_quiz_attempt`, 'forbid'], ['POST', `${A}/rest/v1/rpc/update_user_roles`, 'forbid'], ['POST', `${A}/rest/v1/rpc/get_course_stats`, 'forbid'],
+    ['POST', 'http://127.0.0.1:9999/rest/v1/rpc/platform_stats', 'pass'],
+  ] as const) ok(v(m, u).verdict === want, `platform_stats neighbour: ${m} ${u.replace(A, '<api>')} -> ${want} (${v(m, u).verdict})`);
+  // GET/HEAD were already allowed by the pre-existing read rule for every API path (unchanged); '?' alone is an empty
+  // search in WHATWG URL, the same request as no query. Neither is new.
+  ok(JSON.stringify(Object.keys(Object.fromEntries((read('e2e/roster-reports/request-policy.mjs').match(/export const READ_RPCS = Object\.freeze\(\[([^\]]*)\]\)/)?.[1] ?? '').split(',').map((x) => [x.trim(), 1])))) === JSON.stringify(["'has_admin_access'", "'is_course_instructor'", "'get_user_roles'", "'platform_stats'"]), 'platform_stats: READ_RPCS is exactly the 3 old names plus platform_stats');
+  // Pins: the allowance holds only for the reviewed function.
+  const idt = read('scripts/local-stack/schema/identities.tsv');
+  ok(/^function\tplatform_stats\(\)\t5ab548ca2f14e912efbc0473165fd0f0$/m.test(idt) && /^function_grant\tplatform_stats\(\)\t85d64555c4ac4794b09b15e3a29b64af$/m.test(idt), 'platform_stats pin: identities.tsv function and grant signatures unchanged');
+  const fn = read('scripts/local-stack/schema/03_functions.sql');
+  const body = /CREATE OR REPLACE FUNCTION public\.platform_stats\(\)[\s\S]*?\$function\$\n;/.exec(fn)?.[0] ?? '';
+  ok(crypto.createHash('sha256').update(body).digest('hex') === PS_BODY_SHA256 && /^ RETURNS TABLE\(published_courses integer, community_members integer, avg_completion integer\)\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\n/m.test(body)
+    && !/\b(insert|update|delete|merge|truncate|nextval|setval|set_config|pg_notify|perform|execute)\b/i.test(body.replace(/--[^\n]*/g, '')), `platform_stats pin: local-stack body is the reviewed zero-arg STABLE SELECT-only aggregate (sha256 ${crypto.createHash('sha256').update(body).digest('hex').slice(0, 16)})`);
+  ok(/^revoke all on function public\.platform_stats\(\) from public, anon, authenticated; grant execute on function public\.platform_stats\(\) to anon; grant execute on function public\.platform_stats\(\) to authenticated; grant execute on function public\.platform_stats\(\) to service_role;$/m.test(read('scripts/local-stack/schema/05_triggers_grants.sql')), 'platform_stats pin: local-stack grant line unchanged');
+  const migs = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter((f) => f.endsWith('.sql') && fs.statSync(path.join(ROOT, 'supabase/migrations', f)).isFile() && /platform_stats/.test(read(`supabase/migrations/${f}`)));
+  ok(migs.join(',') === '20260809000000_public_platform_stats.sql', `platform_stats pin: exactly one migration defines it (${migs.join(',')})`);
+}
 
 // 7. summarizePlaywright fakes.
 const rep = (pairs: string[][], status = 'expected', extra: object = {}) => ({ suites: [{ specs: pairs.map(([p, c]) => ({ title: `${c} title`, tests: [{ projectName: p, status, results: status === 'expected' ? [] : [{ errors: [{ message: 'expect(locator).toHaveText' }] }] }] })) }], ...extra });
@@ -550,7 +583,7 @@ ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verifie
     ok(aborted.filter((a) => a === 'blockedbyclient').length === 41 && aborted.at(-1) === 'fallback', 'diag: every refusal still aborted before send; reads still pass');
     ok(pol.forbidden.length === FORBIDDEN_KEEP && pol.refused.count === 41 && Object.isFrozen(pol.forbidden[0]), `diag: bounded records (${pol.forbidden.length}/${FORBIDDEN_KEEP}) and full count (${pol.refused.count})`);
     ok(!JSON.stringify(pol.forbidden).includes('marker') && !JSON.stringify(pol.forbidden).includes('t1') && !/eq\./.test(JSON.stringify(pol.forbidden)), 'diag: no URL, query or table text stored');
-    ok(pol.forbiddenReport('test', 'admin') === 'RR_POLICY_E_FORBIDDEN scope=test actor=admin count=41 distinct=2 method=POST resource=rpc rpc=platform_stats', `diag: report (${pol.forbiddenReport('test', 'admin')})`);
+    ok(pol.forbiddenReport('test', 'admin') === 'RR_POLICY_E_FORBIDDEN scope=test actor=admin count=41 distinct=2 method=POST resource=rpc_read_with_query rpc=platform_stats', `diag: report (${pol.forbiddenReport('test', 'admin')})`);
     await pol.finalize(0);
     await fire('DELETE', `${A_ORIGIN}/rest/v1/x`);
     ok(pol.refused.count === 42 && aborted.at(-1) === 'blockedbyclient', 'diag: a refusal after finalize is still aborted and counted (consumed after the awaited close)');
