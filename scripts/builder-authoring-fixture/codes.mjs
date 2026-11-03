@@ -11,6 +11,10 @@ export function pick(m, key, fallback) {
   return typeof key === 'string' && Object.prototype.hasOwnProperty.call(m, key) ? m[key] : fallback;
 }
 
+/** BA-K1 (K1 run only) oracle problem words, in check order (k1-oracle.mjs); each throws as BA_K1_E_<word>. */
+export const K1_PROBLEMS = Object.freeze(['READ', 'MODULE_COUNT', 'ITEM_COUNT', 'DUPLICATE_ID', 'ORPHAN', 'LINK', 'OUTLINE',
+  'SOURCE', 'NOT_NEW', 'CHILD', 'COURSE', 'RENDER_SECTIONS', 'RENDER_LESSONS']);
+
 /** Every `test.step` title the specs use (the failure stage). */
 export const STAGES = map(['before_state', 'ui_reorder', 'db_settled', 'after_reload', 'screenshot', 'ui_create', 'rendered',
   'ui_delete', 'db_readback', 'out_of_band_delete', 'ui_delete_refused', 'ui_copy']);
@@ -85,7 +89,7 @@ export function r1Code(message, drop, scroll) {
 /** Every own error code a spec or helper throws inside a test (the error class). Generated codes are products of the
  *  fixed lists above, so the set stays finite and every member is a constant written here. */
 export const TEST_ERRORS = map(['BA_E_NO_SESSION', 'BA_E_READ_MODULES', 'BA_E_READ_CONTENT_ITEMS', 'BA_E_NO_RUN_DIR', 'BA_E_PROJECT',
-  'BA_E_CREATED_RECORD', 'BA_E_COPIED_RECORD', 'BA_K1_E_READ', 'BA_R1_E_LOCATE', 'BA_R2_E_LAYOUT', 'BA_SHOT_E_NAME', 'BA_SHOT_E_EXCLUSIVE_CREATE', 'BA_SHOT_E_WRITE',
+  'BA_E_CREATED_RECORD', 'BA_E_COPIED_RECORD', ...K1_PROBLEMS.map((w) => `BA_K1_E_${w}`), 'BA_R1_E_LOCATE', 'BA_R2_E_LAYOUT', 'BA_SHOT_E_NAME', 'BA_SHOT_E_EXCLUSIVE_CREATE', 'BA_SHOT_E_WRITE',
   ...OBS_KINDS.map((o) => `BA_OBS_E_${o}`),
   ...OBS_KINDS.flatMap((o) => R1_DROPS.flatMap((d) => R1_SCROLLS.map((s) => `BA_R1_E_${o}_${d}_${s}`))),
   'BA_R1S_E_LOCATE', ...R1S_PRE.filter((w) => w !== 'CLEAN').map((w) => `BA_R1S_E_PRE_${w}`),

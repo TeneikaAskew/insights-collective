@@ -72,25 +72,18 @@ export async function lessonRow(page: Page, title: string): Promise<Locator> {
 
 const runDir = () => { const d = process.env.BA_RUN_DIR; if (!d || !path.isAbsolute(d)) throw new Error('BA_E_NO_RUN_DIR'); return d; };
 
-type RecordKind = 'created' | 'copied';
-const RECORD_CODE = { created: 'BA_E_CREATED_RECORD', copied: 'BA_E_COPIED_RECORD' } as const;
-
-/** Exclusive 0600 record of the course this project's wizard made, by kind (written once the id is known). */
-function recordCourse(kind: RecordKind, project: string, id: string) {
-  writePrivateFile(runDir(), `${kind}-${project}.json`, JSON.stringify({ id }));
+/** Exclusive 0600 record of the course this project's wizard created (written once the id is known). */
+export function recordCreatedCourse(project: string, id: string) {
+  writePrivateFile(runDir(), `created-${project}.json`, JSON.stringify({ id }));
 }
-/** Ids of that kind recorded by every project that ran before `project` (bounded reads; each must be present and exact). */
-function recordedBefore(kind: RecordKind, project: string): string[] {
+
+/** Ids recorded by every project that ran before `project` (bounded reads; each must be present and exact). */
+export function createdBefore(project: string): string[] {
   const idx = PROJECTS.indexOf(project);
   if (idx < 0) throw new Error('BA_E_PROJECT');
   return PROJECTS.slice(0, idx).map((p) => {
-    const id = createdId(readBounded(path.join(runDir(), `${kind}-${p}.json`), 64));
-    if (!id) throw new Error(RECORD_CODE[kind]);
+    const id = createdId(readBounded(path.join(runDir(), `created-${p}.json`), 64));
+    if (!id) throw new Error('BA_E_CREATED_RECORD');
     return id;
   });
 }
-export const recordCreatedCourse = (project: string, id: string) => recordCourse('created', project, id);
-export const createdBefore = (project: string) => recordedBefore('created', project);
-/** BA-K1 (T-18): the course "Copy from another course" made in this project. */
-export const recordCopiedCourse = (project: string, id: string) => recordCourse('copied', project, id);
-export const copiedBefore = (project: string) => recordedBefore('copied', project);

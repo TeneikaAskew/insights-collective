@@ -21,7 +21,7 @@ const base = {
 // ba-1440 only; in ba-768 and ba-390 they are intentional skips, so the inventory is 15 entries = 11 executions + 4 skips.
 export default defineConfig({
   testDir: './e2e/builder-authoring',
-  testMatch: ['reorder.spec.ts', 'create.spec.ts', 'copy.spec.ts', 'delete.spec.ts'],
+  testMatch: ['reorder.spec.ts', 'create.spec.ts', 'delete.spec.ts'],
   globalSetup: './e2e/builder-authoring/session-setup.ts',
   fullyParallel: false,
   retries: 0, // a retry would act on the first attempt's writes

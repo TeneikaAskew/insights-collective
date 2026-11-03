@@ -2,7 +2,12 @@
 # ABOUTME: Ordered runner ADAPTER for the builder-authoring acceptance lane (UNRUN source). Guards and bindings first, then D1,
 # ABOUTME: served app, the qualified API/DB pairing, pairing-bound seed, witness, specs, then ALWAYS the after-witness. No SQL cleanup.
 #
-# Usage: scripts/builder-authoring-fixture/run.sh <evidence dir (must not exist)>
+# Usage: scripts/builder-authoring-fixture/run.sh <evidence dir (must not exist)> [k1]
+#   no second argument: the unchanged baseline run (playwright.builder-authoring.config.ts, 18 entries).
+#   k1: the separate K1-only copy run (T-18): playwright.builder-authoring-k1.config.ts (BA-K1 in the three projects only),
+#       launch lane builder-authoring-k1, seed.sql then seed-k1.sql (course S), witness-k1.sql (A, B and S whole rows),
+#       copied-only manifest. This script alone selects it, by exporting BA_SUITE=k1 to every child; a BA_SUITE already in
+#       the environment refuses, so no caller can select a suite another way.
 # Env (from the shared owner's job only): SUPABASE_DB_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, E2E_BASE_URL,
 #   E2E_INSTRUCTOR_PASSWORD, E2E_MEMBER_PASSWORD, STACK_OWNERSHIP_FILE, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT,
 #   PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH and GB_SHELL_PATH (the job's pinned headless shell). Loopback only.
@@ -21,6 +26,12 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd -P)"; HERE="$ROOT/scripts/builder-auth
 refuse() { echo "builder-authoring refused: $1" >&2; exit "${2:-3}"; }
 OUT="${1:-}"; [ -n "$OUT" ] || refuse RUN_E_USAGE 2
 [ ! -e "$OUT" ] || refuse RUN_E_OUT_EXISTS 2
+[ -z "${BA_SUITE+x}" ] || refuse RUN_E_USAGE 2
+case "$#:${2:-}" in
+  1:) CONFIG=playwright.builder-authoring.config.ts; LANE=builder-authoring ;;
+  2:k1) export BA_SUITE=k1; CONFIG=playwright.builder-authoring-k1.config.ts; LANE=builder-authoring-k1 ;;
+  *) refuse RUN_E_USAGE 2 ;;
+esac
 
 # 0. Reused files must exist (the shared owner delivers them; not in this branch's base).
 for f in e2e/gradebook-roles/local-binding.mjs e2e/gradebook-roles/origin-guard.mjs e2e/gradebook-roles/journey/private-dir.mjs \
@@ -51,7 +62,7 @@ chmod 700 "$PARENT"; mkdir -m 700 "$PARENT/proof" "$PARENT/session" "$PARENT/run
 RAW="$PARENT/raw"
 BA_NONCE="$(node -e 'process.stdout.write(require("crypto").randomBytes(8).toString("hex"))')"
 export BA_SESSION_DIR="$PARENT/session" BA_RUN_DIR="$PARENT/run" BA_SHOT_DIR="$PARENT/shots" BA_PAIRING_PROOF="$PARENT/proof/pairing-proof.json" BA_NONCE
-(cd "$ROOT" && GB_LANE=builder-authoring BA_SESSION_DIR="$PARENT/unused" BA_RUN_DIR="$PARENT/unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts) > "$RAW/launch.out" 2> "$RAW/launch.err" || refuse RUN_E_LAUNCH_BINDING
+(cd "$ROOT" && GB_LANE="$LANE" BA_SESSION_DIR="$PARENT/unused" BA_RUN_DIR="$PARENT/unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts) > "$RAW/launch.out" 2> "$RAW/launch.err" || refuse RUN_E_LAUNCH_BINDING
 mkdir -m 700 "$OUT" || refuse RUN_E_DIRS
 # child <raw name>: the child's refusal code as a codes.mjs CHILD_CODES value (NONE, UNLISTED or UNREAD otherwise).
 child() {
@@ -72,13 +83,18 @@ step RUN_E_APP appverify "PASS served app verified by the pinned shared verifier
 step RUN_E_PAIRING pairing "PASS pairing: carrier written through the DSN, read back through the DSN and the anon API" -- node "$GBJ/pairing-producer.mjs" pair "$PARENT/proof" "$RAW"
 echo "PAIRING PASS dsn_write=1 dsn_read=match api_read=match" > "$OUT/pairing.txt"
 # 6. Seed bound to that proof (seed.sql refuses unless this database holds the carrier); plain INSERTs, refuses a used stack.
-step RUN_E_SEED seed "BA_SEED_OK courses=3 sections=7 lessons=8" -- node "$HERE/ba-db.mjs" seed "$BA_PAIRING_PROOF" "$BA_SESSION_DIR" "$RAW"
-cp "$RAW/seed.out" "$OUT/seed.txt"
+step RUN_E_SEED seed "BA_SEED_OK courses=2 sections=5 lessons=5" -- node "$HERE/ba-db.mjs" seed "$BA_PAIRING_PROOF" "$BA_SESSION_DIR" "$RAW"
+if [ "${BA_SUITE:-}" = k1 ]; then
+  step RUN_E_SEED seed-k1 "BA_SEED_K1_OK courses=1 sections=2 lessons=3" -- node "$HERE/ba-db.mjs" seed-k1 "$BA_PAIRING_PROOF" "$BA_SESSION_DIR" "$RAW"
+  cat "$RAW/seed.out" "$RAW/seed-k1.out" > "$OUT/seed.txt"
+else
+  cp "$RAW/seed.out" "$OUT/seed.txt"
+fi
 # 7. Witness before the specs (private raw lines).
 node "$HERE/ba-db.mjs" witness "$RAW" "$RAW/witness-pre.txt" "$BA_NONCE" > "$RAW/witness-pre.out" 2> "$RAW/witness-pre.err" || refuse RUN_E_WITNESS_PRE
 # 8. Specs, three viewports. The JSON report goes to the private run dir; stdout/stderr stay private.
 set +e
-(cd "$ROOT" && npx --no-install playwright test -c playwright.builder-authoring.config.ts --output="$RAW/test-results") > "$RAW/playwright.out" 2> "$RAW/playwright.err"; PW=$?
+(cd "$ROOT" && npx --no-install playwright test -c "$CONFIG" --output="$RAW/test-results") > "$RAW/playwright.out" 2> "$RAW/playwright.err"; PW=$?
 set -e
 rc=0
 # From here on nothing refuses early. note() keeps the FIRST failure; every later step is still attempted, the after-witness
