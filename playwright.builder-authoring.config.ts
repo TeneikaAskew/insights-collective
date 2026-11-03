@@ -18,7 +18,8 @@ const base = {
   storageState: path.join(DIR, 'instructor.json'),
 };
 // Exactly these three projects, in this order (the launch-binding lane pins the list). D1/D2 act on one-shot rows and run in
-// ba-1440 only; in ba-768 and ba-390 they are intentional skips, so the inventory is 15 entries = 11 executions + 4 skips.
+// ba-1440 only; in ba-768 and ba-390 they are intentional skips, so the inventory is 18 entries = 14 executions + 4 skips
+// (R1S, the separately labelled synchronized-input candidate of R1, runs where R1 runs).
 export default defineConfig({
   testDir: './e2e/builder-authoring',
   testMatch: ['reorder.spec.ts', 'create.spec.ts', 'delete.spec.ts'],

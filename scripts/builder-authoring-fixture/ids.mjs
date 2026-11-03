@@ -44,9 +44,10 @@ export const createdTitle = (nonce) => `${CREATED_TITLE_PREFIX} ${nonce}`;
 /** The three viewport projects, in run order (each depends on the one before). */
 export const PROJECTS = Object.freeze(['ba-1440', 'ba-768', 'ba-390']);
 /** Every case id. D1 and D2 act on one-shot rows, so they execute in ba-1440 only and are intentionally skipped elsewhere. */
-export const CASES = Object.freeze(['R1', 'R2', 'C1', 'D1', 'D2']);
+// R1S: the separately labelled SYNCHRONIZED-INPUT CANDIDATE of R1 (reorder.spec.ts); R1 itself is unchanged.
+export const CASES = Object.freeze(['R1', 'R1S', 'R2', 'C1', 'D1', 'D2']);
 export const ONLY_1440 = Object.freeze(['D1', 'D2']);
-/** The exact 15-entry inventory: 11 executions plus 4 intentional skips. */
+/** The exact 18-entry inventory: 14 executions plus 4 intentional skips. */
 export const INVENTORY = Object.freeze(PROJECTS.flatMap((project) => CASES.map((c) => ({
   project, case: c, expect: ONLY_1440.includes(c) && project !== 'ba-1440' ? 'skipped' : 'passed',
 }))));

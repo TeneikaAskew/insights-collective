@@ -10,6 +10,7 @@ no production seed, no failure injection. The subset below cannot close T-54 or 
 | Id | Control | Status | Proof (each step is a fixed `test.step` title used as the failure stage) | Viewports |
 |----|---------|--------|---------------------------------------------------------------------------|-----------|
 | BA-R1 | Section reorder (keyboard) is stored and rendered after reload | EXECUTABLE | `before_state`: stored ids are exactly A's three sections, positions exactly 0..n-1, rendered order equals stored. `ui_reorder`: Space/ArrowDown/Space on that section card's handle; exactly ONE `POST /rest/v1/rpc/reorder_modules`, terminal 200/204. `db_settled`: stored order is the move, positions 0..n-1. `after_reload`: rendered order equals it. `screenshot` | 1440, 768, 390 |
+| BA-R1S | SYNCHRONIZED-INPUT CANDIDATE of BA-R1 (separately labelled; not a product fix; does not replace BA-R1) | EXECUTABLE (UNRUN) | Same steps and oracle as BA-R1 minus the screenshot: same keys and the same unchanged pickup barrier, exactly ONE `POST /rest/v1/rpc/reorder_modules` 200/204, dense order, reload. One difference: after ArrowDown the final Space waits (bounded `expect.poll`, 5 s) for the current drag's exact moving->target announcement on this handle; any other outcome stops BEFORE the final Space with one `BA_R1S_E_<word>`, so no reorder is sent. See "R1S synchronized-input candidate" | 1440, 768, 390 |
 | BA-R2 | Lesson reorder (pointer) is stored and rendered after reload | EXECUTABLE | Same shape, scoped to section A1's card: membership is exactly its three lessons; the drag uses that card's first row handle and second row; exactly ONE `POST /rest/v1/rpc/reorder_content_items`; positions 0..n-1 before and after; rendered order inside the card after reload | 1440, 768, 390 |
 | BA-C1 | Scratch creation makes exactly one course owned by the instructor, rendered and kept after reload | EXECUTABLE | `before_state`: the stored id set for title `BA Wizard Course <nonce>` (same nonce in every project) equals exactly the ids the earlier projects recorded: 0, then 1, then 2. `ui_create`: wizard, then the id from the builder URL is recorded. `db_settled`: the set is before plus exactly that id (so 1, 2, 3); owner, draft, 'Section 1' at 0, 'Introduction' page at 0. `rendered` and `after_reload`: the curriculum shows Section 1 with exactly Introduction | 1440, 768, 390 |
 | BA-D1 | Applied delete removes the lesson | EXECUTABLE | `ui_delete`: the one visible `li` whose title button is exactly the lesson, its own "Lesson actions", its own Delete, the one `alertdialog` "Delete this lesson?", its "Delete lesson". Exactly ONE app `DELETE /rest/v1/content_items?id=eq.<id>` (select passthrough), terminal 200, body exactly `[{id}]`. `db_readback`: 200 and `[]`. `after_reload`: positive settled control (the section card renders its empty state and every A1 lesson renders once), then the lesson is absent | 1440 (768/390: intentional skip) |
@@ -21,7 +22,7 @@ no production seed, no failure injection. The subset below cannot close T-54 or 
 | BA-P5 | Changed-account or signed-out retry makes no writes | PENDING | same; author tier: A1 to A4, W5, W6 | |
 | BA-L1 | Partial draft after reload | DISCLOSED LIMIT, not a pass | the plan is in memory only; a reload after a partial create leaves the partial draft and a new attempt starts a second course | |
 
-Inventory: exactly 15 case/project entries = 11 executions + 4 intentional skips (D1, D2 in ba-768 and ba-390). Zero
+Inventory: exactly 18 case/project entries = 14 executions + 4 intentional skips (D1, D2 in ba-768 and ba-390). Zero
 extra, missing, duplicate or retried entries and zero global errors, or the summary fails. On failure each entry reports a
 fixed stage and a fixed error class, never text. An intentional skip passes only as exactly one first-try result that is
 itself `skipped`; a second result, a retry or an executed result fails the entry, as it does for a pass.
@@ -224,6 +225,35 @@ prints them. It does not prove a cause.
   including set-then-clear, unbound and sibling-handle layouts) and positives (property, attribute, scale suffix,
   `0`/`0px` z, same-batch set-then-clear, a recognized move before an unreadable value). `tests/selftest.mjs` runs it, so the existing job step covers it.
 
+## R1S synchronized-input candidate (T 08:54/08:55; source and model controls, not yet run)
+
+BA-R1 stays unchanged as the RAPID-INPUT coverage. Its RED (41577484430, 41585514764, 41590087421, 41604339390) stays
+UNRESOLVED; BA-R1S does not repair, replace or erase it. Run 41604339390 supports only: one Arrow-phase TARGET request,
+then an end that read SELF, consistent with delayed propagation. Geometry stays OPEN, and the monitor cannot prove that
+TARGET never committed or that one cause is the only one.
+
+- `r1-sync.mjs` page functions return ONE fixed word; ids are compared in the page and never returned.
+  - `r1SyncPre` (before any key): `CLEAN` only with a connected handle, a live region present, nothing pressed, and no
+    region already holding the exact moving->target announcement. Otherwise the result is `BA_R1S_E_PRE_<STALE|AMBIGUOUS|ABSENT|READ_ERROR>`
+    and no key is pressed.
+  - `r1SyncState` (after ArrowDown): `OVER_TARGET` only when the handle is connected (a detached or replaced handle is
+    `READ_ERROR`), exactly one element is `aria-pressed`, that element is THIS handle, and exactly one region names
+    the moving item with exactly dnd-kit's moving->target announcement.
+    - Wait words: `PICKED`, `OVER_SELF`, `NOT_ANNOUNCED`.
+    - Every other word stops at once: `OVER_OTHER`, `NOT_OVER`, `ENDED`, `NOT_ACTIVE` (stale), `WRONG_DRAG`,
+      `AMBIGUOUS`, `ABSENT`, `OTHER`, `READ_ERROR`.
+- `r1SyncDrop` presses the final Space only on `OVER_TARGET`. At the bound it throws `BA_R1S_E_TIMEOUT_<last wait word>`.
+  A bounded wait never drops, even when the last read was `OVER_TARGET` (`TIMEOUT_UNSETTLED`). Every code is in
+  `TEST_ERRORS`.
+- Freshness limit: a target announcement produced before ArrowDown inside the same drag is not told apart, because no
+  read is allowed between the pickup and ArrowDown. The pre-pickup check only excludes one left from an earlier drag.
+- Summary: `case=R1S` has its own PASS/FAIL line and no R1TRACE/R1MONITOR line.
+- Controls:
+  - `tests/trace-selftest.mjs` (page words, gate, wiring).
+  - `tests/selftest.mjs` (inventory 18, codes).
+  - `src/components/course/builder/teachable/__tests__/r1-sync.model.test.tsx`: real CurriculumView covering target
+    positive, timeout stop with no drop key, stale, wrong drag, and the rapid-input sequence still ending on itself.
+
 ## Playwright inventory classification
 
 The config chains projects (`ba-768` depends on `ba-1440`, `ba-390` on `ba-768`). When any test in a dependency fails,
@@ -254,7 +284,7 @@ neutral: it separates executed from unattempted entries and still fails; an inco
 ## Next executable proof
 
 One user-dispatched `builder-authoring` run on the composed ref. Pass: `PAIRING PASS`, `BA_SEED_OK`, `PLAYWRIGHT exit=0
-entries=15 passed=11 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0`, `MANIFEST created=3`,
+entries=18 passed=14 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0`, `MANIFEST created=3`,
 `WITNESS PASS`, `WITNESS_SCOPE` with the live field counts, `VERDICT PASS` in each summary, and the screenshots manifest
 (captured or WITHHELD, each named).
 

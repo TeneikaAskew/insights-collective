@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ABOUTME: Pure in-process fake selftest for the builder-authoring fixture: ids and seed shape, the exact 15-entry inventory
+// ABOUTME: Pure in-process fake selftest for the builder-authoring fixture: ids and seed shape, the exact 18-entry inventory
 // ABOUTME: summary, the witness comparison and the created-course manifest. No DB, no network, no browser. Needs no #162 file.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,7 +16,8 @@ let n = 0;
 const ok = (name, fn) => { fn(); n += 1; console.log(`ok ${n} ${name}`); };
 
 // ---- fakes ----
-const TITLES = { R1: 'BA-R1 section reorder is stored and survives reload', R2: 'BA-R2 lesson reorder is stored and survives reload',
+const TITLES = { R1: 'BA-R1 section reorder is stored and survives reload',
+  R1S: 'BA-R1S SYNCHRONIZED-INPUT CANDIDATE section reorder waits for the target announcement, is stored and survives reload', R2: 'BA-R2 lesson reorder is stored and survives reload',
   C1: 'BA-C1 scratch creation makes one complete course and opens it', D1: 'BA-D1 an applied delete removes the lesson, in the UI and in storage',
   D2: 'BA-D2 a delete that matches zero rows is refused and the lesson stays on screen' };
 const entry = (project, c, status, extra = {}) => ({ projectName: project, status, results: [{ status: status === 'expected' ? 'passed' : status === 'skipped' ? 'skipped' : 'failed', retry: 0, steps: [], ...extra }], c });
@@ -48,8 +49,9 @@ ok('every seeded id is in the 9b6e0000 namespace and unique', () => {
   assert.equal(new Set(all).size, all.length);
   for (const id of all) assert.match(id, /^9b6e0000-0000-4000-8000-0000000[0-9]{5}$/);
 });
-ok('the inventory is exactly 15 entries: 11 executions and 4 intentional delete skips', () => {
-  assert.equal(INVENTORY.length, 15);
+ok('the inventory is exactly 18 entries: 14 executions (R1S is the separately labelled synchronized candidate) and 4 intentional delete skips', () => {
+  assert.equal(INVENTORY.length, 18);
+  assert.deepEqual(INVENTORY.filter((x) => x.case === 'R1S').map((x) => `${x.project}:${x.expect}`), ['ba-1440:passed', 'ba-768:passed', 'ba-390:passed']);
   assert.deepEqual(INVENTORY.filter((x) => x.expect === 'skipped').map((x) => `${x.project}:${x.case}`), ['ba-768:D1', 'ba-768:D2', 'ba-390:D1', 'ba-390:D2']);
   assert.deepEqual(PROJECTS, ['ba-1440', 'ba-768', 'ba-390']);
 });
@@ -73,11 +75,11 @@ ok('no SQL cleanup file remains in the lane', () => {
 });
 
 // ---- playwright inventory summary ----
-ok('a complete run passes with 11 PASS and 4 SKIP lines, all in the staging grammar', () => {
+ok('a complete run passes with 14 PASS and 4 SKIP lines, all in the staging grammar', () => {
   const r = summarizeReport(report(goodTests()), 0);
   assert.equal(r.ok, true);
-  assert.equal(r.lines[0], 'PLAYWRIGHT exit=0 entries=15 passed=11 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0');
-  assert.equal(r.lines.filter((l) => l.startsWith('TEST PASS')).length, 11);
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=0 entries=18 passed=14 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0');
+  assert.equal(r.lines.filter((l) => l.startsWith('TEST PASS')).length, 14);
   assert.equal(r.lines.filter((l) => l.startsWith('TEST SKIP')).length, 4);
   assert.equal(r.lines.at(-1), 'VERDICT PASS');
   assert.ok(checkLines(r.lines));
@@ -97,7 +99,8 @@ ok('an extra (unknown) test fails without naming it', () => {
   assert.equal(r.ok, false); assert.match(r.lines[0], /unknown=1/); assert.ok(!r.lines.join('\n').includes('something else'));
 });
 ok('an unintended skip and an executed intentional skip both fail', () => {
-  const t = goodTests(); t[0] = entry('ba-1440', 'R1', 'skipped'); t[8] = entry('ba-768', 'D1', 'expected');
+  const t = goodTests(); const at = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
+  t[at('ba-1440', 'R1')] = entry('ba-1440', 'R1', 'skipped'); t[at('ba-768', 'D1')] = entry('ba-768', 'D1', 'expected');
   const r = summarizeReport(report(t), 0);
   assert.equal(r.ok, false);
   assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=skipped attempts=1 stage=none error=other'));
@@ -109,8 +112,8 @@ ok('a global error or a non-zero exit fails even with every entry passing', () =
 });
 ok('a failure reports a fixed stage and error class, never the message', () => {
   const t = goodTests();
-  t[1] = entry('ba-1440', 'R2', 'unexpected', { error: { message: 'Error: BA_R2_E_LAYOUT at secret-path' }, steps: [{ title: 'before_state', steps: [] }, { title: 'ui_reorder', error: { message: 'x' }, steps: [{ title: 'locator.click secret', error: {} }] }] });
-  t[2] = entry('ba-1440', 'C1', 'unexpected', { error: { message: 'Timeout 5000ms exceeded' }, steps: [{ title: 'Some Title', error: {} }] });
+  t[INVENTORY.findIndex((x) => x.project === 'ba-1440' && x.case === 'R2')] = entry('ba-1440', 'R2', 'unexpected', { error: { message: 'Error: BA_R2_E_LAYOUT at secret-path' }, steps: [{ title: 'before_state', steps: [] }, { title: 'ui_reorder', error: { message: 'x' }, steps: [{ title: 'locator.click secret', error: {} }] }] });
+  t[INVENTORY.findIndex((x) => x.project === 'ba-1440' && x.case === 'C1')] = entry('ba-1440', 'C1', 'unexpected', { error: { message: 'Timeout 5000ms exceeded' }, steps: [{ title: 'Some Title', error: {} }] });
   const r = summarizeReport(report(t), 1);
   assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R2 status=unexpected attempts=1 stage=ui_reorder error=BA_R2_E_LAYOUT'));
   assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=C1 status=unexpected attempts=1 stage=unlisted error=timeout'));
@@ -123,7 +126,7 @@ ok('a retried pass is not a pass', () => {
   const u = goodTests(); u[0].results[0].retry = 1;
   assert.equal(summarizeReport(report(u), 0).ok, false, 'a single result that is itself a retry is not a first-try pass');
 });
-ok('(4) an intentional skip with two results, a retried result or an executed result fails; exactly 15, no retries', () => {
+ok('(4) an intentional skip with two results, a retried result or an executed result fails; exactly 18, no retries', () => {
   const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
   const cases = [
     (e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); },
@@ -143,17 +146,17 @@ ok('(B) intended-skip breakdown: executed, retried or multi-result violations ar
   const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
   const bd = (mutate) => { const t = goodTests(); mutate(t[idx]); return summarizeReport(report(t), 1).lines[1]; };
   const bdLine = (ep, ef, u, iu, is) => `PLAYWRIGHT_BREAKDOWN executed_passed=${ep} executed_failed=${ef} unattempted=${u} intended_skip_unattempted=${iu} intended_skipped=${is}`;
-  assert.equal(bd(() => {}), bdLine(11, 0, 0, 0, 4));                                          // valid intentional skip
-  assert.equal(bd((e) => { e.results[0].status = 'passed'; e.status = 'expected'; }), bdLine(11, 1, 0, 0, 3)); // executed
-  assert.equal(bd((e) => { e.results[0].retry = 1; }), bdLine(11, 1, 0, 0, 3));                // retried
-  assert.equal(bd((e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); }), bdLine(11, 1, 0, 0, 3)); // two results
-  assert.equal(bd((e) => { e.results = []; }), bdLine(11, 0, 1, 1, 3));                        // zero attempts
+  assert.equal(bd(() => {}), bdLine(14, 0, 0, 0, 4));                                          // valid intentional skip
+  assert.equal(bd((e) => { e.results[0].status = 'passed'; e.status = 'expected'; }), bdLine(14, 1, 0, 0, 3)); // executed
+  assert.equal(bd((e) => { e.results[0].retry = 1; }), bdLine(14, 1, 0, 0, 3));                // retried
+  assert.equal(bd((e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); }), bdLine(14, 1, 0, 0, 3)); // two results
+  assert.equal(bd((e) => { e.results = []; }), bdLine(14, 0, 1, 1, 3));                        // zero attempts
   // an expected-pass entry: executed failure versus zero attempts
   const r1 = INVENTORY.findIndex((x) => x.project === 'ba-1440' && x.case === 'R1');
   const t = goodTests(); t[r1] = entry('ba-1440', 'R1', 'unexpected');
-  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(10, 1, 0, 0, 4));
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(13, 1, 0, 0, 4));
   t[r1] = { projectName: 'ba-1440', status: 'skipped', results: [], c: 'R1' };
-  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(10, 0, 1, 0, 4));
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(13, 0, 1, 0, 4));
   assert.ok(!summarizeReport(report(t), 1).lines.join('\n').includes('dependency'));
 });
 
@@ -162,9 +165,13 @@ ok('hosted run 41564184929 shape: 1 executed failure, 4 passes, 10 unattempted (
   const i = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
   t[i('ba-1440', 'R1')] = entry('ba-1440', 'R1', 'unexpected', { error: { message: 'Error: BA_OBS_E_COUNT_ZERO' }, steps: [{ title: 'ui_reorder', error: {} }] });
   for (const p of ['ba-768', 'ba-390']) for (const c of ['R1', 'R2', 'C1', 'D1', 'D2']) t[i(p, c)] = { projectName: p, status: 'skipped', results: [], c };
-  const r = summarizeReport(report(t), 1);
+  // that run predates BA-R1S: its report has exactly the 15 old entries, so the 3 R1S rows read as MISSING and nothing else moves
+  const old = t.filter((e) => e.c !== 'R1S');
+  assert.equal(old.length, 15);
+  const r = summarizeReport(report(old), 1);
   assert.equal(r.ok, false);
-  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=0 duplicate=0 unknown=0 global_errors=0');
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=3 duplicate=0 unknown=0 global_errors=0');
+  for (const p of ['ba-1440', 'ba-768', 'ba-390']) assert.ok(r.lines.includes(`TEST MISSING project=${p} case=R1S`));
   assert.equal(r.lines[1], 'PLAYWRIGHT_BREAKDOWN executed_passed=4 executed_failed=1 unattempted=10 intended_skip_unattempted=4 intended_skipped=0');
   assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=unexpected attempts=1 stage=ui_reorder error=BA_OBS_E_COUNT_ZERO'));
   assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=R1 reason=unattempted attempts=0'));
@@ -173,7 +180,23 @@ ok('hosted run 41564184929 shape: 1 executed failure, 4 passes, 10 unattempted (
   assert.equal(r.lines.filter((l) => l.includes('reason=intended_skip_unattempted')).length, 4);
   assert.ok(checkLines(r.lines));
   // exit 0 with the same shape still fails: an incomplete inventory is never accepted
+  assert.equal(summarizeReport(report(old), 0).ok, false);
   assert.equal(summarizeReport(report(t), 0).ok, false);
+});
+ok('BA-R1S candidate failures print one listed code, separately from R1; no R1TRACE/R1MONITOR line for R1S; R1 unaffected', () => {
+  const i = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
+  for (const code of ['BA_R1S_E_TIMEOUT_OVER_SELF', 'BA_R1S_E_WRONG_DRAG', 'BA_R1S_E_PRE_STALE', 'BA_R1S_E_LOCATE', 'BA_OBS_E_COUNT_ZERO']) {
+    const t = goodTests();
+    t[i('ba-1440', 'R1S')] = entry('ba-1440', 'R1S', 'unexpected', { error: { message: `Error: ${code} secret-id` }, steps: [{ title: 'ui_reorder', error: {} }] });
+    const r = summarizeReport(report(t), 1);
+    assert.ok(r.lines.includes(`TEST FAIL project=ba-1440 case=R1S status=unexpected attempts=1 stage=ui_reorder error=${code}`), code);
+    assert.ok(r.lines.includes('TEST PASS project=ba-1440 case=R1'));
+    assert.equal(r.lines.filter((l) => l.startsWith('R1TRACE ') || l.startsWith('R1MONITOR ')).length, 6, 'three R1 entries only');
+    assert.ok(!r.lines.join('\n').includes('secret'));
+    assert.ok(checkLines(r.lines));
+  }
+  assert.equal(errorClass('Error: BA_R1S_E_OVER_TARGET'), 'unlisted', 'success word is not an error code');
+  assert.equal(errorClass('Error: BA_R1S_E___proto__'), 'unlisted');
 });
 ok('R1 diagnostic codes: obsKind is finite; every composed BA_R1_E_<obs>_<drop>_<scroll> code is listed and grammar-safe', () => {
   assert.equal(obsKind(['OBS_COUNT POST /rest/v1/rpc/reorder_modules 0'], 1), 'COUNT_ZERO');

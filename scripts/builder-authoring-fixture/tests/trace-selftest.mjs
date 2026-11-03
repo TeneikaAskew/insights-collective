@@ -11,6 +11,8 @@ import { r1TraceInstall, r1TraceRead, r1TraceFields, r1TraceDescription, parseR1
 import { summarizeReport, checkLines, LINE } from '../summary.mjs';
 import { r1MonitorDescription, parseR1Monitor, R1_MONITOR_ANNOTATION, R1_MONITOR_FIELDS, R1_MONITOR_ORDER } from '../r1-monitor.mjs';
 import { INVENTORY } from '../ids.mjs';
+import { r1SyncPre, r1SyncState, r1SyncDrop } from '../r1-sync.mjs';
+import { R1S_PRE, R1S_PAGE, R1S_WORDS, R1S_WAIT, TEST_ERRORS, pick } from '../codes.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..', '..', '..');
@@ -398,7 +400,7 @@ ok('(D) a read before the ttl clears the expiry timer (nothing fires later)', as
 });
 
 // ---- summary: the R1TRACE line ----
-const TITLES = { R1: 'BA-R1 a', R2: 'BA-R2 a', C1: 'BA-C1 a', D1: 'BA-D1 a', D2: 'BA-D2 a' };
+const TITLES = { R1: 'BA-R1 a', R1S: 'BA-R1S a', R2: 'BA-R2 a', C1: 'BA-C1 a', D1: 'BA-D1 a', D2: 'BA-D2 a' };
 const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: x.expect === 'passed' ? 'expected' : 'skipped',
   results: [{ status: x.expect === 'passed' ? 'passed' : 'skipped', retry: 0, steps: [] }], c: x.case }));
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
@@ -593,8 +595,13 @@ ok('(B2m) positives: genuine card translation (property, attribute, scale suffix
 
 // ---- source wiring ----
 const strip = (src) => src.split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n').replace(/\/\*[\s\S]*?\*\//g, '');
+// The BA-R1 checks below read the spec WITHOUT the separately labelled BA-R1S candidate block, so they keep checking BA-R1
+// exactly as before; the candidate has its own checks (r1-sync section).
+const R1S_START = "test('BA-R1S SYNCHRONIZED-INPUT CANDIDATE ", R2_START = "test('BA-R2 ";
+const withoutR1S = (src) => { const i = src.indexOf(R1S_START), j = src.indexOf(R2_START); assert.ok(i > 0 && j > i, 'R1S block located'); return src.slice(0, i) + src.slice(j); };
+const r1sBlock = (src) => { const i = src.indexOf(R1S_START), j = src.indexOf(R2_START); assert.ok(i > 0 && j > i, 'R1S block located'); return src.slice(i, j); };
 ok('wiring: installed on the handle before focus, read in finally, keys and oracle unchanged', () => {
-  const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const spec = withoutR1S(strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8')));
   const iInstall = spec.indexOf('handle.evaluate(r1TraceInstall'), iFocus = spec.indexOf('await handle.focus();'), iFinally = spec.indexOf('} finally {');
   assert.ok(iInstall > 0 && iInstall < iFocus && iFocus < iFinally);
   assert.match(spec, /\} finally \{\s*const read = await settleR1Read\(\(\) => page\.evaluate\(r1TraceRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, read\.snap, read\.state\) \}\);\s*const mon = await settleR1Read\(\(\) => page\.evaluate\(r1MonitorRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_MONITOR_ANNOTATION, description: r1MonitorDescription\(monitorInstalled, mon\.snap, mon\.state\) \}\);\s*\}/);
@@ -604,7 +611,7 @@ ok('wiring: installed on the handle before focus, read in finally, keys and orac
   assert.equal((spec.match(/keyboard\.press/g) ?? []).length, 3);
 });
 ok('barrier experiment: exactly ONE zero-delay task barrier, after the pickup Space and before ArrowDown; keys, oracle and other waits unchanged', () => {
-  const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const spec = withoutR1S(strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8')));
   const BARRIER = 'await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));';
   assert.equal(spec.split(BARRIER).length - 1, 1, 'exactly one barrier');
   assert.equal((spec.match(/setTimeout/g) ?? []).length, 1, 'no other timer');
@@ -624,9 +631,132 @@ ok('barrier experiment: exactly ONE zero-delay task barrier, after the pickup Sp
     'the R1 block still ends at the exact one-call 200/204 oracle');
   for (const k of ['for (', 'for(', 'while (', 'while(', '.repeat(']) assert.ok(!spec.slice(iSpace - 400, iDown + 200).includes(k), `no loop ${k}`);
 });
+// ---- BA-R1S SYNCHRONIZED-INPUT CANDIDATE (r1-sync.mjs; separately labelled, BA-R1 unchanged) ----
+const syncDom = (regions, pressed) => {
+  const d = new JSDOM(`<!doctype html><body><button id="h">a</button><button id="o">b</button>${regions.map((t, i) => `<div id="DndLiveRegion-${i}">${t}</div>`).join('')}</body>`);
+  const doc = d.window.document;
+  for (const id of pressed) doc.getElementById(id).setAttribute('aria-pressed', 'true');
+  return { doc, win: d.window, h: doc.getElementById('h') };
+};
+const inPage = (dom, fn, arg) => { const g = globalThis; const saved = [g.document, g.Element]; g.document = dom.doc; g.Element = dom.win.Element;
+  try { return fn(dom.h, arg); } finally { [g.document, g.Element] = saved; } };
+const SM = 'mov-1', ST = 'tgt-2', SQ = 'oth-3', AB = { moving: SM, target: ST };
+const OVER = (x, y) => `Draggable item ${x} was moved over droppable area ${y}.`;
+ok('R1S page words: target positive; stale, wrong drag, ambiguous, absent, ended and hostile inputs fail closed; ids never returned', () => {
+  assert.equal(inPage(syncDom([OVER(SM, ST)], ['h']), r1SyncState, AB), 'OVER_TARGET');
+  assert.equal(inPage(syncDom(['', OVER(SM, ST)], ['h']), r1SyncState, AB), 'OVER_TARGET', 'the lesson context region may be empty');
+  assert.equal(inPage(syncDom([`Picked up draggable item ${SM}.`], ['h']), r1SyncState, AB), 'PICKED');
+  assert.equal(inPage(syncDom([OVER(SM, SM)], ['h']), r1SyncState, AB), 'OVER_SELF');
+  assert.equal(inPage(syncDom([''], ['h']), r1SyncState, AB), 'NOT_ANNOUNCED');
+  assert.equal(inPage(syncDom([OVER(SM, SQ)], ['h']), r1SyncState, AB), 'OVER_OTHER');
+  assert.equal(inPage(syncDom([`Draggable item ${SM} is no longer over a droppable area.`], ['h']), r1SyncState, AB), 'NOT_OVER');
+  assert.equal(inPage(syncDom([`Draggable item ${SM} was dropped over droppable area ${ST}`], ['h']), r1SyncState, AB), 'ENDED');
+  // stale: the exact target announcement is present but this handle is not in a drag (a finished or never-started drag)
+  assert.equal(inPage(syncDom([OVER(SM, ST)], []), r1SyncState, AB), 'NOT_ACTIVE');
+  // wrong drag: another activator is pressed, even with the exact target text present
+  assert.equal(inPage(syncDom([OVER(SM, ST)], ['o']), r1SyncState, AB), 'WRONG_DRAG');
+  assert.equal(inPage(syncDom([OVER(SQ, ST)], ['o']), r1SyncState, AB), 'WRONG_DRAG');
+  // this handle pressed, but the only announcement is another item's: never OVER_TARGET
+  assert.equal(inPage(syncDom([OVER(SQ, ST)], ['h']), r1SyncState, AB), 'NOT_ANNOUNCED');
+  assert.equal(inPage(syncDom([OVER(SM, ST)], ['h', 'o']), r1SyncState, AB), 'AMBIGUOUS');
+  assert.equal(inPage(syncDom([OVER(SM, ST), OVER(SM, ST)], ['h']), r1SyncState, AB), 'AMBIGUOUS');
+  assert.equal(inPage(syncDom([], ['h']), r1SyncState, AB), 'ABSENT');
+  for (const bad of [null, {}, { moving: SM }, { moving: SM, target: SM }, { moving: 7, target: ST }, { moving: '', target: ST }])
+    assert.equal(inPage(syncDom([OVER(SM, ST)], ['h']), r1SyncState, bad), 'READ_ERROR');
+  assert.equal(inPage({ ...syncDom([OVER(SM, ST)], ['h']), h: {} }, r1SyncState, AB), 'READ_ERROR', 'not an element');
+  assert.equal(inPage(syncDom([`${OVER(SM, ST)} extra`], ['h']), r1SyncState, AB), 'OVER_OTHER', 'exact text only: never OVER_TARGET');
+  assert.equal(inPage(syncDom(['Something else entirely about item ' + SM + '.'], ['h']), r1SyncState, AB), 'OTHER');
+  // pre-pickup freshness
+  assert.equal(inPage(syncDom(['', ''], []), r1SyncPre, AB), 'CLEAN');
+  assert.equal(inPage(syncDom([OVER(SM, ST)], []), r1SyncPre, AB), 'STALE');
+  assert.equal(inPage(syncDom([''], ['o']), r1SyncPre, AB), 'AMBIGUOUS');
+  assert.equal(inPage(syncDom([], []), r1SyncPre, AB), 'ABSENT');
+  assert.equal(inPage(syncDom([''], []), r1SyncPre, null), 'READ_ERROR');
+  // a page function that throws inside still returns a word
+  assert.equal(inPage({ ...syncDom([''], ['h']), doc: { querySelectorAll() { throw new Error('x'); } } }, r1SyncState, AB), 'READ_ERROR');
+});
+ok('R1S detached or replaced handle fails closed: never OVER_TARGET or CLEAN, even with zero pressed elements and the exact old text', () => {
+  // the reviewed hole: a detached handle that kept aria-pressed=true, nothing pressed in the document, exact target text
+  const d1 = syncDom([OVER(SM, ST)], []); const gone = d1.doc.getElementById('h'); gone.setAttribute('aria-pressed', 'true'); gone.remove();
+  assert.equal(gone.isConnected, false);
+  assert.equal(d1.doc.querySelectorAll('[aria-pressed="true"]').length, 0);
+  assert.equal(inPage({ ...d1, h: gone }, r1SyncState, AB), 'READ_ERROR');
+  assert.equal(inPage({ ...d1, h: gone }, r1SyncPre, AB), 'READ_ERROR', 'precheck: detached is not CLEAN');
+  // replaced: the old node is detached and a new pressed activator took its place
+  const d2 = syncDom([OVER(SM, ST)], ['h']); const old = d2.doc.getElementById('h'); const fresh = old.cloneNode(true); old.replaceWith(fresh);
+  assert.equal(inPage({ ...d2, h: old }, r1SyncState, AB), 'READ_ERROR');
+  assert.equal(inPage({ ...d2, h: fresh }, r1SyncState, AB), 'OVER_TARGET', 'the connected replacement itself is still judged normally');
+  const d3 = syncDom([''], []); const old3 = d3.doc.getElementById('h'); old3.replaceWith(old3.cloneNode(true));
+  assert.equal(inPage({ ...d3, h: old3 }, r1SyncPre, AB), 'READ_ERROR');
+  // an element of another document is not this page's handle
+  const other = syncDom([OVER(SM, ST)], ['h']);
+  assert.equal(inPage({ ...syncDom([OVER(SM, ST)], ['h']), h: other.h }, r1SyncState, AB), 'READ_ERROR');
+  assert.equal(inPage({ ...syncDom([''], []), h: other.h }, r1SyncPre, AB), 'READ_ERROR');
+  // active check: exactly one pressed element and it is this handle (the handle itself unpressed while nothing is pressed)
+  assert.equal(inPage(syncDom([OVER(SM, ST)], []), r1SyncState, AB), 'NOT_ACTIVE');
+});
+ok('R1S page functions are self-contained, write nothing, and every return is a fixed literal', () => {
+  const src = fs.readFileSync(path.join(HERE, '..', 'r1-sync.mjs'), 'utf8');
+  for (const fn of [r1SyncPre, r1SyncState]) {
+    const body = fn.toString();
+    const rets = [...body.matchAll(/return ([^;]+);/g)].map((m) => m[1].trim());
+    assert.ok(rets.length > 3);
+    for (const r of rets) assert.match(r, /^('[A-Z_]+'|regions\.some\(\(n\) => \(n\.textContent \|\| ''\)\.trim\(\) === want\) \? 'STALE' : 'CLEAN')$/, r);
+    for (const banned of ['setAttribute', 'removeAttribute', 'dispatchEvent', 'focus(', 'click(', 'appendChild', 'innerHTML', 'fetch(',
+      'postMessage', 'console.', 'localStorage', 'window.', 'import(', 'R1S_']) assert.ok(!body.includes(banned), banned);
+    assert.ok(!/\.(textContent|nodeValue|data|id|className|value)\s*=[^=]/.test(body), 'DOM write');
+    assert.ok(!/[^=!]==[^=]/.test(body), 'strict comparisons only');
+  }
+  assert.ok(!src.includes('writeFile') && !src.includes('appendFile') && !src.includes('createWriteStream'), 'no filesystem writer');
+});
+const fakeWait = (max) => async (probe) => { for (let i = 0; i < max; i += 1) if ((await probe()) === 'DONE') return; throw new Error('bound'); };
+ok('R1S gate: drop only on OVER_TARGET; a timeout or any other word stops BEFORE the drop with one listed code', async () => {
+  const run = async (words, max = 5, wait) => { let i = 0, drops = 0; const reads = [];
+    const read = async () => { const w = words[Math.min(i, words.length - 1)]; i += 1; reads.push(w); if (w instanceof Error) throw w; return w; };
+    try { const w = await r1SyncDrop({ read, wait: wait ?? fakeWait(max), drop: async () => { drops += 1; } }); return { w, drops, reads: reads.length }; }
+    catch (e) { return { e: e.message, drops, reads: reads.length }; } };
+  assert.deepEqual(await run(['PICKED', 'OVER_SELF', 'OVER_TARGET']), { w: 'OVER_TARGET', drops: 1, reads: 3 });   // target positive
+  assert.deepEqual(await run(['OVER_SELF']), { e: 'BA_R1S_E_TIMEOUT_OVER_SELF', drops: 0, reads: 5 });             // candidate timeout: no drop
+  assert.deepEqual(await run(['PICKED']), { e: 'BA_R1S_E_TIMEOUT_PICKED', drops: 0, reads: 5 });
+  assert.deepEqual(await run(['NOT_ANNOUNCED']), { e: 'BA_R1S_E_TIMEOUT_NOT_ANNOUNCED', drops: 0, reads: 5 });
+  for (const w of ['NOT_ACTIVE', 'WRONG_DRAG', 'AMBIGUOUS', 'ABSENT', 'OVER_OTHER', 'NOT_OVER', 'ENDED', 'OTHER', 'READ_ERROR'])
+    assert.deepEqual(await run(['PICKED', w, 'OVER_TARGET']), { e: `BA_R1S_E_${w}`, drops: 0, reads: 2 }, w);           // terminal at once
+  assert.deepEqual(await run([new Error('evaluate failed'), 'OVER_TARGET']), { e: 'BA_R1S_E_READ_ERROR', drops: 0, reads: 1 });
+  assert.deepEqual(await run(['PICKED', 'OVER_SELF', 'READ_ERROR', 'OVER_TARGET']), { e: 'BA_R1S_E_READ_ERROR', drops: 0, reads: 3 }, 'handle detached late in the wait');
+  for (const h of ['__proto__', 'toString', 'TIMEOUT_OVER_SELF', 'NOT_READ', 'over_target', null, 7, {}])
+    assert.deepEqual(await run([h, 'OVER_TARGET']), { e: 'BA_R1S_E_OTHER', drops: 0, reads: 1 }, String(h));
+  assert.deepEqual(await run(['OVER_TARGET'], 5, async () => {}), { e: 'BA_R1S_E_NOT_READ', drops: 0, reads: 0 }, 'wait that never probed');
+  assert.deepEqual(await run(['OVER_TARGET'], 5, async (p) => { await p(); throw new Error('late'); }), { e: 'BA_R1S_E_TIMEOUT_UNSETTLED', drops: 0, reads: 1 });
+  assert.deepEqual(await run(['OVER_TARGET'], 5, async () => { throw new Error('x'); }), { e: 'BA_R1S_E_TIMEOUT_NOT_READ', drops: 0, reads: 0 });
+  // every code the gate or the spec can throw is a listed TEST_ERRORS value; OVER_TARGET and CLEAN are not error codes
+  for (const w of R1S_WORDS.filter((x) => x !== 'OVER_TARGET')) assert.equal(pick(TEST_ERRORS, `BA_R1S_E_${w}`, null), `BA_R1S_E_${w}`);
+  for (const w of R1S_PRE.filter((x) => x !== 'CLEAN')) assert.equal(pick(TEST_ERRORS, `BA_R1S_E_PRE_${w}`, null), `BA_R1S_E_PRE_${w}`);
+  assert.equal(pick(TEST_ERRORS, 'BA_R1S_E_LOCATE', null), 'BA_R1S_E_LOCATE');
+  assert.equal(pick(TEST_ERRORS, 'BA_R1S_E_OVER_TARGET', null), null); assert.equal(pick(TEST_ERRORS, 'BA_R1S_E_PRE_CLEAN', null), null);
+  assert.ok(R1S_WAIT.every((w) => R1S_PAGE.includes(w)));
+});
+ok('R1S spec wiring: separately labelled; same keys and unchanged barrier; the final Space only inside the gate; one RPC, dense order, reload; no screenshot', () => {
+  const full = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const b = r1sBlock(full);
+  assert.ok(b.startsWith("test('BA-R1S SYNCHRONIZED-INPUT CANDIDATE section reorder waits for the target announcement, is stored and survives reload'"));
+  assert.equal(full.split("test('BA-R1S ").length - 1, 1);
+  const BARRIER = 'await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));';
+  assert.match(b, /if \(pre !== 'CLEAN'\) throw new Error\(/);
+  assert.match(b, /await expectCalls\(page, \{ method: 'POST', path: '\/rest\/v1\/rpc\/reorder_modules' \}, async \(\) => \{\s*await handle\.focus\(\);\s*await page\.keyboard\.press\('Space'\);\s*await page\.evaluate\(\(\) => new Promise\(\(r\) => setTimeout\(r, 0\)\)\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await r1SyncDrop\(\{\s*read: \(\) => handle\.evaluate\(r1SyncState, \{ moving, target \}, \{ timeout: 2_000 \}\),\s*wait: \(probe: \(\) => Promise<string>\) => expect\.poll\(probe, \{ timeout: 5_000 \}\)\.toBe\('DONE'\),\s*drop: \(\) => page\.keyboard\.press\('Space'\),\s*\}\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/);
+  assert.equal(b.split(BARRIER).length - 1, 1);
+  assert.deepEqual([...b.matchAll(/keyboard\.press\('(\w+)'\)/g)].map((m) => m[1]), ['Space', 'ArrowDown', 'Space']);
+  assert.equal((b.match(/expect\.poll/g) ?? []).length, 4, 'before_state, the one condition, db_settled, after_reload');
+  assert.equal((b.match(/page\.evaluate\(/g) ?? []).length, 1, 'the barrier only');
+  assert.equal((b.match(/path: '\/rest\/v1\/rpc\/reorder_modules' \}/g) ?? []).length, 1);
+  for (const banned of ['waitForTimeout', 'waitForFunction', 'page.waitFor', '.waitFor(', 'sleep', 'setInterval', 'requestAnimationFrame', 'retry', 'toPass',
+    'shot(', 'Escape', 'r1Trace', 'r1Monitor', 'for (', 'while (', 'textContent', 'DndLiveRegion']) assert.ok(!b.includes(banned), banned);
+  for (const s of ["test.step('before_state'", "test.step('ui_reorder'", "test.step('db_settled'", "test.step('after_reload'"]) assert.ok(b.includes(s), s);
+  assert.match(b, /await expect\.poll\(\(\) => storedSections\(page, A\.course\)\)\.toEqual\(expected\);/);
+  assert.match(b, /await page\.reload\(\);\s*await expect\.poll\(\(\) => shownSectionTitles\(page\)\)\.toEqual\(expected\.map\(sectionTitle\)\);\s*expect\(await storedSections\(page, A\.course\)\)\.toEqual\(expected\);/);
+});
 // ---- R1 monitor observation (TEST-ONLY diagnostic) ----
 ok('monitor wiring: installed on the handle before focus, read in finally after the trace, nothing of it between the keys', () => {
-  const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const spec = withoutR1S(strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8')));
   const iInstall = spec.indexOf('handle.evaluate(r1MonitorInstall'), iTrace = spec.indexOf('handle.evaluate(r1TraceInstall'), iFocus = spec.indexOf('await handle.focus();');
   const iFinally = spec.indexOf('} finally {'), iTraceRead = spec.indexOf('page.evaluate(r1TraceRead)'), iRead = spec.indexOf('page.evaluate(r1MonitorRead)');
   assert.ok(iTrace > 0 && iTrace < iInstall && iInstall < iFocus && iFocus < iFinally && iFinally < iTraceRead && iTraceRead < iRead);

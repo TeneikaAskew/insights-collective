@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ABOUTME: Fixed-line summaries for the builder-authoring adapter (UNRUN): the exact 15-entry Playwright inventory, the
+// ABOUTME: Fixed-line summaries for the builder-authoring adapter (UNRUN): the exact 18-entry Playwright inventory, the
 // ABOUTME: before/after witness comparison, and the created-course manifest. Bounded reads; no title, path, value or message.
 //
 // Every output line matches the shared staging grammar
@@ -36,8 +36,8 @@ export function readBounded(file, max, { uid = typeof process.getuid === 'functi
   } catch (e) { throw e instanceof SummaryError ? e : new SummaryError('read'); } finally { try { fs.closeSync(fd); } catch { /* closed */ } }
 }
 
-const CASE_RE = /^BA-(R1|R2|C1|D1|D2) /;
-const CASES = Object.freeze(Object.assign(Object.create(null), { R1: 'R1', R2: 'R2', C1: 'C1', D1: 'D1', D2: 'D2' }));
+const CASE_RE = /^BA-(R1S|R1|R2|C1|D1|D2) /;
+const CASES = Object.freeze(Object.assign(Object.create(null), { R1: 'R1', R1S: 'R1S', R2: 'R2', C1: 'C1', D1: 'D1', D2: 'D2' }));
 
 /**
  * The failure stage, from the STAGES map only: depth first, the first failing step whose title is an own key of STAGES;
