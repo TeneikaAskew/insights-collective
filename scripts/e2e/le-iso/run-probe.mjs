@@ -12,15 +12,39 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
 
-/** Default dependencies; tests inject fakes. exec never throws and never exposes stderr. */
+/**
+ * A genuinely bounded client exec. At `timeout` the client gets SIGTERM, after `grace` SIGKILL, and after another `grace`
+ * the promise resolves even if the client was never reaped (unreaped: true). So the caller ALWAYS regains control within
+ * timeout + 2 * grace, keeps whatever identity it holds (e.g. the CID) and does its own host-side stop/wait. Output over
+ * `max` bytes is a failure (client killed). Never throws; stderr is never read.
+ */
+export function makeExec(spawnFn, { grace = 2000, clampMs = Infinity } = {}) { // clampMs: tests only, shortens every timeout
+  return (bin, args, { timeout = 120000, max = 1 << 20 } = {}) => new Promise((resolve) => {
+    let child, done = false, timedOut = false, over = false, size = 0;
+    const chunks = [], timers = [];
+    const finish = (r) => { if (!done) { done = true; for (const t of timers) clearTimeout(t); resolve(r); } };
+    const kill = (sig) => { try { child.kill(sig); } catch { /* reaped already */ } };
+    try { child = spawnFn(bin, args, { stdio: ['ignore', 'pipe', 'ignore'] }); }
+    catch { finish({ ok: false, stdout: '', status: null }); return; }
+    child.on('error', () => finish({ ok: false, stdout: '', status: null }));
+    child.stdout?.on('data', (b) => { size += b.length; if (size > max) { over = true; kill('SIGKILL'); } else chunks.push(b); });
+    child.on('close', (code) => finish({ ok: code === 0 && !timedOut && !over, stdout: timedOut || over ? '' : Buffer.concat(chunks).toString('utf8'), status: code, timedOut }));
+    timers.push(setTimeout(() => {
+      timedOut = true; kill('SIGTERM');
+      timers.push(setTimeout(() => {
+        kill('SIGKILL');
+        timers.push(setTimeout(() => finish({ ok: false, stdout: '', status: null, timedOut: true, unreaped: true }), grace));
+      }, grace));
+    }, Math.min(timeout, clampMs)));
+  });
+}
+
+/** Default dependencies; tests inject fakes. */
 export const realDeps = {
-  exec(bin, args, { timeout = 120000, max = 1 << 20 } = {}) {
-    try { return { ok: true, stdout: execFileSync(bin, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout, maxBuffer: max }) }; }
-    catch (e) { return { ok: false, stdout: '', status: typeof e?.status === 'number' ? e.status : null }; }
-  },
+  exec: makeExec(spawn),
   fs,
   spawnEndpoint(script, sockDir, ctlDir) { return spawn(process.execPath, [script, sockDir, ctlDir], { stdio: 'ignore' }); }, // caller attaches 'error' at once
   sleep(ms) { return new Promise((r) => setTimeout(r, ms)); },
@@ -31,14 +55,19 @@ const NSS_DLOPEN = ['libsoftokn3.so', 'libfreeblpriv3.so', 'libnssckbi.so', 'lib
 const sha = (fsx, p) => crypto.createHash('sha256').update(fsx.readFileSync(p)).digest('hex');
 const starttimeOf = (fsx, pid) => { const s = fsx.readFileSync(`/proc/${pid}/stat`, 'utf8'); return s.slice(s.lastIndexOf(')') + 2).split(' ')[19]; };
 
-/** Build the image from host files only. Returns the image id or a HOST code string starting with ISO_E_. */
-export function buildImage(d, { ctl, node, shell }) {
+/**
+ * Build the image from host files only. Returns a plain ISO_E_ code string ONLY when docker build was never invoked (no
+ * image can exist). Once build was invoked it returns { code, id }: id is the confirmed image id (from the iidfile, read
+ * even when the build reports failure), or null when an image may exist but its identity is unknown. The caller must
+ * treat id === null after an invoked build as UNRESOLVED and preserve the control dir.
+ */
+export async function buildImage(d, { ctl, node, shell }) {
   const fsx = d.fs;
   const ctx = path.join(ctl, 'ctx');
   const root = path.join(ctx, 'rootfs');
   const files = new Set([node]);
   for (const bin of [node, shell]) {
-    const r = d.exec('ldd', [bin], { timeout: 30000 });
+    const r = await d.exec('ldd', [bin], { timeout: 30000 });
     const libs = r.ok ? parseLdd(r.stdout) : null;
     if (!libs) return 'ISO_E_IMAGE_CLOSURE';
     for (const l of libs) files.add(l);
@@ -68,12 +97,11 @@ export function buildImage(d, { ctl, node, shell }) {
     fsx.writeFileSync(path.join(ctx, 'Dockerfile'), `FROM scratch\nCOPY rootfs/ /\nUSER ${uid}:${gid}\n`, { flag: 'wx', mode: 0o600 });
   } catch { return 'ISO_E_IMAGE_BUILD'; }
   const iid = path.join(ctl, 'image.id');
-  const b = d.exec('docker', ['build', '--pull=false', '--network', 'none', '--no-cache', '--iidfile', iid, '-q', ctx], { timeout: 600000 });
-  if (!b.ok) return 'ISO_E_IMAGE_BUILD';
-  let id;
-  try { id = fsx.readFileSync(iid, 'utf8').trim(); } catch { return 'ISO_E_IMAGE_BUILD'; }
-  if (!IMAGE_ID.test(id)) return 'ISO_E_IMAGE_BUILD';
-  const i = d.exec('docker', ['image', 'inspect', id]);
+  const b = await d.exec('docker', ['build', '--pull=false', '--network', 'none', '--no-cache', '--iidfile', iid, '-q', ctx], { timeout: 600000 });
+  let id = null;
+  try { const t = fsx.readFileSync(iid, 'utf8').trim(); id = IMAGE_ID.test(t) ? t : null; } catch { id = null; }
+  if (!b.ok || !id) return { code: 'ISO_E_IMAGE_BUILD', id };
+  const i = await d.exec('docker', ['image', 'inspect', id]);
   let img;
   try { img = JSON.parse(i.stdout)[0]; } catch { img = null; }
   if (!i.ok || !img || img.Id !== id || (img.Config?.Volumes && Object.keys(img.Config.Volumes).length) || img.Config?.User !== `${uid}:${gid}`
@@ -99,7 +127,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   const out = (c) => say.push(c);
   const fsx = d.fs;
   const H = path.join(temp, 'le-iso-host'), S = path.join(temp, 'le-iso-sock'), O = path.join(temp, 'le-iso-out');
-  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false, createTried = false;
+  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false, createTried = false, buildInvoked = false;
   const fail = (c) => { ok = false; out(c); };
 
   // Inputs: absolute existing paths, fresh dirs (an existing dir is never reused). A partial setup removes ONLY the dirs
@@ -120,8 +148,11 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   }
 
   try {
-    const b = (d.buildImage ?? buildImage)(d, { ctl: H, node, shell });
-    if (typeof b === 'string') { fail(b); } else { imageId = b.id; if (b.code === 'ISO_IMAGE_OK') out(b.code); else fail(b.code); }
+    const b = await (d.buildImage ?? buildImage)(d, { ctl: H, node, shell });
+    if (typeof b === 'string') { fail(b); } else {
+      buildInvoked = true; imageId = b.id;
+      if (b.code === 'ISO_IMAGE_OK' && imageId) out(b.code); else fail(b.code === 'ISO_IMAGE_OK' ? 'ISO_E_IMAGE_BUILD' : b.code);
+    }
 
     if (ok) {
       let spawnError = false;
@@ -144,7 +175,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     if (ok) {
       const cidfile = path.join(H, 'lane.cid');
       createTried = true;
-      const c = d.exec('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
+      const c = await d.exec('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
       let read = null;
       try { read = fsx.readFileSync(cidfile, 'utf8').trim(); } catch { read = null; }
       const said = c.stdout.trim();
@@ -157,7 +188,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     }
 
     if (ok) {
-      const i = d.exec('docker', ['container', 'inspect', cid]);
+      const i = await d.exec('docker', ['container', 'inspect', cid]);
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
       const bad = i.ok && obj && obj.Id === cid ? compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O })) : ['INSPECT'];
@@ -165,9 +196,12 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     }
 
     if (ok) {
-      const r = d.exec('docker', ['start', '-a', cid], { timeout: 300000, max: 1 << 16 });
+      // Bounded client: at 300 s the docker CLI gets SIGTERM, then SIGKILL; the CID is kept and the container is stopped
+      // host-side in teardown (killing the client does not stop the container).
+      const r = await d.exec('docker', ['start', '-a', cid], { timeout: 300000, max: 1 << 16 });
       const cls = classifyInner(r.stdout);
-      if (!cls.ok && !r.ok) fail('ISO_E_START');
+      if (r.timedOut) fail('ISO_E_START_TIMEOUT');
+      else if (!cls.ok && !r.ok) fail('ISO_E_START');
       else if (!cls.ok) { out('ISO_RUN_DONE'); fail('ISO_E_INNER_OUTPUT'); }
       else { out('ISO_RUN_DONE'); for (const t of INNER_ORDER) out(`LE-ISO ${t} ${cls.results[t]}`); innerPass = cls.pass && r.ok; }
     }
@@ -179,10 +213,10 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     if (cid) {
       // Explicit, bounded stop: `docker start -a` returning (or its client being killed on timeout) does not stop the
       // container. stop sends SIGTERM to init, then SIGKILL after 10 s; it succeeds on an already-exited container too.
-      const st = d.exec('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
+      const st = await d.exec('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
       if (!st.ok || st.stdout.trim() !== cid) fail('ISO_E_STOP'); else out('ISO_STOP_OK');
-      const w = d.exec('docker', ['wait', cid], { timeout: 30000 });
-      const i = d.exec('docker', ['container', 'inspect', cid]);
+      const w = await d.exec('docker', ['wait', cid], { timeout: 30000 });
+      const i = await d.exec('docker', ['container', 'inspect', cid]);
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
       const stopped = w.ok && /^-?\d+$/.test(w.stdout.trim()) && i.ok && !!obj && obj.Id === cid && exitStateOk(obj);
@@ -191,9 +225,9 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       else out('ISO_EXIT_OK');
       if (stopped) {
         // rm only a container positively seen stopped (no -f); then require a successful, empty listing.
-        const rm = d.exec('docker', ['rm', cid], { timeout: 30000 });
+        const rm = await d.exec('docker', ['rm', cid], { timeout: 30000 });
         if (!rm.ok || rm.stdout.trim() !== cid) fail('ISO_E_RM'); else out('ISO_RM_OK');
-        const ls = d.exec('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}'], { timeout: 30000 });
+        const ls = await d.exec('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}'], { timeout: 30000 });
         const v = absenceVerdict(ls.ok, ls.stdout, cid);
         if (v === 'absent') { out('ISO_ABSENT'); containerGone = true; } else fail(v === 'present' ? 'ISO_E_STILL_PRESENT' : 'ISO_E_ABSENCE_UNDECIDED');
       }
@@ -233,19 +267,23 @@ export async function runProbe(d, { repo, node, shell, temp }) {
         else if (endpoint) out('ISO_ENDPOINT_STOPPED');
       }
     }
-    if (imageId && !containerGone) fail('ISO_PRESERVED_IMAGE');
+    // Image: gone only when never built, or removed AND absent from a well-formed full listing. A build that was invoked
+    // without a confirmed id, a failed rm, or a failed/odd listing leaves the image UNRESOLVED (image.id kept).
+    let imageGone = !buildInvoked;
+    if (buildInvoked && !imageId) fail('ISO_E_IMAGE_UNKNOWN');
+    else if (imageId && !containerGone) fail('ISO_PRESERVED_IMAGE');
     else if (imageId) {
-      const r = d.exec('docker', ['image', 'rm', imageId], { timeout: 60000 });
+      const r = await d.exec('docker', ['image', 'rm', imageId], { timeout: 60000 });
       if (!r.ok) fail('ISO_E_IMAGE_REMOVE');
       else {
-        const ls = d.exec('docker', ['image', 'ls', '-a', '-q', '--no-trunc'], { timeout: 30000 });
+        const ls = await d.exec('docker', ['image', 'ls', '-a', '-q', '--no-trunc'], { timeout: 30000 });
         const ids = ls.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
         if (!ls.ok || ids.some((x) => !IMAGE_ID.test(x))) fail('ISO_E_IMAGE_ABSENCE');
         else if (ids.includes(imageId)) fail('ISO_E_IMAGE_ABSENCE');
-        else out('ISO_IMAGE_REMOVED');
+        else { out('ISO_IMAGE_REMOVED'); imageGone = true; }
       }
     }
-    if (!containerGone || !endpointGone) fail('ISO_PRESERVED_DIRS');
+    if (!containerGone || !endpointGone || !imageGone) fail('ISO_PRESERVED_DIRS');
     else {
       try {
         for (const p of [H, S, O]) fsx.rmSync(p, { recursive: true, force: false });

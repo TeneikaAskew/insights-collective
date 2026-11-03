@@ -11,7 +11,7 @@ import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { absenceVerdict, classifyInner, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INNER_ORDER, INNER_TESTS, mountsVerdict, parseLdd } from '../../../scripts/e2e/le-iso/expect.mjs';
 import { formatResults, sandboxCheck } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
-import { buildImage, createArgs, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
+import { buildImage, createArgs, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -34,7 +34,7 @@ function goodInspect(over: Record<string, unknown> = {}) {
 
 type Opt = { inner?: string; startOk?: boolean; readyPid?: number; startNow?: string; lsC?: [boolean, string]; final?: string;
   exitCode?: number; ignoreTerm?: boolean; ignoreKill?: boolean; inspectOver?: Record<string, unknown>; images?: string;
-  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean };
+  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean; rmFails?: boolean; imagesOk?: boolean };
 const RUNNING = { Status: 'running', Running: true, Restarting: false, Pid: 77, Dead: false };
 function fake(o: Opt = {}) {
   const files = new Map<string, string>();
@@ -74,8 +74,8 @@ function fake(o: Opt = {}) {
     if (a0 === 'wait') return running ? { ok: false, stdout: '' } : { ok: true, stdout: '0\n' };
     if (a0 === 'rm') { if (running) return { ok: false, stdout: '' }; exists = false; return { ok: true, stdout: `${CIDV}\n` }; }
     if (a0 === 'container' && a1 === 'ls') return { ok: (o.lsC ?? [true, ''])[0], stdout: o.lsC ? o.lsC[1] : exists ? `${CIDV}\n` : '' };
-    if (a0 === 'image' && a1 === 'rm') return { ok: true, stdout: '' };
-    if (a0 === 'image' && a1 === 'ls') return { ok: true, stdout: o.images ?? `sha256:${'b'.repeat(64)}\n` };
+    if (a0 === 'image' && a1 === 'rm') return { ok: !o.rmFails, stdout: '' };
+    if (a0 === 'image' && a1 === 'ls') return { ok: o.imagesOk ?? true, stdout: o.images ?? `sha256:${'b'.repeat(64)}\n` };
     return { ok: false, stdout: '' };
   };
   const d = {
@@ -141,9 +141,9 @@ describe('le-iso pure rules', () => {
     expect(mountsVerdict(`${base}\n${mi('/var/run/docker.sock')}`, { repo: REPO })).toBe('MOUNTS_E_UNEXPECTED');
     expect(mountsVerdict(['/', IN.sock].map(mi).join('\n'), { repo: REPO })).toBe('MOUNTS_E_MISSING');
   });
-  it('the image builder refuses an unresolvable closure before writing anything', () => {
+  it('the image builder refuses an unresolvable closure before writing anything', async () => {
     const d = { exec: () => ({ ok: true, stdout: '\tlibx.so => not found\n' }), fs: {}, uid: () => 1, gid: () => 1 };
-    expect(buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toBe('ISO_E_IMAGE_CLOSURE');
+    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toBe('ISO_E_IMAGE_CLOSURE');
   });
 });
 
@@ -276,6 +276,92 @@ describe('le-iso host orchestrator (fakes only)', () => {
   });
 });
 
+describe('le-iso image identity is preserved until absence is proven (fakes only)', () => {
+  it('a build invoked without a confirmed id keeps the control dir', async () => {
+    const f = fake();
+    f.d.buildImage = (() => ({ code: 'ISO_E_IMAGE_BUILD', id: null })) as never;
+    const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+    expect(r.say).toEqual(expect.arrayContaining(['ISO_E_IMAGE_BUILD', 'ISO_E_IMAGE_UNKNOWN', 'ISO_PRESERVED_DIRS']));
+    expect(r.say).not.toContain('ISO_DIRS_REMOVED');
+    expect(f.dirs.has(H)).toBe(true);
+  });
+  it('a build that never ran (closure refusal) has nothing to preserve', async () => {
+    const f = fake();
+    f.d.buildImage = (() => 'ISO_E_IMAGE_CLOSURE') as never;
+    const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+    expect(r.say).toEqual(expect.arrayContaining(['ISO_E_IMAGE_CLOSURE', 'ISO_DIRS_REMOVED']));
+  });
+  it('a failed image rm or a failed/odd image listing keeps image.id and the control dir', async () => {
+    for (const over of [{ rmFails: true }, { imagesOk: false }, { images: 'garbage\n' }, { images: `${IMG}\n` }]) {
+      const f = fake(over as Opt);
+      f.files.set(`${H}/image.id`, `${IMG}\n`);
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.say, JSON.stringify(over)).toContain('ISO_PRESERVED_DIRS');
+      expect(r.say).not.toContain('ISO_IMAGE_REMOVED');
+      expect(f.files.get(`${H}/image.id`)).toBe(`${IMG}\n`);
+    }
+  });
+});
+
+// A fake ChildProcess for makeExec: emits stdout, then 'close' with a code, or ignores signals as told.
+function fakeProc(o: { out?: string; code?: number; ignore?: string[]; never?: boolean; delay?: number }) {
+  const stdout = new EventEmitter();
+  const p = Object.assign(new EventEmitter(), { stdout, killed: [] as string[], kill: (sig: string) => {
+    p.killed.push(sig);
+    if (o.never || (o.ignore ?? []).includes(sig)) return true;
+    setTimeout(() => p.emit('close', null), 1);
+    return true;
+  } });
+  if (!o.never && o.delay === undefined) setTimeout(() => { if (o.out) stdout.emit('data', Buffer.from(o.out)); p.emit('close', o.code ?? 0); }, 1);
+  return p;
+}
+
+describe('le-iso bounded client exec (fake ChildProcess; no process is spawned)', () => {
+  it('returns stdout on a clean exit', async () => {
+    const r = await makeExec(() => fakeProc({ out: 'x\n' }) as never, { grace: 10 })('docker', ['ps'], { timeout: 50 });
+    expect(r).toMatchObject({ ok: true, stdout: 'x\n', status: 0, timedOut: false });
+  });
+  it('escalates SIGTERM then SIGKILL on a client that ignores SIGTERM, and drops its output', async () => {
+    const p = fakeProc({ delay: 1e9, ignore: ['SIGTERM'] });
+    const r = await makeExec(() => p as never, { grace: 10 })('docker', ['start', '-a', CIDV], { timeout: 20 });
+    expect(p.killed).toEqual(['SIGTERM', 'SIGKILL']);
+    expect(r).toMatchObject({ ok: false, stdout: '', timedOut: true });
+  });
+  it('regains control within timeout + 2 * grace even if the client is never reaped', async () => {
+    const p = fakeProc({ never: true });
+    const t0 = Date.now();
+    const r = await makeExec(() => p as never, { grace: 15 })('docker', ['start', '-a', CIDV], { timeout: 20 });
+    expect(Date.now() - t0).toBeLessThan(500);
+    expect(p.killed).toEqual(['SIGTERM', 'SIGKILL']);
+    expect(r).toMatchObject({ ok: false, timedOut: true, unreaped: true });
+  });
+  it('fails on output over the cap, a spawn throw, or a spawn error', async () => {
+    const big = await makeExec(() => fakeProc({ out: 'y'.repeat(100) }) as never, { grace: 10 })('docker', ['x'], { timeout: 50, max: 10 });
+    expect(big.ok).toBe(false);
+    expect(await makeExec(() => { throw new Error('ENOENT'); }, { grace: 10 })('docker', [], { timeout: 50 })).toMatchObject({ ok: false });
+    const e = new EventEmitter();
+    setTimeout(() => e.emit('error', new Error('ENOENT')), 1);
+    expect(await makeExec(() => Object.assign(e, { stdout: new EventEmitter(), kill: () => true }) as never, { grace: 10 })('docker', [], { timeout: 50 })).toMatchObject({ ok: false });
+  });
+  it('orchestrator: a docker start client that ignores SIGTERM is killed, the CID is kept, then stop/wait/rm run', async () => {
+    const f = fake();
+    const order: string[] = [];
+    const spawnFn = (bin: string, args: string[]) => {
+      order.push(args[0]);
+      if (args[0] === 'start') return fakeProc({ delay: 1e9, ignore: ['SIGTERM'] });
+      const r = f.d.exec(bin, args) as { ok: boolean; stdout: string };
+      return fakeProc({ out: r.stdout, code: r.ok ? 0 : 1 });
+    };
+    const d = { ...f.d, exec: makeExec(spawnFn as never, { grace: 5, clampMs: 30 }) };
+    const r = await runProbe(d as never, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+    expect(r.say).toContain('ISO_E_START_TIMEOUT');
+    expect(r.say).toEqual(expect.arrayContaining(['ISO_STOP_OK', 'ISO_EXIT_OK', 'ISO_RM_OK', 'ISO_ABSENT']));
+    const after = order.slice(order.indexOf('start'));
+    expect(after.slice(0, 4)).toEqual(['start', 'stop', 'wait', 'container']);
+    expect(r.ok).toBe(false);
+  }, 2000);
+});
+
 describe('le-iso container termination (fakes only)', () => {
   it('a timed-out run is stopped explicitly and bounded, then removed and proven absent', async () => {
     const r = await run({ hangs: true });
@@ -303,7 +389,7 @@ describe('le-iso container termination (fakes only)', () => {
 });
 
 describe('le-iso image builder (stub fs: unknown methods are in-memory no-ops; nothing is written)', () => {
-  it('builds past the Dockerfile with uid/gid in scope and checks the image user', () => {
+  it('builds past the Dockerfile with uid/gid in scope and checks the image user', async () => {
     const base: Record<string, unknown> = {
       existsSync: () => false,
       readdirSync: () => [{ name: 'chrome-headless-shell', isFile: () => true }],
@@ -321,10 +407,16 @@ describe('le-iso image builder (stub fs: unknown methods are in-memory no-ops; n
       return { ok: false, stdout: '' };
     };
     const d = { exec, fs: fsStub, uid: () => 1001, gid: () => 118 };
-    expect(buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_IMAGE_OK', id: IMG });
+    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_IMAGE_OK', id: IMG });
     expect(calls.find((c) => c[1] === 'build')).toEqual(expect.arrayContaining(['--pull=false', '--network', 'none']));
     const wrongUser = (bin: string, args: string[]) => (args[0] === 'image' ? { ok: true, stdout: JSON.stringify([{ Id: IMG, Os: 'linux', Config: { User: '0:0' }, RootFS: { Layers: ['x'] } }]) } : exec(bin, args));
-    expect(buildImage({ ...d, exec: wrongUser } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_CONFIG', id: IMG });
+    expect(await buildImage({ ...d, exec: wrongUser } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_CONFIG', id: IMG });
+    // build reports failure but wrote a valid iidfile: the id is kept so the image can be removed.
+    const buildFails = (bin: string, args: string[]) => (args[0] === 'build' ? { ok: false, stdout: '' } : exec(bin, args));
+    expect(await buildImage({ ...d, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: IMG });
+    // build invoked, no readable id: identity unknown (null), never a plain "nothing was built" string.
+    const noId = new Proxy({ ...base, readFileSync: (p: string) => { if (p.endsWith('image.id')) throw new Error('ENOENT'); return Buffer.from('same'); } }, { get: (t, k: string) => (t as Record<string, unknown>)[k] ?? (() => undefined) });
+    expect(await buildImage({ ...d, fs: noId, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: null });
   });
 });
 
