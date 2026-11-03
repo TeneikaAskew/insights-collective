@@ -1,5 +1,5 @@
 -- ABOUTME: Synthetic, run-owned seed for the T-15 Students/Reports acceptance (disposable local stack only).
--- ABOUTME: Writes exactly the ids in MANIFEST.tsv; refuses if any already exists. Expected values: e2e/roster-reports/expected.ts.
+-- ABOUTME: Writes the MANIFEST.tsv ids except the RR course (the carrier, applied first). Refuses unless exactly the carrier exists.
 --
 -- Prerequisites (shared runner, unchanged): local-preseed.sql actors e2e-admin/e2e-instructor/e2e-member exist.
 -- Legacy enrollments.completion_status is set LAST to values that contradict the progression evidence, so a page that
@@ -13,8 +13,12 @@ begin
   if (select count(*) from auth.users where email in ('e2e-admin@insightscollective.org','e2e-instructor@insightscollective.org','e2e-member@insightscollective.org')) <> 3 then
     raise exception 'RR_SEED_E_ACTORS: the three shared actors are not present';
   end if;
+  -- Exactly the pre-seed carrier must exist: the RR course with a 32-hex association nonce, and no other fixture row.
+  if (select count(*) from public.courses where id = '7150a000-0000-4000-8000-000000000001' and description ~ '^rr-association:[0-9a-f]{32}$') <> 1 then
+    raise exception 'RR_SEED_E_CARRIER: the association carrier is not present';
+  end if;
   select count(*) into n from (
-    select id from public.courses where id::text like '7150a000-%'
+    select id from public.courses where id::text like '7150a000-%' and id <> '7150a000-0000-4000-8000-000000000001'
     union all select id from public.modules where id::text like '7150a000-%'
     union all select id from public.content_items where id::text like '7150a000-%'
     union all select id from auth.users where id::text like '7150a000-%'
@@ -40,7 +44,6 @@ insert into public.profiles (id, first_name, last_name) values
 on conflict (id) do update set first_name = excluded.first_name, last_name = excluded.last_name;
 
 insert into public.courses (id, title, description, category, level, published, instructor_id) values
-  ('7150a000-0000-4000-8000-000000000001', 'RR Fixture Course', 'rr-association:pending', 'data-science', 'beginner', true, 'e2e00000-0000-4000-8000-000000000002'),
   ('7150a000-0000-4000-8000-000000000002', 'RR Fixture Empty Course', 'RR fixture', 'data-science', 'beginner', true, 'e2e00000-0000-4000-8000-000000000002'),
   ('7150a000-0000-4000-8000-000000000003', 'RR Fixture Other Course', 'RR fixture', 'data-science', 'beginner', true, '7150a000-0000-4000-8000-000000000f01');
 
@@ -94,4 +97,4 @@ from (values
 where public.enrollments.id = v.id;
 
 commit;
-select 'RR_SEED_OK courses=3 modules=4 items=8 users=5 enrollments=8 progressions=12';
+select 'RR_SEED_OK';

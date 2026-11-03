@@ -10,6 +10,8 @@ import * as path from 'node:path';
 import { chromiumExecutableOption } from '../support/chromium-executable';
 import { assertStrictLocalBinding } from '../gradebook-roles/local-binding.mjs';
 import { newGuardedContext } from '../gradebook-roles/origin-guard.mjs';
+import { installRequestPolicy } from './request-policy.mjs';
+import { actorOf, appendTelemetry } from './actors.mjs';
 import { RR } from './expected';
 
 export const ROLES = {
@@ -19,9 +21,14 @@ export const ROLES = {
 } as const;
 export type Role = keyof typeof ROLES;
 
+/** The private session dir: absolute, a real directory (not a link), owned by this user, mode 0700. */
 export function sessionDir(env = process.env): string {
   const d = env.RR_SESSION_DIR ?? '';
   if (!path.isAbsolute(d)) throw new Error('roster-reports refused: RR_SESSION_DIR must be an absolute private directory');
+  const st = fs.lstatSync(d);
+  if (!st.isDirectory() || st.isSymbolicLink() || (st.mode & 0o777) !== 0o700 || (typeof process.getuid === 'function' && st.uid !== process.getuid())) {
+    throw new Error('roster-reports refused: RR_SESSION_DIR must be a 0700 directory owned by this user');
+  }
   return d;
 }
 
@@ -29,6 +36,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
   const { api, app, anonKey } = assertStrictLocalBinding();
   const dir = sessionDir();
   const nonce = process.env.RR_ASSOCIATION_NONCE ?? '';
+  if (!path.isAbsolute(process.env.RR_POLICY_LOG ?? '')) throw new Error('roster-reports setup: RR_POLICY_LOG must be an absolute private path');
   if (!/^[0-9a-f]{32}$/.test(nonce)) throw new Error('roster-reports setup: RR_ASSOCIATION_NONCE must be 32 hex characters written by run.sh through the DB DSN');
   const password = process.env.E2E_TEST_PASSWORD ?? '';
   if (!password) throw new Error('roster-reports setup: no synthetic password');
@@ -52,6 +60,8 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
     const browser = await chromium.launch(chromiumExecutableOption());
     try {
       const { context, blocked } = await newGuardedContext(browser, [app.origin, api.origin]);
+      // Same preventive request policy as the tests, installed before any page exists.
+      const policy = await installRequestPolicy(context, api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
       await context.addInitScript(({ v }) => { localStorage.setItem('supabase.auth.token', v); localStorage.setItem('e2e:disable-tours', '1'); }, { v: value });
       const page = await context.newPage();
       const origins = new Set<string>();
@@ -61,6 +71,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       const state = await context.storageState({ path: path.join(dir, `${role}.json`) });
       fs.chmodSync(path.join(dir, `${role}.json`), 0o600);
       if (blocked.length) throw new Error(`roster-reports setup: ${blocked.length} request(s) to non-approved origins were blocked`);
+      if (policy.forbidden.length) throw new Error(`roster-reports setup: ${policy.forbidden.length} forbidden API request(s) were aborted before send`);
       if ([...origins].some((o) => o !== api.origin) || !origins.has(api.origin)) throw new Error('roster-reports setup: app -> API association unproven');
       if (!state.origins.some((o) => o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')))) {
         throw new Error(`roster-reports setup: ${role} session was not persisted by the app`);

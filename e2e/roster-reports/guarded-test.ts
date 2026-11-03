@@ -1,27 +1,25 @@
-// ABOUTME: The `test` every roster-reports spec uses: the shared console-error fixture, the gradebook-owned origin guard
-// ABOUTME: (reused unchanged), and a read-only guard that fails the test if the page sends any non-GET API request.
+// ABOUTME: The `test` every roster-reports spec uses: the shared console-error fixture, the gradebook-owned PREVENTIVE origin
+// ABOUTME: guard (reused unchanged), and the PREVENTIVE request policy (request-policy.mjs) on the same context.
 import { test as base, expect } from '../fixtures/page-helpers';
 import { installOriginGuard } from '../gradebook-roles/origin-guard.mjs';
 import { assertStrictLocalBinding } from '../gradebook-roles/local-binding.mjs';
+import { installRequestPolicy } from './request-policy.mjs';
+import { actorOf, appendTelemetry } from './actors.mjs';
 
 export const BINDING = assertStrictLocalBinding();
 
-export const test = base.extend<{ originGuard: Array<{ origin: string; kind: string }>; readOnly: string[] }>({
+export const test = base.extend<{ originGuard: Array<{ origin: string; kind: string }>; requestPolicy: string[] }>({
   originGuard: [async ({ context }, use) => {
     const blocked = await installOriginGuard(context, [BINDING.app.origin, BINDING.api.origin]);
     await use(blocked);
     expect(blocked, 'requests to non-approved origins (each was blocked before it was sent)').toEqual([]);
   }, { auto: true }],
-  readOnly: [async ({ page }, use) => {
-    const writes: string[] = [];
-    page.on('request', (r) => {
-      const u = new URL(r.url());
-      // Token refresh is the only POST the app may make; any data write fails the test.
-      if (u.origin === BINDING.api.origin && r.method() !== 'GET' && r.method() !== 'HEAD' && r.method() !== 'OPTIONS'
-        && !u.pathname.startsWith('/auth/v1/token')) writes.push(`${r.method()} ${u.pathname}`);
-    });
-    await use(writes);
-    expect(writes, 'the Students and Reports tabs must not write').toEqual([]);
+  // Depends on originGuard so it is installed after it and runs first for every request of the context.
+  requestPolicy: [async ({ context, originGuard }, use) => {
+    void originGuard;
+    const { forbidden } = await installRequestPolicy(context, BINDING.api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
+    await use(forbidden);
+    expect(forbidden, 'forbidden API requests (each was aborted before it was sent)').toEqual([]);
   }, { auto: true }],
 });
 export { expect };

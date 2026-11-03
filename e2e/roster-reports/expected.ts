@@ -1,5 +1,5 @@
-// ABOUTME: Hand-computed oracle for the T-15 acceptance fixture (scripts/roster-reports-fixture/seed.sql). Computed by
-// ABOUTME: hand from the seed rows, not from product code; tests/selftest.mjs recomputes it independently from seed.sql.
+// ABOUTME: Hand-computed oracle for the T-15 acceptance fixture (carrier.sql.in writes the RR course, seed.sql the other 39 of
+// ABOUTME: the 40 MANIFEST ids). Hand-computed, not from product code; tests/selftest.ts recomputes it from the seed rows.
 //
 // Denominator: published items in published modules of RR = I1..I4 (4). Excluded: I5 (unpublished), I6 (draft module).
 // Done states: read, completed, graded. 'started' is not done.
