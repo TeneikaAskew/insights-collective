@@ -572,8 +572,29 @@ ok('wiring: installed on the handle before focus, read in finally, keys and orac
   assert.match(spec, /\} finally \{\s*const read = await settleR1Read\(\(\) => page\.evaluate\(r1TraceRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, read\.snap, read\.state\) \}\);\s*\}/);
   assert.match(spec, /handle\.evaluate\(r1TraceInstall, \{ moving, target, ttlMs: R1_TRACE_TTL\.spec \}, \{ timeout: 5_000 \}\)/);
   assert.match(spec, /\.then\(\(v\) => v === 'INSTALLED'\)\.catch\(\(\) => false\);/);
-  assert.match(spec, /await handle\.focus\(\);\s*scrollBefore = [^\n]+\n\s*await page\.keyboard\.press\('Space'\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/);
+  assert.match(spec, /await handle\.focus\(\);\s*scrollBefore = [^\n]+\n\s*await page\.keyboard\.press\('Space'\);\s*await page\.evaluate\(\(\) => new Promise\(\(r\) => setTimeout\(r, 0\)\)\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/);
   assert.equal((spec.match(/keyboard\.press/g) ?? []).length, 3);
+});
+ok('barrier experiment: exactly ONE zero-delay task barrier, after the pickup Space and before ArrowDown; keys, oracle and other waits unchanged', () => {
+  const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const BARRIER = 'await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));';
+  assert.equal(spec.split(BARRIER).length - 1, 1, 'exactly one barrier');
+  assert.equal((spec.match(/setTimeout/g) ?? []).length, 1, 'no other timer');
+  assert.equal((spec.match(/page\.evaluate\(/g) ?? []).length, 4, 'scrollBefore, barrier, scrollAfter, trace read: nothing else');
+  for (const banned of ['waitForTimeout', 'waitForFunction', 'page.waitFor', '.waitFor(', 'sleep', 'setInterval', 'requestAnimationFrame', 'retry', 'toPass'])
+    assert.ok(!spec.includes(banned), banned);
+  assert.equal((spec.match(/expect\.poll/g) ?? []).length, 6, 'the existing DB settle/readback polls only, unchanged from the no-barrier spec');
+  const keys = [...spec.matchAll(/keyboard\.press\('(\w+)'\)/g)].map((m) => m[1]);
+  assert.deepEqual(keys, ['Space', 'ArrowDown', 'Space']);
+  const iSpace = spec.indexOf("keyboard.press('Space')"), iBar = spec.indexOf(BARRIER), iDown = spec.indexOf("keyboard.press('ArrowDown')");
+  assert.ok(iSpace > 0 && iSpace < iBar && iBar < iDown, 'pickup Space < barrier < ArrowDown');
+  assert.equal(spec.slice(iSpace, iDown).replace(BARRIER, '').replace("keyboard.press('Space');", '').trim(), 'await page.', 'nothing else between pickup and ArrowDown');
+  // the reorder oracle: one exact reorder_modules call 200/204, then DB order and reload checks, as before
+  assert.equal((spec.match(/path: '\/rest\/v1\/rpc\/reorder_modules' \}/g) ?? []).length, 1);
+  assert.match(spec, /\}, \{ count: 1, status: \[200, 204\] \}\);/);
+  assert.match(spec.slice(iDown), /^keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/,
+    'the R1 block still ends at the exact one-call 200/204 oracle');
+  for (const k of ['for (', 'for(', 'while (', 'while(', '.repeat(']) assert.ok(!spec.slice(iSpace - 400, iDown + 200).includes(k), `no loop ${k}`);
 });
 ok('the recorder writes nothing: no preventDefault / stopPropagation, no DOM writes, no network, storage or console', () => {
   const src = strip(fs.readFileSync(path.join(HERE, '..', 'r1-trace.mjs'), 'utf8'));
