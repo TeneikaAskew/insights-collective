@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { r1TraceInstall, r1TraceRead, r1TraceFields, r1TraceDescription, parseR1Trace, validSnapshot, R1_TRACE_FIELDS,
+import { r1TraceInstall, r1TraceRead, r1TraceFields, r1TraceDescription, parseR1Trace, validSnapshot, settleR1Read, R1_TRACE_FIELDS,
   R1_TRACE_ORDER, R1_TRACE_ANNOTATION } from '../r1-trace.mjs';
 import { summarizeReport, checkLines, LINE } from '../summary.mjs';
 import { INVENTORY } from '../ids.mjs';
@@ -20,6 +20,7 @@ const ok = (name, fn) => tests.push([name, fn]);
 
 const M = '9b6e0000-0000-4000-8000-0000000000a1', T = '9b6e0000-0000-4000-8000-0000000000a2', OTHER = '9b6e0000-0000-4000-8000-0000000000a3';
 const D = `Draggable item ${M}`;
+const ARGS = Object.freeze({ moving: M, target: T, ttlMs: 60_000 });
 const TXT = {
   picked: `Picked up draggable item ${M}.`, overT: `${D} was moved over droppable area ${T}.`, overS: `${D} was moved over droppable area ${M}.`,
   dropT: `${D} was dropped over droppable area ${T}`, dropS: `${D} was dropped over droppable area ${M}`, dropN: `${D} was dropped.`,
@@ -27,9 +28,10 @@ const TXT = {
 };
 
 /** A fake page: a handle button inside a card, the outer live region and one inner (lesson) region. */
-function page() {
+function page(opts = {}) {
+  const regionsHtml = opts.noRegions ? '' : '<div id="DndLiveRegion-0" role="status"></div><div id="DndLiveRegion-1" role="status"></div>';
   const dom = new JSDOM(`<!doctype html><body><div id="root"><div id="card"><span><button id="h" aria-label="Reorder section"></button></span>
-    <ul></ul></div><div id="DndLiveRegion-0" role="status"></div><div id="DndLiveRegion-1" role="status"></div></div></body>`,
+    <ul></ul></div>${regionsHtml}</div></body>`,
   { runScripts: 'outside-only' });
   const w = dom.window;
   const counts = { add: 0, remove: 0, disconnect: 0, handlers: [] };
@@ -54,7 +56,7 @@ function page() {
 }
 const tick = () => new Promise((r) => setTimeout(r, 0));
 const run = async (p, script) => {
-  assert.equal(p.install(p.h(), { moving: M, target: T }), 'INSTALLED');
+  assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
   await script(p);
   await tick();
   const snap = p.read();
@@ -159,7 +161,7 @@ ok('transient: aria-pressed set and cleared between callbacks reads PRESSED_RELE
 });
 ok('pending records are flushed by the read (no tick before the read)', () => {
   const p = page();
-  assert.equal(p.install(p.h(), { moving: M, target: T }), 'INSTALLED');
+  assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
   p.say(TXT.dropS);
   const f = r1TraceFields(true, p.read());
   assert.equal(f.ann, 'DROP_SELF');
@@ -182,19 +184,20 @@ ok('key sequences other than Space, ArrowDown, Space, and overflow, read SEQ_MIS
 ok('install refuses a missing, detached or non-element handle, bad ids, and a second install', () => {
   const p = page();
   const loose = p.w.document.createElement('button');
-  for (const [el, a] of [[null, { moving: M, target: T }], [loose, { moving: M, target: T }], [p.w.document.createTextNode('x'), { moving: M, target: T }],
-    [p.h(), null], [p.h(), { moving: M, target: M }], [p.h(), { moving: '', target: T }], [p.h(), { moving: 1, target: T }]]) {
+  for (const [el, a] of [[null, ARGS], [loose, ARGS], [p.w.document.createTextNode('x'), ARGS],
+    [p.h(), null], [p.h(), { ...ARGS, target: M }], [p.h(), { ...ARGS, moving: '' }], [p.h(), { ...ARGS, moving: 1 }], [p.h(), { ...ARGS, ttlMs: 5 }], [p.h(), { ...ARGS, ttlMs: 1e9 }], [p.h(), { ...ARGS, ttlMs: 1.5e3 + 0.5 }],
+    [p.h(), { moving: M, target: T }]]) {
     assert.equal(p.install(el, a), 'REFUSED');
   }
   assert.equal(p.counts.add, p.counts.remove);
-  assert.equal(p.install(p.h(), { moving: M, target: T }), 'INSTALLED');
-  assert.equal(p.install(p.h(), { moving: M, target: T }), 'REFUSED');
+  assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
+  assert.equal(p.install(p.h(), ARGS), 'REFUSED');
   assert.ok(validSnapshot(p.read()));
 });
 ok('an install that fails mid-setup leaves no listener or observer behind', () => {
   const p = page();
   p.w.MutationObserver = function () { throw new Error('nope'); };
-  assert.equal(p.install(p.h(), { moving: M, target: T }), 'REFUSED');
+  assert.equal(p.install(p.h(), ARGS), 'REFUSED');
   assert.equal(p.counts.add, p.counts.remove); assert.ok(p.counts.add > 0);
   assert.equal(p.read(), null);
 });
@@ -203,7 +206,7 @@ ok('a read with nothing installed, a second read, and an unreachable page are RE
   assert.equal(p.read(), null);
   assert.equal(r1TraceFields(true, null).ctx, 'READ_FAILED');
   assert.equal(r1TraceFields(false, null).ctx, 'NOT_INSTALLED');
-  p.install(p.h(), { moving: M, target: T });
+  p.install(p.h(), ARGS);
   const first = p.read();
   assert.ok(validSnapshot(first)); assert.equal(p.read(), null);
   for (const k of R1_TRACE_ORDER.slice(1)) assert.equal(r1TraceFields(true, null)[k], 'UNAVAILABLE');
@@ -218,12 +221,12 @@ ok('a recorder that hit an error reports RECORDER_ERROR with every field UNAVAIL
   for (const k of R1_TRACE_ORDER.slice(1)) assert.equal(f[k], 'UNAVAILABLE');
 });
 ok('hostile or malformed snapshots are READ_FAILED, valid-but-not-installed is NOT_INSTALLED', () => {
-  const good = { v: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED', dropSeen: false,
+  const good = { v: 2, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED', dropSeen: false,
     otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
   assert.ok(validSnapshot(good)); assert.equal(r1TraceFields(true, good).ctx, 'LIVE'); assert.equal(r1TraceFields(false, good).ctx, 'NOT_INSTALLED');
-  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 2 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
+  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 3 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
     { ...good, onHandle: 100 }, { ...good, onHandle: -1 }, { ...good, onHandle: 1.5 }, { ...good, annLast: '__proto__' }, { ...good, annLast: 'UNAVAILABLE' },
-    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 1 }), good)];
+    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 2 }), good), { ...good, v: 1 }, { ...good, regionsSeen: 100 }];
   for (const b of bad) assert.equal(r1TraceFields(true, b).ctx, 'READ_FAILED', JSON.stringify(b)?.slice(0, 40));
 });
 
@@ -258,7 +261,7 @@ ok('cleanup: every window listener is removed, the observer disconnected, the re
 });
 ok('frozen: observations after the read change neither the taken snapshot nor the recorder', async () => {
   const p = page();
-  p.install(p.h(), { moving: M, target: T });
+  p.install(p.h(), ARGS);
   const rec = p.w[Symbol.for('ba.r1.trace.v1')];
   p.key(p.h(), 'Space');
   const snap = p.read();
@@ -276,10 +279,115 @@ ok('non-interference: listeners neither prevent nor stop the event; app listener
   const p = page();
   let seen = 0, prevented = null;
   p.w.document.addEventListener('keydown', (e) => { seen += 1; prevented = e.defaultPrevented; });
-  p.install(p.h(), { moving: M, target: T });
+  p.install(p.h(), ARGS);
   p.key(p.h(), 'Space');
   assert.equal(seen, 1); assert.equal(prevented, false);
   p.read();
+});
+
+// ---- review batch 1 (A to D) ----
+const stopFirst = (p, n) => { let left = n; p.$('#root').addEventListener('keydown', (e) => { if (left > 0) { left -= 1; e.stopPropagation(); } }); };
+ok('(A) first_space is bound to the first CAPTURED key: its bubble missing is UNAVAILABLE', async () => {
+  const p = page(); activator(p); stopFirst(p, 1);
+  const { f } = await run(p, (q) => three(q));
+  assert.equal(f.first_space, 'UNAVAILABLE'); assert.equal(f.keys, 'ALL_ON_HANDLE');
+});
+ok('(A) the first two keys not bubbling never lets the third Space stand in for the first', async () => {
+  for (const prevent of [false, true]) {
+    const p = page(); stopFirst(p, 2);
+    if (prevent) p.$('#card').addEventListener('keydown', (e) => e.preventDefault());
+    const { f } = await run(p, (q) => three(q));
+    assert.equal(f.first_space, 'UNAVAILABLE', String(prevent));
+  }
+});
+ok('(A) a normal first bubble reads PREVENTED / NOT_PREVENTED from that same first Space', async () => {
+  let r = await run(page(), (q) => three(q));
+  assert.equal(r.f.first_space, 'NOT_PREVENTED');
+  const p = page(); activator(p);
+  r = await run(p, (q) => three(q));
+  assert.equal(r.f.first_space, 'PREVENTED');
+  // a first key that is not Space is UNAVAILABLE even if a later Space bubbles prevented
+  const p2 = page(); activator(p2);
+  r = await run(p2, (q) => { q.key(q.h(), 'ArrowDown'); three(q); });
+  assert.equal(r.f.first_space, 'UNAVAILABLE');
+});
+const dropThen = (after) => (q) => {
+  q.sayInPlace(TXT.picked);
+  return tick().then(() => {
+    q.sayInPlace(TXT.dropS);                                               // characterData: the DROP is only the NEW value
+    if (after === 'remove') q.region().remove();
+    if (after === 'replace') q.region().replaceWith(q.region().cloneNode(false));
+    if (after === 'text') q.region().textContent = '';                      // the dropped text node itself is removed
+  });
+};
+for (const after of ['remove', 'replace', 'text']) {
+  ok(`(B) a DROP written in place and then ${after}d in the same batch is kept (callback path)`, async () => {
+    const p = page();
+    const { f } = await run(p, async (q) => { await dropThen(after)(q); await tick(); });
+    assert.equal(f.drop_seen, 'YES'); assert.equal(f.ann, 'DROP_SELF');
+    if (after !== 'text') assert.equal(f.dom, 'REGION_REPLACED');
+  });
+  ok(`(B) a DROP written in place and then ${after}d in the same batch is kept (flush path, no tick)`, async () => {
+    const p = page();
+    assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
+    await dropThen(after)(p);
+    const f = r1TraceFields(true, p.read());
+    assert.equal(f.drop_seen, 'YES'); assert.equal(f.ann, 'DROP_SELF');
+  });
+}
+ok('(C) no live region ever: announcements UNAVAILABLE, keys and dom still reported; an empty region is NONE / NO', async () => {
+  const p = page({ noRegions: true });
+  const { f } = await run(p, (q) => three(q));
+  assert.deepEqual([f.ctx, f.keys, f.first_space, f.ann, f.drop_seen, f.dom], ['LIVE', 'ALL_ON_HANDLE', 'NOT_PREVENTED', 'UNAVAILABLE', 'UNAVAILABLE', 'STABLE']);
+  const e = await run(page(), (q) => three(q));
+  assert.deepEqual([e.f.ann, e.f.drop_seen], ['NONE', 'NO']);
+  // a region that appears only later counts as seen
+  const late = page({ noRegions: true });
+  const l = await run(late, (q) => { const r = q.w.document.createElement('div'); r.id = 'DndLiveRegion-9'; q.$('#root').appendChild(r); r.textContent = TXT.picked; });
+  assert.equal(l.f.ann, 'PICKED');
+});
+ok('(D) the bounded read: OK, rejected, thrown, pending and late outcomes, each frozen at first settlement', async () => {
+  const ok1 = await settleR1Read(() => Promise.resolve({ x: 1 }), 50);
+  assert.deepEqual([ok1.state, ok1.snap], ['OK', { x: 1 }]);
+  assert.deepEqual({ ...(await settleR1Read(() => Promise.reject(new Error('gone')), 50)) }, { state: 'REJECTED', snap: null });
+  assert.deepEqual({ ...(await settleR1Read(() => { throw new Error('sync'); }, 50)) }, { state: 'REJECTED', snap: null });
+  const t0 = Date.now();
+  const pending = await settleR1Read(() => new Promise(() => {}), 30);
+  assert.deepEqual({ ...pending }, { state: 'TIMEOUT', snap: null }); assert.ok(Date.now() - t0 < 1000);
+  let lateResolve; const lateP = new Promise((r) => { lateResolve = r; });
+  const late = await settleR1Read(() => lateP, 20);
+  lateResolve({ v: 2 }); await tick();
+  assert.equal(late.state, 'TIMEOUT'); assert.equal(late.snap, null); assert.ok(Object.isFrozen(late));
+  let lateReject; const lateR = new Promise((_, r) => { lateReject = r; });
+  const lr = await settleR1Read(() => lateR, 20); lateReject(new Error('late')); await tick();
+  assert.equal(lr.state, 'TIMEOUT');
+  // reducer: TIMEOUT and REJECTED never read the snapshot, even a valid one
+  const good = { v: 2, regionsSeen: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'DROP_TARGET', dropSeen: true,
+    otherText: 0, pressedEver: true, pressedAtEnd: false, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
+  assert.equal(r1TraceFields(true, good, 'TIMEOUT').ctx, 'READ_TIMEOUT'); assert.equal(r1TraceFields(true, good, 'REJECTED').ctx, 'READ_FAILED');
+  assert.equal(r1TraceFields(true, good, 'EVIL').ctx, 'READ_FAILED'); assert.equal(r1TraceFields(true, good).ctx, 'LIVE');
+  for (const k of R1_TRACE_ORDER.slice(1)) assert.equal(r1TraceFields(true, good, 'TIMEOUT')[k], 'UNAVAILABLE');
+});
+ok('(D) a recorder never read removes itself at its ttl: listeners and observer gone, later read null', async () => {
+  const p = page();
+  assert.equal(p.install(p.h(), { ...ARGS, ttlMs: 30 }), 'INSTALLED');
+  const rec = p.w[Symbol.for('ba.r1.trace.v1')];
+  p.key(p.h(), 'Space');
+  await new Promise((r) => setTimeout(r, 80));
+  assert.equal(p.w[Symbol.for('ba.r1.trace.v1')], undefined);
+  assert.equal(p.counts.add, p.counts.remove); assert.equal(p.counts.disconnect, 1);
+  p.key(p.h(), 'ArrowDown'); p.say(TXT.dropT);
+  assert.equal(rec.snapshot().keys, 'S');
+  assert.equal(p.read(), null);
+});
+ok('(D) a read before the ttl clears the expiry timer (nothing fires later)', async () => {
+  const p = page();
+  let cleared = 0; const origClear = p.w.clearTimeout.bind(p.w); p.w.clearTimeout = (id) => { cleared += 1; return origClear(id); };
+  assert.equal(p.install(p.h(), { ...ARGS, ttlMs: 30 }), 'INSTALLED');
+  assert.ok(validSnapshot(p.read()));
+  assert.equal(cleared, 1);
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(p.counts.disconnect, 1);
 });
 
 // ---- summary: the R1TRACE line ----
@@ -289,7 +397,7 @@ const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: 
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const r1 = (t, p) => t[INVENTORY.findIndex((x) => x.project === p && x.case === 'R1')];
 ok('summary prints R1TRACE from list constants; absent, duplicate and hostile annotations print a fixed state; verdict unchanged', () => {
-  const desc = r1TraceDescription(true, { v: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED',
+  const desc = r1TraceDescription(true, { v: 2, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED',
     dropSeen: false, otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 });
   const t = goodTests();
   r1(t, 'ba-1440').results[0].annotations = [{ type: R1_TRACE_ANNOTATION, description: desc }];
@@ -315,7 +423,8 @@ ok('wiring: installed on the handle before focus, read in finally, keys and orac
   const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
   const iInstall = spec.indexOf('handle.evaluate(r1TraceInstall'), iFocus = spec.indexOf('await handle.focus();'), iFinally = spec.indexOf('} finally {');
   assert.ok(iInstall > 0 && iInstall < iFocus && iFocus < iFinally);
-  assert.match(spec, /\} finally \{\s*const snap = await page\.evaluate\(r1TraceRead\)\.catch\(\(\) => null\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, snap\) \}\);\s*\}/);
+  assert.match(spec, /\} finally \{\s*const read = await settleR1Read\(\(\) => page\.evaluate\(r1TraceRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, read\.snap, read\.state\) \}\);\s*\}/);
+  assert.match(spec, /handle\.evaluate\(r1TraceInstall, \{ moving, target, ttlMs: R1_TRACE_TTL\.spec \}, \{ timeout: 5_000 \}\)/);
   assert.match(spec, /\.then\(\(v\) => v === 'INSTALLED'\)\.catch\(\(\) => false\);/);
   assert.match(spec, /await handle\.focus\(\);\s*scrollBefore = [^\n]+\n\s*await page\.keyboard\.press\('Space'\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/);
   assert.equal((spec.match(/keyboard\.press/g) ?? []).length, 3);

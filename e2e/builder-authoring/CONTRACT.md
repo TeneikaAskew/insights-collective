@@ -144,8 +144,11 @@ open. `scripts/builder-authoring-fixture/r1-trace.mjs` records enough to tell th
 prints them. It does not prove a cause.
 - Lifetime: installed on the located handle (`locator.evaluate`, 5 s cap) BEFORE focus, and read once in `finally`.
   The read flushes pending records, takes one frozen snapshot, removes all three window listeners and the observer, and
-  deletes the recorder. Anything later is not recorded. A failed install or read is `ctx=NOT_INSTALLED` or
-  `READ_FAILED`; an error inside the recorder is `RECORDER_ERROR` with every field `UNAVAILABLE`.
+  deletes the recorder. Anything later is not recorded. The read is bounded (`settleR1Read`, 3 s): the first outcome is
+  frozen, and a late resolution or rejection is ignored. The recorder also removes itself after its ttl (120 s in the
+  spec), so a missed or late read cannot leave it alive; a read clears that timer. A failed install or read is
+  `ctx=NOT_INSTALLED`, `READ_FAILED` or `READ_TIMEOUT`, and an error inside the recorder is `RECORDER_ERROR`. Each has
+  every field `UNAVAILABLE`, and the test's own result is unaffected.
 - Non-interference: the window keydown listeners (capture and bubble) and the capture scroll listener are passive and
   never prevent or stop an event. The MutationObserver only reads. The keys, their order, and the one-RPC, db_settled and
   after_reload oracle are unchanged. The only added browser steps are one evaluate before focus and one in finally.
@@ -155,9 +158,13 @@ prints them. It does not prove a cause.
   scroll_events=` print only list constants, otherwise `state=absent|duplicate|unlisted`. The line is printed for every
   attempted R1 and never changes the verdict.
 - Words: `keys` ALL_ON_HANDLE / SOME_OFF_HANDLE / NONE_SEEN / SEQ_MISMATCH (per keydown at window capture: target is
-  the installed, connected handle). `first_space` PREVENTED / NOT_PREVENTED (at window bubble; this says that SOME
-  handler prevented it, not which one). `ann` is the last announcement for the moving id, including transient ones seen
-  through records (NONE, PICKED, OVER_*, NOT_OVER, DROP_*, CANCELLED); other or hostile text is only counted.
+  the installed, connected handle). `first_space` PREVENTED / NOT_PREVENTED is read at window bubble from the same
+  event object as the FIRST captured keydown. If that event is not a Space, or never bubbles to the window, it is
+  UNAVAILABLE. It says that SOME handler prevented it, not which one. `ann` is the last announcement for the moving id, including transient ones seen
+  through records (NONE, PICKED, OVER_*, NOT_OVER, DROP_*, CANCELLED). A removed region, or a removed text node of one,
+  is read for its final text, so a drop written just before a removal or replacement in the same batch is kept. If no
+  live region was ever seen, `ann` and `drop_seen` are UNAVAILABLE, not NONE / NO. Other or hostile text is only
+  counted.
   `drop_seen` YES / NO. `pressed` PRESSED_AT_END / PRESSED_RELEASED / NEVER_PRESSED (aria-pressed, transient included).
   `dom` STABLE / HANDLE_DETACHED / REGION_REPLACED / BOTH (removed at any time, even if re-added; a new live region also
   counts as replaced). `scroll_events` ANY / NONE (any scroll event, any element).

@@ -6,7 +6,8 @@ import { A, route } from './ids';
 import { storedSections, storedLessons, shownSectionTitles, sectionCard, shownLessonTitles } from './helpers';
 import { expectCalls } from './observe';
 import { r1Code, r1DropKind, r1ScrollKind } from '../../scripts/builder-authoring-fixture/codes.mjs';
-import { r1TraceInstall, r1TraceRead, r1TraceDescription, R1_TRACE_ANNOTATION } from '../../scripts/builder-authoring-fixture/r1-trace.mjs';
+import { r1TraceInstall, r1TraceRead, r1TraceDescription, settleR1Read, R1_TRACE_ANNOTATION, R1_TRACE_TTL, R1_TRACE_READ_DEADLINE_MS }
+  from '../../scripts/builder-authoring-fixture/r1-trace.mjs';
 import { shot } from './shot';
 
 const sectionTitle = (id: string) => A.sections.find((s) => s.id === id)!.title;
@@ -35,8 +36,9 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
     // Diagnostic reads never abort or default: a failed read is null and reduces to its UNAVAILABLE word.
     let scrollBefore: unknown = null;
     // Passive trace (DIAGNOSTIC only): installed on the handle BEFORE focus, read and removed in finally, reported as one
-    // annotation of fixed words. A failed install or read is NOT_INSTALLED / READ_FAILED; it never changes the result.
-    const traceInstalled = await handle.evaluate(r1TraceInstall, { moving, target }, { timeout: 5_000 })
+    // annotation of fixed words. A failed install or read is NOT_INSTALLED / READ_FAILED / READ_TIMEOUT; it never changes
+    // the result. The read is bounded, and the recorder removes itself after its ttl even if the read never lands.
+    const traceInstalled = await handle.evaluate(r1TraceInstall, { moving, target, ttlMs: R1_TRACE_TTL.spec }, { timeout: 5_000 })
       .then((v) => v === 'INSTALLED').catch(() => false);
     try {
       await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
@@ -52,8 +54,8 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
       const scrollAfter = await page.evaluate(() => window.scrollY).catch(() => null);
       throw new Error(r1Code(e instanceof Error ? e.message : null, r1DropKind(texts, moving, target), r1ScrollKind(scrollBefore, scrollAfter)));
     } finally {
-      const snap = await page.evaluate(r1TraceRead).catch(() => null);
-      info.annotations.push({ type: R1_TRACE_ANNOTATION, description: r1TraceDescription(traceInstalled, snap) });
+      const read = await settleR1Read(() => page.evaluate(r1TraceRead), R1_TRACE_READ_DEADLINE_MS);
+      info.annotations.push({ type: R1_TRACE_ANNOTATION, description: r1TraceDescription(traceInstalled, read.snap, read.state) });
     }
   });
   await test.step('db_settled', async () => {

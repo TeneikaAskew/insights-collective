@@ -8,7 +8,7 @@
 
 /** Field -> allowed words. Printed values are always these constants. */
 export const R1_TRACE_FIELDS = Object.freeze(Object.assign(Object.create(null), {
-  ctx: Object.freeze(['LIVE', 'NOT_INSTALLED', 'READ_FAILED', 'RECORDER_ERROR']),
+  ctx: Object.freeze(['LIVE', 'NOT_INSTALLED', 'READ_FAILED', 'READ_TIMEOUT', 'RECORDER_ERROR']),
   keys: Object.freeze(['ALL_ON_HANDLE', 'SOME_OFF_HANDLE', 'NONE_SEEN', 'SEQ_MISMATCH', 'UNAVAILABLE']),
   first_space: Object.freeze(['PREVENTED', 'NOT_PREVENTED', 'UNAVAILABLE']),
   ann: Object.freeze(['NONE', 'PICKED', 'OVER_TARGET', 'OVER_SELF', 'OVER_OTHER', 'NOT_OVER', 'DROP_TARGET', 'DROP_SELF',
@@ -20,10 +20,14 @@ export const R1_TRACE_FIELDS = Object.freeze(Object.assign(Object.create(null), 
 }));
 export const R1_TRACE_ORDER = Object.freeze(['ctx', 'keys', 'first_space', 'ann', 'drop_seen', 'pressed', 'dom', 'scroll_events']);
 export const R1_TRACE_ANNOTATION = 'ba_r1_trace';
+/** Page-side self-expiry bounds (ms) and the spec's read deadline (ms). */
+export const R1_TRACE_TTL = Object.freeze({ min: 20, max: 600_000, spec: 120_000 });
+export const R1_TRACE_READ_DEADLINE_MS = 3_000;
 
 /**
  * IN PAGE. Installs the recorder on `el` (the section's reorder handle). Self-contained: Playwright sends its source.
- * Returns 'INSTALLED' or 'REFUSED' (bad element or ids, already installed, or any setup error; nothing is left behind).
+ * Returns 'INSTALLED' or 'REFUSED' (bad element, ids or ttl, already installed, or any setup error; nothing is left behind).
+ * The recorder removes itself after `a.ttlMs` even if it is never read, so a missed or late read cannot leave it alive.
  */
 export function r1TraceInstall(el, a) {
   var K = Symbol.for('ba.r1.trace.v1');
@@ -33,9 +37,14 @@ export function r1TraceInstall(el, a) {
     if (window[K]) return 'REFUSED';
     if (!el || typeof el !== 'object' || el.nodeType !== 1 || !el.isConnected) return 'REFUSED';
     if (!a || typeof a.moving !== 'string' || typeof a.target !== 'string' || !a.moving || !a.target || a.moving === a.target) return 'REFUSED';
+    if (typeof a.ttlMs !== 'number' || !(a.ttlMs >= 20 && a.ttlMs <= 600000) || Math.floor(a.ttlMs) !== a.ttlMs) return 'REFUSED';
     var CAP = 99, SEQ = 8;
     var m = a.moving, t = a.target;
-    var s = { frozen: false, keys: '', keysOverflow: false, onHandle: 0, kdBubble: 0, firstSpacePrevented: null,
+    var timer = null;
+    // firstKey: the FIRST captured keydown event object (kept in page memory only). first_space is read from that same
+    // event at window bubble; if it never bubbles there, it stays null (UNAVAILABLE).
+    var firstKey = null;
+    var s = { frozen: false, keys: '', keysOverflow: false, onHandle: 0, firstSpacePrevented: null, regionsSeen: 0,
       annLast: 'NONE', dropSeen: false, otherText: 0, pressedEver: false, handleDetachedEver: false, regionReplaced: false,
       scrollEvents: 0, errors: 0 };
     var cap = function (n) { return n >= CAP ? CAP : n + 1; };
@@ -54,6 +63,7 @@ export function r1TraceInstall(el, a) {
       return null;
     };
     var known = new Set();
+    var regionTexts = new WeakSet();
     var lastText = new WeakMap();
     var regions = function () { return Array.prototype.slice.call(document.querySelectorAll('[id^="DndLiveRegion"]')); };
     var touched = new Set();
@@ -63,6 +73,7 @@ export function r1TraceInstall(el, a) {
       }
       return false;
     };
+    var isRegion = function (n) { return !!n && n.nodeType === 1 && typeof n.id === 'string' && n.id.indexOf('DndLiveRegion') === 0; };
     var see = function (x) {
       x = String(x == null ? '' : x).trim();
       if (x === '') return;
@@ -77,16 +88,21 @@ export function r1TraceInstall(el, a) {
       for (var i = 0; i < records.length; i++) {
         var rec = records[i];
         if (rec.type === 'childList') {
+          var targetIsRegion = inRegion(rec.target);
           for (var j = 0; j < rec.removedNodes.length; j++) {
             var n = rec.removedNodes[j];
             if (n === el || (n.nodeType === 1 && n.contains(el))) s.handleDetachedEver = true;
-            known.forEach(function (r) { if (n === r || (n.nodeType === 1 && n.contains(r))) s.regionReplaced = true; });
+            // A removed region (or a removed text node of one) keeps its final text: read it, so a drop written just
+            // before a removal or replacement in the same batch is not lost.
+            known.forEach(function (r) { if (n === r || (n.nodeType === 1 && n.contains(r))) { s.regionReplaced = true; see(r.textContent); } });
+            if (n.nodeType === 3 && (targetIsRegion || regionTexts.has(n))) see(n.data);
           }
           for (var q = 0; q < rec.addedNodes.length; q++) {
             var an = rec.addedNodes[q];
-            if (an.nodeType === 3 && inRegion(rec.target)) see(an.data);
+            if (an.nodeType === 3 && targetIsRegion) { regionTexts.add(an); see(an.data); }
           }
-        } else if (rec.type === 'characterData' && inRegion(rec.target)) {
+        } else if (rec.type === 'characterData' && (regionTexts.has(rec.target) || inRegion(rec.target))) {
+          // the old value; the final value is read from the region or text node when either is removed, or by the scan
           see(rec.oldValue);
         } else if (rec.type === 'attributes' && rec.target === el && (rec.oldValue === 'true' || el.getAttribute('aria-pressed') === 'true')) {
           s.pressedEver = true;
@@ -98,7 +114,8 @@ export function r1TraceInstall(el, a) {
       known.forEach(function (r) { if (!r.isConnected) s.regionReplaced = true; });
       for (var i = 0; i < now.length; i++) {
         var r = now[i];
-        if (!known.has(r)) { if (initialised) s.regionReplaced = true; known.add(r); }
+        if (!known.has(r)) { if (initialised) s.regionReplaced = true; known.add(r); s.regionsSeen = cap(s.regionsSeen); }
+        for (var c = r.firstChild; c; c = c.nextSibling) if (c.nodeType === 3) regionTexts.add(c);
         var x = String(r.textContent == null ? '' : r.textContent).trim();
         if (lastText.get(r) === x && !touched.has(r)) continue;
         lastText.set(r, x);
@@ -116,13 +133,13 @@ export function r1TraceInstall(el, a) {
       added.push([target, type, h, capture]);
     };
     on(window, 'keydown', function (e) {
+      if (firstKey === null) firstKey = e;
       if (s.keys.length >= SEQ) { s.keysOverflow = true; return; }
       s.keys += e.code === 'Space' ? 'S' : e.code === 'ArrowDown' ? 'A' : 'O';
       if (e.target === el && el.isConnected) s.onHandle = cap(s.onHandle);
     }, true);
     on(window, 'keydown', function (e) {
-      if (s.kdBubble === 0 && e.code === 'Space') s.firstSpacePrevented = e.defaultPrevented === true;
-      s.kdBubble = cap(s.kdBubble);
+      if (e === firstKey && e.code === 'Space') s.firstSpacePrevented = e.defaultPrevented === true;
     }, false);
     on(window, 'scroll', function () { s.scrollEvents = cap(s.scrollEvents); }, true);
     var handleRecords = guard(function (records) { processRecords(records || []); scan(); });
@@ -133,13 +150,15 @@ export function r1TraceInstall(el, a) {
     initialised = true;
     var cleanup = function () {
       s.frozen = true;
+      firstKey = null;
+      if (timer !== null) { clearTimeout(timer); timer = null; }
       if (observer) { observer.disconnect(); observer = null; }
       while (added.length) { var x = added.pop(); x[0].removeEventListener(x[1], x[2], { capture: x[3] }); }
     };
     var rec = {
       flush: function () { if (!s.frozen && observer) handleRecords(observer.takeRecords()); },
       snapshot: function () {
-        return { v: 1, keys: s.keys, keysOverflow: s.keysOverflow, onHandle: s.onHandle, firstSpacePrevented: s.firstSpacePrevented,
+        return { v: 2, regionsSeen: s.regionsSeen, keys: s.keys, keysOverflow: s.keysOverflow, onHandle: s.onHandle, firstSpacePrevented: s.firstSpacePrevented,
           annLast: s.annLast, dropSeen: s.dropSeen, otherText: s.otherText, pressedEver: s.pressedEver,
           pressedAtEnd: el.isConnected && el.getAttribute('aria-pressed') === 'true', handleDetachedEver: s.handleDetachedEver || !el.isConnected,
           regionReplaced: s.regionReplaced, scrollEvents: s.scrollEvents, errors: s.errors };
@@ -147,9 +166,11 @@ export function r1TraceInstall(el, a) {
       cleanup: cleanup,
     };
     Object.defineProperty(window, K, { value: rec, configurable: true, enumerable: false, writable: false });
+    timer = setTimeout(function () { timer = null; try { cleanup(); } catch (_) { /* frozen either way */ } try { if (window[K] === rec) delete window[K]; } catch (_) { /* gone with the page */ } }, a.ttlMs);
     return 'INSTALLED';
   } catch (_) {
     try { if (observer) observer.disconnect(); } catch (_e) { /* nothing more to undo */ }
+    try { if (timer !== null) clearTimeout(timer); } catch (_e) { /* nothing more to undo */ }
     while (added.length) { var y = added.pop(); try { y[0].removeEventListener(y[1], y[2], { capture: y[3] }); } catch (_e) { /* best effort */ } }
     return 'REFUSED';
   }
@@ -170,7 +191,7 @@ export function r1TraceRead() {
   return snap;
 }
 
-const SNAP_KEYS = ['v', 'keys', 'keysOverflow', 'onHandle', 'firstSpacePrevented', 'annLast', 'dropSeen', 'otherText', 'pressedEver',
+const SNAP_KEYS = ['v', 'regionsSeen', 'keys', 'keysOverflow', 'onHandle', 'firstSpacePrevented', 'annLast', 'dropSeen', 'otherText', 'pressedEver',
   'pressedAtEnd', 'handleDetachedEver', 'regionReplaced', 'scrollEvents', 'errors'];
 const ANN_SEEN = new Set(R1_TRACE_FIELDS.ann.filter((w) => w !== 'UNAVAILABLE'));
 const isCount = (n) => Number.isInteger(n) && n >= 0 && n <= 99;
@@ -181,7 +202,7 @@ export function validSnapshot(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x) || Object.getPrototypeOf(x) !== Object.prototype) return false;
   const k = Object.keys(x);
   if (k.length !== SNAP_KEYS.length || !SNAP_KEYS.every((n) => Object.prototype.hasOwnProperty.call(x, n))) return false;
-  return x.v === 1 && typeof x.keys === 'string' && /^[SAO]{0,8}$/.test(x.keys) && isBool(x.keysOverflow) && isCount(x.onHandle)
+  return x.v === 2 && isCount(x.regionsSeen) && typeof x.keys === 'string' && /^[SAO]{0,8}$/.test(x.keys) && isBool(x.keysOverflow) && isCount(x.onHandle)
     && (x.firstSpacePrevented === null || isBool(x.firstSpacePrevented)) && typeof x.annLast === 'string' && ANN_SEEN.has(x.annLast)
     && isBool(x.dropSeen) && isCount(x.otherText) && isBool(x.pressedEver) && isBool(x.pressedAtEnd) && isBool(x.handleDetachedEver)
     && isBool(x.regionReplaced) && isCount(x.scrollEvents) && isCount(x.errors);
@@ -191,22 +212,26 @@ const UNAV = (ctx) => ({ ctx, keys: 'UNAVAILABLE', first_space: 'UNAVAILABLE', a
   pressed: 'UNAVAILABLE', dom: 'UNAVAILABLE', scroll_events: 'UNAVAILABLE' });
 
 /** Snapshot -> fixed words. Words describe what was recorded; they do not name a cause. */
-export function r1TraceFields(installed, snap) {
+export function r1TraceFields(installed, snap, readState = 'OK') {
   if (installed !== true) return UNAV('NOT_INSTALLED');
-  if (!validSnapshot(snap)) return UNAV('READ_FAILED');
+  if (readState === 'TIMEOUT') return UNAV('READ_TIMEOUT');
+  if (readState !== 'OK' || !validSnapshot(snap)) return UNAV('READ_FAILED');
   if (snap.errors > 0) return UNAV('RECORDER_ERROR');
   const keys = snap.keysOverflow ? 'SEQ_MISMATCH' : snap.keys === '' ? 'NONE_SEEN' : snap.keys !== 'SAS' ? 'SEQ_MISMATCH'
     : snap.onHandle === 3 ? 'ALL_ON_HANDLE' : 'SOME_OFF_HANDLE';
   const first = snap.keys[0] !== 'S' || snap.firstSpacePrevented === null ? 'UNAVAILABLE' : snap.firstSpacePrevented ? 'PREVENTED' : 'NOT_PREVENTED';
   const pressed = snap.pressedAtEnd ? 'PRESSED_AT_END' : snap.pressedEver ? 'PRESSED_RELEASED' : 'NEVER_PRESSED';
   const dom = snap.handleDetachedEver && snap.regionReplaced ? 'BOTH' : snap.handleDetachedEver ? 'HANDLE_DETACHED' : snap.regionReplaced ? 'REGION_REPLACED' : 'STABLE';
-  return { ctx: 'LIVE', keys, first_space: first, ann: snap.annLast, drop_seen: snap.dropSeen ? 'YES' : 'NO', pressed, dom,
+  // No live region was ever seen: announcements were not observable, so they are UNAVAILABLE, not NONE / NO.
+  const ann = snap.regionsSeen === 0 ? 'UNAVAILABLE' : snap.annLast;
+  const dropSeen = snap.regionsSeen === 0 ? 'UNAVAILABLE' : snap.dropSeen ? 'YES' : 'NO';
+  return { ctx: 'LIVE', keys, first_space: first, ann, drop_seen: dropSeen, pressed, dom,
     scroll_events: snap.scrollEvents > 0 ? 'ANY' : 'NONE' };
 }
 
 /** The annotation description: `field=WORD` pairs in R1_TRACE_ORDER. */
-export function r1TraceDescription(installed, snap) {
-  const f = r1TraceFields(installed, snap);
+export function r1TraceDescription(installed, snap, readState = 'OK') {
+  const f = r1TraceFields(installed, snap, readState);
   return R1_TRACE_ORDER.map((k) => `${k}=${f[k]}`).join(' ');
 }
 
@@ -226,4 +251,19 @@ export function parseR1Trace(description) {
     out[k] = R1_TRACE_FIELDS[k][idx];
   }
   return out;
+}
+
+/**
+ * Bound the final read: resolves (never rejects) with { state: 'OK' | 'REJECTED' | 'TIMEOUT', snap } by `ms`. The first
+ * outcome is frozen; a late resolution or rejection is ignored. The timer is cleared once settled.
+ */
+export function settleR1Read(start, ms) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (state, snap) => { if (done) return; done = true; clearTimeout(timer); resolve(Object.freeze({ state, snap: state === 'OK' ? snap : null })); };
+    const timer = setTimeout(() => finish('TIMEOUT', null), ms);
+    let p;
+    try { p = Promise.resolve(typeof start === 'function' ? start() : start); } catch { finish('REJECTED', null); return; }
+    p.then((v) => finish('OK', v), () => finish('REJECTED', null));
+  });
 }
