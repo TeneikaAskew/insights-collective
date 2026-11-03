@@ -134,8 +134,10 @@ export function compareWitness(expectedSeed, pre, post, policyLog) {
   for (const l of lines2) {
     const m = /^\{"rpc":"log_security_event","actor":"(admin|instructor|member|unknown)","status":"(success|failed|pending)"\}$/.exec(l);
     if (!m) { bad.malformed += 1; continue; }
-    if (m[2] !== 'success') bad[m[2]] += 1;
-    else if (!KNOWN.has(m[1])) bad.unknown += 1;
+    // Attribution first and independently of status: an unknown actor FAILS whether the call succeeded, failed or is
+    // pending. Only known actors reach the non-fatal (failed/pending -> INCOMPLETE) or the success count.
+    if (!KNOWN.has(m[1])) bad.unknown += 1;
+    else if (m[2] !== 'success') bad[m[2]] += 1;
     else recorded[m[1]] += 1;
   }
   for (const a of ['admin', 'instructor', 'member']) {

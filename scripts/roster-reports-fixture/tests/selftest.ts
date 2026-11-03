@@ -235,9 +235,10 @@ ok(!compareWitness(expSeed, pre, W(expSeed.replace(/ read$/m, ' started'), 'CERT
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT course=x', tel(0, 0, 0)), '').ok, 'witness: certificate change fails');
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 2, 1)), L2).ok, 'witness: telemetry delta mismatch fails');
 const post11 = W(expSeed, 'CERT none', tel(0, 1, 1));
-for (const [what, extra] of [['failed', rec('admin', 'failed')], ['pending', rec('member', 'pending')], ['unknown actor', rec('unknown', 'success')]] as const) {
+for (const [what, extra] of [['failed', rec('admin', 'failed')], ['pending', rec('member', 'pending')], ['unknown actor', rec('unknown', 'success')],
+  ['unknown actor failed', rec('unknown', 'failed')], ['unknown actor pending', rec('unknown', 'pending')]] as const) {
   const r = compareWitness(expSeed, pre, post11, L2 + log([extra])) as { ok: boolean; verdict?: string; lines: string[] };
-  const want = what === 'unknown actor' ? 'FAIL' : 'INCOMPLETE';
+  const want = what.startsWith('unknown actor') ? 'FAIL' : 'INCOMPLETE';
   ok(!r.ok && r.verdict === want && r.lines.includes(`WITNESS verdict=${want}`), `witness: a ${what} telemetry record is ${want}, never PASS, even when deltas match`);
   if (want === 'INCOMPLETE') ok(r.lines.some((l) => /^WITNESS TELEMETRY_NONFATAL (FAILED|PENDING) count=1$/.test(l)), `witness: ${what} telemetry reported separately as non-fatal`);
 }
@@ -278,12 +279,12 @@ ok(/mktemp -d "\$TMPROOT\/rr-run\.XXXXXXXXXX"/.test(read('scripts/roster-reports
 // projection kind the committed file holds, plus CERT and per-actor TELEMETRY, in bytewise order.
 const guarded = read('e2e/roster-reports/guarded-test.ts').replace(/^\s*\/\/.*$/gm, '');
 ok(/installRequestPolicy\(context, BINDING\.api\.origin/.test(guarded) && /requestPolicy: \[async \(\{ context, originGuard \}/.test(guarded)
-  && /expect\(forbidden, '[^']*'\)\.toEqual\(\[\]\)/.test(guarded) && (guarded.match(/\{ auto: true \}/g) ?? []).length === 2, 'guarded-test: auto request policy after the origin guard, forbidden must be empty');
+  && /expect\(policy\.forbidden, '[^']*'\)\.toEqual\(\[\]\)/.test(guarded) && (guarded.match(/\{ auto: true \}/g) ?? []).length === 2, 'guarded-test: auto request policy after the origin guard, forbidden must be empty');
 ok(!/readOnly|page\.on\('request'/.test(guarded), 'guarded-test: no after-the-fact read-only observer');
 const setup = read('e2e/roster-reports/session-setup.ts').replace(/^\s*\/\/.*$/gm, '');
 ok(/installRequestPolicy\(context, api\.origin/.test(setup) && /if \(policy\.forbidden\.length\) throw/.test(setup), 'session-setup: policy on the setup context, throws on any forbidden request');
 ok(/^\s*sinkPath\(\);/m.test(setup) && /lstatSync/.test(setup) && /0o700/.test(setup) && /getuid/.test(setup) && !/RR_POLICY_LOG/.test(setup), 'session-setup: sink path checked before any browser, 0700 own real session dir');
-ok(/await policy\.drain\(\);\s*\n\s*const state = await context\.storageState/.test(setup) && /await use\(forbidden\);\s*\n\s*await drain\(\);/.test(guarded), 'setup and every test drain telemetry (pending reported) before their context ends');
+ok(/await policy\.finalize\(\);[^\n]*\n\s*(\/\/[^\n]*\n\s*)*const state = await context\.storageState/.test(setup), 'setup: telemetry finalized before the session state is taken');
 const wsql = read('scripts/roster-reports-fixture/witness.sql');
 const kinds = [...new Set(read('scripts/roster-reports-fixture/expected-seed.txt').split('\n').filter(Boolean).map((l) => l.split(' ')[1]))].sort();
 ok(kinds.join(',') === 'course,enrollment,item,module,profile,progression,user' && kinds.every((k) => wsql.includes(`'SEED ${k} '`)), `witness.sql emits every committed SEED kind (${kinds.join(',')})`);
@@ -347,25 +348,94 @@ try {
 }
 ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verified absent (${runs.length})`);
 
-// 8c2. Telemetry lifecycle on a fake context: each request is reported exactly once as success, failed or pending.
+// 8c2. Telemetry lifecycle on a fake context: every started request is reported exactly once (success, failed or
+// pending) by finalize(); after finalize nothing more is emitted (late completions and late starts are only counted).
+{
+  const mkPolicy = async (onT?: (r: any) => void) => {
+    const handlers: Record<string, Array<(x: any) => any>> = {};
+    const ctx = { route: async () => {}, on: (ev: string, f: (x: any) => any) => { (handlers[ev] ??= []).push(f); } };
+    const fire = (ev: string, x: any) => Promise.all((handlers[ev] ?? []).map((f) => f(x)));
+    const seen: Array<{ rpc: string; actor: string; status: string }> = [];
+    const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf, onTelemetry: onT ?? ((r: any) => seen.push(r)) });
+    return { fire, seen, pol };
+  };
+  const mk = (uid: string, status?: number, delayMs = 0) => ({ method: () => 'POST', url: () => `${A_ORIGIN}/rest/v1/rpc/log_security_event`,
+    postData: () => JSON.stringify({ p_user_id: uid }),
+    response: () => new Promise((r) => setTimeout(() => r(status === undefined ? null : { status: () => status }), delayMs)) });
+  const ADMIN = 'e2e00000-0000-4000-8000-000000000001'; const INSTR = 'e2e00000-0000-4000-8000-000000000002'; const MEMBER = 'e2e00000-0000-4000-8000-000000000003';
+  const L = await mkPolicy();
+  ok(typeof L.pol.finalize === 'function' && typeof L.pol.late === 'object', 'lifecycle: policy exposes finalize() and late counters');
+  const ok1 = mk(INSTR, 204); const bad1 = mk(MEMBER, 500); const lost = mk(ADMIN); const open1 = mk(MEMBER); const stranger = mk('nobody', 204);
+  const slow = mk(ADMIN, 204, 150); const failMid = mk(INSTR, 204, 150);
+  for (const r of [ok1, bad1, lost, open1, stranger, slow, failMid]) await L.fire('request', r);
+  await L.fire('requestfinished', ok1); await L.fire('requestfinished', bad1); await L.fire('requestfailed', lost); await L.fire('requestfinished', stranger);
+  await L.fire('requestfinished', ok1); // duplicate completion: already settled, ignored
+  const slowDone = L.fire('requestfinished', slow); // response still resolving when the deadline hits
+  const midDone = L.fire('requestfinished', failMid); await L.fire('requestfailed', failMid); // fails while its response resolves
+  if (typeof L.pol.finalize === 'function') await L.pol.finalize(20);
+  await L.fire('requestfinished', open1); // late completion of a request already emitted as pending
+  await slowDone; await midDone; // the delayed response lands after the freeze
+  await L.fire('request', mk(INSTR, 204)); // a new start after the freeze
+  if (typeof L.pol.finalize === 'function') await L.pol.finalize(20); // idempotent
+  const got = L.seen.map((r) => `${r.actor}:${r.status}`).join(',');
+  ok(got === 'instructor:success,member:failed,admin:failed,unknown:success,instructor:failed,member:pending,admin:pending,instructor:failed', `lifecycle: exactly once each; in-flight at deadline -> pending; new start after cutoff -> failed (${got})`);
+  ok(L.pol.late?.completions === 3 && L.pol.late?.starts === 1, `lifecycle: frozen after finalize, late events (open1, slow, failMid's late response) only counted (${JSON.stringify(L.pol.late)})`);
+  const E2 = await mkPolicy(() => { throw new Error('RR_SINK_E_OPEN'); });
+  let leaked = false; // a sink error escaping an event handler (it would be lost as an unhandled rejection)
+  const r2 = mk(MEMBER, 204);
+  try { await E2.fire('request', r2); await E2.fire('requestfinished', r2); } catch { leaked = true; }
+  ok(!leaked, 'lifecycle: a sink error never escapes an event handler');
+  let thrown = '';
+  try { await E2.pol.finalize?.(20); } catch (e) { thrown = String((e as Error).message); }
+  ok(thrown === 'RR_SINK_E_OPEN', 'lifecycle: a sink error is collected and rethrown by finalize (never lost)');
+}
+// Observation boundary (T 01:09 residual): finalize(empty) -> a NEW telemetry request -> 500 with NO row written.
 {
   const handlers: Record<string, Array<(x: any) => any>> = {};
-  const ctx = { route: async () => {}, on: (ev: string, f: (x: any) => any) => { (handlers[ev] ??= []).push(f); } };
-  const fire = async (ev: string, x: any) => { for (const f of handlers[ev] ?? []) await f(x); };
-  const mk = (uid: string, status?: number) => ({ method: () => 'POST', url: () => `${A_ORIGIN}/rest/v1/rpc/log_security_event`,
-    postData: () => JSON.stringify({ p_user_id: uid }), response: async () => (status === undefined ? null : { status: () => status }) });
-  const seen: Array<{ rpc: string; actor: string; status: string }> = [];
-  const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf, onTelemetry: (r: any) => seen.push(r) });
-  const ok1 = mk('e2e00000-0000-4000-8000-000000000002', 204); const bad1 = mk('e2e00000-0000-4000-8000-000000000003', 500);
-  const lost = mk('e2e00000-0000-4000-8000-000000000001'); const open1 = mk('e2e00000-0000-4000-8000-000000000003'); const stranger = mk('nobody', 204);
-  for (const r of [ok1, bad1, lost, open1, stranger]) await fire('request', r);
-  await fire('requestfinished', ok1); await fire('requestfinished', bad1); await fire('requestfailed', lost); await fire('requestfinished', stranger);
-  await fire('requestfinished', ok1);
-  if (typeof pol.drain === 'function') await pol.drain(10);
-  await fire('requestfinished', open1);
-  const got = seen.map((r) => `${r.actor}:${r.status}`).join(',');
-  ok(typeof pol.drain === 'function' && got === 'instructor:success,member:failed,admin:failed,unknown:success,member:pending', `lifecycle: exactly once each, pending at drain (${got})`);
-  ok(seen.length > 0 && seen.every((r) => ['success', 'failed', 'pending'].includes(r.status)), 'lifecycle: every reported status is a sink enum');
+  const routes: Array<(r: any) => any> = [];
+  const ctx = { route: async (_p: string, f: (r: any) => any) => { routes.push(f); }, on: (ev: string, f: (x: any) => any) => { (handlers[ev] ??= []).push(f); } };
+  const fire = (ev: string, x: any) => Promise.all((handlers[ev] ?? []).map((f) => f(x)));
+  const sink: string[] = [];
+  const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf, onTelemetry: (r: any) => sink.push(`${JSON.stringify({ rpc: r.rpc, actor: r.actor, status: r.status })}\n`) });
+  await pol.finalize(10); // nothing in flight
+  const lateReq = { method: () => 'POST', url: () => `${A_ORIGIN}/rest/v1/rpc/log_security_event`, postData: () => JSON.stringify({ p_user_id: 'e2e00000-0000-4000-8000-000000000003' }), response: async () => ({ status: () => 500 }) };
+  await fire('request', lateReq);
+  let routed = '';
+  await routes[0]?.({ request: () => lateReq, abort: async (why: string) => { routed = `abort:${why}`; }, fallback: async () => { routed = 'fallback'; } });
+  await fire('requestfinished', lateReq);
+  ok(routed === 'abort:blockedbyclient', `boundary: a NEW telemetry call after the cutoff is aborted before send (${routed})`);
+  ok(sink.join('') === '{"rpc":"log_security_event","actor":"member","status":"failed"}\n', `boundary: it is written once as failed (${JSON.stringify(sink)})`);
+  const v = compareWitness(expSeed, pre, pre, sink.join('')) as { verdict?: string };
+  ok(v.verdict === 'INCOMPLETE', `boundary: with the DB unchanged (no row) the witness is NOT PASS (${v.verdict})`);
+  let closed = '';
+  try { pol.assertClosed?.(); closed = typeof pol.assertClosed === 'function' ? 'OK' : 'NO_ASSERT'; } catch (e) { closed = String((e as Error).message); }
+  ok(closed === 'RR_POLICY_E_LATE_START count=1', `boundary: assertClosed fails the caller (${closed})`);
+  const u = { ...lateReq, postData: () => JSON.stringify({ p_user_id: 'nobody' }) };
+  await fire('request', u);
+  ok(compareWitness(expSeed, pre, pre, sink.join('')).verdict === 'FAIL', 'boundary: an unknown-actor late start is FAIL');
+  // An already-pending request completing after the cutoff is NOT a new start (stays frozen and idempotent).
+  const P = await (async () => {
+    const h: Record<string, Array<(x: any) => any>> = {};
+    const c2 = { route: async () => {}, on: (ev: string, f: (x: any) => any) => { (h[ev] ??= []).push(f); } };
+    const seen: string[] = [];
+    const p2: any = await installRequestPolicy(c2 as any, A_ORIGIN, { actorOf, onTelemetry: (r: any) => seen.push(r.status) });
+    const r = { ...lateReq, response: async () => ({ status: () => 204 }) };
+    for (const f of h.request ?? []) await f(r);
+    await p2.finalize(10);
+    for (const f of h.requestfinished ?? []) await f(r);
+    let ac = 'OK'; try { p2.assertClosed?.(); } catch (e) { ac = String((e as Error).message); }
+    return { seen: seen.join(','), late: p2.late, ac };
+  })();
+  ok(P.seen === 'pending' && P.late.starts === 0 && P.late.completions === 1 && P.ac === 'OK', `boundary: late completion of an already-pending call is not a new start (${JSON.stringify(P)})`);
+}
+// Setup throw and test failure: finalize runs on every path (static wiring; the browser paths cannot run here).
+{
+  const ss = read('e2e/roster-reports/session-setup.ts').replace(/^\s*\/\/.*$/gm, '');
+  ok(/\} catch \(e\) \{ failure = e; \}\s*\n\s*try \{ if \(policy\) await policy\.finalize\(\); \} catch \(e\) \{ if \(failure === null\) failure = e; \}\s*\n\s*try \{ await browser\.close\(\); \} catch \(e\) \{ if \(failure === null\) failure = e; \}\s*\n\s*try \{ policy\?\.assertClosed\(\); \} catch \(e\) \{ if \(failure === null\) failure = e; \}\s*\n\s*if \(failure !== null\) throw failure;/.test(ss),
+    'setup: on every path finalize, then AWAITED browser.close, THEN assertClosed; the first error is kept');
+  ok(/try \{ await use\(policy\.forbidden\); \} finally \{\s*\n\s*try \{ await context\.close\(\); \} finally \{ await policy\.finalize\(\); \}\s*\n\s*\}/.test(guarded), 'test fixture: in finally, AWAITED context.close, then finalize');
+  ok(/await policy\.finalize\(\); \}\s*\n\s*\}\s*\n\s*policy\.assertClosed\(\);/.test(guarded), 'test fixture: consumes the boundary result AFTER the awaited close');
+  ok(/page: async \(\{ page, requestPolicy \}, provide\) => \{\s*\n\s*void requestPolicy;\s*\n\s*await provide\(page\);\s*\n\s*\},/.test(guarded), 'test fixture: lane page depends on requestPolicy (policy lifetime outer to page and consoleErrors)');
 }
 
 // 8d. Sink source contract (what a file-level grant cannot itself enforce): exactly one write call, on the checked fd.
@@ -394,7 +464,17 @@ for (const n of ['e2e/roster-reports/actors.mjs.bak', 'e2e/roster-reports/actors
   'e2e/roster-reports-x/actors.mjs', 'xe2e/roster-reports/actors.mjs', 'e2e/gradebook-roles/actors.mjs', 'e2e/roster-reports/actors.ts', 'src/actors.mjs']) {
   ok(!proposed.test(n), `proposal neighbour-negative: ${n} still gated`);
 }
-const tracked = execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+// File list for the gate simulation: `git ls-files` (as security.yml uses). With RR_SELFTEST_NO_GIT=1 (a lane where no
+// git command may run) it is a filesystem walk instead, which can include untracked files; the mode is printed.
+const SRC_EXT = /\.(ts|tsx|js|jsx|mjs|cjs)$/;
+const walk = (rel: string): string[] => fs.readdirSync(path.join(ROOT, rel), { withFileTypes: true }).flatMap((d) => {
+  const r = rel ? `${rel}/${d.name}` : d.name;
+  if (d.isDirectory()) return ['node_modules', '.git', 'dist', 'coverage', 'playwright-report', 'test-results'].includes(d.name) ? [] : walk(r);
+  return d.isFile() && SRC_EXT.test(d.name) ? [r] : [];
+});
+const NO_GIT = process.env.RR_SELFTEST_NO_GIT === '1';
+console.log(`INFO gate file list: ${NO_GIT ? 'filesystem walk (RR_SELFTEST_NO_GIT=1; no git command run)' : 'git ls-files'}`);
+const tracked = NO_GIT ? walk('') : execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
 const gateHits = (re: RegExp) => tracked.filter((f) => !re.test(f) && /writeFile|writeFileSync|createWriteStream|appendFile|appendFileSync|Deno\.write/.test(read(f)));
 ok(gateHits(new RegExp(/ALLOWED='([^']+)'/.exec(sec8())?.[1] ?? '^$')).join(',') === 'e2e/roster-reports/actors.mjs', 'gate today: RED on exactly e2e/roster-reports/actors.mjs (preserved)');
 ok(gateHits(proposed).length === 0, 'gate with the proposal: no hits (only if the exact-file grant is approved)');

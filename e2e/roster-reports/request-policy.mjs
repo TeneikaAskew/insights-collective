@@ -36,24 +36,42 @@ export function classifyRequest(method, rawUrl, apiOrigin) {
 }
 
 /**
- * Telemetry lifecycle, so the witness can equate the security_events delta with what the browser really did:
- * every telemetry request is tracked from 'request'; it ends as 'success' (requestfinished with a 2xx response),
- * 'failed' (requestfinished non-2xx, or requestfailed), or 'pending' (still open when drain() runs at teardown).
- * Each request is reported exactly once through onTelemetry; the witness accepts only 'success' with a known actor.
+ * Telemetry lifecycle, so the witness can equate the security_events delta with what the browser really did.
+ * Every telemetry request is tracked from 'request' until finalize(): it stays tracked while its response is being
+ * resolved, and ends exactly once as 'success' (requestfinished, 2xx), 'failed' (non-2xx, requestfailed, or a response
+ * that cannot be read), or 'pending' (still unresolved at the finalize deadline). finalize(ms) waits a bounded time,
+ * emits every unresolved request once as 'pending', then FREEZES: later completions of those are only counted. A NEW
+ * telemetry start after the cutoff is the observation-boundary case: it is aborted before send, written once as
+ * 'failed' (so the run-wide witness cannot PASS), counted in late.starts, and assertClosed() makes the setup and the
+ * test fixture fail on it. Sink errors are collected and rethrown by finalize() and assertClosed().
  * @param {import('@playwright/test').BrowserContext} context @param {string} apiOrigin
  * @param {{ actorOf?: (userId: string) => string, onTelemetry?: (rec: { rpc: string, actor: string, status: string }) => void }} [opts]
- * @returns {Promise<{ forbidden: string[], telemetry: Array<{ rpc: string, actor: string, status: string }>, drain: (ms?: number) => Promise<void> }>}
+ * @returns {Promise<{ forbidden: string[], telemetry: Array<{ rpc: string, actor: string, status: string }>, late: { starts: number, completions: number }, finalize: (ms?: number) => Promise<void>, assertClosed: () => void }>}
  */
 export async function installRequestPolicy(context, apiOrigin, opts = {}) {
   const forbidden = [];
   const telemetry = [];
-  const open = new Map();
-  let inflight = 0;
-  const emit = (rec) => { telemetry.push(rec); opts.onTelemetry?.(rec); };
+  const tracked = new Map(); // request -> { rpc, actor }; present from 'request' until its single emit
+  const late = { starts: 0, completions: 0 }; // starts: NEW telemetry after the cutoff; completions: of already-emitted ones
+  const postCutoff = new WeakSet(); // NEW starts after the cutoff: emitted once as 'failed' at start, then ignored
+  const sinkErrors = [];
+  let frozen = false;
+  let finalized = null;
+  const settle = (req, status) => {
+    const t = tracked.get(req);
+    if (!t) return;
+    tracked.delete(req);
+    const rec = { ...t, status };
+    telemetry.push(rec);
+    try { opts.onTelemetry?.(rec); } catch (e) { sinkErrors.push(String(e?.message ?? 'RR_SINK_E_UNKNOWN')); }
+  };
   await context.route('**/*', async (route) => {
     const req = route.request();
     const c = classifyRequest(req.method(), req.url(), apiOrigin);
     if (c.verdict === 'forbid') { forbidden.push(c.kind); return route.abort('blockedbyclient'); }
+    // After the cutoff a NEW telemetry call is aborted before it is sent (no server effect); it was already recorded
+    // as a non-PASS 'failed' record by the 'request' handler below.
+    if (frozen && c.verdict === 'telemetry') return route.abort('blockedbyclient');
     return route.fallback();
   });
   context.on('request', (req) => {
@@ -61,30 +79,45 @@ export async function installRequestPolicy(context, apiOrigin, opts = {}) {
     if (c.verdict !== 'telemetry') return;
     let actor = 'unknown';
     try { actor = (opts.actorOf ?? (() => 'unknown'))(String(JSON.parse(req.postData() ?? '{}').p_user_id ?? '')); } catch { actor = 'unknown'; }
-    open.set(req, { rpc: c.kind.slice('telemetry:'.length), actor });
+    const t = { rpc: c.kind.slice('telemetry:'.length), actor };
+    if (frozen) {
+      // Observation boundary: a NEW start after the cutoff is never silent. It is counted (callers fail on it) AND
+      // written once as 'failed', so the run-wide witness is non-PASS (INCOMPLETE, or FAIL for an unknown actor) even
+      // when no row was written. Its later completion events are ignored.
+      late.starts += 1;
+      postCutoff.add(req);
+      tracked.set(req, t);
+      settle(req, 'failed');
+      return;
+    }
+    tracked.set(req, t);
   });
   context.on('requestfinished', async (req) => {
-    const t = open.get(req);
-    if (!t) return;
-    open.delete(req);
-    inflight += 1;
-    try {
-      let status = 'failed';
-      try { const res = await req.response(); if (res && res.status() >= 200 && res.status() < 300) status = 'success'; } catch { status = 'failed'; }
-      emit({ ...t, status });
-    } finally { inflight -= 1; }
+    if (postCutoff.has(req)) return;
+    if (!tracked.has(req)) { if (frozen) late.completions += 1; return; }
+    let status = 'failed';
+    try { const res = await req.response(); if (res && res.status() >= 200 && res.status() < 300) status = 'success'; } catch { status = 'failed'; }
+    if (frozen) { late.completions += 1; return; } // already emitted as 'pending' at the deadline
+    settle(req, status);
   });
   context.on('requestfailed', (req) => {
-    const t = open.get(req);
-    if (!t) return;
-    open.delete(req);
-    emit({ ...t, status: 'failed' });
+    if (postCutoff.has(req)) return;
+    if (!tracked.has(req)) { if (frozen) late.completions += 1; return; }
+    if (frozen) { late.completions += 1; return; }
+    settle(req, 'failed');
   });
-  /** Wait up to ms for open telemetry to end, then report whatever is still open as 'pending' (exactly once). */
-  const drain = async (ms = 5_000) => {
+  /** Bounded finalization; idempotent (a second call returns the first result). */
+  const finalize = (ms = 5_000) => (finalized ??= (async () => {
     const until = Date.now() + ms;
-    while ((open.size || inflight) && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
-    for (const [req, t] of [...open]) { open.delete(req); emit({ ...t, status: 'pending' }); }
+    while (tracked.size && Date.now() < until) await new Promise((r) => setTimeout(r, 25));
+    for (const req of [...tracked.keys()]) settle(req, 'pending');
+    frozen = true;
+    if (sinkErrors.length) throw new Error(sinkErrors[0]);
+  })());
+  /** For callers AFTER finalize: throws a fixed code if any NEW telemetry started after the cutoff or a sink write failed. */
+  const assertClosed = () => {
+    if (late.starts) throw new Error(`RR_POLICY_E_LATE_START count=${late.starts}`);
+    if (sinkErrors.length) throw new Error(sinkErrors[0]);
   };
-  return { forbidden, telemetry, drain };
+  return { forbidden, telemetry, late, finalize, assertClosed };
 }

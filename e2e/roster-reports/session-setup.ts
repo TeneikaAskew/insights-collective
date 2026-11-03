@@ -59,17 +59,19 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
     }
     const value = JSON.stringify({ access_token: t.access_token, refresh_token: t.refresh_token, token_type: 'bearer', expires_in: t.expires_in, expires_at: Math.floor(Date.now() / 1000) + t.expires_in, user: t.user });
     const browser = await chromium.launch(chromiumExecutableOption());
+    let policy: Awaited<ReturnType<typeof installRequestPolicy>> | null = null;
+    let failure: unknown = null;
     try {
       const { context, blocked } = await newGuardedContext(browser, [app.origin, api.origin]);
       // Same preventive request policy as the tests, installed before any page exists.
-      const policy = await installRequestPolicy(context, api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
+      policy = await installRequestPolicy(context, api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
       await context.addInitScript(({ v }) => { localStorage.setItem('supabase.auth.token', v); localStorage.setItem('e2e:disable-tours', '1'); }, { v: value });
       const page = await context.newPage();
       const origins = new Set<string>();
       page.on('request', (r) => { if (/\/(rest|auth|storage|functions)\/v1\//.test(r.url())) origins.add(new URL(r.url()).origin); });
       await page.goto(app.origin, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2_000);
-      await policy.drain();
+      await policy.finalize(); // bounded; also runs in finally if anything above throws (idempotent)
       // Qualified exclusive private writer (gradebook journey private-dir.mjs, reused unchanged and pinned): O_CREAT|O_EXCL|
       // O_NOFOLLOW at 0600, fixed codes; no Playwright path write followed by an after-the-fact chmod.
       const state = await context.storageState();
@@ -80,7 +82,15 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       if (!state.origins.some((o) => o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')))) {
         throw new Error(`roster-reports setup: ${role} session was not persisted by the app`);
       }
-    } finally { await browser.close(); }
+    } catch (e) { failure = e; }
+    // Finalize telemetry on EVERY path (including a setup throw). Every later error is kept only when nothing failed
+    // earlier, so it never replaces the first error; the browser always closes.
+    try { if (policy) await policy.finalize(); } catch (e) { if (failure === null) failure = e; }
+    // Setup has no shared console fixture, so the browser (and this context) closes first; only then is the result
+    // consumed, so a NEW telemetry start or a sink error during storageState or the close itself fails setup.
+    try { await browser.close(); } catch (e) { if (failure === null) failure = e; }
+    try { policy?.assertClosed(); } catch (e) { if (failure === null) failure = e; }
+    if (failure !== null) throw failure;
   }
   console.log('[roster-reports setup] association proven; admin, instructor and member sessions saved');
 }
