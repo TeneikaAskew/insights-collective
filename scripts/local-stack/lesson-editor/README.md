@@ -119,7 +119,10 @@ Violation and refusal records carry only a reason and an origin. The lesson-edit
 - **`pgconn.mjs`**: the password-free DSN rule and private passfile (above).
 - **`personas.mjs`**: OWNER (instructor, owns C1), OTHER (instructor) and STUDENT, created through the local GoTrue admin
   API via T-09's `api-http.mjs`. Passwords stay in memory. Writes `personas.json` and `state-<P>.json`, 0600, in a fresh
-  0700 dir, and removes them on failure.
+  0700 dir, and removes them on failure. Each storage state also sets the product's own E2E switch `e2e:disable-tours=1`
+  (SpotlightTour.tsx; every other e2e lane sets it), so the builder's first-run tour does not cover the viewport and intercept
+  the editor click (leading candidate for E1 run 41691596496, diagnosis le-e1-diag-r3; unconfirmed). It hides onboarding
+  tours only. **Not claimed:** the first-run tour UX.
 - **`fixture.sql`**: setup, once per fresh stack, no reset. Refuses without the acknowledgement, with any non-synthetic
   account, with a non-`le-*` persona id, or when C1 exists. Seeds C1 with pages A and B, page N with a NULL version (set by
   INSERT; the trigger is BEFORE UPDATE only), quiz Q with its `quizzes` row and 2 questions, and contract-only pages K and
@@ -150,6 +153,11 @@ context (every tab) from start to finished or failed; comparisons wait until the
   independently expected `Body A E1 body` (seeded + appended). A lost seeded text, a lost, duplicated or reordered append, or
   stray text fails. Markup identity beyond the text (paragraph split, marks) is not claimed. No-browser self-test:
   `node e2e/lesson-editor/body-oracle-selftest.mjs` (FAKE values; `--oracle old` shows what the earlier contains-check let pass).
+  **Phases are fixed `test.step` titles** (`e2e/lesson-editor/step-codes.mjs`: E1_OPEN, E1_BASELINE, E1_EDIT_TITLE,
+  E1_EDIT_BODY, E1_SAVED, E1_SETTLE, E1_ROW, E1_BODY, E1_RELOAD, E1_RELOAD_BODY, E1_EVIDENCE). `failedStep()` reads only step
+  titles and whether a step carries an error, and returns a listed code or `unknown`, never a message; the shared summary may
+  print it as `LE-E1 failed step: <code>`. The lane config bounds every action and navigation at 30 s, so a blocked click or
+  a stalled load fails at its own step. Self-test: `node e2e/lesson-editor/step-codes-selftest.mjs` (FAKE report results).
 - **E2 (oracle A):** navigation targets are resolved before the edit. Input, click and write start are all taken on ONE
   browser clock (`performance.timeOrigin + now`) by passive instrumentation installed before the first document: capture
   listeners and a fetch wrapper that records a timestamp and a bounded lesson label, then calls the original fetch

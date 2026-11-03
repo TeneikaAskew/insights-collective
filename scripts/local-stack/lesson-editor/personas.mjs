@@ -17,6 +17,8 @@ import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 
 export const LE_PERSONAS = ['OWNER', 'OTHER', 'STUDENT'];
 const APP_STORAGE_KEY = 'supabase.auth.token';
+/** The product's E2E switch that keeps onboarding tours closed (SpotlightTour.tsx; global-setup.ts sets the same key). */
+const TOUR_BYPASS = Object.freeze({ name: 'e2e:disable-tours', value: '1' });
 let created = null; // the private output dir, once this process made it: removed on ANY failure (no partial session files)
 const refuse = (m) => {
   if (created) {
@@ -97,7 +99,10 @@ for (const p of LE_PERSONAS) {
   }
   if (claims.sub !== id || claims.role !== 'authenticated') refuse(`persona ${p}: token subject or role mismatch`);
   personas[p] = { id, email, token: session.access_token };
-  const state = { cookies: [], origins: [{ origin: APP, localStorage: [{ name: APP_STORAGE_KEY, value: JSON.stringify(session) }] }] };
+  // TOUR_BYPASS: the product's own E2E switch (SpotlightTour.tsx), as every other e2e lane sets it. Without it the builder's
+  // first-run tour covers the viewport and intercepts the editor click. It hides onboarding tours only; auth, data and the
+  // save path are untouched. Not claimed: the first-run tour UX itself.
+  const state = { cookies: [], origins: [{ origin: APP, localStorage: [{ name: APP_STORAGE_KEY, value: JSON.stringify(session) }, TOUR_BYPASS] }] };
   write600(path.join(outDir, `state-${p}.json`), JSON.stringify(state));
   console.log(`le-persona ${p}: created via local GoTrue admin API (setup), signed in; session only in 0600 files`);
 }
