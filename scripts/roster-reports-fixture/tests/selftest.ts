@@ -438,6 +438,44 @@ ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verifie
   ok(/page: async \(\{ page, requestPolicy \}, provide\) => \{\s*\n\s*void requestPolicy;\s*\n\s*await provide\(page\);\s*\n\s*\},/.test(guarded), 'test fixture: lane page depends on requestPolicy (policy lifetime outer to page and consoleErrors)');
 }
 
+// 8c3. Actor attribution on the 'request' handler (CodeQL 625 fix: dead initializer removed). Every path yields the
+// same actor as before: actorOf's own result on success; 'unknown' when actorOf throws, postData is unparseable, or
+// postData is absent; and actorOf receives String(p_user_id ?? '') exactly.
+{
+  const KNOWN = 'e2e00000-0000-4000-8000-000000000002';
+  const attribution = async (postData: () => string | null, actorOfFn: (id: string) => string) => {
+    const handlers: Record<string, Array<(x: any) => any>> = {};
+    const ctx = { route: async () => {}, on: (ev: string, f: (x: any) => any) => { (handlers[ev] ??= []).push(f); } };
+    const seen: Array<{ rpc: string; actor: string; status: string }> = [];
+    const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf: actorOfFn, onTelemetry: (r: any) => seen.push(r) });
+    const req = { method: () => 'POST', url: () => `${A_ORIGIN}/rest/v1/rpc/log_security_event`, postData, response: async () => ({ status: () => 204 }) };
+    for (const f of handlers.request ?? []) f(req);
+    for (const f of handlers.requestfinished ?? []) await f(req);
+    await pol.finalize(0);
+    return seen;
+  };
+  const args: string[] = [];
+  const spy = (id: string) => { args.push(id); return actorOf(id); };
+  const cases: Array<[string, () => string | null, (id: string) => string, string, string | null]> = [
+    ['known actor', () => JSON.stringify({ p_user_id: KNOWN }), spy, 'instructor', KNOWN],
+    ['unmapped id', () => JSON.stringify({ p_user_id: 'nobody' }), spy, 'unknown', 'nobody'],
+    ['actorOf throws', () => JSON.stringify({ p_user_id: KNOWN }), () => { throw new Error('boom'); }, 'unknown', null],
+    ['unparseable postData', () => '{not json', spy, 'unknown', null],
+    ['missing p_user_id', () => JSON.stringify({}), spy, 'unknown', ''],
+    ['null postData', () => null, spy, 'unknown', ''],
+    ['numeric p_user_id is stringified', () => JSON.stringify({ p_user_id: 7 }), spy, 'unknown', '7'],
+  ];
+  for (const [name, pd, fn, want, wantArg] of cases) {
+    args.length = 0;
+    const seen = await attribution(pd, fn);
+    ok(seen.length === 1 && seen[0].actor === want && seen[0].status === 'success' && seen[0].rpc === 'log_security_event',
+      `attribution: ${name} -> ${want} (${JSON.stringify(seen)})`);
+    ok(wantArg === null ? args.length === 0 : args.length === 1 && args[0] === wantArg, `attribution: ${name} passes ${JSON.stringify(wantArg)} to actorOf (${JSON.stringify(args)})`);
+  }
+  const rp = read('e2e/roster-reports/request-policy.mjs').replace(/^\s*\/\/.*$/gm, '');
+  ok(/let actor;\n\s*try \{ actor = /.test(rp) && /catch \{ actor = 'unknown'; \}/.test(rp) && !/let actor = 'unknown'/.test(rp), 'attribution: no dead initializer; the catch assigns unknown');
+}
+
 // 8d. Sink source contract (what a file-level grant cannot itself enforce): exactly one write call, on the checked fd.
 const actorsSrc = read('e2e/roster-reports/actors.mjs');
 const code8 = actorsSrc.replace(/^\s*\/\/.*$/gm, '');
