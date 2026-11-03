@@ -30,13 +30,33 @@ const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(2, 0); ihdr.writeUInt32BE(1, 4
 const PNG = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('tEXt', Buffer.from(`k\0${NONCE}`)),
   chunk('IDAT', zlib.deflateSync(Buffer.from([0, 255, 0, 0, 0, 255, 0]))), chunk('IEND', Buffer.alloc(0))]);
 
-
-ok('K1 suite: write then export through the unchanged exporter; plan is exactly the three K1 names, the rest NOT_TAKEN', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-k1-shot-'));
-  const mk = (d) => { fs.mkdirSync(path.join(root, d), { mode: 0o700 }); return path.join(root, d); };
-  const shots = mk('shots'), session = mk('session'), proofDir = mk('proof');
+// Own-root lifecycle (T 16:23), the same contract as k1-selftest.mjs: a FRESH private root per check, that exact root removed
+// whatever happens; if the check fails and the removal fails too, the check's error is rethrown unchanged (PRIMARY) with the
+// removal error attached as `cleanupError` and printed as a secondary line. A removal failure after a passing check is not swallowed.
+const removeOwnRoot = (d) => fs.rmSync(d, { recursive: true, force: true });
+const withOwnRoot = (fn, remove = removeOwnRoot) => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-k1-shot-'));
+  let failed = false, primary;
+  try { fs.chmodSync(d, 0o700); return fn(d); } catch (e) { failed = true; primary = e; throw e; } finally {
+    try { remove(d); } catch (c) {
+      if (!failed) throw c;
+      console.error(`CLEANUP_SECONDARY root=${path.basename(d)} code=${(c && c.code) || 'unknown'}`);
+      if (primary && typeof primary === 'object') { try { Object.defineProperty(primary, 'cleanupError', { value: c, enumerable: true }); } catch { /* the primary stays as thrown */ } }
+    }
+  }
+};
+const writeProof = (root) => {
+  const proofDir = path.join(root, 'proof'); fs.mkdirSync(proofDir, { mode: 0o700 });
   const proof = path.join(proofDir, 'pairing-proof.json');
   fs.writeFileSync(proof, JSON.stringify({ version: 2, stack_id: NONCE, control_course_id: PAIRING_COURSE_ID, db_read: PAIRING_PREFIX + NONCE, api_read: PAIRING_PREFIX + NONCE, journey_rows_before_pairing: 0 }), { mode: 0o600 });
+  return proof;
+};
+
+ok('K1 suite: write then export through the unchanged exporter; plan is exactly the three K1 names, the rest NOT_TAKEN', () => {
+  withOwnRoot((root) => {
+  const mk = (d) => { fs.mkdirSync(path.join(root, d), { mode: 0o700 }); return path.join(root, d); };
+  const shots = mk('shots'), session = mk('session');
+  const proof = writeProof(root);
   const url = `${APP}/courses/c/builder?view=curriculum`;
   assert.equal(writeBaShot(shots, 'ba_k1_1440', PNG, obsFor('ba-1440', url), secrets).written, 'png');
   assert.deepEqual(writeBaShot(shots, 'ba_k1_768', PNG, obsFor('ba-768', url, { navigations: 1 }), secrets), { written: 'withheld', reason: 'NAVIGATED' });
@@ -48,11 +68,26 @@ ok('K1 suite: write then export through the unchanged exporter; plan is exactly 
   assert.ok(lines.every((l) => LINE.test(l)));
   const out = fs.readFileSync(path.join(root, 'export', 'ba_k1_1440.png'));
   assert.ok(!out.includes(Buffer.from(NONCE)) && !out.includes(Buffer.from('tEXt')));
-  fs.rmSync(root, { recursive: true });
+  });
 });
 ok('K1 suite: a K1 shot for the wrong project is PERSONA, and a baseline name is refused outright', () => {
   const url = `${APP}/courses/c/builder?view=curriculum`;
   assert.deepEqual(decideBaShot('ba_k1_390', obsFor('ba-768', url), secrets), { write: false, reason: 'PERSONA' });
   assert.throws(() => decideBaShot('ba_r1_1440', obsFor('ba-1440', url), secrets), /BA_SHOT_E_NAME/);
+});
+ok('own root: an injected failure after the real proof write is rethrown as itself and the root is removed', () => {
+  let seen, thrown; const injected = new Error('BA_K1_E_INJECTED');
+  try { withOwnRoot((root) => { seen = root; assert.ok(fs.existsSync(writeProof(root))); throw injected; }); } catch (e) { thrown = e; }
+  assert.equal(thrown, injected); assert.equal(thrown.cleanupError, undefined); assert.equal(fs.existsSync(seen), false);
+});
+ok('own root: when cleanup ALSO fails the PRIMARY is preserved, the cleanup error is secondary; a passing check surfaces it', () => {
+  let seen, thrown; const primary = new Error('BA_K1_E_INJECTED'), cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
+  const orig = console.error, lines = []; console.error = (l) => lines.push(String(l));
+  try { try { withOwnRoot((root) => { seen = root; writeProof(root); throw primary; }, () => { throw cleanup; }); } catch (e) { thrown = e; } } finally { console.error = orig; }
+  assert.equal(thrown, primary); assert.equal(thrown.cleanupError, cleanup);
+  assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(seen)} code=EBUSY`]);
+  removeOwnRoot(seen); assert.equal(fs.existsSync(seen), false);
+  assert.throws(() => withOwnRoot((root) => { seen = root; return 'v'; }, () => { throw cleanup; }), (e) => e === cleanup);
+  removeOwnRoot(seen); assert.equal(fs.existsSync(seen), false);
 });
 console.log(`PASS builder-authoring K1 shot selftest (${n} checks)`);
