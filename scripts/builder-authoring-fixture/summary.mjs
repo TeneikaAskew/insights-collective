@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { INVENTORY, PROJECTS, A } from './ids.mjs';
+import { R1_TRACE_ANNOTATION, R1_TRACE_ORDER, parseR1Trace } from './r1-trace.mjs';
 import { pick, STAGES, STAGE_UNLISTED, TEST_ERRORS, ERROR_UNLISTED, TEST_STATUS, RESULT_STATUS, STATUS_OTHER, CHILD_CODES,
   CHILD_NONE, CHILD_UNLISTED, CHILD_PREFIXES, SUMMARY_REASONS, SUMMARY_UNCLASSIFIED } from './codes.mjs';
 
@@ -67,6 +68,18 @@ export function errorClass(msg) {
   if (/expect\(/.test(m)) return 'assertion';
   return 'other';
 }
+/** The R1 trace words from the last result's annotations (else the test's), or a fixed state word. Diagnostic only. */
+const traceOf = (t, last) => {
+  const lists = [Array.isArray(last?.annotations) ? last.annotations : null, Array.isArray(t?.annotations) ? t.annotations : null];
+  const src = lists.find((l) => l && l.some((a) => a && typeof a === 'object' && a.type === R1_TRACE_ANNOTATION));
+  if (!src) return 'absent';
+  const hits = src.filter((a) => a && typeof a === 'object' && a.type === R1_TRACE_ANNOTATION);
+  if (hits.length !== 1) return 'duplicate';
+  return parseR1Trace(hits[0].description) ?? 'unlisted';
+};
+const traceLine = (project, tr) => (typeof tr === 'string'
+  ? `R1TRACE project=${project} state=${tr}`
+  : `R1TRACE project=${project} ${R1_TRACE_ORDER.map((k) => `${k}=${tr[k]}`).join(' ')}`);
 const resultView = (r) => (r && typeof r === 'object' ? { status: pick(RESULT_STATUS, r.status, STATUS_OTHER), retry: r.retry } : { status: STATUS_OTHER, retry: null });
 /** One attempt, first try, with exactly the wanted result status. */
 const singleAttempt = (h, want) => h.results.length === 1 && h.results[0].retry === 0 && h.results[0].status === want;
@@ -86,7 +99,7 @@ export function summarizeReport(report, exit) {
       const results = Array.isArray(t.results) ? t.results : [];
       const last = results[results.length - 1] ?? {};
       seen.push({ project, case: kase, status: pick(TEST_STATUS, t.status, STATUS_OTHER), results: results.map(resultView),
-        stage: failedStage(last?.steps), error: errorClass(last?.error?.message) });
+        stage: failedStage(last?.steps), error: errorClass(last?.error?.message), trace: kase === 'R1' ? traceOf(t, last) : null });
     }
     for (const c of suite.suites ?? []) walk(c);
   };
@@ -118,6 +131,8 @@ export function summarizeReport(report, exit) {
       }
       continue;
     }
+    // The R1 trace is printed for every attempted R1 entry, pass or fail; it never changes the verdict.
+    if (want.case === 'R1' && attempts > 0) lines.push(traceLine(want.project, h.trace));
     if (h.status === 'expected' && singleAttempt(h, 'passed')) { passed += 1; executedPassed += 1; lines.push(`TEST PASS ${tag}`); continue; }
     failed += 1;
     if (notAttempted(h)) { unattempted += 1; lines.push(`TEST FAIL ${tag} reason=unattempted attempts=0`); continue; }

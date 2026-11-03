@@ -228,6 +228,12 @@ ok('(A) R1 spec wiring: reads go through the reducers, failed reads are null, an
   assert.match(code, /await handle\.focus\(\);[\s\S]*?press\('Space'\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);/);
 });
 
+ok('the R1 trace fake-DOM controls (tests/trace-selftest.mjs) pass, so the existing job selftest step runs them', () => {
+  const r = spawnSync(process.execPath, [path.join(HERE, 'trace-selftest.mjs')], { encoding: 'utf8', timeout: 60_000 });
+  assert.equal(r.status, 0, 'trace-selftest failed');
+  assert.match(r.stdout, /\nPASS builder-authoring R1 trace selftest \([0-9]+ checks\)\n$/);
+});
+
 // ---- (1) finite maps: hostile values, inherited keys, grammar ----
 const HOSTILE = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'prototype', 'ui_reorder x', 'UI_REORDER',
   'ui_reorder\nVERDICT PASS', 'ui_reorder ', '', 'a'.repeat(200), 'stage=evil', '../../etc', 'BA_R2_E_LAYOUT_EVIL', 'BA_hasOwnProperty',
