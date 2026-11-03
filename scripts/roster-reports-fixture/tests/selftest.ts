@@ -452,17 +452,48 @@ ok(!/process\.env\.RR_POLICY_LOG|env\.RR_POLICY_LOG/.test(code8) && /path\.join\
 const callers = fs.readdirSync(path.join(ROOT, 'e2e/roster-reports')).filter((f) => /appendTelemetry\(/.test(read(`e2e/roster-reports/${f}`)));
 ok(callers.sort().join(',') === 'actors.mjs,guarded-test.ts,session-setup.ts', `sink contract: callers are exactly setup and the test fixture (${callers.join(',')})`);
 
-// 8e. PROPOSED exact-file ALLOWED entry (NOT applied; security.yml is unchanged and the gate stays red). It is a
+// 8e. APPLIED exact-file ALLOWED entry, read from security.yml itself (no "red today" state is hard-coded). It is a
 // file-level grant: any write API inside that one file would pass the gate; 8d is what pins the API use.
-const PROPOSED = `${/ALLOWED='([^']+)'/.exec(sec8())?.[1]?.replace(/\)$/, '')}|e2e/roster-reports/actors\\.mjs$)`;
+const ACTORS_ENTRY = 'e2e/roster-reports/actors\\.mjs$';
+// Every pre-existing ALLOWED alternative, in order, exactly as in the composition base's security.yml (the
+// claude/roster-reports-job-compose security.yml at d39cc69f). If the composition base changes this list, this check
+// fails on purpose: an existing entry must not be altered or dropped while the actors entry is added.
+const BASE_ENTRIES = [
+  'scripts/',
+  'e2e/fixtures/console-errors\\.fixture\\.ts$',
+  'e2e/quiz-lifecycle/session\\.fixture\\.ts$',
+  'src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds|checkGradebookJourneyJob)\\.test\\.ts$',
+];
 function sec8() { return read('.github/workflows/security.yml'); }
-const proposed = new RegExp(PROPOSED);
-ok(PROPOSED === "^(scripts/|e2e/fixtures/console-errors\\.fixture\\.ts$|src/test/ci/checkLocalTarget\\.test\\.ts$|e2e/roster-reports/actors\\.mjs$)", `proposal: ${PROPOSED}`);
-ok(proposed.test('e2e/roster-reports/actors.mjs'), 'proposal: grants exactly e2e/roster-reports/actors.mjs');
+const allowedMatches = [...sec8().matchAll(/ALLOWED='([^']+)'/g)];
+ok(allowedMatches.length === 1, `security.yml: exactly one ALLOWED assignment (${allowedMatches.length})`);
+const ALLOWED = allowedMatches[0]?.[1] ?? '';
+/** Top-level alternatives of ^( ... ), splitting only on '|' outside nested parentheses. */
+const topAlternatives = (re: string): string[] | null => {
+  if (!re.startsWith('^(') || !re.endsWith(')')) return null;
+  const body = re.slice(2, -1); const out: string[] = []; let depth = 0; let cur = '';
+  for (let i = 0; i < body.length; i += 1) {
+    const c = body[i];
+    if (c === '\\') { cur += c + (body[i + 1] ?? ''); i += 1; continue; }
+    if (c === '(') depth += 1; else if (c === ')') depth -= 1;
+    if (c === '|' && depth === 0) { out.push(cur); cur = ''; } else cur += c;
+  }
+  out.push(cur);
+  return depth === 0 ? out : null;
+};
+const alts = topAlternatives(ALLOWED) ?? [];
+ok(alts.length > 0, `security.yml: ALLOWED is a ^( ... ) alternation (${ALLOWED})`);
+ok(alts.filter((a) => a === ACTORS_ENTRY).length === 1, `applied: ${ACTORS_ENTRY} present exactly once as its own alternative`);
+ok(alts.filter((a) => /actors/.test(a)).length === 1, 'applied: no other alternative mentions actors (no widened or duplicate grant)');
+const withoutActors = alts.filter((a) => a !== ACTORS_ENTRY);
+ok(JSON.stringify(withoutActors) === JSON.stringify(BASE_ENTRIES), `applied: every pre-existing entry present, unchanged, in order, and nothing else added (${JSON.stringify(withoutActors)})`);
+const real = new RegExp(ALLOWED);
+const minusActors = new RegExp(`^(${withoutActors.join('|')})`);
+ok(real.test('e2e/roster-reports/actors.mjs'), 'applied: the real regex grants exactly e2e/roster-reports/actors.mjs');
 for (const n of ['e2e/roster-reports/actors.mjs.bak', 'e2e/roster-reports/actors.mjsx', 'e2e/roster-reports/actors_mjs', 'e2e/roster-reports/Actors.mjs',
   'e2e/roster-reports/request-policy.mjs', 'e2e/roster-reports/guarded-test.ts', 'e2e/roster-reports/session-setup.ts', 'e2e/roster-reports/sub/actors.mjs',
   'e2e/roster-reports-x/actors.mjs', 'xe2e/roster-reports/actors.mjs', 'e2e/gradebook-roles/actors.mjs', 'e2e/roster-reports/actors.ts', 'src/actors.mjs']) {
-  ok(!proposed.test(n), `proposal neighbour-negative: ${n} still gated`);
+  ok(!real.test(n), `neighbour-negative (real regex): ${n} still gated`);
 }
 // File list for the gate simulation: `git ls-files` (as security.yml uses). With RR_SELFTEST_NO_GIT=1 (a lane where no
 // git command may run) it is a filesystem walk instead, which can include untracked files; the mode is printed.
@@ -476,8 +507,10 @@ const NO_GIT = process.env.RR_SELFTEST_NO_GIT === '1';
 console.log(`INFO gate file list: ${NO_GIT ? 'filesystem walk (RR_SELFTEST_NO_GIT=1; no git command run)' : 'git ls-files'}`);
 const tracked = NO_GIT ? walk('') : execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
 const gateHits = (re: RegExp) => tracked.filter((f) => !re.test(f) && /writeFile|writeFileSync|createWriteStream|appendFile|appendFileSync|Deno\.write/.test(read(f)));
-ok(gateHits(new RegExp(/ALLOWED='([^']+)'/.exec(sec8())?.[1] ?? '^$')).join(',') === 'e2e/roster-reports/actors.mjs', 'gate today: RED on exactly e2e/roster-reports/actors.mjs (preserved)');
-ok(gateHits(proposed).length === 0, 'gate with the proposal: no hits (only if the exact-file grant is approved)');
+const WRITER_LINE = read('e2e/roster-reports/actors.mjs').split('\n').findIndex((l) => /fs\.appendFileSync\(fd, line\)/.test(l)) + 1;
+const hitsMinus = gateHits(minusActors);
+ok(hitsMinus.join(',') === 'e2e/roster-reports/actors.mjs' && WRITER_LINE === 67, `gate WITHOUT the actors entry: RED on exactly e2e/roster-reports/actors.mjs:${WRITER_LINE} (${hitsMinus.join(',')})`);
+ok(gateHits(real).length === 0, `gate WITH the applied entry: GREEN, no hits (${gateHits(real).join(',')})`);
 
 // 8f. Session writer: the qualified exclusive private writer, reused unchanged; no path write + chmod afterwards.
 {
