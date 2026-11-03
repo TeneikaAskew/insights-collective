@@ -35,7 +35,7 @@ export default async function builderAuthoringSetup(_config: FullConfig): Promis
     headers: { apikey: anonKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: EMAIL, password }),
   }));
-  if (res.status !== 200) throw new JourneyGateError(`BA_SETUP_E_SIGNIN_HTTP_${res.status}`);
+  if (res.status !== 200) throw new JourneyGateError('BA_SETUP_E_SIGNIN_HTTP');
   const t: any = await stage('BA_SETUP_E_SIGNIN_PARSE', () => res.json());
   if (!t?.access_token || t?.user?.id !== INSTRUCTOR_ID) throw new JourneyGateError('BA_SETUP_E_SIGNIN_SHAPE');
   const value = JSON.stringify({ access_token: t.access_token, refresh_token: t.refresh_token, token_type: 'bearer', expires_in: t.expires_in, expires_at: Math.floor(Date.now() / 1000) + t.expires_in, user: t.user });

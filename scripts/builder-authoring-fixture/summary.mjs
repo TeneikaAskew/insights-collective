@@ -9,11 +9,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { INVENTORY, PROJECTS, A } from './ids.mjs';
+import { pick, STAGES, STAGE_UNLISTED, TEST_ERRORS, ERROR_UNLISTED, TEST_STATUS, RESULT_STATUS, STATUS_OTHER, CHILD_CODES,
+  CHILD_NONE, CHILD_UNLISTED, CHILD_PREFIXES, SUMMARY_REASONS, SUMMARY_UNCLASSIFIED } from './codes.mjs';
 
 export const LINE = /^[A-Z][A-Z0-9_]*( [A-Z][A-Z0-9_]*| [a-z][a-z0-9_]*=[A-Za-z0-9_.,-]{1,64})*$/;
 export class SummaryError extends Error { constructor(code) { super(code); this.code = code; } }
 
-/** One handle, no-follow: a regular 0600 file owned by this process, 1..max bytes, read with a hard cap. */
+/** One handle, no-follow: a regular 0600 single-link file owned by this process, 1..max bytes, read with a hard cap. */
 export function readBounded(file, max, { uid = typeof process.getuid === 'function' ? process.getuid() : -1 } = {}) {
   let fd;
   try { fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0)); }
@@ -21,6 +23,7 @@ export function readBounded(file, max, { uid = typeof process.getuid === 'functi
   try {
     const st = fs.fstatSync(fd);
     if (!st.isFile()) throw new SummaryError('type');
+    if (st.nlink !== 1) throw new SummaryError('links');
     if ((st.mode & 0o777) !== 0o600 || (uid >= 0 && st.uid !== uid)) throw new SummaryError('mode');
     if (st.size < 1 || st.size > max) throw new SummaryError('size');
     const buf = Buffer.alloc(max + 1);
@@ -32,26 +35,41 @@ export function readBounded(file, max, { uid = typeof process.getuid === 'functi
 }
 
 const CASE_RE = /^BA-(R1|R2|C1|D1|D2) /;
-const STAGE_RE = /^[a-z][a-z0-9_]{0,40}$/;
+const CASES = Object.freeze(Object.assign(Object.create(null), { R1: 'R1', R2: 'R2', C1: 'C1', D1: 'D1', D2: 'D2' }));
 
-/** First failing step (depth first) with a fixed lower-case title; 'none' otherwise. Never the step's text otherwise. */
-function failedStage(steps) {
-  for (const s of steps ?? []) {
-    const inner = failedStage(s.steps);
-    if (inner !== 'none') return inner;
-    if (s.error && typeof s.title === 'string' && STAGE_RE.test(s.title)) return s.title;
-  }
-  return 'none';
+/**
+ * The failure stage, from the STAGES map only: depth first, the first failing step whose title is an own key of STAGES;
+ * 'unlisted' when steps failed but none is listed; 'none' when no step failed. The title itself never leaves.
+ */
+export function failedStage(steps) {
+  let sawError = false;
+  const walk = (list) => {
+    for (const s of Array.isArray(list) ? list : []) {
+      if (!s || typeof s !== 'object') continue;
+      const inner = walk(s.steps);
+      if (inner) return inner;
+      if (s.error) { sawError = true; const v = pick(STAGES, s.title, null); if (v) return v; }
+    }
+    return null;
+  };
+  return walk(steps) ?? (sawError ? STAGE_UNLISTED : 'none');
 }
-/** Fixed error class: an own BA_* code, else timeout / assertion / other. The message itself never leaves. */
+/**
+ * Fixed error class. A BA_* token in the message prints only as a TEST_ERRORS value; a BA_* token that is not an own key
+ * prints 'unlisted'. Without one: timeout / assertion / other. The message itself never leaves.
+ */
 export function errorClass(msg) {
   const m = typeof msg === 'string' ? msg : '';
-  const own = m.match(/\b(BA_[A-Z0-9_]{1,56})\b/);
-  if (own) return own[1];
+  const tokens = m.match(/(?<![A-Za-z0-9_])BA_[A-Za-z0-9_]+/g) ?? [];
+  for (const t of tokens) { const v = pick(TEST_ERRORS, t, null); if (v) return v; }
+  if (tokens.length) return ERROR_UNLISTED;
   if (/timeout|timed out/i.test(m)) return 'timeout';
   if (/expect\(/.test(m)) return 'assertion';
   return 'other';
 }
+const resultView = (r) => (r && typeof r === 'object' ? { status: pick(RESULT_STATUS, r.status, STATUS_OTHER), retry: r.retry } : { status: STATUS_OTHER, retry: null });
+/** One attempt, first try, with exactly the wanted result status. */
+const singleAttempt = (h, want) => h.results.length === 1 && h.results[0].retry === 0 && h.results[0].status === want;
 
 /** @returns {{ ok: boolean, lines: string[] }} */
 export function summarizeReport(report, exit) {
@@ -62,10 +80,13 @@ export function summarizeReport(report, exit) {
   const walk = (suite) => {
     for (const spec of suite.specs ?? []) for (const t of spec.tests ?? []) {
       const m = typeof spec.title === 'string' ? spec.title.match(CASE_RE) : null;
-      if (!m || !PROJECTS.includes(t.projectName)) { unknown += 1; continue; }
+      const kase = m ? pick(CASES, m[1], null) : null;
+      const project = t && typeof t === 'object' ? PROJECTS.find((p) => p === t.projectName) : undefined;
+      if (!kase || !project) { unknown += 1; continue; }
       const results = Array.isArray(t.results) ? t.results : [];
       const last = results[results.length - 1] ?? {};
-      seen.push({ project: t.projectName, case: m[1], status: t.status, results: results.length, stage: failedStage(last.steps), error: errorClass(last.error?.message) });
+      seen.push({ project, case: kase, status: pick(TEST_STATUS, t.status, STATUS_OTHER), results: results.map(resultView),
+        stage: failedStage(last?.steps), error: errorClass(last?.error?.message) });
     }
     for (const c of suite.suites ?? []) walk(c);
   };
@@ -77,17 +98,18 @@ export function summarizeReport(report, exit) {
     const hits = seen.filter((x) => x.project === want.project && x.case === want.case);
     const tag = `project=${want.project} case=${want.case}`;
     if (hits.length === 0) { missing += 1; lines.push(`TEST MISSING ${tag}`); continue; }
-    if (hits.length > 1) { duplicate += 1; lines.push(`TEST DUPLICATE ${tag} count=${hits.length}`); continue; }
+    if (hits.length > 1) { duplicate += 1; lines.push(`TEST DUPLICATE ${tag} count=${Math.min(hits.length, 99)}`); continue; }
     const h = hits[0];
+    const attempts = Math.min(h.results.length, 99);
     if (want.expect === 'skipped') {
-      if (h.status === 'skipped') { skipped += 1; lines.push(`TEST SKIP ${tag} reason=intentional`); }
-      else { failed += 1; lines.push(`TEST FAIL ${tag} stage=not_skipped error=status_${String(h.status).replace(/[^a-z]/g, '') || 'none'}`); }
+      // An intentional skip is exactly one first-try result that is itself skipped: a retried, re-run or executed entry fails.
+      if (h.status === 'skipped' && singleAttempt(h, 'skipped')) { skipped += 1; lines.push(`TEST SKIP ${tag} reason=intentional`); }
+      else { failed += 1; lines.push(`TEST FAIL ${tag} stage=not_skipped status=${h.status} attempts=${attempts}`); }
       continue;
     }
-    if (h.status === 'expected' && h.results === 1) { passed += 1; lines.push(`TEST PASS ${tag}`); continue; }
+    if (h.status === 'expected' && singleAttempt(h, 'passed')) { passed += 1; lines.push(`TEST PASS ${tag}`); continue; }
     failed += 1;
-    const st = ['expected', 'unexpected', 'flaky', 'skipped'].includes(h.status) ? h.status : 'other';
-    lines.push(`TEST FAIL ${tag} status=${st} stage=${h.stage} error=${h.error}`);
+    lines.push(`TEST FAIL ${tag} status=${h.status} attempts=${attempts} stage=${h.stage} error=${h.error}`);
   }
   const ok = exit === 0 || exit === '0' ? missing === 0 && duplicate === 0 && failed === 0 && unknown === 0 && globalErrors === 0
     && passed === INVENTORY.filter((x) => x.expect === 'passed').length && skipped === INVENTORY.filter((x) => x.expect === 'skipped').length : false;
@@ -100,10 +122,13 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const KINDS = ['b_course', 'b_module', 'b_item', 'a_course', 'a_module', 'a_item'];
 const OTHERS = ['other_courses', 'other_modules', 'other_items'];
 const LEARNER = ['enrollments', 'progressions', 'certificates'];
+/** Columns each A projection leaves out (witness.sql); the probe must report exactly rows x this many excluded keys. */
+export const PROJECTION_EXCLUDED = Object.freeze({ a_course: ['updated_at'], a_module: ['position', 'updated_at'], a_item: ['position', 'updated_at'] });
+const PROBES = Object.keys(PROJECTION_EXCLUDED);
 
 /** Parse witness.sql output (raw, private). Refuses anything that is not one of its fixed line shapes. */
 export function parseWitness(text) {
-  const w = { rows: new Map(KINDS.map((k) => [k, new Map()])), other: new Map(), learner: new Map() };
+  const w = { rows: new Map(KINDS.map((k) => [k, new Map()])), other: new Map(), learner: new Map(), probe: new Map() };
   for (const line of text.split('\n')) {
     if (line === '') continue;
     let m;
@@ -113,21 +138,37 @@ export function parseWitness(text) {
     } else if ((m = line.match(/^(other_courses|other_modules|other_items) ([0-9]{1,9}) ([0-9a-f]{32}|none)$/))) {
       if (w.other.has(m[1])) throw new SummaryError('witness_duplicate');
       w.other.set(m[1], `${m[2]} ${m[3]}`);
+    } else if ((m = line.match(/^probe (a_course|a_module|a_item) ([0-9]{1,6}) ([0-9]{1,7}) ([0-9]{1,7}) ([0-9]{1,7})$/))) {
+      if (w.probe.has(m[1])) throw new SummaryError('witness_duplicate');
+      w.probe.set(m[1], { rows: Number(m[2]), keys: Number(m[3]), sensitive: Number(m[4]), excluded: Number(m[5]) });
     } else if ((m = line.match(/^learner (enrollments|progressions|certificates) ([0-9]{1,9})$/))) {
       if (w.learner.has(m[1])) throw new SummaryError('witness_duplicate');
       w.learner.set(m[1], Number(m[2]));
     } else throw new SummaryError('witness_line');
   }
-  if (OTHERS.some((k) => !w.other.has(k)) || LEARNER.some((k) => !w.learner.has(k))) throw new SummaryError('witness_incomplete');
+  if (OTHERS.some((k) => !w.other.has(k)) || LEARNER.some((k) => !w.learner.has(k)) || PROBES.some((k) => !w.probe.has(k))) throw new SummaryError('witness_incomplete');
   return w;
 }
 
 const sameMap = (a, b) => a.size === b.size && [...a].every(([k, v]) => b.get(k) === v);
 
 /**
- * Before/after comparison. Untouched: course B rows (all columns), course A's authored fields, A's sections without
- * position, every row outside the fixture and the run's wizard courses. Expected change: exactly the two one-shot lessons
- * (D1 deletable, D2 vanishing) are gone; every other A lesson is unchanged apart from position.
+ * The live mutation negative for one A projection: per row, every column but the excluded ones moves the md5, and the
+ * excluded ones are exactly the listed columns. Returns the compared field count per row, or null.
+ */
+export function probeFields(p, kind, rows) {
+  const excl = PROJECTION_EXCLUDED[kind].length;
+  if (!p || p.rows !== rows || rows < 1 || p.keys % rows !== 0) return null;
+  const perRow = p.keys / rows;
+  if (perRow <= excl || p.excluded !== rows * excl || p.sensitive + p.excluded !== p.keys) return null;
+  return perRow - excl;
+}
+
+/**
+ * Before/after comparison. Untouched: course B rows (whole rows), course A (every column but updated_at), A's sections and
+ * lessons (every column but position and updated_at), every row outside the fixture and the run's wizard courses. Each A
+ * projection must pass its live probe before and after with the same field count. Expected change: exactly the two
+ * one-shot lessons (D1 deletable, D2 vanishing) are gone.
  */
 export function compareWitness(preText, postText) {
   const pre = parseWitness(preText), post = parseWitness(postText);
@@ -139,10 +180,16 @@ export function compareWitness(preText, postText) {
   const keptPre = new Map([...pre.rows.get('a_item')].filter(([id]) => !gone.has(id)));
   if (![...gone].every((id) => pre.rows.get('a_item').has(id)) || !sameMap(keptPre, post.rows.get('a_item'))) bad.push('a_item');
   for (const k of OTHERS) if (pre.other.get(k) !== post.other.get(k)) bad.push(k);
+  const fields = {};
+  for (const [k, rowsPre, rowsPost] of [['a_course', 1, 1], ['a_module', 3, 3], ['a_item', 5, 3]]) {
+    const f = probeFields(pre.probe.get(k), k, rowsPre), g = probeFields(post.probe.get(k), k, rowsPost);
+    if (f === null || g === null || f !== g) bad.push(`probe_${k}`); else fields[k] = f;
+  }
   const learnerEmpty = LEARNER.every((k) => pre.learner.get(k) === 0 && post.learner.get(k) === 0);
   const lines = [];
   if (bad.length === 0) {
     lines.push(`WITNESS PASS b_rows=${pre.rows.get('b_course').size + pre.rows.get('b_module').size + pre.rows.get('b_item').size} a_course=1 a_sections=3 a_lessons_kept=${keptPre.size} a_lessons_deleted=2 other=unchanged`);
+    lines.push(`WITNESS_SCOPE b=whole_rows a_course_fields=${fields.a_course} a_module_fields=${fields.a_module} a_item_fields=${fields.a_item} excluded=updated_at,position probe=sensitive`);
   } else {
     for (const k of [...new Set(bad)]) lines.push(`WITNESS FAIL kind=${k}`);
   }
@@ -179,6 +226,18 @@ export function createdId(text) {
   return o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).join(',') === 'id' && UUID.test(String(o.id)) && text === JSON.stringify(o) ? o.id : null;
 }
 
+/**
+ * The refusal code a child printed, as a CHILD_CODES value: the first line that starts with one of the fixed producer
+ * prefixes selects the map entry; a code that is not an own key prints UNLISTED; no refusal line prints NONE.
+ */
+export function childCode(text) {
+  for (const line of String(text).split('\n')) {
+    const pre = CHILD_PREFIXES.find((p) => line.startsWith(p));
+    if (pre) return pick(CHILD_CODES, line.slice(pre.length), CHILD_UNLISTED);
+  }
+  return CHILD_NONE;
+}
+
 export function checkLines(lines) {
   return lines.length <= 64 && Buffer.byteLength(lines.join('\n') + '\n') <= 4096 && lines.every((l) => LINE.test(l));
 }
@@ -193,10 +252,11 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
       r = summarizeReport(report, b);
     } else if (mode === 'witness') r = compareWitness(readBounded(a, 256 * 1024), readBounded(b, 256 * 1024));
     else if (mode === 'manifest') r = manifest(a);
+    else if (mode === 'childcode') { console.log(childCode(readBounded(a, 64 * 1024))); process.exit(0); }
     else throw new SummaryError('usage');
     if (!checkLines(r.lines)) throw new SummaryError('grammar');
   } catch (e) {
-    console.log(`SUMMARY FAIL reason=${e instanceof SummaryError && /^[a-z_]{1,40}$/.test(e.code) ? e.code : 'unclassified'}`);
+    console.log(`SUMMARY FAIL reason=${e instanceof SummaryError ? pick(SUMMARY_REASONS, e.code, SUMMARY_UNCLASSIFIED) : SUMMARY_UNCLASSIFIED}`);
     process.exit(2);
   }
   console.log(r.lines.join('\n'));

@@ -28,9 +28,10 @@ export async function rest(page: Page, pathAndQuery: string, init: RequestInit =
 type Placed = { id: string; position: number };
 
 /** Ids in stored order; refuses unless the positions are exactly 0..n-1 (no ties, gaps or nulls hidden by the sort). */
+const READ_CODE = { modules: 'BA_E_READ_MODULES', content_items: 'BA_E_READ_CONTENT_ITEMS' } as const;
 export async function storedOrder(page: Page, table: 'modules' | 'content_items', filter: string): Promise<string[]> {
   const r = await rest(page, `${table}?select=id,position&${filter}&order=position.asc,id.asc`);
-  if (r.status !== 200 || !Array.isArray(r.body)) throw new Error(`BA_E_READ_${table.toUpperCase()}`);
+  if (r.status !== 200 || !Array.isArray(r.body)) throw new Error(READ_CODE[table]);
   const rows = r.body as Placed[];
   expect(rows.map((x) => x.position), `${table} positions are exactly 0..n-1`).toEqual(rows.map((_, i) => i));
   return rows.map((x) => x.id);

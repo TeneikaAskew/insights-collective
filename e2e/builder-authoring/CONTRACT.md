@@ -22,7 +22,18 @@ no production seed, no failure injection. The subset below cannot close T-54 or 
 
 Inventory: exactly 15 case/project entries = 11 executions + 4 intentional skips (D1, D2 in ba-768 and ba-390). Zero
 extra, missing, duplicate or retried entries and zero global errors, or the summary fails. On failure each entry reports a
-fixed stage (the step title) and a fixed error class (an own `BA_*` code, `timeout`, `assertion` or `other`), never text.
+fixed stage and a fixed error class, never text. An intentional skip passes only as exactly one first-try result that is
+itself `skipped`; a second result, a retry or an executed result fails the entry, as it does for a pass.
+
+## Public values (finite maps, `scripts/builder-authoring-fixture/codes.mjs`)
+
+Every value the lane prints is a map VALUE written in `codes.mjs` or a literal in the printing file, selected by an own-key
+lookup on a frozen null-prototype map; input that is not an own key prints the map's fallback. No input is regex-sanitized
+into an output. Maps: `STAGES` (the 11 step titles, else `unlisted`), `TEST_ERRORS` (the own codes specs throw, else
+`unlisted`, or `timeout` / `assertion` / `other` without a BA_ token), `TEST_STATUS` / `RESULT_STATUS` (else `other`),
+`CHILD_CODES` (ba-db, ba-shots and the pairing producer's literal codes; else `UNLISTED`, no refusal line `NONE`),
+`SUMMARY_REASONS` (else `unclassified`). Hostile, inherited-key (`__proto__`, `constructor`, `toString`, ...) and grammar
+controls for all of them are in `tests/selftest.mjs`.
 
 ## Failure injection
 
@@ -32,15 +43,21 @@ lane only, not about the repository.
 
 ## Order inside `run.sh` (all before any write unless stated)
 
-1. reused files present; `pairing-producer.mjs pins`; target guard; strict loopback binding; DSN shape
+1. reused files present; `pairing-producer.mjs pins`; `REUSED_PINS` (exact git blob ids of the 9 reused #162 modules:
+   capture `shot-core`, export `shot-export`, private `private-dir` and `private-psql`, `observe-core`, `pairing-proof`,
+   `pairing-producer`, `local-binding`, `origin-guard`); target guard; strict loopback binding; DSN shape
 2. pinned shell exported (`PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` = `GB_SHELL_PATH`); private parent `$RUNNER_TEMP/ba-run.XXXXXXXXXX`
    with 0700 children (proof, session, run, shots, raw); `GB_LANE=builder-authoring` launch binding (config's three projects)
 3. D1 ownership and the served-app gate (pairing-producer `ownership`, `appverify`)
 4. API/DB proof: pairing-producer `pair` (first write: the gradebook carrier, through the DSN; read back through the DSN
    and the anon API), then `ba-db.mjs seed`, which refuses unless this database holds exactly that proof's carrier
 5. witness before; Playwright (session-setup re-checks the proof and the LIVE anon API before the sign-in POST)
-6. summaries, shots export, witness after (before teardown), compare; exact 7-entry evidence inventory, every line in the
-   shared staging grammar, the PNG dir equal to its manifest
+6. after the browser attempt nothing refuses early: the Playwright and manifest summaries, the shots export, then ALWAYS
+   the after-witness and its comparison are each attempted, whatever failed before (a missing or malformed report, a
+   manifest error, a shots refusal). The FIRST failure is kept and reported (exit 3) only after that. A refused shots
+   export stages `SHOTS REFUSED code=<map value>` and an empty dir; a refused after-witness stages
+   `WITNESS FAIL kind=post_not_taken`. Then the exact 7-entry evidence inventory, every line in the shared staging
+   grammar, the PNG dir equal to its manifest. Behavioural fake: `tests/tail-selftest.mjs` runs run.sh's own tail text.
 
 No SQL cleanup. The job tears the disposable stack down (`supabase stop --no-backup`, owned network removal). Teardown
 is not evidence of preservation; the witness is.
@@ -49,14 +66,39 @@ is not evidence of preservation; the witness is.
 
 - Seed (`seed.sql`): plain INSERTs, ids in the 9b6e0000 namespace: 2 draft courses owned by e2e-instructor, 5 sections,
   5 lessons. Refuses a used stack.
-- Witness (`witness.sql`, read-only) before and after: course B rows with every column (must be identical); course A's
-  authored fields; A's sections and lessons without position (identical, except exactly the two one-shot lessons are
-  gone); one digest each over every course, module and lesson outside the fixture and the run's wizard courses
-  (identical). Learner history on fixture courses (enrollments, progressions, certificates) is expected EMPTY and is
+- Witness (`witness.sql`, read-only) before and after, exact scope:
+  - course B, its sections and its lessons: the whole row, every column including `updated_at` (must be identical);
+  - course A: every column EXCEPT `updated_at` (`to_jsonb(c) - 'updated_at'`);
+  - A's sections and A's lessons: every column EXCEPT `position` (the reorder's target) and `updated_at` (the row trigger
+    sets it on reorder): identical, except exactly the two one-shot lessons are gone;
+  - mutation negative, live: a `probe` line per A projection counts, for every row and every column the row actually
+    has, whether replacing that one value moves the projection's md5. The comparison requires every column but exactly
+    the excluded ones to be sensitive, the same field count before and after, and prints it
+    (`WITNESS_SCOPE ... a_course_fields= a_module_fields= a_item_fields=`). So a column left out by mistake, or added
+    between the snapshots, fails; the count is reported, never assumed. (The generated types list 21/13/12 columns, so
+    20/11/10 compared fields are expected; the run reports the live number.)
+  - one digest each over every course, module and lesson outside the fixture and the run's wizard courses (identical). Learner history on fixture courses (enrollments, progressions, certificates) is expected EMPTY and is
   reported as `preservation=not_exercised`: this lane does not test preservation of learner data.
-- Screenshots: 10 planned (R1, R2, C1 at each width; D2 refusal at 1440), taken after the UI and stored rows settled, through
-  the gradebook journey's capture window, guard and scan (unchanged) with this lane's plan; a capture that is not provably
-  clean is WITHHELD with a fixed reason, and the spec's own result never depends on it.
+- Screenshots: 10 PLANNED, not guaranteed and none taken yet (R1, R2, C1 at each width; D2 refusal at 1440), taken after
+  the UI and stored rows settled, through the gradebook journey's capture window, guard and scan (unchanged) with this
+  lane's plan, sound for these known synthetic pages; a capture that is not provably clean is WITHHELD with a fixed reason,
+  and the spec's own result never depends on it. Export keeps critical PNG chunks only: stripping ancillary chunks is
+  metadata removal, NOT pixel redaction.
+
+## Writers (ordinary scoped review; no new policy exception; nothing relocated)
+
+| File | Writes |
+|------|--------|
+| `run.sh` | `mktemp -d` private parent and its 0700 children; raw child streams by redirect (umask 077) under `raw/`; the evidence dir (`mkdir -m 700`, summary files by redirect, `cp` of seed/shots lines, `mv` of the exported PNG dir, the fixed refusal lines); trap removal of exactly its parent |
+| `ba-db.mjs witness` | one witness file inside the private dir, `wx`, 0600 |
+| `shot-plan.mjs` (`writeBaShot`) | `<name>.png` and `<name>.scan.json`, or only `<name>.withheld.json`, in the private shot dir: `open(O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW, 0600)`, `write`, `fchmod 0600`, `close`; the PNG only after the scan decision |
+| `ba-shots.mjs` | the export dir (`mkdir 0700`) and its PNGs (`wx`, 0600), critical chunks only |
+| `helpers.ts` (`recordCreatedCourse`) | `created-<project>.json` in the private run dir through the reused `writePrivateFile` |
+| `session-setup.ts` | `instructor.json` storage state in the private session dir through the reused `writePrivateFile` |
+| Playwright | `report.json` (JSON reporter) in the private run dir; `test-results/` under `raw/` |
+
+Readers of private files use `readBounded` (no-follow, regular, single hard link, 0600, same uid, size cap) or the reused
+`readHandle`.
 
 ## Dependencies
 
@@ -73,4 +115,10 @@ is not evidence of preservation; the witness is.
 
 One user-dispatched `builder-authoring` run on the composed ref. Pass: `PAIRING PASS`, `BA_SEED_OK`, `PLAYWRIGHT exit=0
 entries=15 passed=11 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0`, `MANIFEST created=3`,
-`WITNESS PASS`, `VERDICT PASS` in each summary, and the screenshots manifest (captured or WITHHELD, each named).
+`WITNESS PASS`, `WITNESS_SCOPE` with the live field counts, `VERDICT PASS` in each summary, and the screenshots manifest
+(captured or WITHHELD, each named).
+
+## Evidence tiers (what is and is not shown)
+
+Source and fakes only. The OLD 0/19 to NEW 19/19 review controls are static wiring checks, not browser behaviour. The
+selftests are pure fakes. Nothing here has run against a stack or a browser.

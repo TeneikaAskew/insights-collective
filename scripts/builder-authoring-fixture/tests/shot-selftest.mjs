@@ -11,6 +11,8 @@ import { PAIRING_PREFIX, PAIRING_COURSE_ID } from '../../../e2e/gradebook-roles/
 import { decideBaShot, writeBaShot } from '../shot-plan.mjs';
 import { exportBaShots, diagWords } from '../ba-shots.mjs';
 import { LINE } from '../summary.mjs';
+import { REUSED_PINS } from '../codes.mjs';
+import { createHash } from 'node:crypto';
 
 let n = 0;
 const ok = (name, fn) => { fn(); n += 1; console.log(`ok ${n} ${name}`); };
@@ -86,5 +88,13 @@ ok('export refuses an unknown file in the shot dir', () => {
   fs.writeFileSync(path.join(shots, 'J1-builder-draft.png'), PNG, { mode: 0o600 });
   assert.throws(() => exportBaShots({ shotDir: shots, sessionDir: root, proofFile: path.join(root, 'none.json'), exportDir: path.join(root, 'e') }), /BA_SHOT_E_(PROOF|UNKNOWN_FILE)/);
   fs.rmSync(root, { recursive: true });
+});
+ok('every reused capture/export/private/observe/pairing/binding module equals its REUSED_PINS blob (composition tier)', () => {
+  const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..');
+  assert.equal(Object.keys(REUSED_PINS).length, 9);
+  for (const [rel, want] of Object.entries(REUSED_PINS)) {
+    const b = fs.readFileSync(path.join(root, rel));
+    assert.equal(createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex'), want, rel);
+  }
 });
 console.log(`PASS builder-authoring shot selftest (${n} checks)`);

@@ -7,7 +7,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { A, B, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
-import { summarizeReport, compareWitness, manifest, checkLines, errorClass, LINE, SummaryError } from '../summary.mjs';
+import { summarizeReport, compareWitness, manifest, checkLines, errorClass, failedStage, childCode, readBounded, LINE, SummaryError } from '../summary.mjs';
+import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS, REUSED_PINS } from '../codes.mjs';
+import { spawnSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 let n = 0;
@@ -17,7 +19,7 @@ const ok = (name, fn) => { fn(); n += 1; console.log(`ok ${n} ${name}`); };
 const TITLES = { R1: 'BA-R1 section reorder is stored and survives reload', R2: 'BA-R2 lesson reorder is stored and survives reload',
   C1: 'BA-C1 scratch creation makes one complete course and opens it', D1: 'BA-D1 an applied delete removes the lesson, in the UI and in storage',
   D2: 'BA-D2 a delete that matches zero rows is refused and the lesson stays on screen' };
-const entry = (project, c, status, extra = {}) => ({ projectName: project, status, results: [{ status: status === 'expected' ? 'passed' : status === 'skipped' ? 'skipped' : 'failed', steps: [], ...extra }], c });
+const entry = (project, c, status, extra = {}) => ({ projectName: project, status, results: [{ status: status === 'expected' ? 'passed' : status === 'skipped' ? 'skipped' : 'failed', retry: 0, steps: [], ...extra }], c });
 const report = (tests, errors = []) => ({ errors, suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const goodTests = () => INVENTORY.map((x) => entry(x.project, x.case, x.expect === 'passed' ? 'expected' : 'skipped'));
 const firstFail = (r) => r.lines.find((l) => l.startsWith('TEST FAIL') || l.startsWith('TEST MISSING') || l.startsWith('TEST DUPLICATE'));
@@ -32,6 +34,10 @@ const W = (over = {}) => {
   for (const [k, list] of Object.entries(rows)) for (const [id, h] of list) lines.push(`${k} ${id} ${h}`);
   for (const k of ['other_courses', 'other_modules', 'other_items']) lines.push(`${k} ${over[k] ?? '6 ' + '0'.repeat(32)}`);
   for (const k of ['enrollments', 'progressions', 'certificates']) lines.push(`learner ${k} ${over[k] ?? 0}`);
+  // Live probe shape: rows, row-keys, sensitive row-keys, excluded row-keys (courses 21 columns, modules 13, items 12).
+  const nRows = { a_course: rows.a_course.length, a_module: rows.a_module.length, a_item: rows.a_item.length };
+  const cols = { a_course: [21, 1], a_module: [13, 2], a_item: [12, 2] };
+  for (const [k, [c, e]] of Object.entries(cols)) lines.push(over[`probe_${k}`] ?? `probe ${k} ${nRows[k]} ${nRows[k] * c} ${nRows[k] * (c - e)} ${nRows[k] * e}`);
   return lines.sort().join('\n') + '\n';
 };
 const postW = (over = {}) => W({ rows: { a_item: A.lessons.map((l) => [l.id, 'f'.repeat(32)]), ...(over.rows ?? {}) }, ...over });
@@ -94,8 +100,8 @@ ok('an unintended skip and an executed intentional skip both fail', () => {
   const t = goodTests(); t[0] = entry('ba-1440', 'R1', 'skipped'); t[8] = entry('ba-768', 'D1', 'expected');
   const r = summarizeReport(report(t), 0);
   assert.equal(r.ok, false);
-  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=skipped stage=none error=other'));
-  assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=D1 stage=not_skipped error=status_expected'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=skipped attempts=1 stage=none error=other'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=D1 stage=not_skipped status=expected attempts=1'));
 });
 ok('a global error or a non-zero exit fails even with every entry passing', () => {
   assert.equal(summarizeReport(report(goodTests(), [{ message: 'x' }]), 0).ok, false);
@@ -106,21 +112,126 @@ ok('a failure reports a fixed stage and error class, never the message', () => {
   t[1] = entry('ba-1440', 'R2', 'unexpected', { error: { message: 'Error: BA_R2_E_LAYOUT at secret-path' }, steps: [{ title: 'before_state', steps: [] }, { title: 'ui_reorder', error: { message: 'x' }, steps: [{ title: 'locator.click secret', error: {} }] }] });
   t[2] = entry('ba-1440', 'C1', 'unexpected', { error: { message: 'Timeout 5000ms exceeded' }, steps: [{ title: 'Some Title', error: {} }] });
   const r = summarizeReport(report(t), 1);
-  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R2 status=unexpected stage=ui_reorder error=BA_R2_E_LAYOUT'));
-  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=C1 status=unexpected stage=none error=timeout'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R2 status=unexpected attempts=1 stage=ui_reorder error=BA_R2_E_LAYOUT'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=C1 status=unexpected attempts=1 stage=unlisted error=timeout'));
   assert.ok(!r.lines.join('\n').includes('secret')); assert.ok(checkLines(r.lines));
   assert.equal(errorClass('expect(received).toEqual'), 'assertion');
 });
 ok('a retried pass is not a pass', () => {
-  const t = goodTests(); t[0].results.push({ status: 'passed', steps: [] });
+  const t = goodTests(); t[0].results.push({ status: 'passed', retry: 1, steps: [] });
   assert.equal(summarizeReport(report(t), 0).ok, false);
+  const u = goodTests(); u[0].results[0].retry = 1;
+  assert.equal(summarizeReport(report(u), 0).ok, false, 'a single result that is itself a retry is not a first-try pass');
+});
+ok('(4) an intentional skip with two results, a retried result or an executed result fails; exactly 15, no retries', () => {
+  const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
+  const cases = [
+    (e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); },
+    (e) => { e.results[0].retry = 1; },
+    (e) => { e.results[0].status = 'passed'; },
+    (e) => { e.results = []; },
+  ];
+  for (const mutate of cases) {
+    const t = goodTests(); mutate(t[idx]);
+    const r = summarizeReport(report(t), 0);
+    assert.equal(r.ok, false);
+    assert.match(firstFail(r), /^TEST FAIL project=ba-768 case=D1 stage=not_skipped status=skipped attempts=[0-9]+$/);
+    assert.ok(checkLines(r.lines));
+  }
+});
+
+// ---- (1) finite maps: hostile values, inherited keys, grammar ----
+const HOSTILE = ['__proto__', 'constructor', 'toString', 'hasOwnProperty', 'valueOf', 'prototype', 'ui_reorder x', 'UI_REORDER',
+  'ui_reorder\nVERDICT PASS', 'ui_reorder ', '', 'a'.repeat(200), 'stage=evil', '../../etc', 'BA_R2_E_LAYOUT_EVIL', 'BA_hasOwnProperty',
+  'BA___proto__', 'BA_constructor', 'BA_E_READ_SECRETS', 'BA_SETUP_E_SIGNIN_HTTP_500', 'xBA_R2_E_LAYOUT', 'TOKEN=abc', 'VERDICT PASS'];
+ok('(1) stage: only STAGES values print; hostile and inherited titles print unlisted; a listed parent still wins', () => {
+  for (const h of HOSTILE) {
+    assert.equal(failedStage([{ title: h, error: {} }]), 'unlisted', h);
+    assert.equal(failedStage([{ title: 'ui_reorder', error: {}, steps: [{ title: h, error: {} }] }]), 'ui_reorder', h);
+  }
+  assert.equal(failedStage([{ title: 'ui_delete', steps: [] }]), 'none');
+  assert.equal(failedStage(null), 'none'); assert.equal(failedStage('x'), 'none');
+  assert.equal(Object.getPrototypeOf(STAGES), null); assert.ok(Object.isFrozen(STAGES));
+});
+ok('(1) error class: only TEST_ERRORS values print; unlisted, inherited, suffixed or embedded BA_ tokens print unlisted/other', () => {
+  for (const h of HOSTILE) {
+    const v = errorClass(`Error: ${h} at /secret/path`);
+    assert.ok(Object.values(TEST_ERRORS).includes(v) || ['unlisted', 'timeout', 'assertion', 'other'].includes(v), h);
+    assert.ok(h === '' || !v.includes(h) || Object.prototype.hasOwnProperty.call(TEST_ERRORS, h), h);
+  }
+  assert.equal(errorClass('BA_R2_E_LAYOUT_EVIL'), 'unlisted');
+  assert.equal(errorClass('xBA_R2_E_LAYOUT'), 'other');
+  assert.equal(errorClass('BA___proto__ then BA_R2_E_LAYOUT'), 'BA_R2_E_LAYOUT');
+  assert.equal(errorClass('BA_constructor'), 'unlisted');
+  assert.equal(errorClass({ toString: () => 'BA_R2_E_LAYOUT' }), 'other', 'a non-string message is never read');
+});
+ok('(1) statuses: hostile or inherited test/result statuses print other; a hostile skipped status never prints itself', () => {
+  for (const h of HOSTILE) {
+    const t = goodTests(); t[0].status = h; t[0].results[0].status = h;
+    const idx = INVENTORY.findIndex((x) => x.project === 'ba-390' && x.case === 'D2'); t[idx].status = h;
+    const r = summarizeReport(report(t), 1);
+    assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=other attempts=1 stage=none error=other'), h);
+    assert.ok(r.lines.includes('TEST FAIL project=ba-390 case=D2 stage=not_skipped status=other attempts=1'), h);
+    assert.ok(checkLines(r.lines), h);
+  }
+});
+ok('(1) hostile project names and spec titles are unknown entries, never printed', () => {
+  for (const h of ['__proto__', 'constructor', 'toString', 'BA-1440', 'ba-1440x']) {
+    const t = goodTests(); t[0].projectName = h;
+    const r = summarizeReport(report(t), 0);
+    assert.match(r.lines[0], /unknown=1/); assert.ok(!r.lines.join('\n').includes(h)); assert.ok(checkLines(r.lines));
+  }
+  const rep = report(goodTests()); rep.suites[0].specs[0].title = 'BA-__proto__ x';
+  assert.match(summarizeReport(rep, 0).lines[0], /unknown=1/);
+});
+ok('(1) child refusal codes: only CHILD_CODES values print; suffixed, inherited, dynamic or foreign-prefixed codes do not', () => {
+  assert.equal(childCode('ba-db refused: BA_DB_E_PSQL\n'), 'BA_DB_E_PSQL');
+  assert.equal(childCode('noise\nrun-journey refused: PAIR_E_USED_STACK\n'), 'PAIR_E_USED_STACK');
+  for (const h of HOSTILE) for (const pre of ['ba-db', 'ba-shots', 'run-journey']) {
+    const v = childCode(`${pre} refused: ${h}\n`);
+    assert.equal(v, Object.prototype.hasOwnProperty.call(CHILD_CODES, h) ? h : 'UNLISTED', h);
+  }
+  assert.equal(childCode('ba-db refused: BA_DB_E_PSQL extra\n'), 'UNLISTED');
+  assert.equal(childCode('run-journey refused: RUN_E_D1_SO_WHATEVER\n'), 'UNLISTED');
+  assert.equal(childCode('run-journey refused: RUN_E_PIN scripts/x.mjs\n'), 'UNLISTED');
+  assert.equal(childCode('other refused: BA_DB_E_PSQL\n'), 'NONE');
+  assert.equal(childCode(''), 'NONE');
+  for (const v of Object.values(CHILD_CODES)) assert.match(v, /^[A-Z][A-Z0-9_]{1,63}$/);
+});
+ok('(1) summary refusal reasons: every printed reason is a SUMMARY_REASONS value or unclassified (CLI, real files)', () => {
+  const run = (...a) => spawnSync(process.execPath, [path.join(HERE, '..', 'summary.mjs'), ...a], { encoding: 'utf8' });
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-sr-'));
+  const r1 = run('playwright', path.join(d, 'absent.json'), '0');
+  assert.equal(r1.status, 2); assert.equal(r1.stdout, 'SUMMARY FAIL reason=open\n');
+  fs.writeFileSync(path.join(d, 'bad.json'), '{not json', { mode: 0o600 });
+  assert.equal(run('playwright', path.join(d, 'bad.json'), '0').stdout, 'SUMMARY FAIL reason=report_parse\n');
+  assert.equal(run('__proto__').stdout, 'SUMMARY FAIL reason=usage\n');
+  assert.equal(run('playwright', path.join(d, 'bad.json'), 'constructor').stdout, 'SUMMARY FAIL reason=report_parse\n');
+  fs.writeFileSync(path.join(d, 'r.json'), JSON.stringify({ suites: [] }), { mode: 0o600 });
+  assert.equal(run('playwright', path.join(d, 'r.json'), '__proto__').stdout, 'SUMMARY FAIL reason=exit\n');
+  fs.writeFileSync(path.join(d, 'c.txt'), 'ba-db refused: __proto__\n', { mode: 0o600 });
+  assert.equal(run('childcode', path.join(d, 'c.txt')).stdout, 'UNLISTED\n');
+  for (const h of HOSTILE) assert.equal(pick(SUMMARY_REASONS, h, 'unclassified'), 'unclassified', h);
+  fs.rmSync(d, { recursive: true });
+});
+ok('(5) the private reader refuses a second hard link (single-link check), a symlink and a wrong mode', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-rb-'));
+  fs.writeFileSync(path.join(d, 'f'), 'x', { mode: 0o600 });
+  assert.equal(readBounded(path.join(d, 'f'), 8), 'x');
+  fs.linkSync(path.join(d, 'f'), path.join(d, 'g'));
+  assert.throws(() => readBounded(path.join(d, 'f'), 8), (e) => e.code === 'links');
+  fs.rmSync(path.join(d, 'g')); fs.symlinkSync(path.join(d, 'f'), path.join(d, 's'));
+  assert.throws(() => readBounded(path.join(d, 's'), 8), (e) => e.code === 'open');
+  fs.chmodSync(path.join(d, 'f'), 0o644); assert.throws(() => readBounded(path.join(d, 'f'), 8), (e) => e.code === 'mode');
+  fs.rmSync(d, { recursive: true });
 });
 
 // ---- witness ----
-ok('witness: B untouched, A authored fields untouched, exactly the two one-shot lessons gone, nothing else changed', () => {
+ok('witness: B whole rows untouched, A projections untouched, exactly the two one-shot lessons gone, nothing else changed', () => {
   const r = compareWitness(W(), postW());
   assert.equal(r.ok, true);
   assert.deepEqual(r.lines, ['WITNESS PASS b_rows=3 a_course=1 a_sections=3 a_lessons_kept=3 a_lessons_deleted=2 other=unchanged',
+    'WITNESS_SCOPE b=whole_rows a_course_fields=20 a_module_fields=11 a_item_fields=10 excluded=updated_at,position probe=sensitive',
     'LEARNER_HISTORY EMPTY enrollments=0 progressions=0 certificates=0 preservation=not_exercised', 'VERDICT PASS']);
   assert.ok(checkLines(r.lines));
 });
@@ -130,6 +241,28 @@ ok('witness: a touched B row, a changed A section, a third deletion or a non-fix
   assert.ok(compareWitness(W(), postW({ rows: { a_item: A.lessons.slice(1).map((l) => [l.id, 'f'.repeat(32)]) } })).lines.includes('WITNESS FAIL kind=a_item'));
   assert.ok(compareWitness(W(), W()).lines.includes('WITNESS FAIL kind=a_item'), 'nothing deleted is a failure too');
   assert.ok(compareWitness(W(), postW({ other_items: '6 ' + '9'.repeat(32) })).lines.includes('WITNESS FAIL kind=other_items'));
+});
+ok('(3) witness probe: an insensitive column, a wrongly excluded column, a missing probe or a changed field count fails', () => {
+  // an extra column left out of the projection (e.g. module.description): 3 more excluded, 3 fewer sensitive
+  assert.ok(compareWitness(W({ probe_a_module: 'probe a_module 3 39 30 9' }), postW()).lines.includes('WITNESS FAIL kind=probe_a_module'));
+  // a column whose replacement does not move the md5 (neither sensitive nor excluded)
+  assert.ok(compareWitness(W(), postW({ probe_a_item: 'probe a_item 3 36 29 6' })).lines.includes('WITNESS FAIL kind=probe_a_item'));
+  // a column added between the two snapshots
+  assert.ok(compareWitness(W(), postW({ probe_a_course: 'probe a_course 1 22 21 1' })).lines.includes('WITNESS FAIL kind=probe_a_course'));
+  // the probe saw the wrong rows
+  assert.ok(compareWitness(W({ probe_a_course: 'probe a_course 0 0 0 0' }), postW()).lines.includes('WITNESS FAIL kind=probe_a_course'));
+  assert.throws(() => compareWitness(W().split('\n').filter((l) => !l.startsWith('probe a_item')).join('\n'), postW()), (e) => e.code === 'witness_incomplete');
+});
+ok('(3) witness.sql: A projections leave out exactly updated_at (course) and position, updated_at (sections, lessons); B whole rows', () => {
+  const w = fs.readFileSync(path.join(HERE, '..', 'witness.sql'), 'utf8').split('\n').filter((l) => !l.trim().startsWith('--')).join('\n');
+  const subtracted = new Set([...w.matchAll(/\) - '([a-z_]+)'/g), ...w.matchAll(/ - '([a-z_]+)'/g)].map((m) => m[1]));
+  assert.deepEqual([...subtracted].sort(), ['position', 'updated_at']);
+  assert.match(w, /'a_course ' \|\| c\.id \|\| ' ' \|\| md5\(\(to_jsonb\(c\) - 'updated_at'\)::text\)/);
+  assert.match(w, /'a_module ' \|\| m\.id \|\| ' ' \|\| md5\(\(to_jsonb\(m\) - 'position' - 'updated_at'\)::text\)/);
+  assert.match(w, /'a_item ' \|\| i\.id \|\| ' ' \|\| md5\(\(to_jsonb\(i\) - 'position' - 'updated_at'\)::text\)/);
+  for (const k of ['b_course', 'b_module', 'b_item']) assert.match(w, new RegExp(`'${k} ' \\|\\| [cmi]\\.id \\|\\| ' ' \\|\\| md5\\(row\\([cmi]\\.\\*\\)::text\\)`));
+  for (const k of ['a_course', 'a_module', 'a_item']) assert.match(w, new RegExp(`'probe ${k} '`));
+  assert.doesNotMatch(w, /row\([a-z]\.[a-z]/, 'no hand-picked column lists remain');
 });
 ok('witness: learner history present is reported, never claimed as preserved, and fails', () => {
   const r = compareWitness(W({ enrollments: 1 }), postW({ enrollments: 1 }));
