@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { A, B, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
 import { summarizeReport, compareWitness, manifest, checkLines, errorClass, failedStage, childCode, readBounded, LINE, SummaryError } from '../summary.mjs';
-import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS, REUSED_PINS } from '../codes.mjs';
+import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS } from '../codes.mjs';
 import { spawnSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
