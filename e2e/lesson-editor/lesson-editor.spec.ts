@@ -28,6 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { validateLabels, apiPath, method as httpMethod } from '../evidence/evidence-metadata.mjs';
+import { SEEDED_A_HTML, SEEDED_A_TEXT, E1_APPEND, E1_EXPECTED_TEXT, e1Body } from './body-oracle.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const RUNNER = path.join(ROOT, 'scripts/local-stack/lesson-editor/run.sh');
@@ -317,8 +318,11 @@ test.describe('owner, real backend and TipTap, desktop', () => {
     const obs = observe(context);
     await openLesson(page, A);
     const before = dbLesson(A);
+    // Baseline pinned to the fixture, so the expected body below is independent of anything this run wrote or read back.
+    expect(before.content, 'E1 baseline: lesson A holds exactly the seeded fixture body').toBe(SEEDED_A_HTML);
+    await expect(editor(page), 'E1 baseline: the editor shows exactly the seeded body').toHaveText(SEEDED_A_TEXT);
     await title(page).fill('E1 saved title');
-    await typeInBody(page, ' E1 body');
+    await typeInBody(page, E1_APPEND);
     await saved(page);
     await obs.settle(A);
     const stored = dbLesson(A);
@@ -328,12 +332,16 @@ test.describe('owner, real backend and TipTap, desktop', () => {
     expect({ id: last.row!.id, title: last.row!.title, content: last.row!.content, updated_at: last.row!.updated_at })
       .toEqual({ id: stored.id, title: stored.title, content: stored.content, updated_at: stored.updated_at });
     expect(stored.title).toBe('E1 saved title');
-    expect(stored.content).toContain('E1 body');
+    // Exact full body (seeded + appended) in all three places; a lost "Body A" or a lost append fails each one.
+    expect(e1Body('html', last.row!.content), 'E1 returned row body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
+    expect(e1Body('html', stored.content), 'E1 DB body is exactly seeded + appended').toEqual({ ok: true, got: E1_EXPECTED_TEXT });
     expect(stored.type).toBe('page');
     expect(new Date(stored.updated_at!) > new Date(before.updated_at!), 'trigger advanced updated_at').toBe(true);
     await page.reload();
     await expect(title(page)).toHaveValue('E1 saved title', { timeout: 30_000 });
-    await expect(editor(page)).toContainText('E1 body');
+    await expect(editor(page)).toBeVisible();
+    await expect.poll(async () => e1Body('text', await editor(page).innerText()), { timeout: 20_000, message: 'E1 reloaded editor body is exactly seeded + appended' })
+      .toEqual({ ok: true, got: E1_EXPECTED_TEXT });
     await info.attach('E1-db.json', { body: Buffer.from(JSON.stringify({ before: rowEvidence(before), stored: rowEvidence(stored) })), contentType: 'application/json' });
   });
 

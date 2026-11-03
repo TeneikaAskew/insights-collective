@@ -20,7 +20,8 @@ real version trigger and conditional fence, roles under real RLS, and the recove
 
 ## Order of operations in `run.sh setup` (isolation 1 and 4)
 
-1. **Harness pin first**: `api-http.mjs` (blob fb2b49d8) and `stack-checks.sh` (blob 9657af04) from T-09 `5d81976` are hashed
+1. **Harness pin first**: `api-http.mjs` (blob 3acd5b02, the shared contract on #162/#166/#167; was fb2b49d8 at T-09 `5d81976`,
+   the only code change being the same-handle `readSecretFile` of 4a54ee4c) and `stack-checks.sh` (blob 9657af04) are hashed
    before any of their code runs. Any other content stops the run (self-test R14 proves the pin wins over a bad target).
 2. **Self-test overrides refused** (`LE_ALLOWED_ORIGINS`, `LE_EGRESS_CONTROL`) in `setup` and `owner`, before any request,
    directory or write. The spec refuses both at load, and the egress fixture refuses `LE_ALLOWED_ORIGINS` whenever a
@@ -128,7 +129,11 @@ The 17 tests are 9 functional, 2 role, 3 multi-state screen flows and 3 denied s
 context (every tab) from start to finished or failed; comparisons wait until the relevant writes have settled.
 
 - **E1 save:** the settled write's returned row equals the DB row (`eq` condition, 1 row); the trigger advanced the
-  version; a reload keeps title and TipTap body.
+  version; a reload keeps the title. The body is judged EXACTLY by `e2e/lesson-editor/body-oracle.mjs`: the baseline is pinned
+  to the fixture (`<p>Body A</p>`), and the returned row, the DB row and the reloaded editor must each normalize to the
+  independently expected `Body A E1 body` (seeded + appended). A lost seeded text, a lost, duplicated or reordered append, or
+  stray text fails. Markup identity beyond the text (paragraph split, marks) is not claimed. No-browser self-test:
+  `node e2e/lesson-editor/body-oracle-selftest.mjs` (FAKE values; `--oracle old` shows what the earlier contains-check let pass).
 - **E2 (oracle A):** navigation targets are resolved before the edit. Input, click and write start are all taken on ONE
   browser clock (`performance.timeOrigin + now`) by passive instrumentation installed before the first document: capture
   listeners and a fetch wrapper that records a timestamp and a bounded lesson label, then calls the original fetch

@@ -24,10 +24,11 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/../../.." && pwd)"
 umask 077
 refuse() { echo "FAIL le-run: $*" >&2; exit 1; }
-# Pinned harness files, tested against T-09 harness 5d81976 (the T-09 owner reports both unchanged in c64a8fc for api-http.mjs).
+# Pinned harness files: the shared T-09 helper contract as carried by #162 a6d1d636, #166 and #167 (api-http.mjs 3acd5b02,
+# the same-handle readSecretFile of 4a54ee4c; stack-checks.sh 9657af04, unchanged since 5d81976).
 # Checked FIRST, before any helper from them runs. Any other content is refused until this lane re-checks it.
 PINS=(
-  "scripts/local-stack/t09/api-http.mjs fb2b49d8d20f5a00da8e3bcbc55ad265cf6a1766"
+  "scripts/local-stack/t09/api-http.mjs 3acd5b021602c4e93cb6b100e60ce3232f986a3b"
   "scripts/local-stack/t09/stack-checks.sh 9657af04f561a283a49fb387074fc06c0f4161c0"
 )
 pin_harness() {
