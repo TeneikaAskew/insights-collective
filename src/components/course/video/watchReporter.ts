@@ -24,10 +24,24 @@ export interface EngagementSink {
 /** 'cas' is the c5b7caf contract (default). 'keyed' needs the proposed RPC, which is not deployed anywhere. */
 export type PersistenceMode = 'cas' | 'keyed';
 
-const randomSessionId = (): string =>
-  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `s-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * A v4 UUID from the platform CSPRNG (crypto.randomUUID, else
+ * crypto.getRandomValues), or null when neither exists. Never Math.random:
+ * a session id must be a UUID and must not collide.
+ */
+export function secureSessionId(c: Crypto | undefined = typeof crypto !== 'undefined' ? crypto : undefined): string | null {
+  if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+  if (c && typeof c.getRandomValues === 'function') {
+    const b = c.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40;
+    b[8] = (b[8] & 0x3f) | 0x80;
+    const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+  }
+  return null;
+}
 
 export type ReportStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -53,8 +67,8 @@ export interface WatchReporterOptions {
    * only be resolved by the server's (session, seq) marker.
    */
   persistence?: PersistenceMode;
-  /** Keyed mode: one id per reporter instance; defaults to crypto.randomUUID(). */
-  makeSessionId?: () => string;
+  /** Keyed mode: one UUID per reporter instance; defaults to secureSessionId(). A null or non-UUID result fails closed. */
+  makeSessionId?: () => string | null;
 }
 
 /** Duck-typed EngagementWriteUncertainError: the write may have committed; it carries what it tried to write. */
@@ -104,7 +118,7 @@ export class WatchReporter {
   private retired = false;
   private lastSeq = 0;
   readonly persistence: PersistenceMode;
-  /** Keyed mode only; null in CAS mode. */
+  /** Keyed mode only: a UUID, or null in CAS mode or when no secure id was available (then nothing is sent). */
   readonly sessionId: string | null;
 
   constructor(options: WatchReporterOptions) {
@@ -112,7 +126,13 @@ export class WatchReporter {
     this.tracker = options.tracker ?? new WatchProgressTracker({ now: options.now });
     this.lastFlushAt = this.now();
     this.persistence = options.persistence ?? 'cas';
-    this.sessionId = this.persistence === 'keyed' ? (options.makeSessionId ?? randomSessionId)() : null;
+    if (this.persistence === 'keyed') {
+      const id = (options.makeSessionId ?? (() => secureSessionId()))();
+      // Fail closed: without a valid UUID nothing is sent (batches stay queued, never re-routed to CAS).
+      this.sessionId = typeof id === 'string' && UUID_SHAPE.test(id) ? id : null;
+    } else {
+      this.sessionId = null;
+    }
   }
 
   get isRetired(): boolean {
@@ -218,6 +238,9 @@ export class WatchReporter {
     if (this.persistence === 'keyed') {
       if (!sink.applyEngagementBatch) {
         return Promise.reject(new Error('Keyed persistence is not available; the batch stays queued (never re-routed to CAS)'));
+      }
+      if (!this.sessionId) {
+        return Promise.reject(new Error('No secure session id; the batch stays queued (never re-routed to CAS)'));
       }
       return sink.applyEngagementBatch(userId, contentItemId, {
         sessionId: this.sessionId as string,

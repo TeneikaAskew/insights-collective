@@ -8,21 +8,39 @@ export interface FakeKeyedRpcState {
   /** Signed-in user id, or null when signed out. */
   authUserId: string | null;
   calls: Array<{ fn: string; params: Record<string, any>; authUserId: string | null }>;
+  /** Number of auth.getSession() reads. */
+  authReads: number;
+  /** Next auth read fails: 'error' returns {error}, 'throw' rejects, 'no-data' returns no data object. */
+  authReadFault: null | (() => 'error' | 'throw' | 'no-data' | null);
+  /** Runs right after a successful auth read (e.g. switch the signed-in user before the RPC is dispatched). */
+  afterAuthRead: null | (() => void);
+  /** Replace the RPC's real response data (the call still executes): malformed acknowledgement controls. */
+  ackOverride: null | ((real: unknown) => unknown);
 }
 
 export const newFakeKeyedRpcState = (): FakeKeyedRpcState => ({
   server: new ProposedBatchLedgerModel(),
   authUserId: 'learner-a',
   calls: [],
+  authReads: 0,
+  authReadFault: null,
+  afterAuthRead: null,
+  ackOverride: null,
 });
 
 export function createFakeKeyedSupabase(state: FakeKeyedRpcState) {
   return {
     auth: {
-      getSession: async () => ({
-        data: { session: state.authUserId ? { user: { id: state.authUserId } } : null },
-        error: null,
-      }),
+      getSession: async () => {
+        state.authReads += 1;
+        const fault = state.authReadFault?.() ?? null;
+        if (fault === 'throw') throw new Error('auth storage unavailable');
+        if (fault === 'error') return { data: { session: null }, error: { message: 'session refresh failed' } };
+        if (fault === 'no-data') return { data: null, error: null };
+        const result = { data: { session: state.authUserId ? { user: { id: state.authUserId } } : null }, error: null };
+        state.afterAuthRead?.();
+        return result;
+      },
     },
     rpc: async (fn: string, params: Record<string, any>) => {
       state.calls.push({ fn, params: { ...params }, authUserId: state.authUserId });
@@ -41,7 +59,8 @@ export function createFakeKeyedSupabase(state: FakeKeyedRpcState) {
             seek_count: params.p_seek_delta,
           },
         );
-        return { data: [{ applied, ...totals }], error: null };
+        const real = [{ applied, ...totals }];
+        return { data: state.ackOverride ? state.ackOverride(real) : real, error: null };
       } catch (e) {
         return { data: null, error: { message: (e as Error).message } };
       }

@@ -128,10 +128,52 @@ export interface KeyedApplyResult {
  * would credit the new learner.
  */
 export class EngagementIdentityMismatchError extends Error {
-  constructor() {
-    super('Signed-in user does not match the recorded viewer; batch not sent');
+  /** 'preflight': the local auth read established it (no RPC sent). 'server': the RPC refused p_expected_user_id (nothing written). */
+  readonly established: 'preflight' | 'server';
+  constructor(established: 'preflight' | 'server' = 'preflight') {
+    super('Signed-in user does not match the recorded viewer; batch not applied');
     this.name = 'EngagementIdentityMismatchError';
+    this.established = established;
   }
+}
+
+/** The signed-in user could not be read. Nothing was sent; the batch must be kept and retried unchanged. */
+export class EngagementAuthUnavailableError extends Error {
+  readonly reason: unknown;
+  constructor(reason: unknown) {
+    super('Could not read the signed-in user; batch not sent');
+    this.name = 'EngagementAuthUnavailableError';
+    this.reason = reason;
+  }
+}
+
+/** The RPC answered, but not with exactly one well-formed acknowledgement. Outcome unknown; retry the identical key. */
+export class EngagementAckMalformedError extends Error {
+  readonly ack: unknown;
+  constructor(ack: unknown) {
+    super('apply_video_engagement_batch acknowledgement is malformed; outcome unknown');
+    this.name = 'EngagementAckMalformedError';
+    this.ack = ack;
+  }
+}
+
+/** RFC 4122 UUID shape (any version), as p_session_id must be. */
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const isCount = (n: unknown): n is number => typeof n === 'number' && Number.isInteger(n) && n >= 0;
+
+/** Exactly one row with a boolean `applied` and four non-negative integer totals, else null. */
+function parseKeyedAck(data: unknown): { applied: boolean; totals: EngagementTotals } | null {
+  if (!Array.isArray(data) || data.length !== 1) return null;
+  const row = data[0] as Record<string, unknown> | null;
+  if (!row || typeof row !== 'object' || typeof row.applied !== 'boolean') return null;
+  if (!isCount(row.watch_time) || !isCount(row.play_count) || !isCount(row.pause_count) || !isCount(row.seek_count)) {
+    return null;
+  }
+  return {
+    applied: row.applied,
+    totals: { watch_time: row.watch_time, play_count: row.play_count, pause_count: row.pause_count, seek_count: row.seek_count },
+  };
 }
 
 const TOTAL_KEYS = ['watch_time', 'play_count', 'pause_count', 'seek_count'] as const;
@@ -371,16 +413,32 @@ class VideoAnalyticsService {
    * (sessionId, seq) is acknowledged without being applied again, so every
    * failure here is safe to retry with the identical batch.
    *
-   * Refuses (without calling) when the signed-in user is not `userId`, and
-   * passes userId as p_expected_user_id so the server can refuse the same race.
+   * Identity, in order:
+   * - auth read failed (error, or no data): EngagementAuthUnavailableError,
+   *   no RPC, the batch is kept for an identical retry;
+   * - auth read succeeded and shows sign-out or another user:
+   *   EngagementIdentityMismatchError('preflight'), no RPC;
+   * - otherwise the RPC carries p_expected_user_id, and a server refusal of it
+   *   is EngagementIdentityMismatchError('server') (nothing written).
+   * Only an acknowledgement of exactly one row with a boolean `applied` and four
+   * valid totals counts; anything else is EngagementAckMalformedError (outcome
+   * unknown, retry the identical key). A non-UUID session id is refused unsent.
    */
   async applyEngagementBatch(
     userId: string,
     contentItemId: string,
     batch: KeyedEngagementBatch
   ): Promise<KeyedApplyResult> {
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData?.session?.user?.id !== userId) throw new EngagementIdentityMismatchError();
+    if (!UUID_PATTERN.test(batch.sessionId)) throw new Error('Session id is not a UUID; batch not sent');
+    let sessionRead: Awaited<ReturnType<typeof supabase.auth.getSession>>;
+    try {
+      sessionRead = await supabase.auth.getSession();
+    } catch (readFailure) {
+      throw new EngagementAuthUnavailableError(readFailure);
+    }
+    if (sessionRead?.error || !sessionRead?.data) throw new EngagementAuthUnavailableError(sessionRead?.error);
+    // A successful read: no session is an established sign-out, another id an established switch.
+    if ((sessionRead.data.session?.user?.id ?? null) !== userId) throw new EngagementIdentityMismatchError('preflight');
 
     const d = batch.deltas;
     const { data, error } = await (supabase.rpc as any)('apply_video_engagement_batch', {
@@ -396,10 +454,15 @@ class VideoAnalyticsService {
       p_video_duration: d.videoDuration === undefined ? null : Math.round(d.videoDuration),
       p_playback_speed: d.playbackSpeed ?? null,
     });
-    if (error) throw error;
-    const row = Array.isArray(data) ? data[0] : data;
-    if (!row) throw new Error('apply_video_engagement_batch returned no row');
-    return { outcome: row.applied ? 'applied' : 'already-applied', totals: totalsOf(row) };
+    if (error) {
+      if ((error as { code?: string }).code === '42501' && /expected user/i.test(String((error as { message?: string }).message))) {
+        throw new EngagementIdentityMismatchError('server');
+      }
+      throw error;
+    }
+    const ack = parseKeyedAck(data);
+    if (!ack) throw new EngagementAckMalformedError(data);
+    return { outcome: ack.applied ? 'applied' : 'already-applied', totals: ack.totals };
   }
 
   /**
