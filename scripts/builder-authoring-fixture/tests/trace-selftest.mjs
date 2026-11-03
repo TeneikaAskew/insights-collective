@@ -30,8 +30,12 @@ const TXT = {
 /** A fake page: a handle button inside a card, the outer live region and one inner (lesson) region. */
 function page(opts = {}) {
   const regionsHtml = opts.noRegions ? '' : '<div id="DndLiveRegion-0" role="status"></div><div id="DndLiveRegion-1" role="status"></div>';
-  const dom = new JSDOM(`<!doctype html><body><div id="root"><div id="card"><span><button id="h" aria-label="Reorder section"></button></span>
-    <ul></ul></div>${regionsHtml}</div></body>`,
+  // #list holds the moving card and a second section card with a same-label handle, as the curriculum does
+  const sibling = opts.noSibling ? '' : '<div id="card2"><span><button aria-label="Reorder section"></button></span></div>';
+  const list = opts.flat ? '<div id="list"><button id="h" aria-label="Reorder section"></button><button aria-label="Reorder section"></button></div>'
+    : `<div id="list"><div id="card"><div id="hdr"><span><button id="h" aria-label="Reorder section"></button></span></div>
+    <ul></ul></div>${sibling}</div>`;
+  const dom = new JSDOM(`<!doctype html><body><div id="root">${list}${regionsHtml}</div></body>`,
   { runScripts: 'outside-only' });
   const w = dom.window;
   const counts = { add: 0, remove: 0, disconnect: 0, handlers: [] };
@@ -221,14 +225,14 @@ ok('a recorder that hit an error reports RECORDER_ERROR with every field UNAVAIL
   for (const k of R1_TRACE_ORDER.slice(1)) assert.equal(f[k], 'UNAVAILABLE');
 });
 ok('hostile or malformed snapshots are READ_FAILED, valid-but-not-installed is NOT_INSTALLED', () => {
-  const good = { v: 3, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'PICKED', dropSeen: false,
+  const good = { v: 4, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, movedUnknown: false, annLast: 'PICKED', dropSeen: false,
     otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
   assert.ok(validSnapshot(good)); assert.equal(r1TraceFields(true, good).ctx, 'LIVE'); assert.equal(r1TraceFields(false, good).ctx, 'NOT_INSTALLED');
-  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 4 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
+  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 5 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
     { ...good, onHandle: 100 }, { ...good, onHandle: -1 }, { ...good, onHandle: 1.5 }, { ...good, annLast: '__proto__' }, { ...good, annLast: 'UNAVAILABLE' },
-    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 3 }), good), { ...good, v: 2 }, { ...good, regionsSeen: 100 },
+    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 4 }), good), { ...good, v: 3 }, { ...good, regionsSeen: 100 },
     { ...good, arrowCapture: null, arrowBubble: true }, { ...good, arrowCapture: null, arrowDocument: false }, { ...good, arrowCapture: 'no' },
-    { ...good, arrowDocument: 0 }, { ...good, arrowBubble: 'x' }, { ...good, movedEver: null }];
+    { ...good, arrowDocument: 0 }, { ...good, arrowBubble: 'x' }, { ...good, movedEver: null }, { ...good, movedUnknown: 1 }];
   for (const b of bad) assert.equal(r1TraceFields(true, b).ctx, 'READ_FAILED', JSON.stringify(b)?.slice(0, 40));
 });
 
@@ -358,13 +362,13 @@ ok('(D) the bounded read: OK, rejected, thrown, pending and late outcomes, each 
   assert.deepEqual({ ...pending }, { state: 'TIMEOUT', snap: null }); assert.ok(Date.now() - t0 < 1000);
   let lateResolve; const lateP = new Promise((r) => { lateResolve = r; });
   const late = await settleR1Read(() => lateP, 20);
-  lateResolve({ v: 3 }); await tick();
+  lateResolve({ v: 4 }); await tick();
   assert.equal(late.state, 'TIMEOUT'); assert.equal(late.snap, null); assert.ok(Object.isFrozen(late));
   let lateReject; const lateR = new Promise((_, r) => { lateReject = r; });
   const lr = await settleR1Read(() => lateR, 20); lateReject(new Error('late')); await tick();
   assert.equal(lr.state, 'TIMEOUT');
   // reducer: TIMEOUT and REJECTED never read the snapshot, even a valid one
-  const good = { v: 3, regionsSeen: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'DROP_TARGET', dropSeen: true,
+  const good = { v: 4, regionsSeen: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, movedUnknown: false, annLast: 'DROP_TARGET', dropSeen: true,
     otherText: 0, pressedEver: true, pressedAtEnd: false, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
   assert.equal(r1TraceFields(true, good, 'TIMEOUT').ctx, 'READ_TIMEOUT'); assert.equal(r1TraceFields(true, good, 'REJECTED').ctx, 'READ_FAILED');
   assert.equal(r1TraceFields(true, good, 'EVIL').ctx, 'READ_FAILED'); assert.equal(r1TraceFields(true, good).ctx, 'LIVE');
@@ -399,7 +403,7 @@ const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: 
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const r1 = (t, p) => t[INVENTORY.findIndex((x) => x.project === p && x.case === 'R1')];
 ok('summary prints R1TRACE from list constants; absent, duplicate and hostile annotations print a fixed state; verdict unchanged', () => {
-  const desc = r1TraceDescription(true, { v: 3, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'PICKED',
+  const desc = r1TraceDescription(true, { v: 4, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, movedUnknown: false, annLast: 'PICKED',
     dropSeen: false, otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 });
   const t = goodTests();
   r1(t, 'ba-1440').results[0].annotations = [{ type: R1_TRACE_ANNOTATION, description: desc }];
@@ -507,6 +511,56 @@ ok('(B2) printed words carry no cause names, ids, coordinates or style text', as
   assert.match(d, /^ctx=LIVE keys=ALL_ON_HANDLE first_space=\S+ arrow_capture=NOT_PREVENTED arrow_document=PREVENTED arrow_bubble=PREVENTED moved=MOVED /);
   for (const bad of [M, T, 'px', 'translate', 'K', 'U=', 'S=', 'SENSOR', 'GETTER', 'SCROLL_BRANCH', 'GEOMETRY']) assert.ok(!d.split(' ').some((w) => w.split('=')[1]?.includes(bad)), bad);
   for (const k of R1_TRACE_ORDER) assert.ok(R1_TRACE_FIELDS[k].every((w) => /^[A-Z_]+$/.test(w)), k);
+});
+
+// ---- batch 2 correction: moved binds to the sortable card and reads only its transform declaration ----
+const MOVED_OF = async (prep, opts) => (await run(page(opts), prep)).f.moved;
+ok('(B2m) negatives: custom property, transform:none, malformed and non-finite numbers, unsupported forms are never MOVED', async () => {
+  const attr = (v) => (q) => { q.$('#card').setAttribute('data-x', '1'); q.$('#card').setAttribute('style', v); };
+  // custom property text only: no transform declaration => no change observed
+  assert.equal(await MOVED_OF(attr('--unused: translate3d(0px, 140px, 0px)')), 'NO_CHANGE_OBSERVED');
+  assert.equal(await MOVED_OF(attr('--unused: translate3d(0px, 140px, 0px); transform: none')), 'NO_CHANGE_OBSERVED');
+  for (const bad of ['translate3d(0px, ..px, 0px)', 'translate3d(0px, 1e400px, 0px)', 'translate3d(0px, NaNpx, 0px)',
+    'matrix(1, 0, 0, 1, 0, 140)', 'translateY(140px)', 'translate3d(0px, 140px, 0px) rotate(5deg)', 'rotate(5deg) translate3d(0px, 140px, 0px)']) {
+    assert.equal(await MOVED_OF((q) => { q.$('#card').setAttribute('style', `transform: ${bad}`); }), 'UNAVAILABLE', bad);
+  }
+  // the current value comes from the parsed style (authoritative): quoted text inside a custom property is no transform
+  assert.equal(await MOVED_OF(attr('--x: "a;transform: translate3d(0px, 140px, 0px)"')), 'NO_CHANGE_OBSERVED');
+  // the same kind of text as a record OLD value cannot be split safely: UNAVAILABLE, never MOVED
+  const later = (first) => (q) => { const c = q.$('#card'); c.setAttribute('style', first); return tick().then(() => c.setAttribute('style', 'opacity: 1')); };
+  assert.equal(await MOVED_OF(later('--x: "a;transform: translate3d(0px, 140px, 0px);--y: b"')), 'UNAVAILABLE');
+  // custom properties as OLD values (including one named --transform) are not the transform declaration
+  assert.equal(await MOVED_OF(later('--transform: translate3d(0px, 140px, 0px)')), 'NO_CHANGE_OBSERVED');
+  assert.equal(await MOVED_OF(later('--unused: translate3d(0px, 140px, 0px); transform: none')), 'NO_CHANGE_OBSERVED');
+  assert.equal(await MOVED_OF(later('transform: translate3d(0px, ..px, 0px)')), 'UNAVAILABLE');
+});
+ok('(B2m) negatives: unrelated ancestor transforms and a non-card child are not card movement', async () => {
+  for (const sel of ['#list', '#root', '#hdr', 'ul', '#card2']) {
+    assert.equal(await MOVED_OF((q) => { q.$(sel).style.transform = 'translate3d(0px, 140px, 0px)'; }), 'NO_CHANGE_OBSERVED', sel);
+  }
+  // an ancestor's translation set then cleared (same batch, and across deliveries): its old values are not card evidence
+  for (const sel of ['#list', '#hdr']) {
+    assert.equal(await MOVED_OF((q) => { const n = q.$(sel); n.style.transform = MOVE; n.style.transform = ''; }), 'NO_CHANGE_OBSERVED', sel);
+    assert.equal(await MOVED_OF((q) => { const n = q.$(sel); n.style.transform = MOVE; return tick().then(() => { n.style.transform = ''; }); }), 'NO_CHANGE_OBSERVED', sel);
+  }
+  const p = page(); p.w.document.body.style.transform = 'translate3d(0px, 140px, 0px)';  // static, set before install
+  const r = await run(p, (q) => three(q)); assert.equal(r.f.moved, 'NO_CHANGE_OBSERVED');
+});
+ok('(B2m) unbound card (no sibling section handle) is UNAVAILABLE even if something translates', async () => {
+  assert.equal(await MOVED_OF((q) => { q.$('#card').style.transform = MOVE; }, { noSibling: true }), 'UNAVAILABLE');
+  assert.equal(await MOVED_OF((q) => three(q), { noSibling: true }), 'UNAVAILABLE');
+  // handles that are direct siblings: the only candidate is the handle itself, which is not a card => UNAVAILABLE
+  assert.equal(await MOVED_OF((q) => { q.h().style.transform = MOVE; }, { flat: true }), 'UNAVAILABLE');
+});
+ok('(B2m) positives: genuine card translation (property, attribute, scale suffix, 0 or 0px z) and same-batch set-clear', async () => {
+  for (const v of [MOVE, 'translate3d(0px, 140px, 0)', 'translate3d(-12.5px, 0px, 0px)', 'translate3d(0px, 1.4e2px, 0px) scaleX(1) scaleY(1)']) {
+    assert.equal(await MOVED_OF((q) => { q.$('#card').style.transform = v; }), 'MOVED', v);
+  }
+  assert.equal(await MOVED_OF((q) => { q.$('#card').setAttribute('style', `opacity: 0.6; transform: ${MOVE}; transition: none`); }), 'MOVED');
+  assert.equal(await MOVED_OF((q) => { const c = q.$('#card'); c.style.transform = MOVE; c.style.transform = ''; }), 'MOVED');
+  assert.equal(await MOVED_OF((q) => { const c = q.$('#card'); c.setAttribute('style', `transform: ${MOVE}`); c.removeAttribute('style'); }), 'MOVED');
+  // a recognized move wins over a later unreadable value
+  assert.equal(await MOVED_OF((q) => { const c = q.$('#card'); c.style.transform = MOVE; return tick().then(() => c.setAttribute('style', 'transform: matrix(1,0,0,1,0,0)')); }), 'MOVED');
 });
 
 // ---- source wiring ----

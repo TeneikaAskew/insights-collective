@@ -167,9 +167,15 @@ prints them. It does not prove a cause.
   earlier, before any added later, such as a listener a drag sensor adds at pickup), and at window bubble: PREVENTED /
   NOT_PREVENTED, NOT_DELIVERED when that point never saw that event, all UNAVAILABLE when no ArrowDown was captured. A
   later ArrowDown never stands in for the first. They do not name which handler prevented the key.
-  `moved` MOVED when a non-identity translate was seen on the handle or an ancestor (style old values in records, or the
-  current style at install, each delivery and the read); otherwise NO_CHANGE_OBSERVED (never "never moved"); UNAVAILABLE
-  if the handle was detached before any move was seen. No style text, coordinates or ids leave the page.
+  `moved` (snapshot v4) reads only the sortable card, bound once at install as the nearest ancestor of the handle whose
+  parent also holds another handle with the same aria-label outside it (the section list); the handle itself never
+  counts. Only that card's own `transform` declaration is read: from record old values (custom properties ignored;
+  text with quotes, escapes, braces, comments or a nameless piece is unreadable) and from its parsed current value (at
+  install, each delivery and the read). One form is recognized, dnd-kit's `translate3d(Xpx, Ypx, Z)` with optional
+  `scaleX()/scaleY()`, finite numbers only; empty or `none` is no translation; any other value is unreadable. MOVED if
+  X or Y is non-zero; otherwise NO_CHANGE_OBSERVED (never "never moved"); UNAVAILABLE if the card was unbound, a value
+  was unreadable, or the handle was detached, with no recognized move. Ancestors and other elements are ignored. No style
+  text, coordinates or ids leave the page.
   The combined words are informative, not exhaustive: in the component model, prevented with no observed move matches a
   no-move getter AND a preventer added after install (and anything unmodelled), so it is not attributed to either.
   `ann` is the last announcement for the moving id, including transient ones seen
@@ -189,7 +195,10 @@ prints them. It does not prove a cause.
   document, and early window-capture preventer; missing document and missing window delivery; event identity; the
   same-batch set-then-clear transform; identity, sibling and absent transforms; current-state transforms; detachment
   before and after a move; late freeze with listener counts; ttl removal of the document listener; and printed-word
-  privacy. `tests/selftest.mjs` runs it, so the existing job step covers it.
+  privacy. The moved correction adds negatives (custom properties as current and old values including `--transform`,
+  `transform: none`, malformed, non-finite and unsupported forms, quoted old text, ancestor and non-card transforms
+  including set-then-clear, unbound and sibling-handle layouts) and positives (property, attribute, scale suffix,
+  `0`/`0px` z, same-batch set-then-clear, a recognized move before an unreadable value). `tests/selftest.mjs` runs it, so the existing job step covers it.
 
 ## Playwright inventory classification
 
