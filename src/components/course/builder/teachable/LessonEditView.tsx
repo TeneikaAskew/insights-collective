@@ -1,10 +1,11 @@
 // ABOUTME: Teachable-style lesson editor — center content pane + right Outline + Add content panels.
-// ABOUTME: Wraps the existing LessonEditorPane for the content editing surface.
+// ABOUTME: Wraps LessonEditorPane; drafts and save state live in the builder's LessonSaveQueue.
 
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
 import type { ContentItem, ContentItemType } from '@/types/canvas';
-import { LessonEditorPane, type LessonDraft } from '../LessonEditorPane';
+import { LessonEditorPane } from '../LessonEditorPane';
+import { useLessonSaveState, type LessonSaveQueue } from '../lessonSaveQueue';
 import { AddContentPanel } from './AddContentPanel';
 import type { BuilderModule } from './types';
 import { TeachableBreadcrumb } from './TeachableBreadcrumb';
@@ -16,11 +17,13 @@ interface LessonEditViewProps {
   modules: BuilderModule[];
   currentItem: ContentItem | null;
   onSelectLesson: (lessonId: string) => void;
-  onSaveLesson: (id: string, draft: LessonDraft) => Promise<void> | void;
+  /** Builder-level save coordinator shared by every lesson in this course. */
+  saveQueue: LessonSaveQueue;
+  /** A lesson id was requested (deep link) but is not in this course. */
+  requestedLessonMissing?: boolean;
   onDeleteLesson: (id: string) => void;
   onTogglePublishLesson: (id: string, published: boolean) => void;
   onAddContent: (type: ContentItemType, defaultTitle: string, defaultContent?: string) => void;
-  onSavingChange?: (saving: boolean) => void;
 }
 
 export function LessonEditView({
@@ -29,21 +32,23 @@ export function LessonEditView({
   modules,
   currentItem,
   onSelectLesson,
-  onSaveLesson,
+  saveQueue,
+  requestedLessonMissing = false,
   onDeleteLesson,
   onTogglePublishLesson,
   onAddContent,
-  onSavingChange,
 }: LessonEditViewProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const saveState = useLessonSaveState(saveQueue, currentItem?.id);
+  const shownTitle = saveState?.draft.title ?? currentItem?.title;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-[1400px] mx-auto">
       <TeachableBreadcrumb
         courseId={courseId}
         courseTitle={courseTitle}
-        current={currentItem?.title}
+        current={shownTitle}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 mt-3">
@@ -52,7 +57,7 @@ export function LessonEditView({
           <div className="rounded-xl bg-card overflow-hidden border border-border">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h3 className="font-display text-2xl truncate">
-                {currentItem?.title || 'Select a lesson'}
+                {currentItem ? shownTitle || 'Untitled lesson' : 'Select a lesson'}
               </h3>
               {currentItem && (
                 <div className="flex items-center gap-2">
@@ -111,8 +116,7 @@ export function LessonEditView({
                   return (
                     <LessonEditorPane
                       item={currentItem}
-                      onSave={onSaveLesson}
-                      onSavingChange={onSavingChange}
+                      saveQueue={saveQueue}
                       aiContext={{
                         courseTitle,
                         sectionTitle: parentModule?.title,
@@ -123,8 +127,13 @@ export function LessonEditView({
                   );
                 })()
               ) : (
-                <div className="text-center py-20 text-sm text-muted-foreground">
-                  Pick a lesson from the outline or add one from the panel to the right.
+                <div
+                  className="text-center py-20 text-sm text-muted-foreground"
+                  role={requestedLessonMissing ? 'alert' : undefined}
+                >
+                  {requestedLessonMissing
+                    ? 'The lesson in this link was not found in this course. It may have been deleted. Pick a lesson from the outline.'
+                    : 'Pick a lesson from the outline or add one from the panel to the right.'}
                 </div>
               )}
             </div>
