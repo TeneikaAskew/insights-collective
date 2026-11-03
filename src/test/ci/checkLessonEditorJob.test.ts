@@ -10,7 +10,7 @@ import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { laneProblems, LE_PROJECTS } from '../../../scripts/e2e/gb-launch-binding';
 import { E1_IDENTITY, e1Result, lines, readPrivateBounded, SETUP_CODES, setupFacts, SETUP_STAGES } from '../../../scripts/e2e/le-e1-summary.mjs';
-import { classifyEacces, REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
+import { capsWhen, classifyEacces, REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -381,5 +381,33 @@ describe('le-owned-procs scanner (fake /proc; nothing is written or probed)', ()
     expect(scanOwned('0123456789abcdef0123456789abcdef', { fsImpl, uid: 1000, self: 1 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES_CAPS' });
     const noStatus = { ...fsImpl, readFileSync: (p: string) => { throw Object.assign(new Error('x'), { code: p.endsWith('/environ') ? 'EACCES' : 'EACCES' }); } } as unknown as typeof import('node:fs');
     expect(scanOwned('0123456789abcdef0123456789abcdef', { fsImpl: noStatus, uid: 1000, self: 1 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES' });
+  });
+  it('refines CAPS by start time against the token mtime only, never changing the fail-closed answer', () => {
+    const stat = (ticks: string) => `42 (SECRET name) S 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 ${ticks} 0 0`;
+    const procStat = 'cpu 1 2 3\nbtime 1000\n';
+    // btime 1000 s; ticks/100 s after boot
+    expect(capsWhen(stat('100'), procStat, 1_005_000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS_PRE'); // 1001 s vs 1005 s
+    expect(capsWhen(stat('450'), procStat, 1_005_000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS_DURING'); // 1004.5 s, inside the 1 s margin
+    expect(capsWhen(stat('900'), procStat, 1_005_000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS_DURING');
+    expect(capsWhen(stat('x'), procStat, 1_005_000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS');
+    expect(capsWhen(stat('100'), 'no btime', 1_005_000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS');
+    expect(capsWhen(stat('100'), procStat, undefined as unknown as number)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS');
+    for (const c of ['CAPS_PRE', 'CAPS_DURING']) expect(REASONS).toContain(`LE_PROCS_E_ENVIRON_EACCES_${c}`);
+    const me = 'Uid:\t1000\t1000\t1000\t1000\nCapPrm:\t0000000000000000\n';
+    const fsImpl = {
+      readdirSync: () => ['10'],
+      statSync: () => ({ uid: 1000 }),
+      readFileSync: (p: string) => {
+        if (p.endsWith('/environ')) throw Object.assign(new Error('x'), { code: 'EACCES' });
+        if (p.includes('/self/')) return me;
+        if (p.endsWith('/10/status')) return 'Uid:\t1000\t1000\t1000\t1000\nCapPrm:\t0000000000002000\nNSpid:\t10\n';
+        if (p.endsWith('/10/stat')) return stat('100');
+        if (p.endsWith('/stat')) return procStat;
+        throw new Error('unexpected');
+      },
+    } as unknown as typeof import('node:fs');
+    const T = '0123456789abcdef0123456789abcdef';
+    expect(scanOwned(T, { fsImpl, uid: 1000, self: 1, sinceMs: 1_005_000 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES_CAPS_PRE' });
+    expect(scanOwned(T, { fsImpl, uid: 1000, self: 1 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES_CAPS' });
   });
 });

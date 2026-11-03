@@ -21,7 +21,8 @@ const TOKEN = /^[0-9a-f]{32}$/;
 /** The only lines the CLI may print (on exit 3). */
 export const REASONS = Object.freeze(['LE_PROCS_E_TOKEN', 'LE_PROCS_E_PROCDIR', 'LE_PROCS_E_STAT', 'LE_PROCS_E_ENVIRON_EACCES',
   'LE_PROCS_E_ENVIRON_EPERM', 'LE_PROCS_E_ENVIRON_OTHER', 'LE_PROCS_E_UNCLASSIFIED',
-  'LE_PROCS_E_ENVIRON_EACCES_UIDMIX', 'LE_PROCS_E_ENVIRON_EACCES_CAPS', 'LE_PROCS_E_ENVIRON_EACCES_NSPID', 'LE_PROCS_E_ENVIRON_EACCES_PLAIN']);
+  'LE_PROCS_E_ENVIRON_EACCES_UIDMIX', 'LE_PROCS_E_ENVIRON_EACCES_CAPS', 'LE_PROCS_E_ENVIRON_EACCES_NSPID', 'LE_PROCS_E_ENVIRON_EACCES_PLAIN',
+  'LE_PROCS_E_ENVIRON_EACCES_CAPS_PRE', 'LE_PROCS_E_ENVIRON_EACCES_CAPS_DURING']);
 const environCode = (e) => (e && e.code === 'EACCES' ? 'LE_PROCS_E_ENVIRON_EACCES' : e && e.code === 'EPERM' ? 'LE_PROCS_E_ENVIRON_EPERM' : 'LE_PROCS_E_ENVIRON_OTHER');
 
 /**
@@ -43,11 +44,29 @@ export function classifyEacces(statusText, selfStatusText, uid) {
   return 'LE_PROCS_E_ENVIRON_EACCES_PLAIN';
 }
 
+/** USER_HZ: the kernel always reports /proc/<pid>/stat starttime in 1/100 s ticks to userspace on Linux. */
+const USER_HZ = 100;
+/**
+ * Diagnostic only (run 41691596496: CAPS). Refines CAPS by WHEN the unreadable process started relative to the run token
+ * file's mtime (written before any lane process starts): PRE = started more than one second before it (cannot have
+ * inherited this run's marker), DURING = otherwise. Reads only btime from /proc/stat and starttime from /proc/<pid>/stat.
+ * Any unreadable or malformed input keeps plain CAPS. It never changes the answer: the scan still returns error.
+ */
+export function capsWhen(pidStatText, procStatText, sinceMs) {
+  if (!Number.isFinite(sinceMs)) return 'LE_PROCS_E_ENVIRON_EACCES_CAPS';
+  const rest = String(pidStatText).slice(String(pidStatText).lastIndexOf(')') + 2).split(' ');
+  const ticks = rest[19];
+  const bt = (String(procStatText).split('\n').find((l) => l.startsWith('btime ')) ?? '').slice(6).trim();
+  if (!/^[0-9]{1,15}$/.test(ticks ?? '') || !/^[0-9]{1,12}$/.test(bt)) return 'LE_PROCS_E_ENVIRON_EACCES_CAPS';
+  const startMs = Number(bt) * 1000 + (Number(ticks) * 1000) / USER_HZ;
+  return startMs < sinceMs - 1000 ? 'LE_PROCS_E_ENVIRON_EACCES_CAPS_PRE' : 'LE_PROCS_E_ENVIRON_EACCES_CAPS_DURING';
+}
+
 /**
  * Count live processes of uid whose environment holds exactly MARKER=token. Returns { count } or { error: true, code }.
  * fsImpl and procRoot are injectable so selftests drive every branch without a real process table.
  */
-export function scanOwned(token, { procRoot = '/proc', fsImpl = fs, uid = process.getuid(), self = process.pid } = {}) {
+export function scanOwned(token, { procRoot = '/proc', fsImpl = fs, uid = process.getuid(), self = process.pid, sinceMs } = {}) {
   if (!TOKEN.test(String(token))) return { error: true, code: 'LE_PROCS_E_TOKEN' };
   const want = Buffer.from(`${MARKER}=${token}`);
   let names;
@@ -63,6 +82,9 @@ export function scanOwned(token, { procRoot = '/proc', fsImpl = fs, uid = proces
       let code = environCode(e);
       if (code === 'LE_PROCS_E_ENVIRON_EACCES') {
         try { code = classifyEacces(fsImpl.readFileSync(path.join(procRoot, n, 'status'), 'utf8'), fsImpl.readFileSync(path.join(procRoot, 'self', 'status'), 'utf8'), uid); } catch { /* keep plain EACCES */ }
+        if (code === 'LE_PROCS_E_ENVIRON_EACCES_CAPS') {
+          try { code = capsWhen(fsImpl.readFileSync(path.join(procRoot, n, 'stat'), 'utf8'), fsImpl.readFileSync(path.join(procRoot, 'stat'), 'utf8'), sinceMs); } catch { /* keep plain CAPS */ }
+        }
       }
       return { error: true, code };
     }
@@ -86,7 +108,9 @@ if (process.argv[1] && /le-owned-procs\.mjs$/.test(process.argv[1])) {
       const t = readPrivateBounded(args[0], { max: 64 });
       if (!t.ok) reason = 'LE_PROCS_E_TOKEN';
       else {
-        const r = scanOwned(t.text.trim());
+        let sinceMs;
+        try { sinceMs = fs.statSync(args[0]).mtimeMs; } catch { sinceMs = undefined; }
+        const r = scanOwned(t.text.trim(), { sinceMs });
         if (!r.error) code = r.count > 0 ? 0 : 1;
         else if (REASONS.includes(r.code)) reason = r.code;
       }
