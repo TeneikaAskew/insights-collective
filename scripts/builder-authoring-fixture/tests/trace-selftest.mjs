@@ -221,12 +221,14 @@ ok('a recorder that hit an error reports RECORDER_ERROR with every field UNAVAIL
   for (const k of R1_TRACE_ORDER.slice(1)) assert.equal(f[k], 'UNAVAILABLE');
 });
 ok('hostile or malformed snapshots are READ_FAILED, valid-but-not-installed is NOT_INSTALLED', () => {
-  const good = { v: 2, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED', dropSeen: false,
+  const good = { v: 3, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'PICKED', dropSeen: false,
     otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
   assert.ok(validSnapshot(good)); assert.equal(r1TraceFields(true, good).ctx, 'LIVE'); assert.equal(r1TraceFields(false, good).ctx, 'NOT_INSTALLED');
-  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 3 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
+  const bad = [null, [], 'x', 5, { ...good, extra: 1 }, (({ v, ...r }) => r)(good), { ...good, v: 4 }, { ...good, keys: 'SASX' }, { ...good, keys: 'sas' },
     { ...good, onHandle: 100 }, { ...good, onHandle: -1 }, { ...good, onHandle: 1.5 }, { ...good, annLast: '__proto__' }, { ...good, annLast: 'UNAVAILABLE' },
-    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 2 }), good), { ...good, v: 1 }, { ...good, regionsSeen: 100 }];
+    { ...good, annLast: 'VERDICT PASS' }, { ...good, firstSpacePrevented: 'yes' }, { ...good, dropSeen: 1 }, Object.assign(Object.create({ v: 3 }), good), { ...good, v: 2 }, { ...good, regionsSeen: 100 },
+    { ...good, arrowCapture: null, arrowBubble: true }, { ...good, arrowCapture: null, arrowDocument: false }, { ...good, arrowCapture: 'no' },
+    { ...good, arrowDocument: 0 }, { ...good, arrowBubble: 'x' }, { ...good, movedEver: null }];
   for (const b of bad) assert.equal(r1TraceFields(true, b).ctx, 'READ_FAILED', JSON.stringify(b)?.slice(0, 40));
 });
 
@@ -356,13 +358,13 @@ ok('(D) the bounded read: OK, rejected, thrown, pending and late outcomes, each 
   assert.deepEqual({ ...pending }, { state: 'TIMEOUT', snap: null }); assert.ok(Date.now() - t0 < 1000);
   let lateResolve; const lateP = new Promise((r) => { lateResolve = r; });
   const late = await settleR1Read(() => lateP, 20);
-  lateResolve({ v: 2 }); await tick();
+  lateResolve({ v: 3 }); await tick();
   assert.equal(late.state, 'TIMEOUT'); assert.equal(late.snap, null); assert.ok(Object.isFrozen(late));
   let lateReject; const lateR = new Promise((_, r) => { lateReject = r; });
   const lr = await settleR1Read(() => lateR, 20); lateReject(new Error('late')); await tick();
   assert.equal(lr.state, 'TIMEOUT');
   // reducer: TIMEOUT and REJECTED never read the snapshot, even a valid one
-  const good = { v: 2, regionsSeen: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'DROP_TARGET', dropSeen: true,
+  const good = { v: 3, regionsSeen: 1, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'DROP_TARGET', dropSeen: true,
     otherText: 0, pressedEver: true, pressedAtEnd: false, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 };
   assert.equal(r1TraceFields(true, good, 'TIMEOUT').ctx, 'READ_TIMEOUT'); assert.equal(r1TraceFields(true, good, 'REJECTED').ctx, 'READ_FAILED');
   assert.equal(r1TraceFields(true, good, 'EVIL').ctx, 'READ_FAILED'); assert.equal(r1TraceFields(true, good).ctx, 'LIVE');
@@ -397,7 +399,7 @@ const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: 
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const r1 = (t, p) => t[INVENTORY.findIndex((x) => x.project === p && x.case === 'R1')];
 ok('summary prints R1TRACE from list constants; absent, duplicate and hostile annotations print a fixed state; verdict unchanged', () => {
-  const desc = r1TraceDescription(true, { v: 2, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, annLast: 'PICKED',
+  const desc = r1TraceDescription(true, { v: 3, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, annLast: 'PICKED',
     dropSeen: false, otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 });
   const t = goodTests();
   r1(t, 'ba-1440').results[0].annotations = [{ type: R1_TRACE_ANNOTATION, description: desc }];
@@ -415,6 +417,96 @@ ok('summary prints R1TRACE from list constants; absent, duplicate and hostile an
   // unattempted R1 entries print no trace line
   const t3 = goodTests(); r1(t3, 'ba-768').results = []; r1(t3, 'ba-768').status = 'skipped';
   assert.ok(!summarizeReport(report(t3), 1).lines.some((l) => l.startsWith('R1TRACE project=ba-768')));
+});
+
+// ---- batch 2: the same ArrowDown at three points, and observed card translation ----
+const AP = (f) => [f.arrow_capture, f.arrow_document, f.arrow_bubble];
+const preventArrow = (e) => { if (e.code === 'ArrowDown') e.preventDefault(); };
+ok('(B2) three points read the SAME first ArrowDown: no preventer, in-path, early document, late document, early window capture', async () => {
+  let r = await run(page(), (q) => three(q));
+  assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_PREVENTED', 'NOT_PREVENTED']);
+  let p = page(); p.$('#card').addEventListener('keydown', preventArrow);             // target-path handler
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'PREVENTED', 'PREVENTED']);
+  p = page(); p.w.document.addEventListener('keydown', preventArrow);                 // document listener added BEFORE install
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'PREVENTED', 'PREVENTED']);
+  p = page();                                                                         // document listener added AFTER install
+  r = await run(p, (q) => { q.w.document.addEventListener('keydown', preventArrow); three(q); });
+  assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_PREVENTED', 'PREVENTED']);
+  p = page(); p.w.addEventListener('keydown', preventArrow, true);                    // window capture listener added BEFORE install
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['PREVENTED', 'PREVENTED', 'PREVENTED']);
+});
+ok('(B2) missing document delivery and missing window delivery are NOT_DELIVERED, never a prevention word', async () => {
+  let p = page(); p.$('#root').addEventListener('keydown', (e) => { if (e.code === 'ArrowDown') e.stopPropagation(); });
+  let r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_DELIVERED', 'NOT_DELIVERED']);
+  p = page(); p.w.document.addEventListener('keydown', (e) => { if (e.code === 'ArrowDown') e.stopImmediatePropagation(); });
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_DELIVERED', 'NOT_DELIVERED']);
+  p = page(); p.w.document.addEventListener('keydown', (e) => { if (e.code === 'ArrowDown') e.stopPropagation(); });  // same node still delivers
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_PREVENTED', 'NOT_DELIVERED']);
+  p = page(); p.$('#root').addEventListener('keydown', (e) => { if (e.code === 'ArrowDown') { e.preventDefault(); e.stopPropagation(); } });
+  r = await run(p, (q) => three(q)); assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_DELIVERED', 'NOT_DELIVERED']);
+});
+ok('(B2) event identity: a later ArrowDown never stands in for the first; no ArrowDown at all is UNAVAILABLE', async () => {
+  const p = page(); let left = 1;
+  p.$('#root').addEventListener('keydown', (e) => { if (e.code === 'ArrowDown' && left > 0) { left -= 1; e.stopPropagation(); } });
+  p.$('#card').addEventListener('keydown', preventArrow);
+  let r = await run(p, (q) => { q.key(q.h(), 'Space'); q.key(q.h(), 'ArrowDown'); q.key(q.h(), 'ArrowDown'); q.key(q.h(), 'Space'); });
+  assert.deepEqual(AP(r.f), ['NOT_PREVENTED', 'NOT_DELIVERED', 'NOT_DELIVERED']);
+  r = await run(page(), (q) => { q.key(q.h(), 'Space'); q.key(q.h(), 'Space'); });
+  assert.deepEqual(AP(r.f), ['UNAVAILABLE', 'UNAVAILABLE', 'UNAVAILABLE']);
+});
+const MOVE = 'translate3d(0px, 140px, 0px) scaleX(1) scaleY(1)';
+ok('(B2) moved: set then cleared in the SAME mutation batch is MOVED (old value); identity / sibling / none is NO_CHANGE_OBSERVED', async () => {
+  let r = await run(page(), (q) => { const c = q.$('#card'); c.style.transform = MOVE; c.style.transform = ''; });
+  assert.equal(r.f.moved, 'MOVED');
+  r = await run(page(), (q) => { const c = q.$('#card'); c.setAttribute('style', `transform: ${MOVE}`); c.removeAttribute('style'); });
+  assert.equal(r.f.moved, 'MOVED');
+  r = await run(page(), (q) => { q.$('#card').style.transform = 'translate3d(0px, 0px, 0px) scaleX(1) scaleY(1)'; });
+  assert.equal(r.f.moved, 'NO_CHANGE_OBSERVED');
+  r = await run(page(), (q) => { q.$('ul').style.transform = MOVE; });                // not the handle or an ancestor of it
+  assert.equal(r.f.moved, 'NO_CHANGE_OBSERVED');
+  r = await run(page(), (q) => three(q));
+  assert.equal(r.f.moved, 'NO_CHANGE_OBSERVED');
+});
+ok('(B2) moved: current state counts (already translated at install, or still translated at read)', async () => {
+  let p = page(); p.$('#card').style.transform = MOVE;
+  let r = await run(p, (q) => three(q)); assert.equal(r.f.moved, 'MOVED');
+  p = page(); assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
+  p.$('#card').style.transform = MOVE;                                               // read flushes the pending record
+  const snap = p.read(); assert.equal(r1TraceFields(true, snap).moved, 'MOVED');
+});
+ok('(B2) detachment: no move seen before the handle left is UNAVAILABLE; a move seen first stays MOVED', async () => {
+  let r = await run(page(), (q) => { q.h().remove(); });
+  assert.equal(r.f.moved, 'UNAVAILABLE');
+  r = await run(page(), (q) => { q.$('#card').style.transform = MOVE; return tick().then(() => q.$('#card').remove()); });
+  assert.equal(r.f.moved, 'MOVED');
+});
+ok('(B2) late freeze: after the read, ArrowDown and transforms change nothing and every window/document listener is gone', async () => {
+  const p = page(); const doc = p.w.document; let dAdd = 0, dRemove = 0;
+  const oa = doc.addEventListener.bind(doc), or = doc.removeEventListener.bind(doc);
+  doc.addEventListener = (...a) => { if (a[0] === 'keydown') dAdd += 1; return oa(...a); };
+  doc.removeEventListener = (...a) => { if (a[0] === 'keydown') dRemove += 1; return or(...a); };
+  assert.equal(p.install(p.h(), ARGS), 'INSTALLED');
+  p.key(p.h(), 'Space');
+  const snap = p.read(); const before = JSON.stringify(snap);
+  p.$('#card').addEventListener('keydown', preventArrow); p.key(p.h(), 'ArrowDown'); p.$('#card').style.transform = MOVE; await tick();
+  assert.equal(JSON.stringify(snap), before);
+  const f = r1TraceFields(true, snap); assert.deepEqual([...AP(f), f.moved], ['UNAVAILABLE', 'UNAVAILABLE', 'UNAVAILABLE', 'NO_CHANGE_OBSERVED']);
+  assert.equal(dAdd, 1); assert.equal(dRemove, 1); assert.equal(p.counts.add, p.counts.remove);
+  assert.equal(p.read(), null);
+});
+ok('(B2) ttl self-expiry also removes the document listener', async () => {
+  const p = page(); const doc = p.w.document; let dRemove = 0;
+  const or = doc.removeEventListener.bind(doc); doc.removeEventListener = (...a) => { if (a[0] === 'keydown') dRemove += 1; return or(...a); };
+  assert.equal(p.install(p.h(), { ...ARGS, ttlMs: 20 }), 'INSTALLED');
+  await new Promise((r) => setTimeout(r, 60));
+  assert.equal(dRemove, 1); assert.equal(p.read(), null);
+});
+ok('(B2) printed words carry no cause names, ids, coordinates or style text', async () => {
+  const p = page(); p.$('#card').addEventListener('keydown', preventArrow);
+  const { d } = await run(p, (q) => { q.$('#card').style.transform = MOVE; three(q); });
+  assert.match(d, /^ctx=LIVE keys=ALL_ON_HANDLE first_space=\S+ arrow_capture=NOT_PREVENTED arrow_document=PREVENTED arrow_bubble=PREVENTED moved=MOVED /);
+  for (const bad of [M, T, 'px', 'translate', 'K', 'U=', 'S=', 'SENSOR', 'GETTER', 'SCROLL_BRANCH', 'GEOMETRY']) assert.ok(!d.split(' ').some((w) => w.split('=')[1]?.includes(bad)), bad);
+  for (const k of R1_TRACE_ORDER) assert.ok(R1_TRACE_FIELDS[k].every((w) => /^[A-Z_]+$/.test(w)), k);
 });
 
 // ---- source wiring ----
