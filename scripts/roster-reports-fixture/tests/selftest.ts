@@ -757,6 +757,58 @@ const afterPw = code.slice(at(/playwright test/));
 ok(!/refuse /.test(afterPw), 'run.sh: nothing after Playwright refuses (post witness, compare and cleanup always run)');
 ok(!/RR_POLICY_LOG/.test(code) && /POLICY_LOG="\$PARENT\/session\/policy\.jsonl"\n: > "\$POLICY_LOG"; chmod 600 "\$POLICY_LOG"/.test(code), 'run.sh: creates the empty 0600 sink at the fixed path; no env names the file');
 ok(/\[ "\$\{PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-\}" = "\$GB_SHELL_PATH" \]/.test(code) && /\[ -n "\$\{GB_SHELL_PATH:-\}" \]/.test(code), 'run.sh: pinned shell bound and non-empty');
+// 9b. EXIT trap and cleanup, behavioural (run 41623433467: all lines PASS, exit 1). The REAL cleanup/on_exit/trap block is
+// taken verbatim from run.sh and run under bash -euo pipefail in a fresh owned mkdtemp root with a fake tail: step 9 is
+// 'cleanup || true' plus the independent absence check, then 'exit RC'. A real removal failure is simulated with a shell
+// function rm. No service, no network, no file outside the owned root.
+{
+  const defs = /^cleanup\(\) \{[\s\S]*?^trap [^\n]*\n/m.exec(run)?.[0] ?? '';
+  ok(/^trap on_exit EXIT$/m.test(defs) && /^on_exit\(\) \{/m.test(defs), 'trap: run.sh installs on_exit (status-preserving), not bare cleanup');
+  const TAIL = String.raw`
+exec 2>&1; set -euo pipefail; umask 077; TMPROOT="$1"; SCEN="$2"
+PARENT="$(mktemp -d "$TMPROOT/rr-run.XXXXXXXXXX")"; mkdir -m 700 "$PARENT/raw"; : > "$PARENT/raw/x"
+OUTSIDE="$TMPROOT/outside-dir"; mkdir -p "$OUTSIDE"; : > "$OUTSIDE/keep"
+eval "$DEFS"
+step9() { cleanup || true; if [ -e "$PARENT" ] || [ -L "$PARENT" ]; then echo "PRIVATE STILL_PRESENT verdict=FAIL"; else echo "PRIVATE REMOVED verdict=PASS"; fi; }
+case "$SCEN" in
+  exit0) step9; exit 0 ;;
+  exit5) step9; exit 5 ;;
+  already-absent) rm -rf -- "$PARENT"; exit 0 ;;
+  early-refuse3) exit 3 ;;
+  rm-fails-exit0) rm() { return 1; }; exit 0 ;;
+  rm-fails-exit5) rm() { return 1; }; exit 5 ;;
+  unsafe-shape) rm -rf -- "$PARENT"; PARENT="$OUTSIDE"; exit 0 ;;
+  unsafe-symlink) rm -rf -- "$PARENT"; ln -s "$OUTSIDE" "$PARENT"; exit 0 ;;
+  step9-rm-fails-exit5) rm() { echo "SYNTHETIC_PRIVATE_PATH $PARENT" >&2; return 1; }; step9; exit 5 ;;
+esac`;
+  const FAILED = 'PRIVATE TRAP_CLEANUP_FAILED verdict=FAIL';
+  const tail = (d: string, scen: string) => {
+    const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rr-trap-'));
+    try {
+      let rc = 0; let out = '';
+      try { out = execFileSync('bash', ['-c', TAIL, 'rr-trap', root, scen], { env: { PATH: process.env.PATH ?? '/usr/bin:/bin', DEFS: d }, stdio: ['ignore', 'pipe', 'pipe'] }).toString(); }
+      catch (e) { const x = e as { status: number; stdout: Buffer }; rc = x.status; out = String(x.stdout ?? ''); }
+      const left = fs.readdirSync(root).filter((n) => n.startsWith('rr-run.')).length;
+      return { rc, out: out.trim().split('\n').filter(Boolean), left, outsideIntact: fs.existsSync(path.join(root, 'outside-dir', 'keep')) };
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  };
+  const want: [string, number, number, string[]][] = [
+    ['exit0', 0, 0, ['PRIVATE REMOVED verdict=PASS']], ['exit5', 5, 0, ['PRIVATE REMOVED verdict=PASS']], ['already-absent', 0, 0, []], ['early-refuse3', 3, 0, []],
+    ['rm-fails-exit0', 9, 1, [FAILED]], ['rm-fails-exit5', 5, 1, [FAILED]], ['unsafe-shape', 9, 0, [FAILED]], ['unsafe-symlink', 9, 1, [FAILED]],
+    // Normal step 9 removal failure, stdout and stderr merged as run.sh's 2>&1: the rm's private-path stderr never appears,
+    // step 9 reports STILL_PRESENT, the trap adds its fixed line, and the primary status 5 is kept.
+    ['step9-rm-fails-exit5', 5, 1, ['PRIVATE STILL_PRESENT verdict=FAIL', FAILED]]];
+  for (const [scen, rc, left, lines] of want) {
+    const r = tail(defs, scen);
+    ok(r.rc === rc && r.left === left && r.outsideIntact && JSON.stringify(r.out) === JSON.stringify(lines), `trap tail ${scen}: exit ${rc}, rr-run left ${left}, outside intact, lines ${JSON.stringify(lines)} (got exit ${r.rc} left ${r.left} intact ${r.outsideIntact} ${JSON.stringify(r.out)})`);
+  }
+  ok(STAGE.test(FAILED) && LINE.test(FAILED) && !/[/\\]|eyJ|password|secret|=\//i.test(FAILED), 'trap: the cleanup-failure line is stageable and carries no path or credential shape');
+  ok(/^\s*cleanup 2>\/dev\/null \|\| c=\$\?$/m.test(defs), 'trap: cleanup stderr (which can name paths) is not emitted from the trap');
+  ok(/^\s*rm -rf -- "\$PARENT" 2>\/dev\/null$/m.test(defs) && (defs.match(/\brm -rf\b/g) ?? []).length === 1, 'cleanup: its one rm discards stderr centrally (step 9 and trap alike); the status is kept');
+  // OLD control: the 64c4a67 definitions under the same tail give exit 1 for requested 0 and 5 (the run's defect).
+  const OLD = 'cleanup() { case "$PARENT" in "$TMPROOT"/rr-run.??????????) [ -d "$PARENT" ] && [ ! -L "$PARENT" ] && rm -rf -- "$PARENT" ;; esac; }\ntrap cleanup EXIT\n';
+  ok(tail(OLD, 'exit0').rc === 1 && tail(OLD, 'exit5').rc === 1, 'trap OLD control: the previous definitions turn exit 0 and exit 5 into 1 (defect reproduced)');
+}
 const pins = read('scripts/roster-reports-fixture/PINS.txt');
 const pinned = [...pins.matchAll(/^[0-9a-f]{64} {2}(\S+)$/gm)].map((m) => m[1]);
 ok(pinned.length === 11 && pinned.every((f) => code.includes(f)), 'run.sh checks every pinned helper');

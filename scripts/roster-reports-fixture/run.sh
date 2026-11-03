@@ -9,7 +9,8 @@
 # Order (before ANY fixture write): helper pins, D1 constant equality, guards, served-app gate, pinned shell, private dirs,
 #   D1 verify; then the 1-row carrier, its DSN and anon-API readback, and only then the seed. After the seed: witness
 #   (exact projection), Playwright, summary, witness again, compare, private cleanup with verified absence, inventory.
-# Exit: the first failing code wins (Playwright's own nonzero exit is preserved); every collect step still runs.
+# Exit: the first failing code wins (Playwright's own nonzero exit is preserved); every collect step still runs. 9 = the
+#   EXIT-trap cleanup failed on an otherwise successful run.
 # Streams: raw stdout/stderr stay in one private 0700 parent; the evidence dir gets fixed-enum summary lines only, each
 #   matching the job's staging grammar (summary.mjs LINE). The parent is "$RUNNER_TEMP"/rr-run.XXXXXXXXXX, the shape the
 #   job's always() step also removes.
@@ -44,8 +45,26 @@ node "$ROOT/scripts/e2e/assert-safe-target.mjs" --mutating >/dev/null 2>&1 || re
 # 2. One fresh private parent, validated (real dir, this user, 0700); the trap removes exactly it.
 TMPROOT="$(cd "${RUNNER_TEMP:-${TMPDIR:-/tmp}}" && pwd -P)"
 PARENT="$(mktemp -d "$TMPROOT/rr-run.XXXXXXXXXX")" || refuse RR_E_DIRS
-cleanup() { case "$PARENT" in "$TMPROOT"/rr-run.??????????) [ -d "$PARENT" ] && [ ! -L "$PARENT" ] && rm -rf -- "$PARENT" ;; esac; }
-trap cleanup EXIT
+# cleanup is idempotent: an already-absent parent is success (step 9 removes it, then the EXIT trap runs it again). An
+# unsafe parent (wrong shape, symlink, not a directory) is refused nonzero and never removed; a real rm failure is nonzero.
+# rm's stderr (it can name private paths) is discarded HERE, for step 9 and the trap alike; its exit status is kept.
+cleanup() {
+  case "$PARENT" in "$TMPROOT"/rr-run.??????????) ;; *) return 2 ;; esac
+  [ ! -L "$PARENT" ] || return 2
+  [ -e "$PARENT" ] || return 0
+  [ -d "$PARENT" ] || return 2
+  rm -rf -- "$PARENT" 2>/dev/null
+}
+# The trap keeps the script's own exit status (the first failure, or 0). A cleanup failure is surfaced as ONE fixed
+# stdout line (no path, no stderr) and turns only a 0 into 9; it never replaces an earlier nonzero code. Without this,
+# set -e in the trap turned exit 0 and exit 5 alike into exit 1.
+on_exit() {
+  local st=$? c=0
+  cleanup 2>/dev/null || c=$?
+  if [ "$c" -ne 0 ]; then echo "PRIVATE TRAP_CLEANUP_FAILED verdict=FAIL"; [ "$st" -ne 0 ] || st=9; fi
+  exit "$st"
+}
+trap on_exit EXIT
 private_ok() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u %a' -- "$1")" = "$(id -u) 700" ]; }
 chmod 700 "$PARENT"; private_ok "$PARENT" || refuse RR_E_DIRS
 mkdir -m 700 "$PARENT/raw" "$PARENT/session" "$PARENT/psql" || refuse RR_E_DIRS
