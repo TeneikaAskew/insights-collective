@@ -13,6 +13,7 @@ import { newGuardedContext } from '../gradebook-roles/origin-guard.mjs';
 import { installRequestPolicy } from './request-policy.mjs';
 import { actorOf, appendTelemetry, sinkPath } from './actors.mjs';
 import { RR } from './expected';
+import { writePrivateFile } from '../gradebook-roles/journey/private-dir.mjs';
 
 export const ROLES = {
   admin: 'e2e-admin@insightscollective.org',
@@ -69,8 +70,10 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       await page.goto(app.origin, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2_000);
       await policy.drain();
-      const state = await context.storageState({ path: path.join(dir, `${role}.json`) });
-      fs.chmodSync(path.join(dir, `${role}.json`), 0o600);
+      // Qualified exclusive private writer (gradebook journey private-dir.mjs, reused unchanged and pinned): O_CREAT|O_EXCL|
+      // O_NOFOLLOW at 0600, fixed codes; no Playwright path write followed by an after-the-fact chmod.
+      const state = await context.storageState();
+      writePrivateFile(dir, `${role}.json`, JSON.stringify(state));
       if (blocked.length) throw new Error(`roster-reports setup: ${blocked.length} request(s) to non-approved origins were blocked`);
       if (policy.forbidden.length) throw new Error(`roster-reports setup: ${policy.forbidden.length} forbidden API request(s) were aborted before send`);
       if ([...origins].some((o) => o !== api.origin) || !origins.has(api.origin)) throw new Error('roster-reports setup: app -> API association unproven');

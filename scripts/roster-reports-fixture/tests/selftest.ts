@@ -9,7 +9,7 @@ import { classifyRequest, installRequestPolicy } from '../../../e2e/roster-repor
 import * as ActorsModule from '../../../e2e/roster-reports/actors.mjs';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE } from '../summary.mjs';
+import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE, readBounded } from '../summary.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -164,7 +164,7 @@ ok(!sp(rep([...cases.default, ['rr-admin', 'RR-Z9']]), 0).ok, 'summary: extra fa
 ok(!sp(rep(cases.default.slice(0, 5)), 0).ok, 'summary: all-pass subset fails');
 const oneFail = rep(cases.default); (oneFail.suites[0].specs[2].tests[0] as any).status = 'unexpected'; (oneFail.suites[0].specs[2].tests[0] as any).results = [{ errors: [{ message: 'forbidden API requests: POST' }] }];
 const of = sp(oneFail, 1);
-ok(!of.ok && of.lines.some((l) => /^CASE FAIL project=rr-[a-z-]+ case=RR-[A-Z]\d category=POLICY$/.test(l)), 'summary: failing case fails with its category');
+ok(!of.ok && of.lines.some((l) => /^CASE FAIL project=rr-[a-z-]+ case=RR-[A-Z]\d category=POLICY file=NONE?[a-z.-]* ?line=(NONE|\d+)$|^CASE FAIL project=rr-[a-z-]+ case=RR-[A-Z]\d category=POLICY file=[A-Za-z.-]+ line=(NONE|\d+)$/.test(l)), 'summary: failing case fails with its category');
 ok(!sp(rep(cases.default), 1).ok, 'summary: nonzero Playwright exit fails');
 ok(!sp(rep(cases.default, 'expected', { errors: [{ message: 'x' }] }), 0).ok, 'summary: global error fails');
 ok(!sp(rep(cases.default), 0, 'pending').ok && sp(rep([...cases.default, ...cases.pendingExtra]), 0, 'pending').ok, 'summary: pending variant needs RR-P1');
@@ -178,6 +178,48 @@ for (const [what, r] of [['pass', sp(rep(cases.default), 0)], ['omission', sp(re
   ['hostile names', sp(weird, 1)], ['pending', sp(rep([...cases.default, ...cases.pendingExtra]), 0, 'pending')], ['empty', sp({}, 'x')]] as const) {
   ok(stageable(r.lines), `summary lines stageable (${what})`);
 }
+
+// 7b. Output-field audit: hostile names never reach output, even names a regex would accept or a plain object would
+// resolve ('constructor' -> Object function). Every field comes from a fixed Map or is a computed integer.
+const hostile = ['private-marker-abc', 'constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf'];
+for (const h of hostile) {
+  const r1 = sp({ suites: [{ specs: [{ title: `${h} title`, tests: [{ projectName: h, status: h, results: [{ errors: [{ message: h, location: { file: `/x/${h}`, line: h } }] }] }] },
+    { title: `RR-I1 ${h}`, tests: [{ projectName: 'rr-instructor', status: 'unexpected', results: [{ errors: [{ message: h, location: { file: `/x/${h}.spec.ts`, line: 1e9 } }] }] }] }] }],
+    errors: [{ message: h, location: { file: h, line: -1 } }] }, h, h);
+  const out = r1.lines.join('\n');
+  ok(!r1.ok && !out.includes(h) && !/function|Object|\[object/.test(out) && stageable(r1.lines), `summary audit: '${h}' as project/status/title/file/line/exit/variant never printed`);
+}
+const loc = sp({ suites: [{ specs: [{ title: 'RR-I1 x', tests: [{ projectName: 'rr-instructor', status: 'unexpected', results: [{ errors: [{ message: 'expect(x).toHaveText', location: { file: '/w/e2e/roster-reports/instructor.spec.ts', line: 42 } }] }] }] }] }] }, 1);
+ok(loc.lines.includes('CASE FAIL project=rr-instructor case=RR-I1 category=ASSERTION file=instructor.spec.ts line=42'), 'summary: first error carries a pinned spec file and integer line (privacy-safe stage diagnostic)');
+ok(JSON.stringify([...new Set([...cases.default, ...cases.pendingExtra].map((c: string[]) => c[0]))].sort()) === JSON.stringify(['rr-admin', 'rr-error-pending', 'rr-instructor', 'rr-learner'])
+  && [...cases.default, ...cases.pendingExtra].every((c: string[]) => sp(rep([c]), 0).lines.some((l) => l === `CASE PASS project=${c[0]} case=${c[1]}`)), 'summary enums: every cases.json project and case is in the fixed maps');
+const sumSrc = read('scripts/roster-reports-fixture/summary.mjs').replace(/^\s*\/\/.*$/gm, '');
+ok(!/\$\{(t\.projectName|spec\.title|e\.message|variant|pwExit|loc\.file)\}/.test(sumSrc) && !/STATUS\[|PROJECTS\[|CASES\[/.test(sumSrc), 'summary source: no input string interpolated, no bracket lookup on an enum');
+
+// 7c. Reader controls (same-handle bounded reader): FIFO, symlink, mode, nlink, directory, oversize, missing.
+{
+  const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rr-reader-'));
+  try {
+    const f = (n: string, body = 'x\n', mode = 0o600) => { const p = path.join(dir, n); fs.writeFileSync(p, body, { mode }); fs.chmodSync(p, mode); return p; };
+    const rc = (fn: () => unknown) => { try { fn(); return 'OK'; } catch (e) { return String((e as Error).message); } };
+    const good = f('good');
+    ok(rc(() => readBounded(good, 64, { privateFile: true })) === 'OK' && readBounded(good, 64, { privateFile: true }) === 'x\n', 'reader: private 0600 regular file reads');
+    const fifo = path.join(dir, 'fifo'); execFileSync('mkfifo', ['-m', '600', fifo]);
+    ok(rc(() => readBounded(fifo, 64)) === 'SUMMARY_E_NOT_FILE', 'reader: FIFO refused without blocking (O_NONBLOCK)');
+    const link = path.join(dir, 'link'); fs.symlinkSync(good, link);
+    ok(rc(() => readBounded(link, 64)) === 'SUMMARY_E_NOT_FILE', 'reader: symlink refused at open (O_NOFOLLOW)');
+    ok(rc(() => readBounded(f('open', 'x\n', 0o644), 64, { privateFile: true })) === 'SUMMARY_E_PRIVATE_FILE', 'reader: private input with mode 0644 refused');
+    const hl = f('hl'); fs.linkSync(hl, path.join(dir, 'hl2'));
+    ok(rc(() => readBounded(hl, 64, { privateFile: true })) === 'SUMMARY_E_PRIVATE_FILE', 'reader: private input with nlink 2 refused');
+    ok(rc(() => readBounded(dir, 64)) === 'SUMMARY_E_NOT_FILE', 'reader: directory refused');
+    ok(rc(() => readBounded(f('big', 'y'.repeat(65)), 64)) === 'SUMMARY_E_TOO_LARGE', 'reader: oversize refused');
+    ok(rc(() => readBounded(path.join(dir, 'missing'), 64)) === 'SUMMARY_E_OPEN', 'reader: missing file refused with a fixed code');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  ok(!fs.existsSync(dir), 'reader scratch dir removed');
+}
+const runSrc = read('scripts/roster-reports-fixture/run.sh');
+ok(/summary\.mjs" witness "\$HERE\/expected-seed\.txt" "\$PRE" "\$PSQ\/witness-post\.txt" "\$POLICY_LOG"/.test(runSrc) && /summary\.mjs" playwright "\$RAW\/playwright\.json"/.test(runSrc), 'run.sh: summary inputs are the private files');
+ok(/psql_run\(\) \{ node "\$ROOT\/scripts\/gradebook-fixture\/journey\/private-psql\.mjs" run "\$PSQ" "\$1" "\$PSQ\/\$2"/.test(runSrc) && !/psql_run "[^"]*" "\$RAW/.test(runSrc), 'run.sh: every psql output is inside the private psql dir (private-psql refuses others)');
 
 // 8. compareWitness fakes.
 const expSeed = read('scripts/roster-reports-fixture/expected-seed.txt');
@@ -194,7 +236,10 @@ ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT course=x', tel(0, 0, 0)), '').
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 2, 1)), L2).ok, 'witness: telemetry delta mismatch fails');
 const post11 = W(expSeed, 'CERT none', tel(0, 1, 1));
 for (const [what, extra] of [['failed', rec('admin', 'failed')], ['pending', rec('member', 'pending')], ['unknown actor', rec('unknown', 'success')]] as const) {
-  ok(!compareWitness(expSeed, pre, post11, L2 + log([extra])).ok, `witness: a ${what} telemetry record fails even when deltas match`);
+  const r = compareWitness(expSeed, pre, post11, L2 + log([extra])) as { ok: boolean; verdict?: string; lines: string[] };
+  const want = what === 'unknown actor' ? 'FAIL' : 'INCOMPLETE';
+  ok(!r.ok && r.verdict === want && r.lines.includes(`WITNESS verdict=${want}`), `witness: a ${what} telemetry record is ${want}, never PASS, even when deltas match`);
+  if (want === 'INCOMPLETE') ok(r.lines.some((l) => /^WITNESS TELEMETRY_NONFATAL (FAILED|PENDING) count=1$/.test(l)), `witness: ${what} telemetry reported separately as non-fatal`);
 }
 ok(!compareWitness(expSeed, pre, post11, `${L2}{"rpc":"log_security_event","actor":"constructor","status":"success"}\n`).ok, 'witness: non-enum actor line is malformed and fails');
 ok(!compareWitness(expSeed, pre, post11, `${L2}{"rpc":"log_security_event","actor":"admin","status":"success","x":1}\n`).ok, 'witness: extra field is malformed and fails');
@@ -202,6 +247,24 @@ ok(!compareWitness(expSeed, pre, post11, L2.slice(0, -1)).ok, 'witness: a sink w
 ok(!compareWitness(expSeed, pre, post11, log([rec('instructor', 'success')])).ok, 'witness: a delta with no observation (missing) fails');
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 0)), L2).ok, 'witness: an observation with no delta fails');
 ok(compareWitness(expSeed, pre, pre, '').ok, 'witness: no telemetry and no delta passes (empty sink)');
+{
+  const inc = compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 2, 1)), L2 + log([rec('instructor', 'failed')])) as { verdict?: string };
+  ok(inc.verdict === 'FAIL', 'witness: a failed call that still wrote a row (delta > successes) is a MISMATCH -> FAIL, not explained');
+  ok(compareWitness(expSeed, pre, post11, L2).lines.includes('WITNESS TELEMETRY_PROOF scope=counts_per_actor identity=NOT_PROVEN'), 'witness: discloses counts are not event-identity proof');
+}
+const sumCli = (args: string[]) => { try { execFileSync('node', [path.join(ROOT, 'scripts/roster-reports-fixture/summary.mjs'), ...args], { stdio: 'pipe' }); return 0; } catch (e) { return (e as { status: number }).status; } };
+{
+  const d = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rr-cli-'));
+  try {
+    const w = (n: string, t: string) => { const p = path.join(d, n); fs.writeFileSync(p, t, { mode: 0o600 }); fs.chmodSync(p, 0o600); return p; };
+    const e = path.join(ROOT, 'scripts/roster-reports-fixture/expected-seed.txt');
+    ok(sumCli(['witness', e, w('pre', pre), w('post', post11), w('sink', L2)]) === 0, 'witness CLI: PASS exits 0');
+    ok(sumCli(['witness', e, w('pre2', pre), w('post2', post11), w('sink2', L2 + log([rec('admin', 'pending')]))]) === 4, 'witness CLI: INCOMPLETE exits 4');
+    ok(sumCli(['witness', e, w('pre3', pre), w('post3', post11), w('sink3', L2 + log([rec('unknown', 'success')]))]) === 1, 'witness CLI: FAIL exits 1');
+    const loose = w('sink4', L2); fs.chmodSync(loose, 0o644);
+    ok(sumCli(['witness', e, w('pre4', pre), w('post4', post11), loose]) === 3, 'witness CLI: a non-private sink is an input error (exit 3)');
+  } finally { fs.rmSync(d, { recursive: true, force: true }); }
+}
 ok(!compareWitness('', pre, pre, '').ok, 'witness: empty committed projection fails');
 for (const [what, r] of [['pass', compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 1)), L2)],
   ['all failures', compareWitness('', pre, W(expSeed.replace(/ read$/m, ' started'), 'CERT x', tel(3, 0, 0)), L2 + log([rec('unknown', 'success'), rec('admin', 'pending'), rec('admin', 'failed')]) + 'junk\n')],
@@ -336,10 +399,18 @@ const gateHits = (re: RegExp) => tracked.filter((f) => !re.test(f) && /writeFile
 ok(gateHits(new RegExp(/ALLOWED='([^']+)'/.exec(sec8())?.[1] ?? '^$')).join(',') === 'e2e/roster-reports/actors.mjs', 'gate today: RED on exactly e2e/roster-reports/actors.mjs (preserved)');
 ok(gateHits(proposed).length === 0, 'gate with the proposal: no hits (only if the exact-file grant is approved)');
 
+// 8f. Session writer: the qualified exclusive private writer, reused unchanged; no path write + chmod afterwards.
+{
+  const ss = read('e2e/roster-reports/session-setup.ts').replace(/^\s*\/\/.*$/gm, '');
+  ok(/import \{ writePrivateFile \} from '\.\.\/gradebook-roles\/journey\/private-dir\.mjs';/.test(ss) && /const state = await context\.storageState\(\);\s*\n\s*writePrivateFile\(dir, `\$\{role\}\.json`, JSON\.stringify\(state\)\);/.test(ss), 'session-setup: storageState() in memory, then writePrivateFile (O_EXCL, 0600)');
+  ok(!/storageState\(\{\s*path/.test(ss) && !/chmodSync/.test(ss), 'session-setup: no storageState({ path }) and no after-the-fact chmod');
+  ok(/e2e\/gradebook-roles\/journey\/private-dir\.mjs/.test(read('scripts/roster-reports-fixture/PINS.txt')), 'private-dir.mjs is pinned');
+}
+
 // 9. run.sh ordering and always-run collection (static).
 const code = run.replace(/^\s*#.*$/gm, '');
 const at = (re: RegExp) => { const m = re.exec(code); return m ? m.index : -1; };
-const order = [/RR_E_PIN\b/, /RR_E_D1_CONSTANT/, /served-app-check\.mjs" "\$E2E_BASE_URL"/, /stack-ownership\.mjs" verify/, /carrier\.sql"/, /RR_E_ASSOC_API/, /seed\.sql" "\$RAW\/seed\.raw"/, /witness-pre\.txt" witness-pre/, /playwright test/, /summary\.mjs" playwright/, /witness-post\.txt" witness-post/, /summary\.mjs" witness/, /^cleanup \|\| true/m, /rr-private\.txt seed\.txt witness\.txt/].map(at);
+const order = [/RR_E_PIN\b/, /RR_E_D1_CONSTANT/, /served-app-check\.mjs" "\$E2E_BASE_URL"/, /stack-ownership\.mjs" verify/, /carrier\.sql"/, /RR_E_ASSOC_API/, /seed\.sql" seed\.raw/, /witness\.sql" witness-pre\.txt/, /playwright test/, /summary\.mjs" playwright/, /witness\.sql" witness-post\.txt/, /summary\.mjs" witness/, /^cleanup \|\| true/m, /rr-private\.txt seed\.txt witness\.txt/].map(at);
 ok(order.every((x) => x >= 0) && order.every((x, i) => i === 0 || x > order[i - 1]), `run.sh order: pins, D1 constant, served app, D1 verify, carrier, API readback, seed, witness, PW, summary, witness, compare, cleanup, inventory (${order.join(',')})`);
 const afterPw = code.slice(at(/playwright test/));
 ok(!/refuse /.test(afterPw), 'run.sh: nothing after Playwright refuses (post witness, compare and cleanup always run)');
@@ -347,7 +418,7 @@ ok(!/RR_POLICY_LOG/.test(code) && /POLICY_LOG="\$PARENT\/session\/policy\.jsonl"
 ok(/\[ "\$\{PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-\}" = "\$GB_SHELL_PATH" \]/.test(code) && /\[ -n "\$\{GB_SHELL_PATH:-\}" \]/.test(code), 'run.sh: pinned shell bound and non-empty');
 const pins = read('scripts/roster-reports-fixture/PINS.txt');
 const pinned = [...pins.matchAll(/^[0-9a-f]{64} {2}(\S+)$/gm)].map((m) => m[1]);
-ok(pinned.length === 10 && pinned.every((f) => code.includes(f)), 'run.sh checks every pinned helper');
+ok(pinned.length === 11 && pinned.every((f) => code.includes(f)), 'run.sh checks every pinned helper');
 ok(/^D1_BOOTSTRAP_SHA256=([0-9a-f]{64})$/m.exec(pins)?.[1] === /^([0-9a-f]{64}) {2}scripts\/local-stack\/bootstrap\.sh$/m.exec(pins)?.[1], 'PINS: D1 constant equals the bootstrap.sh pin');
 
 console.log(`${failures === 0 ? 'PASS' : 'FAIL'} roster-reports fixture selftest: ${checks - failures}/${checks} checks`);
