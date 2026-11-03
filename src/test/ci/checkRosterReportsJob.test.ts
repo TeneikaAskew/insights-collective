@@ -131,14 +131,21 @@ describe('roster-reports job (proposal; unrun)', () => {
     const d1 = runOf(byName(S, 'D1 stack-ownership record'));
     expect(d1).toMatch(/\[ "\$have" = "\$RR_D1_BOOTSTRAP_SHA256" \] \|\| \{ echo "D1 refused/);
     expect(d1).not.toMatch(/bootstrap_sha256|jq|cat "\$STACK_OWNERSHIP_FILE"/);
-    expect(readFileSync(path.join(ROOT, 'scripts/roster-reports-fixture/run.sh'), 'utf8')).toMatch(/stack-ownership\.mjs" verify "\$API" "\$APP" "\$RR_D1_BOOTSTRAP_SHA256"/);
+    // The adapter does not trust the caller's env as provenance: it requires the job constant to equal its own committed pin,
+    // and the checked-out bootstrap.sh to hash to that pin, then verifies D1 with the committed pin.
+    const rs = readFileSync(path.join(ROOT, 'scripts/roster-reports-fixture/run.sh'), 'utf8');
+    const pinned = readFileSync(path.join(ROOT, 'scripts/roster-reports-fixture/PINS.txt'), 'utf8').match(/^D1_BOOTSTRAP_SHA256=([0-9a-f]{64})$/m);
+    expect(pinned?.[1]).toBe(RR.env.RR_D1_BOOTSTRAP_SHA256);
+    expect(rs).toContain('[ -n "$D1C" ] && [ "${RR_D1_BOOTSTRAP_SHA256:-}" = "$D1C" ] || refuse RR_E_D1_CONSTANT');
+    expect(rs).toContain('[ "$(pin scripts/local-stack/bootstrap.sh)" = "$D1C" ] || refuse RR_E_D1_CONSTANT');
+    expect(rs).toMatch(/stack-ownership\.mjs" verify "\$API" "\$APP" "\$D1C"/);
   });
 
-  it('private raw output stays private: exactly three fixed summary files are copied; private dirs, receipts and the D1 record are removed', () => {
+  it('private raw output stays private: exactly four fixed summary files are copied; private dirs, receipts and the D1 record are removed', () => {
     const copy = byName(S, "Copy the adapter's evidence");
     expect(copy.if).toBe("always() && steps.rr_d1.outcome == 'success'");
     const c = runOf(copy);
-    expect(c).toContain('for f in seed.txt playwright-summary.txt witness.txt; do');
+    expect(c).toContain('for f in seed.txt playwright-summary.txt witness.txt rr-private.txt; do');
     expect(c).toContain('if [ ! -f "$p" ] || [ -L "$p" ]; then echo "summary absent: $f"; continue; fi');
     expect(c).toContain('[ "$(wc -c < "$p")" -gt 4096 ] || [ "$(wc -l < "$p")" -gt 64 ]');
     expect(c).toMatch(/cp -- "\$p" "\$RR_EVIDENCE\/rr\/\$f"\n {0}done\n/);
@@ -148,7 +155,7 @@ describe('roster-reports job (proposal; unrun)', () => {
     expect(g).not.toBeNull();
     const line = new RegExp(g![1]);
     for (const ok of ['RR_SEED_OK courses=3 modules=4 items=8 users=5 enrollments=8 progressions=12',
-      'PLAYWRIGHT exit=0 total=11 expected=11 unexpected=0 flaky=0 skipped=0', 'TEST PASS project=rr-instructor case=R1', 'WITNESS UNCHANGED lines=12']) expect(line.test(ok), ok).toBe(true);
+      'PLAYWRIGHT exit=0 total=11 expected=11 unexpected=0 flaky=0 skipped=0', 'TEST PASS project=rr-instructor case=R1', 'WITNESS UNCHANGED lines=12', 'CASE PASS project=rr-instructor case=RR-I1', 'WITNESS SEED UNCHANGED lines=45', 'RR_SEED_OK projection=MATCHES lines=45', 'PRIVATE REMOVED scope=raw,session,policy_log,psql verdict=PASS', 'PRIVATE STILL_PRESENT verdict=FAIL']) expect(line.test(ok), ok).toBe(true);
     for (const bad of ["TEST PASS rr-instructor shows 2 learners and the unknown dash", 'WITNESS unchanged lines=12', 'TEST FAIL project=rr-admin msg=Error: boom',
       'PLAYWRIGHT exit=0 note=a b', 'X k=v\u0000', 'lower start=1', 'TEST PASS case=' + 'a'.repeat(65), 'TEST PASS k=v ', '']) expect(line.test(bad), JSON.stringify(bad)).toBe(false);
     const rm = runOf(byName(S, 'Remove private outputs'));
@@ -161,7 +168,7 @@ describe('roster-reports job (proposal; unrun)', () => {
     expect(rm.indexOf('rr-run.??????????')).toBeLessThan(rm.indexOf('private-removed.txt'));
     const stage = runOf(S[at(/stack-checks\.sh stage-evidence \$REQ rr-upload/)]);
     for (const f of ['checks/launch-binding.txt', 'checks/d1-write.txt', 'checks/actors.txt', 'checks/roster-reports.txt', 'rr/seed.txt', 'rr/playwright-summary.txt',
-      'rr/witness.txt', 'checks/private-removed.txt', 'checks/net-remove.txt', 'checks/leftovers.txt']) expect(stage.split(`"$E/${f}"`).length - 1, f).toBe(1);
+      'rr/witness.txt', 'rr/rr-private.txt', 'checks/private-removed.txt', 'checks/net-remove.txt', 'checks/leftovers.txt']) expect(stage.split(`"$E/${f}"`).length - 1, f).toBe(1);
     expect(stage).not.toMatch(/screenshot|\.png|playwright\.json|test-results/);
   });
 
