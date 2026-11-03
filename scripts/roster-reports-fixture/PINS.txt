@@ -9,6 +9,7 @@ a763b7d1f4483120a7cb7f0cbf8ca406952a234d8a305036e80c33832950bfbf  scripts/e2e/st
 34a3579975a6f8a26d2f147e4d2fb10fe5ba6a3e023678f504fd7876e838ac70  scripts/local-db/assert-local-dsn.mjs
 4d52e90d93bb57ccbd2016e4b65d33c282f60eb5940199e2c75f0897eb8c4920  scripts/served-app/served-app-check.mjs
 3849f86e1433c8a3d482cfec1398c34884a3d95bad971276b7dc7bd2aff75c98  scripts/served-app/hermetic-dist.mjs
+917a0d71e499710ee1e036982e30ed28fe90a0c4e1e194c52b8a52fce254a9a9  e2e/gradebook-roles/journey/private-dir.mjs
 b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715  scripts/local-stack/bootstrap.sh
 # The D1 bootstrap constant run.sh requires (the job's RR_D1_BOOTSTRAP_SHA256 must equal it; the env alone is not provenance).
 D1_BOOTSTRAP_SHA256=b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715

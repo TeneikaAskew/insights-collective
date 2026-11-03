@@ -11,8 +11,9 @@ import { chromiumExecutableOption } from '../support/chromium-executable';
 import { assertStrictLocalBinding } from '../gradebook-roles/local-binding.mjs';
 import { newGuardedContext } from '../gradebook-roles/origin-guard.mjs';
 import { installRequestPolicy } from './request-policy.mjs';
-import { actorOf, appendTelemetry } from './actors.mjs';
+import { actorOf, appendTelemetry, sinkPath } from './actors.mjs';
 import { RR } from './expected';
+import { writePrivateFile } from '../gradebook-roles/journey/private-dir.mjs';
 
 export const ROLES = {
   admin: 'e2e-admin@insightscollective.org',
@@ -36,7 +37,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
   const { api, app, anonKey } = assertStrictLocalBinding();
   const dir = sessionDir();
   const nonce = process.env.RR_ASSOCIATION_NONCE ?? '';
-  if (!path.isAbsolute(process.env.RR_POLICY_LOG ?? '')) throw new Error('roster-reports setup: RR_POLICY_LOG must be an absolute private path');
+  sinkPath(); // the telemetry sink's fixed path and private parents must hold before any browser exists (RR_SINK_E_ROOT)
   if (!/^[0-9a-f]{32}$/.test(nonce)) throw new Error('roster-reports setup: RR_ASSOCIATION_NONCE must be 32 hex characters written by run.sh through the DB DSN');
   const password = process.env.E2E_TEST_PASSWORD ?? '';
   if (!password) throw new Error('roster-reports setup: no synthetic password');
@@ -58,25 +59,38 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
     }
     const value = JSON.stringify({ access_token: t.access_token, refresh_token: t.refresh_token, token_type: 'bearer', expires_in: t.expires_in, expires_at: Math.floor(Date.now() / 1000) + t.expires_in, user: t.user });
     const browser = await chromium.launch(chromiumExecutableOption());
+    let policy: Awaited<ReturnType<typeof installRequestPolicy>> | null = null;
+    let failure: unknown = null;
     try {
       const { context, blocked } = await newGuardedContext(browser, [app.origin, api.origin]);
       // Same preventive request policy as the tests, installed before any page exists.
-      const policy = await installRequestPolicy(context, api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
+      policy = await installRequestPolicy(context, api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
       await context.addInitScript(({ v }) => { localStorage.setItem('supabase.auth.token', v); localStorage.setItem('e2e:disable-tours', '1'); }, { v: value });
       const page = await context.newPage();
       const origins = new Set<string>();
       page.on('request', (r) => { if (/\/(rest|auth|storage|functions)\/v1\//.test(r.url())) origins.add(new URL(r.url()).origin); });
       await page.goto(app.origin, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2_000);
-      const state = await context.storageState({ path: path.join(dir, `${role}.json`) });
-      fs.chmodSync(path.join(dir, `${role}.json`), 0o600);
+      await policy.finalize(); // bounded; also runs in finally if anything above throws (idempotent)
+      // Qualified exclusive private writer (gradebook journey private-dir.mjs, reused unchanged and pinned): O_CREAT|O_EXCL|
+      // O_NOFOLLOW at 0600, fixed codes; no Playwright path write followed by an after-the-fact chmod.
+      const state = await context.storageState();
+      writePrivateFile(dir, `${role}.json`, JSON.stringify(state));
       if (blocked.length) throw new Error(`roster-reports setup: ${blocked.length} request(s) to non-approved origins were blocked`);
       if (policy.forbidden.length) throw new Error(`roster-reports setup: ${policy.forbidden.length} forbidden API request(s) were aborted before send`);
       if ([...origins].some((o) => o !== api.origin) || !origins.has(api.origin)) throw new Error('roster-reports setup: app -> API association unproven');
       if (!state.origins.some((o) => o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')))) {
         throw new Error(`roster-reports setup: ${role} session was not persisted by the app`);
       }
-    } finally { await browser.close(); }
+    } catch (e) { failure = e; }
+    // Finalize telemetry on EVERY path (including a setup throw). Every later error is kept only when nothing failed
+    // earlier, so it never replaces the first error; the browser always closes.
+    try { if (policy) await policy.finalize(); } catch (e) { if (failure === null) failure = e; }
+    // Setup has no shared console fixture, so the browser (and this context) closes first; only then is the result
+    // consumed, so a NEW telemetry start or a sink error during storageState or the close itself fails setup.
+    try { await browser.close(); } catch (e) { if (failure === null) failure = e; }
+    try { policy?.assertClosed(); } catch (e) { if (failure === null) failure = e; }
+    if (failure !== null) throw failure;
   }
   console.log('[roster-reports setup] association proven; admin, instructor and member sessions saved');
 }
