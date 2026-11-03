@@ -186,8 +186,8 @@ async function browserClock(context: BrowserContext) {
     window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
       const t = now();
       try {
-        const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
-        const method = (init?.method ?? (input instanceof Request ? input.method : 'GET')).toUpperCase();
+        const url = new URL(typeof input === 'string' ? input : input instanceof globalThis.URL ? input.href : input.url, location.href);
+        const method = (init?.method ?? (input instanceof globalThis.Request ? input.method : 'GET')).toUpperCase();
         if (method === 'PATCH' && url.pathname === '/rest/v1/content_items') void w.__leMark({ kind: 'write', t, id: (url.searchParams.get('id') ?? '').replace(/^eq\./, '') });
       } catch {
         /* observation only */

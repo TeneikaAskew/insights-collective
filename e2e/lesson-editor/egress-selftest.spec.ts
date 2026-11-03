@@ -1,7 +1,7 @@
 // ABOUTME: Real-Chromium self-test of egress-boundary.ts with NO stack: loopback test servers only. Proves each layer blocks, and an
 // ABOUTME: unprotected control (LE_EGRESS_CONTROL=off) shows the same probes DO reach the forbidden server, so the test can fail.
 // Run: npx playwright test -c e2e/lesson-editor/playwright.egress-selftest.config.ts   (control: LE_EGRESS_CONTROL=off, expected red)
-import { test, expect, CONTROL_OFF } from './egress-test';
+import { test, expect } from './egress-test';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { WebSocketServer } from 'ws';

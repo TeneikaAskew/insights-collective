@@ -6,7 +6,7 @@
 //   ?id=eq.<id>&updated_at=eq.<version> (or updated_at=is.null) with a client updated_at in the body and
 //   select=id,title,content,type,published,updated_at, Prefer: return=representation. Only the contract-only lessons
 //   K and KN (and a no-op denial attempt on A) are touched. Exit 0 only if every check passes. Labelled LOCAL.
-import { existsSync, writeFileSync, statSync } from 'node:fs';
+import { closeSync, constants, openSync, writeFileSync } from 'node:fs';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 
 process.on('uncaughtException', () => {
@@ -30,20 +30,39 @@ if (!rawApi || !anonFile || !personasFile || !out) {
   console.error('usage: backend-contract.mjs <api origin> <anon key file> <personas.json> <out json>');
   process.exit(2);
 }
+let API, anon, personas;
+let OUT_FD = null; // reserved below, before any request
+const checks = [];
+const record = (extra) => {
+  if (OUT_FD === null) return;
+  const fd = OUT_FD; OUT_FD = null;
+  try {
+    writeFileSync(fd, JSON.stringify({
+      tier: 'LOCAL isolated stack (supabase start + snapshot schema). NOT the deployed backend.',
+      api: API, at: new Date().toISOString(), ...extra, checks,
+    }, null, 2));
+  } finally { closeSync(fd); }
+};
 const fail = (m) => {
+  record({ aborted: true });
   console.log(`FAIL le-contract: ${m}`);
   process.exit(1);
 };
-let API, anon, personas;
 try {
   API = apiOrigin(rawApi);
   anon = readSecretFile(anonFile, 'anon key');
-  if ((statSync(personasFile).mode & 0o077) !== 0) throw new Error('personas file is not mode 600');
+  // readSecretFile (api-http 3acd5b02) checks regular/non-empty/mode 600 on the opened handle; no separate path stat.
   personas = JSON.parse(readSecretFile(personasFile, 'personas'));
 } catch {
   fail('anon key or personas file unreadable (detail withheld: a parse error can quote file content)');
 }
-if (existsSync(out)) fail('output exists (never reused)');
+// The output is reserved BEFORE any request by one exclusive, no-follow create (no exists-check then write). The same
+// descriptor is written at the end, or with an `aborted` record if a later step stops the run.
+try {
+  OUT_FD = openSync(out, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+} catch (e) {
+  fail(e?.code === 'EEXIST' ? 'output exists (never reused)' : 'output could not be created');
+}
 for (const p of ['OWNER', 'OTHER', 'STUDENT']) if (!personas?.[p]?.token) fail(`persona ${p} missing`);
 
 const auth = (p) => ({ apikey: anon, Authorization: `Bearer ${personas[p].token}` });
@@ -63,7 +82,6 @@ async function write(p, id, version, patch) {
   return r.json;
 }
 
-const checks = [];
 const check = (name, ok, detail) => {
   checks.push({ name, ok: Boolean(ok), detail });
   console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? `: ${detail}` : ''}`);
@@ -120,9 +138,6 @@ const q0 = await read('OWNER', Q);
 check('C6 quiz item is type quiz', q0?.type === 'quiz');
 
 const failed = checks.filter((c) => !c.ok);
-writeFileSync(out, JSON.stringify({
-  tier: 'LOCAL isolated stack (supabase start + snapshot schema). NOT the deployed backend.',
-  api: API, at: new Date().toISOString(), checks,
-}, null, 2), { mode: 0o600, flag: 'wx' });
+record({});
 if (failed.length) fail(`${failed.length} check(s) failed`);
 console.log(`PASS le-contract: ${checks.length} checks on the LOCAL isolated stack (says nothing about the deployed backend)`);

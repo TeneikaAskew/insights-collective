@@ -36,6 +36,14 @@ const CASES = [
   ['B8 MUTANT html seeded text partly lost', 'html', '<p>Body E1 body</p>', false],
   ['B9 MUTANT html extra text', 'html', '<p>Body A E1 body</p><p>stray</p>', false],
   ['B10 text (reloaded innerText) exact', 'text', 'Body A E1 body\n', true],
+  // Tokenizer controls (CodeQL 629): nested and split openers never reassemble into a tag; leftovers stay text and fail.
+  ['B13 MUTANT nested opener <<p>p>', 'html', '<<p>p>Body A E1 body</p>', false],
+  ['B14 MUTANT split script opener <scr<script>ipt>', 'html', '<p>Body A E1 body</p><scr<script>ipt>', false],
+  ['B15 MUTANT unterminated tag at the end', 'html', '<p>Body A E1 body</p><script', false],
+  ['B16 MUTANT escaped markup is visible text', 'html', '<p>Body A E1 body &lt;script&gt;</p>', false],
+  ['B17 quoted > inside an attribute value stays inside the tag', 'html', '<p data-x="a>b">Body A E1 body</p>', true],
+  ['B18 upper-case tags with attributes and a <br/>', 'html', '<P class="x">Body A<BR/>E1 body</P>', true],
+  ['B19 MUTANT double-decoding would hide &amp;lt;', 'html', '<p>Body A E1 body&amp;lt;</p>', false],
   ['B11 MUTANT text seeded text dropped', 'text', ' E1 body', false],
   ['B12 MUTANT text empty editor', 'text', '', false],
 ];

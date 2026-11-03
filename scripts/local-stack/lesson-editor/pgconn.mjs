@@ -10,7 +10,7 @@
 //   pgconn.mjs check <dsn>                 exit 0 or 1 with a fixed reason (the DSN is never echoed)
 //   pgconn.mjs passfile <dsn> <out file>   writes the libpq passfile for exactly this host:port:db:user, mode 0600
 // Importable: checkDsn(dsn) -> { ok, reason, parts }, childEnv(passfile) -> env for a psql child.
-import { closeSync, constants, fstatSync, lstatSync, openSync, readSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { assertLocalDsn } from '../../local-db/assert-local-dsn.mjs';
@@ -43,21 +43,22 @@ export function checkDsn(dsn) {
 /**
  * Reads the password file with the private-file rule; never returns or throws its content. The OPENED handle is the
  * authority: open is read-only, no-follow and NON-BLOCKING (a FIFO or device cannot stall it), then fstat on that same
- * descriptor must show a regular file, owned by this user, with no group/other bits, before any byte is read. The lstat
- * beforehand only gives an early, clear message; replacing the path after it changes nothing. `hooks.afterPathCheck` exists
- * only for tests/pgconn-selftest.mjs (a replacement between the path check and the open).
+ * descriptor must show a regular file, owned by this user, with no group/other bits, before any byte is read. There is no
+ * path check before the open (no check-then-use): a symlink is refused by O_NOFOLLOW (ELOOP), a missing path by the open
+ * itself, and everything else by fstat on the descriptor. `hooks.afterPathCheck` exists only for tests/pgconn-selftest.mjs;
+ * it runs just before the open, so the self-test can still replace the path at the last moment.
  */
 const MAX_PASSWORD_FILE = 4096;
 export function readPassword(file, hooks = {}) {
   if (typeof file !== 'string' || !path.isAbsolute(file)) throw new Error('LE_DB_PASSWORD_FILE must be an absolute path');
-  const l = lstatSync(file, { throwIfNoEntry: false });
-  if (!l || !l.isFile() || l.isSymbolicLink()) throw new Error('LE_DB_PASSWORD_FILE must be a regular file');
   hooks.afterPathCheck?.();
   let fd;
   try {
     fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK | constants.O_NOCTTY);
   } catch (e) {
-    throw new Error(e?.code === 'ELOOP' ? 'LE_DB_PASSWORD_FILE must be a regular file (symlink refused)' : 'LE_DB_PASSWORD_FILE could not be opened');
+    if (e?.code === 'ELOOP') throw new Error('LE_DB_PASSWORD_FILE must be a regular file (symlink refused)');
+    if (e?.code === 'ENOENT') throw new Error('LE_DB_PASSWORD_FILE must be a regular file (not found)');
+    throw new Error('LE_DB_PASSWORD_FILE could not be opened');
   }
   try {
     const st = fstatSync(fd);
