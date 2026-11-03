@@ -11,6 +11,12 @@ export const R1_TRACE_FIELDS = Object.freeze(Object.assign(Object.create(null), 
   ctx: Object.freeze(['LIVE', 'NOT_INSTALLED', 'READ_FAILED', 'READ_TIMEOUT', 'RECORDER_ERROR']),
   keys: Object.freeze(['ALL_ON_HANDLE', 'SOME_OFF_HANDLE', 'NONE_SEEN', 'SEQ_MISMATCH', 'UNAVAILABLE']),
   first_space: Object.freeze(['PREVENTED', 'NOT_PREVENTED', 'UNAVAILABLE']),
+  // The SAME first captured ArrowDown at three passive points: window capture, a document bubble listener added at install,
+  // window bubble. Observation words only; a pattern of them is informative, not a diagnosis.
+  arrow_capture: Object.freeze(['PREVENTED', 'NOT_PREVENTED', 'UNAVAILABLE']),
+  arrow_document: Object.freeze(['PREVENTED', 'NOT_PREVENTED', 'NOT_DELIVERED', 'UNAVAILABLE']),
+  arrow_bubble: Object.freeze(['PREVENTED', 'NOT_PREVENTED', 'NOT_DELIVERED', 'UNAVAILABLE']),
+  moved: Object.freeze(['MOVED', 'NO_CHANGE_OBSERVED', 'UNAVAILABLE']),
   ann: Object.freeze(['NONE', 'PICKED', 'OVER_TARGET', 'OVER_SELF', 'OVER_OTHER', 'NOT_OVER', 'DROP_TARGET', 'DROP_SELF',
     'DROP_OTHER', 'DROP_NONE', 'CANCELLED', 'UNAVAILABLE']),
   drop_seen: Object.freeze(['YES', 'NO', 'UNAVAILABLE']),
@@ -18,7 +24,7 @@ export const R1_TRACE_FIELDS = Object.freeze(Object.assign(Object.create(null), 
   dom: Object.freeze(['STABLE', 'HANDLE_DETACHED', 'REGION_REPLACED', 'BOTH', 'UNAVAILABLE']),
   scroll_events: Object.freeze(['ANY', 'NONE', 'UNAVAILABLE']),
 }));
-export const R1_TRACE_ORDER = Object.freeze(['ctx', 'keys', 'first_space', 'ann', 'drop_seen', 'pressed', 'dom', 'scroll_events']);
+export const R1_TRACE_ORDER = Object.freeze(['ctx', 'keys', 'first_space', 'arrow_capture', 'arrow_document', 'arrow_bubble', 'moved', 'ann', 'drop_seen', 'pressed', 'dom', 'scroll_events']);
 export const R1_TRACE_ANNOTATION = 'ba_r1_trace';
 /** Page-side self-expiry bounds (ms) and the spec's read deadline (ms). */
 export const R1_TRACE_TTL = Object.freeze({ min: 20, max: 600_000, spec: 120_000 });
@@ -44,7 +50,53 @@ export function r1TraceInstall(el, a) {
     // firstKey: the FIRST captured keydown event object (kept in page memory only). first_space is read from that same
     // event at window bubble; if it never bubbles there, it stays null (UNAVAILABLE).
     var firstKey = null;
+    // firstArrow: the FIRST captured ArrowDown event object (page memory only). Its defaultPrevented is read from that same
+    // event at window capture, at a document bubble listener added here (so after document listeners added earlier and
+    // before any added later), and at window bubble. A point the event never reached stays null.
+    var firstArrow = null;
+    // moved: only the sortable card's own `transform` declaration counts. The card is bound once, here: the nearest
+    // ancestor of the handle whose parent also holds another handle with the same aria-label outside it (the section
+    // list). No such ancestor => unbound => moved is UNAVAILABLE. Only booleans leave the page.
+    var card = null;
+    var label = el.getAttribute('aria-label');
+    if (label) {
+      for (var c0 = el; c0 && c0.parentElement && card === null; c0 = c0.parentElement) {
+        var hs = c0.parentElement.getElementsByTagName(el.tagName);
+        for (var hi = 0; hi < hs.length; hi++) if (hs[hi] !== el && hs[hi].getAttribute('aria-label') === label && !c0.contains(hs[hi])) { card = c0; break; }
+      }
+      if (card === el) card = null;
+    }
+    // One supported value form (dnd-kit's CSS.Transform.toString): translate3d(Xpx, Ypx, Z) with optional scaleX/scaleY,
+    // finite numbers only. '' / none = no translation. Anything else = UNKNOWN (never MOVED).
+    var NUM = '(-?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:e[+-]?[0-9]+)?)';
+    var TF = new RegExp('^translate3d\\(\\s*' + NUM + 'px\\s*,\\s*' + NUM + 'px\\s*,\\s*' + NUM + '(?:px)?\\s*\\)'
+      + '(?:\\s+scaleX\\(\\s*' + NUM + '\\s*\\)\\s+scaleY\\(\\s*' + NUM + '\\s*\\))?$');
+    var fin = function (x) { return x === undefined || Number.isFinite(Number(x)); };
+    var tfValue = function (v) {
+      if (typeof v !== 'string') return 'UNKNOWN';
+      v = v.trim();
+      if (v === '' || v === 'none') return 'STILL';
+      var mm = TF.exec(v);
+      if (!mm || !fin(mm[1]) || !fin(mm[2]) || !fin(mm[3]) || !fin(mm[4]) || !fin(mm[5])) return 'UNKNOWN';
+      return Number(mm[1]) !== 0 || Number(mm[2]) !== 0 ? 'MOVE' : 'STILL';
+    };
+    // A style attribute text (a record's old value): its last `transform` declaration, custom properties ignored.
+    // Text this splitter cannot read safely (quotes, escapes, braces, comments, a piece without a name) is UNKNOWN.
+    var tfText = function (t) {
+      if (t === null || t === undefined) return 'STILL';
+      if (typeof t !== 'string' || /["'\\{}]|\/\*/.test(t)) return 'UNKNOWN';
+      var parts = t.split(';'), val = null;
+      for (var pi = 0; pi < parts.length; pi++) {
+        var piece = parts[pi], ci = piece.indexOf(':');
+        if (ci < 0) { if (piece.trim() !== '') return 'UNKNOWN'; continue; }
+        if (piece.slice(0, ci).trim().toLowerCase() === 'transform') val = piece.slice(ci + 1);
+      }
+      return val === null ? 'STILL' : tfValue(val);
+    };
+    var evidence = function (r) { if (r === 'MOVE') s.movedEver = true; else if (r === 'UNKNOWN') s.movedUnknown = true; };
+    var cardNow = function () { if (card && card.isConnected && card.style) evidence(tfValue(card.style.transform)); };
     var s = { frozen: false, keys: '', keysOverflow: false, onHandle: 0, firstSpacePrevented: null, regionsSeen: 0,
+      arrowCapture: null, arrowDocument: null, arrowBubble: null, movedEver: false, movedUnknown: false,
       annLast: 'NONE', dropSeen: false, otherText: 0, pressedEver: false, handleDetachedEver: false, regionReplaced: false,
       scrollEvents: 0, errors: 0 };
     var cap = function (n) { return n >= CAP ? CAP : n + 1; };
@@ -73,7 +125,6 @@ export function r1TraceInstall(el, a) {
       }
       return false;
     };
-    var isRegion = function (n) { return !!n && n.nodeType === 1 && typeof n.id === 'string' && n.id.indexOf('DndLiveRegion') === 0; };
     var see = function (x) {
       x = String(x == null ? '' : x).trim();
       if (x === '') return;
@@ -104,8 +155,12 @@ export function r1TraceInstall(el, a) {
         } else if (rec.type === 'characterData' && (regionTexts.has(rec.target) || inRegion(rec.target))) {
           // the old value; the final value is read from the region or text node when either is removed, or by the scan
           see(rec.oldValue);
-        } else if (rec.type === 'attributes' && rec.target === el && (rec.oldValue === 'true' || el.getAttribute('aria-pressed') === 'true')) {
+        } else if (rec.type === 'attributes' && rec.attributeName === 'aria-pressed' && rec.target === el && (rec.oldValue === 'true' || el.getAttribute('aria-pressed') === 'true')) {
           s.pressedEver = true;
+        } else if (rec.type === 'attributes' && rec.attributeName === 'style' && card !== null && rec.target === card) {
+          // the old value keeps a transform that was set and cleared again before this batch was delivered
+          evidence(tfText(rec.oldValue));
+          cardNow();
         }
       }
     };
@@ -123,6 +178,7 @@ export function r1TraceInstall(el, a) {
       }
       touched.clear();
       if (!el.isConnected) s.handleDetachedEver = true;
+      cardNow();
       if (el.getAttribute('aria-pressed') === 'true') s.pressedEver = true;
     };
     var initialised = false;
@@ -134,23 +190,29 @@ export function r1TraceInstall(el, a) {
     };
     on(window, 'keydown', function (e) {
       if (firstKey === null) firstKey = e;
+      if (firstArrow === null && e.code === 'ArrowDown') { firstArrow = e; s.arrowCapture = e.defaultPrevented === true; }
       if (s.keys.length >= SEQ) { s.keysOverflow = true; return; }
       s.keys += e.code === 'Space' ? 'S' : e.code === 'ArrowDown' ? 'A' : 'O';
       if (e.target === el && el.isConnected) s.onHandle = cap(s.onHandle);
     }, true);
     on(window, 'keydown', function (e) {
       if (e === firstKey && e.code === 'Space') s.firstSpacePrevented = e.defaultPrevented === true;
+      if (e === firstArrow) s.arrowBubble = e.defaultPrevented === true;
+    }, false);
+    on(document, 'keydown', function (e) {
+      if (e === firstArrow) s.arrowDocument = e.defaultPrevented === true;
     }, false);
     on(window, 'scroll', function () { s.scrollEvents = cap(s.scrollEvents); }, true);
     var handleRecords = guard(function (records) { processRecords(records || []); scan(); });
     observer = new MutationObserver(handleRecords);
     observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true, characterDataOldValue: true,
-      attributes: true, attributeOldValue: true, attributeFilter: ['aria-pressed'] });
+      attributes: true, attributeOldValue: true, attributeFilter: ['aria-pressed', 'style'] });
     scan();
     initialised = true;
     var cleanup = function () {
       s.frozen = true;
       firstKey = null;
+      firstArrow = null;
       if (timer !== null) { clearTimeout(timer); timer = null; }
       if (observer) { observer.disconnect(); observer = null; }
       while (added.length) { var x = added.pop(); x[0].removeEventListener(x[1], x[2], { capture: x[3] }); }
@@ -158,7 +220,9 @@ export function r1TraceInstall(el, a) {
     var rec = {
       flush: function () { if (!s.frozen && observer) handleRecords(observer.takeRecords()); },
       snapshot: function () {
-        return { v: 2, regionsSeen: s.regionsSeen, keys: s.keys, keysOverflow: s.keysOverflow, onHandle: s.onHandle, firstSpacePrevented: s.firstSpacePrevented,
+        return { v: 4, regionsSeen: s.regionsSeen, keys: s.keys, keysOverflow: s.keysOverflow, onHandle: s.onHandle, firstSpacePrevented: s.firstSpacePrevented,
+          arrowCapture: s.arrowCapture, arrowDocument: s.arrowDocument, arrowBubble: s.arrowBubble, movedEver: s.movedEver,
+          movedUnknown: s.movedUnknown || card === null,
           annLast: s.annLast, dropSeen: s.dropSeen, otherText: s.otherText, pressedEver: s.pressedEver,
           pressedAtEnd: el.isConnected && el.getAttribute('aria-pressed') === 'true', handleDetachedEver: s.handleDetachedEver || !el.isConnected,
           regionReplaced: s.regionReplaced, scrollEvents: s.scrollEvents, errors: s.errors };
@@ -191,7 +255,7 @@ export function r1TraceRead() {
   return snap;
 }
 
-const SNAP_KEYS = ['v', 'regionsSeen', 'keys', 'keysOverflow', 'onHandle', 'firstSpacePrevented', 'annLast', 'dropSeen', 'otherText', 'pressedEver',
+const SNAP_KEYS = ['v', 'regionsSeen', 'keys', 'keysOverflow', 'onHandle', 'firstSpacePrevented', 'arrowCapture', 'arrowDocument', 'arrowBubble', 'movedEver', 'movedUnknown', 'annLast', 'dropSeen', 'otherText', 'pressedEver',
   'pressedAtEnd', 'handleDetachedEver', 'regionReplaced', 'scrollEvents', 'errors'];
 const ANN_SEEN = new Set(R1_TRACE_FIELDS.ann.filter((w) => w !== 'UNAVAILABLE'));
 const isCount = (n) => Number.isInteger(n) && n >= 0 && n <= 99;
@@ -202,13 +266,18 @@ export function validSnapshot(x) {
   if (!x || typeof x !== 'object' || Array.isArray(x) || Object.getPrototypeOf(x) !== Object.prototype) return false;
   const k = Object.keys(x);
   if (k.length !== SNAP_KEYS.length || !SNAP_KEYS.every((n) => Object.prototype.hasOwnProperty.call(x, n))) return false;
-  return x.v === 2 && isCount(x.regionsSeen) && typeof x.keys === 'string' && /^[SAO]{0,8}$/.test(x.keys) && isBool(x.keysOverflow) && isCount(x.onHandle)
-    && (x.firstSpacePrevented === null || isBool(x.firstSpacePrevented)) && typeof x.annLast === 'string' && ANN_SEEN.has(x.annLast)
+  const nb = (b) => b === null || isBool(b);
+  return x.v === 4 && isCount(x.regionsSeen) && typeof x.keys === 'string' && /^[SAO]{0,8}$/.test(x.keys) && isBool(x.keysOverflow) && isCount(x.onHandle)
+    && (x.firstSpacePrevented === null || isBool(x.firstSpacePrevented))
+    && nb(x.arrowCapture) && nb(x.arrowDocument) && nb(x.arrowBubble)
+    && !(x.arrowCapture === null && (x.arrowDocument !== null || x.arrowBubble !== null)) && isBool(x.movedEver) && isBool(x.movedUnknown)
+    && typeof x.annLast === 'string' && ANN_SEEN.has(x.annLast)
     && isBool(x.dropSeen) && isCount(x.otherText) && isBool(x.pressedEver) && isBool(x.pressedAtEnd) && isBool(x.handleDetachedEver)
     && isBool(x.regionReplaced) && isCount(x.scrollEvents) && isCount(x.errors);
 }
 
-const UNAV = (ctx) => ({ ctx, keys: 'UNAVAILABLE', first_space: 'UNAVAILABLE', ann: 'UNAVAILABLE', drop_seen: 'UNAVAILABLE',
+const UNAV = (ctx) => ({ ctx, keys: 'UNAVAILABLE', first_space: 'UNAVAILABLE', arrow_capture: 'UNAVAILABLE',
+  arrow_document: 'UNAVAILABLE', arrow_bubble: 'UNAVAILABLE', moved: 'UNAVAILABLE', ann: 'UNAVAILABLE', drop_seen: 'UNAVAILABLE',
   pressed: 'UNAVAILABLE', dom: 'UNAVAILABLE', scroll_events: 'UNAVAILABLE' });
 
 /** Snapshot -> fixed words. Words describe what was recorded; they do not name a cause. */
@@ -225,7 +294,18 @@ export function r1TraceFields(installed, snap, readState = 'OK') {
   // No live region was ever seen: announcements were not observable, so they are UNAVAILABLE, not NONE / NO.
   const ann = snap.regionsSeen === 0 ? 'UNAVAILABLE' : snap.annLast;
   const dropSeen = snap.regionsSeen === 0 ? 'UNAVAILABLE' : snap.dropSeen ? 'YES' : 'NO';
-  return { ctx: 'LIVE', keys, first_space: first, ann, drop_seen: dropSeen, pressed, dom,
+  // arrow_*: the same first captured ArrowDown at each point; no ArrowDown captured => all UNAVAILABLE; captured but a later
+  // point never saw it => NOT_DELIVERED. Which handler prevented it is not observed.
+  const pt = (v) => (v === null ? 'NOT_DELIVERED' : v ? 'PREVENTED' : 'NOT_PREVENTED');
+  const seen = snap.arrowCapture !== null;
+  const arrowCapture = seen ? (snap.arrowCapture ? 'PREVENTED' : 'NOT_PREVENTED') : 'UNAVAILABLE';
+  const arrowDocument = seen ? pt(snap.arrowDocument) : 'UNAVAILABLE';
+  const arrowBubble = seen ? pt(snap.arrowBubble) : 'UNAVAILABLE';
+  // moved: a non-identity translate in the bound card's own transform (record old value or current value). Not seen is
+  // NO_CHANGE_OBSERVED, never "never moved"; UNAVAILABLE if the card was unbound, a value was unreadable, or the handle
+  // was detached, and no recognized move was seen.
+  const moved = snap.movedEver ? 'MOVED' : snap.handleDetachedEver || snap.movedUnknown ? 'UNAVAILABLE' : 'NO_CHANGE_OBSERVED';
+  return { ctx: 'LIVE', keys, first_space: first, arrow_capture: arrowCapture, arrow_document: arrowDocument, arrow_bubble: arrowBubble, moved, ann, drop_seen: dropSeen, pressed, dom,
     scroll_events: snap.scrollEvents > 0 ? 'ANY' : 'NONE' };
 }
 
