@@ -44,7 +44,11 @@ describe('builder-authoring job (proposal; unrun)', () => {
   it('is accepted by the unchanged isolated-workflow checker, is its own dispatch value, and binds no environment or secret', async () => {
     expect(await checkWorkflowText(WF)).toEqual([]);
     expect(DOC.on.workflow_dispatch.inputs.specs.options).toContain('builder-authoring');
-    expect(BA.if).toBe("inputs.specs == 'builder-authoring'");
+    expect(DOC.on.workflow_dispatch.inputs.specs.options).toContain('builder-authoring-k1');
+    // the K1-only copy acceptance (T-18) is the same job with the adapter in its k1 mode; no other job runs it
+    expect(BA.if).toBe("inputs.specs == 'builder-authoring' || inputs.specs == 'builder-authoring-k1'");
+    expect(BA.env.BA_K1).toBe("${{ inputs.specs == 'builder-authoring-k1' && '1' || '0' }}");
+    expect(WF.match(/builder-authoring-k1'/g)?.length).toBe(2);
     expect(BA.permissions).toEqual({ contents: 'read' });
     expect(BA.environment).toBeUndefined();
     expect(JSON.stringify(BA)).not.toMatch(/\$\{\{[^}]*secrets|STORAGE_METADATA_JSON|storage-job\.mjs|gb-st-priv/);
@@ -99,14 +103,20 @@ describe('builder-authoring job (proposal; unrun)', () => {
 
   it('binds every builder launch to the pinned shell: receipt before D1, and an immediate recheck before the adapter', () => {
     const recv = runOf(byName(S, 'Launch binding receipt'));
-    expect(recv).toBe('set -o pipefail\nGB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$BA_EVIDENCE/checks/launch-binding.txt"\n');
+    const L = 'GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts';
+    const LK = `BA_SUITE=k1 ${L.replace('GB_LANE=builder-authoring ', 'GB_LANE=builder-authoring-k1 ')}`;
+    const T = ' | tee "$BA_EVIDENCE/checks/launch-binding.txt"';
+    expect(recv).toBe(`set -o pipefail\nif [ "$BA_K1" = 1 ]; then\n  ${LK}${T}\nelse\n  ${L}${T}\nfi\n`);
     expect(idx('Pin the headless shell')).toBeLessThan(idx('Launch binding receipt'));
     const a = runOf(byName(S, 'Builder authoring adapter')).split('\n').filter(Boolean);
     expect(a[0]).toBe('set -o pipefail');
     const shell = a.findIndex((l) => l.startsWith('[ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] ||'));
-    const recheck = a.findIndex((l) => l === 'GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/ba-launch-recheck.txt" || { cat "$RUNNER_TEMP/ba-launch-recheck.txt"; exit 1; }');
-    const run = a.findIndex((l) => l.startsWith('scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact |'));
-    expect([shell >= 0, recheck > shell, run > recheck]).toEqual([true, true, true]);
+    const R = ' > "$RUNNER_TEMP/ba-launch-recheck.txt" || { cat "$RUNNER_TEMP/ba-launch-recheck.txt"; exit 1; }';
+    const recheck = a.findIndex((l, i) => l === 'if [ "$BA_K1" = 1 ]; then' && a[i + 1] === `  ${LK}${R}` && a[i + 2] === 'else' && a[i + 3] === `  ${L}${R}` && a[i + 4] === 'fi');
+    const P = ' 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$BA_EVIDENCE/checks/builder-authoring.txt"';
+    const run = a.findIndex((l, i) => l === 'if [ "$BA_K1" = 1 ]; then' && a[i + 1] === `  scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out" k1${P}`
+      && a[i + 2] === 'else' && a[i + 3] === `  scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out"${P}` && a[i + 4] === 'fi');
+    expect([shell >= 0, recheck > shell, run > recheck, a.length === run + 5]).toEqual([true, true, true, true]);
     // The browser runs only through the adapter's own `-c playwright.builder-authoring.config.ts`.
     for (const re of [/playwright test/, /playwright\.config\.ts/, /functions serve/, /scripts\/e2e\/seed\.sh/]) expect(all(re), String(re)).toEqual([]);
     expect(runOf(byName(S, 'supabase start'))).toMatch(/-x [^\n]*edge-runtime/);
@@ -120,6 +130,16 @@ describe('builder-authoring job (proposal; unrun)', () => {
     expect(laneProblems('builder-authoring', {}, proj([...BUILDER_PROJECTS, 'ba-extra']))[0]).toMatch(/not exactly/);
     expect(laneProblems('builder-authoring', {}, proj(['ba-768', 'ba-1440', 'ba-390']))[0]).toMatch(/not exactly/);
     expect(laneProblems('journey', {}, [])).toEqual([]);
+    // K1-only lane: BA_SUITE=k1, exactly copy.spec.ts, retries 0, the three projects in dependency order; the baseline
+    // lane refuses BA_SUITE. Each negative is reported by name.
+    const deps = (names: string[]) => names.map((name, i) => ({ name, dependencies: i ? [names[i - 1]] : undefined, use: { launchOptions: { executablePath: P } } }));
+    const k1 = { projects: deps(BUILDER_PROJECTS), testMatch: ['copy.spec.ts'], retries: 0 };
+    expect(laneProblems('builder-authoring-k1', { BA_SUITE: 'k1' }, k1.projects, k1)).toEqual([]);
+    expect(laneProblems('builder-authoring-k1', {}, k1.projects, k1)).toEqual(['the K1-only lane needs BA_SUITE=k1']);
+    expect(laneProblems('builder-authoring-k1', { BA_SUITE: 'k1' }, k1.projects, { ...k1, testMatch: ['copy.spec.ts', 'reorder.spec.ts'] })).toEqual(['the K1-only config does not select exactly copy.spec.ts']);
+    expect(laneProblems('builder-authoring-k1', { BA_SUITE: 'k1' }, k1.projects, { ...k1, retries: 1 })).toEqual(['the K1-only config allows retries']);
+    expect(laneProblems('builder-authoring-k1', { BA_SUITE: 'k1' }, k1.projects, { ...k1, projects: proj(BUILDER_PROJECTS) })).toEqual(['the K1-only projects are not ordered ba-1440, ba-768, ba-390']);
+    expect(laneProblems('builder-authoring', { BA_SUITE: 'k1' }, proj(BUILDER_PROJECTS))).toEqual(['the baseline lane must not carry BA_SUITE']);
   });
 
   it('pins the reviewed bootstrap digest as a constant equal to the checked-out bootstrap.sh; the adapter reads that constant', () => {
@@ -210,8 +230,9 @@ describe('builder-authoring job (proposal; unrun)', () => {
     ['scripts/builder-authoring-fixture/ba-shots.mjs', '837dbc0ad772a01647a52ebc3ed3fe57d78f0827'],
     ['e2e/gradebook-roles/journey/private-dir.mjs', '030a386937b431c2af44209e070164750cdb7751'],
     ['scripts/gradebook-fixture/journey/private-psql.mjs', '8077eccfc6f6bc85cd391bc13efff071f3b9f27a'],
-    ['scripts/e2e/gb-launch-binding.ts', '318ba727816dea1a8f12caf55056309333a09c75'],
+    ['scripts/e2e/gb-launch-binding.ts', 'bf9f40570907507483282594268cccea4fc2e1eb'],
     ['playwright.builder-authoring.config.ts', 'b7653ec1986ed68c6e2f7a4bb96ea084e913d764'],
+    ['playwright.builder-authoring-k1.config.ts', 'c5379c494ca4e17de89253ebf228fc69d5b3b825'],
   ];
   it('pins exactly the capture, export, private and launch files by blob id, before the stack and every write, and stages the receipt', () => {
     const i = idx('Capture, export, private and launch files pinned');

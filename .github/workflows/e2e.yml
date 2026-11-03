@@ -35,7 +35,7 @@ on:
         # t09-runtime: the T-09 SQL runtime job below. LOCAL stack only; it runs no browser and serves no Edge Function.
         # learner-quiz: the learner quiz lifecycle job at the end. LOCAL stack, NEW schema, score-quiz on the local Edge runtime.
         # gradebook-journey: LOCAL-ONLY PROPOSAL (unrun). The gradebook no-quiz UI journey on the no-Edge stack below.
-        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, builder-authoring]
+        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, builder-authoring, builder-authoring-k1]
 
 permissions: {}
 
@@ -1353,7 +1353,8 @@ jobs:
 
   builder-authoring:
     name: Builder authoring acceptance (WP-08 reorder/delete/create; NEW schema, NO Edge runtime, hermetic served app; D1 record before any fixture write)
-    if: inputs.specs == 'builder-authoring'
+    # builder-authoring-k1: the same job, adapter in its K1-only mode (T-18 copy acceptance; run.sh k1). Rapid BA-R1 stays in #168.
+    if: inputs.specs == 'builder-authoring' || inputs.specs == 'builder-authoring-k1'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -1369,6 +1370,7 @@ jobs:
       E2E_ISOLATED_TARGET_REF: ''
       CI: 'true'
       BA_EVIDENCE: ba-evidence
+      BA_K1: ${{ inputs.specs == 'builder-authoring-k1' && '1' || '0' }}
       # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29) as reviewed. The writer refuses
       # unless the checked-out file has exactly this digest. Never read back from the record.
       BA_D1_BOOTSTRAP_SHA256: b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715
@@ -1411,6 +1413,8 @@ jobs:
           node scripts/builder-authoring-fixture/tests/selftest.mjs | tee "$BA_EVIDENCE/checks/ba-selftest.txt"
           node scripts/builder-authoring-fixture/tests/shot-selftest.mjs | tee "$BA_EVIDENCE/checks/ba-shot-selftest.txt"
           node scripts/builder-authoring-fixture/tests/tail-selftest.mjs | tee "$BA_EVIDENCE/checks/ba-tail-selftest.txt"
+          node scripts/builder-authoring-fixture/tests/k1-selftest.mjs | tee "$BA_EVIDENCE/checks/ba-k1-selftest.txt"
+          node scripts/builder-authoring-fixture/tests/k1-shot-selftest.mjs | tee "$BA_EVIDENCE/checks/ba-k1-shot-selftest.txt"
 
       # Exact git blob ids of the capture, export, private and launch files this job's adapter relies on, checked against the
       # tested tree before any stack exists or any write happens. The adapter re-checks the nine reused #162 modules itself.
@@ -1429,8 +1433,9 @@ jobs:
           837dbc0ad772a01647a52ebc3ed3fe57d78f0827 scripts/builder-authoring-fixture/ba-shots.mjs
           030a386937b431c2af44209e070164750cdb7751 e2e/gradebook-roles/journey/private-dir.mjs
           8077eccfc6f6bc85cd391bc13efff071f3b9f27a scripts/gradebook-fixture/journey/private-psql.mjs
-          318ba727816dea1a8f12caf55056309333a09c75 scripts/e2e/gb-launch-binding.ts
+          bf9f40570907507483282594268cccea4fc2e1eb scripts/e2e/gb-launch-binding.ts
           b7653ec1986ed68c6e2f7a4bb96ea084e913d764 playwright.builder-authoring.config.ts
+          c5379c494ca4e17de89253ebf228fc69d5b3b825 playwright.builder-authoring-k1.config.ts
           PINS
           exit "$rc"
 
@@ -1556,7 +1561,11 @@ jobs:
       - name: Launch binding receipt (every config project and the setup launch resolve to the pinned shell; before any write)
         run: |
           set -o pipefail
-          GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$BA_EVIDENCE/checks/launch-binding.txt"
+          if [ "$BA_K1" = 1 ]; then
+            BA_SUITE=k1 GB_LANE=builder-authoring-k1 BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$BA_EVIDENCE/checks/launch-binding.txt"
+          else
+            GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$BA_EVIDENCE/checks/launch-binding.txt"
+          fi
 
       # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
       # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
@@ -1599,8 +1608,16 @@ jobs:
           set -o pipefail
           # The exported shell and the builder lane binding are re-checked immediately before the adapter's first write and launch.
           [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
-          GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/ba-launch-recheck.txt" || { cat "$RUNNER_TEMP/ba-launch-recheck.txt"; exit 1; }
-          scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$BA_EVIDENCE/checks/builder-authoring.txt"
+          if [ "$BA_K1" = 1 ]; then
+            BA_SUITE=k1 GB_LANE=builder-authoring-k1 BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/ba-launch-recheck.txt" || { cat "$RUNNER_TEMP/ba-launch-recheck.txt"; exit 1; }
+          else
+            GB_LANE=builder-authoring BA_SESSION_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_RUN_DIR="$RUNNER_TEMP/ba-launch-binding-unused" BA_NONCE=0000000000000000 npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/ba-launch-recheck.txt" || { cat "$RUNNER_TEMP/ba-launch-recheck.txt"; exit 1; }
+          fi
+          if [ "$BA_K1" = 1 ]; then
+            scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out" k1 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$BA_EVIDENCE/checks/builder-authoring.txt"
+          else
+            scripts/builder-authoring-fixture/run.sh "$RUNNER_TEMP/ba-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$BA_EVIDENCE/checks/builder-authoring.txt"
+          fi
       - name: Copy the adapter's evidence (exactly its six files; PNGs only as its screenshots manifest names)
         if: always() && steps.ba_d1.outcome == 'success'
         run: |
