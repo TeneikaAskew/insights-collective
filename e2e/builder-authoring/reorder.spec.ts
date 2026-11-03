@@ -1,5 +1,6 @@
 // ABOUTME: BA-R1/BA-R2 (EXECUTABLE, no injection): a section reorder made with the keyboard and a lesson reorder made with
 // ABOUTME: the pointer are stored with dense positions 0..n-1, sent as exactly one RPC, and rendered in that order after reload.
+// BA-R1S is the separately labelled SYNCHRONIZED-INPUT CANDIDATE of BA-R1 (no screenshot; BA-R1 is unchanged).
 import type { Page } from '@playwright/test';
 import { test, expect } from './guarded-test';
 import { A, route } from './ids';
@@ -9,6 +10,7 @@ import { r1Code, r1DropKind, r1ScrollKind } from '../../scripts/builder-authorin
 import { r1TraceInstall, r1TraceRead, r1TraceDescription, settleR1Read, R1_TRACE_ANNOTATION, R1_TRACE_TTL, R1_TRACE_READ_DEADLINE_MS }
   from '../../scripts/builder-authoring-fixture/r1-trace.mjs';
 import { r1MonitorInstall, r1MonitorRead, r1MonitorDescription, R1_MONITOR_ANNOTATION } from '../../scripts/builder-authoring-fixture/r1-monitor.mjs';
+import { r1SyncPre, r1SyncState, r1SyncDrop } from '../../scripts/builder-authoring-fixture/r1-sync.mjs';
 import { shot } from './shot';
 
 const sectionTitle = (id: string) => A.sections.find((s) => s.id === id)!.title;
@@ -78,6 +80,52 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
     expect(await storedSections(page, A.course)).toEqual(expected);
   });
   await test.step('screenshot', () => shot(page, info, `ba_r1_${suffix(info.project.name)}`, curriculum));
+});
+
+// BA-R1S: SYNCHRONIZED-INPUT CANDIDATE, separately labelled. NOT a product fix and NOT a repair of BA-R1: BA-R1 above stays
+// the rapid-input coverage, unchanged, and its RED (runs 41577484430, 41585514764, 41590087421, 41604339390) stays
+// unresolved. Same keys (Space, ArrowDown, Space), the same unchanged pickup barrier, exactly one reorder_modules 200/204,
+// dense order and reload. The ONE difference: after ArrowDown the final Space waits for a bounded condition, the current
+// drag's exact moving->target announcement on this handle (r1-sync.mjs); any other outcome stops BEFORE the final Space,
+// so no reorder is sent, and the error is one fixed BA_R1S_E_<word>. The page returns fixed words only.
+test('BA-R1S SYNCHRONIZED-INPUT CANDIDATE section reorder waits for the target announcement, is stored and survives reload', async ({ page }) => {
+  const curriculum = route.curriculum(A.course);
+  let before: string[] = [];
+  await test.step('before_state', async () => {
+    await page.goto(curriculum);
+    before = await storedSections(page, A.course);
+    sameSet(before, A.sections.map((s) => s.id));
+    await expect.poll(() => shownSectionTitles(page)).toEqual(before.map(sectionTitle));
+  });
+  const expected = [before[1], before[0], ...before.slice(2)];
+  await test.step('ui_reorder', async () => {
+    const [moving, target] = [before[0], before[1]];
+    let handle: ReturnType<Page['getByRole']>;
+    try { handle = (await sectionCard(page, sectionTitle(moving))).getByRole('button', { name: 'Reorder section' }); }
+    catch { throw new Error('BA_R1S_E_LOCATE'); }
+    const pre = await handle.evaluate(r1SyncPre, { moving, target }, { timeout: 5_000 }).catch(() => 'READ_ERROR');
+    if (pre !== 'CLEAN') throw new Error(`BA_R1S_E_PRE_${pre === 'STALE' || pre === 'AMBIGUOUS' || pre === 'ABSENT' ? pre : 'READ_ERROR'}`);
+    await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
+      await handle.focus();
+      await page.keyboard.press('Space');
+      // the existing pickup barrier, unchanged
+      await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
+      await page.keyboard.press('ArrowDown');
+      await r1SyncDrop({
+        read: () => handle.evaluate(r1SyncState, { moving, target }, { timeout: 2_000 }),
+        wait: (probe: () => Promise<string>) => expect.poll(probe, { timeout: 5_000 }).toBe('DONE'),
+        drop: () => page.keyboard.press('Space'),
+      });
+    }, { count: 1, status: [200, 204] });
+  });
+  await test.step('db_settled', async () => {
+    await expect.poll(() => storedSections(page, A.course)).toEqual(expected);
+  });
+  await test.step('after_reload', async () => {
+    await page.reload();
+    await expect.poll(() => shownSectionTitles(page)).toEqual(expected.map(sectionTitle));
+    expect(await storedSections(page, A.course)).toEqual(expected);
+  });
 });
 
 test('BA-R2 lesson reorder is stored and survives reload', async ({ page }, info) => {

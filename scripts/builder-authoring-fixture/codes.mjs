@@ -43,6 +43,14 @@ export function obsKind(failures, want) {
 export const R1_DROPS = Object.freeze(['DROP_TARGET', 'DROP_SELF', 'DROP_OTHER', 'DROP_NONE', 'NO_DROP', 'DROP_UNAVAILABLE']);
 export const R1_SCROLLS = Object.freeze(['SCROLLED', 'STILL', 'SCROLL_UNAVAILABLE']);
 
+/** BA-R1S SYNCHRONIZED-INPUT CANDIDATE words (r1-sync.mjs). Page words come from the page; R1S_WAIT keeps the bounded
+ *  condition waiting; NOT_READ and TIMEOUT_* are gate outcomes only. Every word except OVER_TARGET stops before the drop. */
+export const R1S_PRE = Object.freeze(['CLEAN', 'STALE', 'AMBIGUOUS', 'ABSENT', 'READ_ERROR']);
+export const R1S_PAGE = Object.freeze(['OVER_TARGET', 'PICKED', 'OVER_SELF', 'NOT_ANNOUNCED', 'OVER_OTHER', 'NOT_OVER', 'ENDED',
+  'NOT_ACTIVE', 'WRONG_DRAG', 'AMBIGUOUS', 'ABSENT', 'OTHER', 'READ_ERROR']);
+export const R1S_WAIT = Object.freeze(['PICKED', 'OVER_SELF', 'NOT_ANNOUNCED']);
+export const R1S_WORDS = Object.freeze([...R1S_PAGE, 'NOT_READ', ...R1S_WAIT.map((w) => `TIMEOUT_${w}`), 'TIMEOUT_NOT_READ', 'TIMEOUT_UNSETTLED']);
+
 /**
  * Reduce dnd-kit's live-region texts to one R1_DROPS word. `texts` is what the spec read, or null when the read failed.
  * No region, a non-string entry, or unusable ids is DROP_UNAVAILABLE. Ids are compared here, never printed.
@@ -79,7 +87,9 @@ export function r1Code(message, drop, scroll) {
 export const TEST_ERRORS = map(['BA_E_NO_SESSION', 'BA_E_READ_MODULES', 'BA_E_READ_CONTENT_ITEMS', 'BA_E_NO_RUN_DIR', 'BA_E_PROJECT',
   'BA_E_CREATED_RECORD', 'BA_R1_E_LOCATE', 'BA_R2_E_LAYOUT', 'BA_SHOT_E_NAME', 'BA_SHOT_E_EXCLUSIVE_CREATE', 'BA_SHOT_E_WRITE',
   ...OBS_KINDS.map((o) => `BA_OBS_E_${o}`),
-  ...OBS_KINDS.flatMap((o) => R1_DROPS.flatMap((d) => R1_SCROLLS.map((s) => `BA_R1_E_${o}_${d}_${s}`)))]);
+  ...OBS_KINDS.flatMap((o) => R1_DROPS.flatMap((d) => R1_SCROLLS.map((s) => `BA_R1_E_${o}_${d}_${s}`))),
+  'BA_R1S_E_LOCATE', ...R1S_PRE.filter((w) => w !== 'CLEAN').map((w) => `BA_R1S_E_PRE_${w}`),
+  ...R1S_WORDS.filter((w) => w !== 'OVER_TARGET').map((w) => `BA_R1S_E_${w}`)]);
 export const ERROR_UNLISTED = 'unlisted';
 
 /** Playwright test.status and result.status values. */
