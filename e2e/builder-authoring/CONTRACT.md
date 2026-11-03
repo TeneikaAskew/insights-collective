@@ -1,4 +1,4 @@
-# Builder authoring acceptance: contract (source only, UNRUN)
+# Builder authoring acceptance: contract (source; one hosted RED run, 41564184929)
 
 Scope: course builder reorder (T-54), zero-row delete (T-54) and scratch creation (T-56) as frozen on #165 at c364f71d.
 Real UI against a fresh disposable local stack in the shared runner job. Nothing here has run. No SQL, RLS or RPC change,
@@ -32,7 +32,8 @@ lookup on a frozen null-prototype map; input that is not an own key prints the m
 into an output. Maps: `STAGES` (the 11 step titles, else `unlisted`), `TEST_ERRORS` (the own codes specs throw, else
 `unlisted`, or `timeout` / `assertion` / `other` without a BA_ token), `TEST_STATUS` / `RESULT_STATUS` (else `other`),
 `CHILD_CODES` (ba-db, ba-shots and the pairing producer's literal codes; else `UNLISTED`, no refusal line `NONE`),
-`SUMMARY_REASONS` (else `unclassified`). Hostile, inherited-key (`__proto__`, `constructor`, `toString`, ...) and grammar
+`SUMMARY_REASONS` (else `unclassified`). Observer and R1 diagnostic codes are products of fixed lists, so they stay
+finite: `BA_OBS_E_<OBS_KINDS>` and `BA_R1_E_<OBS_KINDS>_<R1_DROPS>_<R1_SCROLLS>` (see "R1 diagnostic" below). Hostile, inherited-key (`__proto__`, `constructor`, `toString`, ...) and grammar
 controls for all of them are in `tests/selftest.mjs`.
 
 ## Failure injection
@@ -76,7 +77,11 @@ is not evidence of preservation; the witness is.
     the excluded ones to be sensitive, the same field count before and after, and prints it
     (`WITNESS_SCOPE ... a_course_fields= a_module_fields= a_item_fields=`). So a column left out by mistake, or added
     between the snapshots, fails; the count is reported, never assumed. (The generated types list 21/13/12 columns, so
-    20/11/10 compared fields are expected; the run reports the live number.)
+    20/11/10 compared fields are expected; the run reports the live number. Run 41564184929 reported 18/11/10.)
+  - **The witness does NOT prove R1 or R2 order.** Because `position` and `updated_at` are excluded from A's section and
+    lesson projections, `WITNESS PASS` says only that nothing else changed. Stored order is proven by the specs'
+    `db_settled` step (positions read back, 0..n-1, equal to the move) and rendered order by `after_reload`; a run where
+    R1 fails can still print `WITNESS PASS`, as 41564184929 did.
   - one digest each over every course, module and lesson outside the fixture and the run's wizard courses (identical). Learner history on fixture courses (enrollments, progressions, certificates) is expected EMPTY and is
   reported as `preservation=not_exercised`: this lane does not test preservation of learner data.
 - Screenshots: 10 PLANNED, not guaranteed and none taken yet (R1, R2, C1 at each width; D2 refusal at 1440), taken after
@@ -100,6 +105,41 @@ is not evidence of preservation; the witness is.
 Readers of private files use `readBounded` (no-follow, regular, single hard link, 0600, same uid, size cap) or the reused
 `readHandle`.
 
+## R1 diagnostic (finite, diagnostic only; the oracle is unchanged)
+
+Run 41564184929 (ref 09412bcc) failed BA-R1 at 1440 in `ui_reorder` with `error=assertion`. From retained evidence that
+stage has two possible failing assertions (section-card uniqueness in `helpers.ts`, or the observer's `expect` in
+`observe.ts`), and the artifact carries neither the line, the RPC count, the status nor the failure array, so the cause is
+NOT identified. A source-derived hypothesis (dnd-kit 6.3.1 `KeyboardSensor`: an ArrowDown that crosses the viewport middle
+on a scrollable window calls `scrollTo({behavior:'smooth'})` and returns without moving `over`, so an immediate Space can
+drop on itself and send zero RPCs) is a hypothesis only; no product or spec interaction change is made for it.
+
+The next authorized run reports one fixed code instead of `assertion`, still failing on any deviation (exactly one
+`reorder_modules` RPC, terminal 200/204, is unchanged):
+- `BA_R1_E_LOCATE`: the section card or its handle was not uniquely located.
+- `BA_R1_E_<obs>_<drop>_<scroll>`: the observer failed. `<obs>` is the first observe-core verdict kind by fixed precedence
+  (`COUNT_ZERO`, `COUNT_UNDER`, `COUNT_OVER`, `STATUS`, `FAILED`, `PENDING`, `NEAR_MISS`, `ORDER`, else `OTHER`). `<drop>`
+  compares dnd-kit's own default drop announcement (its live region; CurriculumView sets no custom announcements, and its
+  sortable ids are the module ids) to the moving and target fixture section ids: `DROP_TARGET`, `DROP_SELF`,
+  `DROP_OTHER`, `DROP_NONE` (dropped, no droppable named) or `NO_DROP` (no drop announced). `<scroll>` is `SCROLLED` or
+  `STILL` (window.scrollY at failure versus after focus). Ids and counts are compared in the spec, never printed.
+- `BA_OBS_E_<obs>`: the same verdict kind for every other observed action (R2, C1, D1, D2).
+
+## Playwright inventory classification
+
+The config chains projects (`ba-768` depends on `ba-1440`, `ba-390` on `ba-768`). When any test in a dependency fails,
+Playwright reports every dependent test as `status=skipped` with `results=[]`. The summary now tells those apart instead of
+counting them as executed failures, and still fails: an incomplete inventory is never accepted.
+- `PLAYWRIGHT exit= entries= passed= failed= skipped= ...` is unchanged (failed counts every entry that is not as expected).
+- `PLAYWRIGHT_BREAKDOWN executed_passed= executed_failed= dependency_unattempted= intended_skip_not_reached=
+  intended_skipped=`. "Unattempted" is defined by report shape (skipped, zero results); the summary does not see the
+  dependency graph, so it names the most likely reason, not a proven one.
+- Per entry: `TEST FAIL ... reason=dependency_unattempted attempts=0` for an expected-pass entry never attempted, and
+  `reason=intended_skip_not_reached attempts=0` for one of the four intended `test.skip` cases never reached (its skip call
+  did not run, so it is not an intentional skip result).
+- Run 41564184929 reads as: executed 4 passed and 1 failed (ba-1440 R1), 10 unattempted, of which 4 are intended skips not
+  reached.
+
 ## Dependencies
 
 1. **#142 then #165**: the tested ref must carry the lesson-persistence base and the #165 head (c364f71d).
@@ -120,5 +160,9 @@ entries=15 passed=11 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_e
 
 ## Evidence tiers (what is and is not shown)
 
-Source and fakes only. The OLD 0/19 to NEW 19/19 review controls are static wiring checks, not browser behaviour. The
-selftests are pure fakes. Nothing here has run against a stack or a browser.
+Source and fakes, plus one hosted run (41564184929, RED; see above). The OLD 0/19 to NEW 19/19 review controls are static
+wiring checks, not browser behaviour. The selftests are pure fakes: the R1 codes and the breakdown are shown against fake
+reports shaped like that run, not against a browser. Earlier CanvasGrading notes: normal in-root CI installs avoid the
+reproduced Vite "Denied ID" condition (it is not impossible in CI); the "same package bytes" statement in the symlink
+control is author-reported, without a before/after inventory; control attempt 1 failed on module resolution, not Denied ID;
+and a NEW tail selftest failing on OLD source shows a shape or precondition difference, not causal proof.

@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { A, B, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
 import { summarizeReport, compareWitness, manifest, checkLines, errorClass, failedStage, childCode, readBounded, LINE, SummaryError } from '../summary.mjs';
-import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS } from '../codes.mjs';
+import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS, OBS_KINDS, R1_DROPS, R1_SCROLLS, obsKind } from '../codes.mjs';
 import { spawnSync } from 'node:child_process';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -135,9 +135,45 @@ ok('(4) an intentional skip with two results, a retried result or an executed re
     const t = goodTests(); mutate(t[idx]);
     const r = summarizeReport(report(t), 0);
     assert.equal(r.ok, false);
-    assert.match(firstFail(r), /^TEST FAIL project=ba-768 case=D1 stage=not_skipped status=skipped attempts=[0-9]+$/);
+    assert.match(firstFail(r), /^TEST FAIL project=ba-768 case=D1 (stage=not_skipped status=skipped attempts=[0-9]+|reason=intended_skip_not_reached attempts=0)$/);
     assert.ok(checkLines(r.lines));
   }
+});
+
+ok('hosted run 41564184929 shape: 1 executed failure, 4 passes, 10 unattempted (4 of them intended skips) are told apart; still FAIL', () => {
+  const t = goodTests();
+  const i = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
+  t[i('ba-1440', 'R1')] = entry('ba-1440', 'R1', 'unexpected', { error: { message: 'Error: BA_OBS_E_COUNT_ZERO' }, steps: [{ title: 'ui_reorder', error: {} }] });
+  for (const p of ['ba-768', 'ba-390']) for (const c of ['R1', 'R2', 'C1', 'D1', 'D2']) t[i(p, c)] = { projectName: p, status: 'skipped', results: [], c };
+  const r = summarizeReport(report(t), 1);
+  assert.equal(r.ok, false);
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=0 duplicate=0 unknown=0 global_errors=0');
+  assert.equal(r.lines[1], 'PLAYWRIGHT_BREAKDOWN executed_passed=4 executed_failed=1 dependency_unattempted=10 intended_skip_not_reached=4 intended_skipped=0');
+  assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=unexpected attempts=1 stage=ui_reorder error=BA_OBS_E_COUNT_ZERO'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=R1 reason=dependency_unattempted attempts=0'));
+  assert.ok(r.lines.includes('TEST FAIL project=ba-390 case=D2 reason=intended_skip_not_reached attempts=0'));
+  assert.equal(r.lines.filter((l) => l.includes('reason=dependency_unattempted')).length, 6);
+  assert.equal(r.lines.filter((l) => l.includes('reason=intended_skip_not_reached')).length, 4);
+  assert.ok(checkLines(r.lines));
+  // exit 0 with the same shape still fails: an incomplete inventory is never accepted
+  assert.equal(summarizeReport(report(t), 0).ok, false);
+});
+ok('R1 diagnostic codes: obsKind is finite; every composed BA_R1_E_<obs>_<drop>_<scroll> code is listed and grammar-safe', () => {
+  assert.equal(obsKind(['OBS_COUNT POST /rest/v1/rpc/reorder_modules 0'], 1), 'COUNT_ZERO');
+  assert.equal(obsKind(['OBS_NEAR_MISS x', 'OBS_COUNT x 2'], 1), 'COUNT_OVER');
+  assert.equal(obsKind(['OBS_STATUS x 403'], 1), 'STATUS');
+  assert.equal(obsKind(['OBS_PENDING x'], 1), 'PENDING');
+  assert.equal(obsKind(['OBS_COUNT x NaN'], 1), 'OTHER');
+  assert.equal(obsKind(['__proto__'], 1), 'OTHER'); assert.equal(obsKind(null, 1), 'OTHER');
+  for (const o of OBS_KINDS) {
+    assert.equal(errorClass(`Error: BA_OBS_E_${o}`), `BA_OBS_E_${o}`);
+    for (const d of R1_DROPS) for (const sc of R1_SCROLLS) {
+      const c = `BA_R1_E_${o}_${d}_${sc}`;
+      assert.equal(errorClass(`Error: ${c}`), c); assert.ok(c.length <= 64 && LINE.test(`TEST FAIL error=${c}`));
+    }
+  }
+  assert.equal(errorClass('BA_R1_E_COUNT_ZERO_DROP_SELF_SIDEWAYS'), 'unlisted');
+  assert.equal(errorClass('BA_R1_E_LOCATE'), 'BA_R1_E_LOCATE');
 });
 
 // ---- (1) finite maps: hostile values, inherited keys, grammar ----

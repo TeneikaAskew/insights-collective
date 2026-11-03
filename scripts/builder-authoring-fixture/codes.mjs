@@ -16,9 +16,36 @@ export const STAGES = map(['before_state', 'ui_reorder', 'db_settled', 'after_re
   'ui_delete', 'db_readback', 'out_of_band_delete', 'ui_delete_refused']);
 export const STAGE_UNLISTED = 'unlisted';
 
-/** Every own error code a spec or helper throws inside a test (the error class). */
+/** Request-observation verdicts (observe-core OBS_* failures reduced to one fixed word; COUNT split by direction). */
+export const OBS_KINDS = Object.freeze(['COUNT_ZERO', 'COUNT_UNDER', 'COUNT_OVER', 'STATUS', 'FAILED', 'PENDING', 'NEAR_MISS', 'ORDER', 'OTHER']);
+/** R1 keyboard drop, from dnd-kit's own onDragEnd announcement after the drop key, and whether the window scrolled. */
+/**
+ * One OBS_KINDS word for a non-empty observe-core verdict (DIAGNOSTIC only: any failure still fails). Precedence: COUNT
+ * (ZERO / UNDER / OVER against the wanted count), STATUS, FAILED, PENDING, NEAR_MISS, ORDER; else OTHER.
+ * @param {string[]} failures @param {number} want
+ */
+export function obsKind(failures, want) {
+  const list = Array.isArray(failures) ? failures.filter((f) => typeof f === 'string') : [];
+  const count = list.find((f) => f.startsWith('OBS_COUNT '));
+  if (count) {
+    const n = Number(count.split(' ').at(-1));
+    if (!Number.isInteger(n) || n < 0) return 'OTHER';
+    return n === 0 ? 'COUNT_ZERO' : n > want ? 'COUNT_OVER' : 'COUNT_UNDER';
+  }
+  for (const [p, k] of [['OBS_STATUS ', 'STATUS'], ['OBS_FAILED ', 'FAILED'], ['OBS_PENDING ', 'PENDING'], ['OBS_NEAR_MISS ', 'NEAR_MISS'], ['OBS_ORDER ', 'ORDER']]) {
+    if (list.some((f) => f.startsWith(p))) return k;
+  }
+  return 'OTHER';
+}
+export const R1_DROPS = Object.freeze(['DROP_TARGET', 'DROP_SELF', 'DROP_OTHER', 'DROP_NONE', 'NO_DROP']);
+export const R1_SCROLLS = Object.freeze(['SCROLLED', 'STILL']);
+
+/** Every own error code a spec or helper throws inside a test (the error class). Generated codes are products of the
+ *  fixed lists above, so the set stays finite and every member is a constant written here. */
 export const TEST_ERRORS = map(['BA_E_NO_SESSION', 'BA_E_READ_MODULES', 'BA_E_READ_CONTENT_ITEMS', 'BA_E_NO_RUN_DIR', 'BA_E_PROJECT',
-  'BA_E_CREATED_RECORD', 'BA_R2_E_LAYOUT', 'BA_SHOT_E_NAME', 'BA_SHOT_E_EXCLUSIVE_CREATE', 'BA_SHOT_E_WRITE']);
+  'BA_E_CREATED_RECORD', 'BA_R1_E_LOCATE', 'BA_R2_E_LAYOUT', 'BA_SHOT_E_NAME', 'BA_SHOT_E_EXCLUSIVE_CREATE', 'BA_SHOT_E_WRITE',
+  ...OBS_KINDS.map((o) => `BA_OBS_E_${o}`),
+  ...OBS_KINDS.flatMap((o) => R1_DROPS.flatMap((d) => R1_SCROLLS.map((s) => `BA_R1_E_${o}_${d}_${s}`)))]);
 export const ERROR_UNLISTED = 'unlisted';
 
 /** Playwright test.status and result.status values. */

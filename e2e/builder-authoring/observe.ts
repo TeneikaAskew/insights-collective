@@ -3,6 +3,7 @@
 import { expect, type Page, type Request } from '@playwright/test';
 import { BINDING } from './guarded-test';
 import { createRecorder, evaluate, settled } from '../gradebook-roles/journey/observe-core.mjs';
+import { obsKind } from '../../scripts/builder-authoring-fixture/codes.mjs';
 
 export type CallSpec = { method: 'GET' | 'POST' | 'PATCH' | 'DELETE'; path: string; query?: Record<string, string> };
 export type Call = { req: Request; url: URL; method: string; seq: number; status: number | null; failed: boolean; done: boolean };
@@ -21,7 +22,8 @@ export async function expectCalls(page: Page, spec: CallSpec, action: () => Prom
     while (Date.now() < deadline && !settled(rec.calls, want, BINDING.api.origin)) await sleep(100);
     await sleep(opts.settleMs ?? 1_500);
     const { failures, matched } = evaluate(rec.calls, want, { origin: BINDING.api.origin });
-    expect(failures, 'request-level expectations (fixed codes)').toEqual([]);
+    // Same strictness as before (any failure fails); the thrown error is now a fixed own code naming the verdict kind.
+    if ((failures as string[]).length) throw new Error(`BA_OBS_E_${obsKind(failures as string[], want[0].count)}`);
     return (matched as Call[][])[0];
   } finally { rec.stop(); }
 }
