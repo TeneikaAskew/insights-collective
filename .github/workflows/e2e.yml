@@ -1595,7 +1595,8 @@ jobs:
             const u = new URL(process.env.SUPABASE_DB_URL);
             if (!["127.0.0.1","localhost"].includes(u.hostname)) process.exit(3);
             require("node:fs").writeFileSync(process.argv[1], decodeURIComponent(u.password) + "\n", { mode: 0o600, flag: "wx" });
-            u.password = ""; process.stdout.write(`LE_DB_URL=${u.toString()}\n`);
+            // The exported DSN is rebuilt from its parts WITHOUT the password field (never an assigned empty password).
+            process.stdout.write(`LE_DB_URL=${u.protocol}//${u.username}@${u.host}${u.pathname}${u.search}\n`);
           ' "$P/dbpass" >> "$GITHUB_ENV"
           echo "lane inputs: anon and service key files, DB password file and run marker (0600), private TMPDIR, proof and pairing dirs in the private parent; password-free DSN exported"
 

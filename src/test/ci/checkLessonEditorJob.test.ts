@@ -53,6 +53,9 @@ describe('lesson-editor job (proposal)', () => {
     expect(inputs).toContain('P="$RUNNER_TEMP/le-private"');
     expect(inputs).toContain('export-status.mjs "$S" /dev/null "$P/keys"');
     expect(inputs).toMatch(/flag: "wx"/);
+    // password-free DSN rebuilt from its parts; never an assigned empty password (CodeQL empty-password rule on #170)
+    expect(inputs).toContain('process.stdout.write(`LE_DB_URL=${u.protocol}//${u.username}@${u.host}${u.pathname}${u.search}\\n`);');
+    expect(inputs).not.toMatch(/password\s*=\s*["']{2}/);
     const e1 = runOf(S[id('le_e1')]);
     expect(e1).toMatch(/playwright test -c e2e\/lesson-editor\/playwright\.lesson-editor\.config\.ts --grep 'E1 save' > "\$LE_PRIV\/pw-list\.txt" 2>&1/);
     // B: raw output and report INSIDE the private evidence dir (the spec's beforeAll refuses anything else), never public
