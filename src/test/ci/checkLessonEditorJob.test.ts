@@ -10,7 +10,7 @@ import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { laneProblems, LE_PROJECTS } from '../../../scripts/e2e/gb-launch-binding';
 import { E1_IDENTITY, e1Result, lines, readPrivateBounded, setupFacts, SETUP_STAGES } from '../../../scripts/e2e/le-e1-summary.mjs';
-import { REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
+import { classifyEacces, REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -351,5 +351,27 @@ describe('le-owned-procs scanner (fake /proc; nothing is written or probed)', ()
     expect(scan({ 10: { uid: 0, env: denied } })).toEqual({ count: 0 });
     for (const token of ['', 'abc', TOK.toUpperCase(), `${TOK}\n`]) expect(scan({}, { token })).toEqual({ error: true, code: 'LE_PROCS_E_TOKEN' });
     for (const c of ['LE_PROCS_E_PROCDIR', 'LE_PROCS_E_ENVIRON_EACCES', 'LE_PROCS_E_STAT', 'LE_PROCS_E_TOKEN']) expect(REASONS).toContain(c);
+  });
+  it('classifies an own-uid EACCES from the status fields only, and the scan still fails closed', () => {
+    const st = (u: string, cap: string, ns = '10') => `Name:\tSECRET-NAME\nUid:\t${u}\nCapPrm:\t${cap}\nNSpid:\t${ns}\n`;
+    const me = st('1000\t1000\t1000\t1000', '0000000000000000');
+    expect(classifyEacces(st('0\t1000\t1000\t1000', '0'), me, 1000)).toBe('LE_PROCS_E_ENVIRON_EACCES_UIDMIX');
+    expect(classifyEacces(st('1000\t1000\t1000\t1000', '0000000000000400'), me, 1000)).toBe('LE_PROCS_E_ENVIRON_EACCES_CAPS');
+    expect(classifyEacces(st('1000\t1000\t1000\t1000', '0', '10\t1'), me, 1000)).toBe('LE_PROCS_E_ENVIRON_EACCES_NSPID');
+    expect(classifyEacces(st('1000\t1000\t1000\t1000', '0'), me, 1000)).toBe('LE_PROCS_E_ENVIRON_EACCES_PLAIN');
+    expect(classifyEacces('garbage', me, 1000)).toBe('LE_PROCS_E_ENVIRON_EACCES');
+    for (const c of ['UIDMIX', 'CAPS', 'NSPID', 'PLAIN']) expect(REASONS).toContain(`LE_PROCS_E_ENVIRON_EACCES_${c}`);
+    const fsImpl = {
+      readdirSync: () => ['10'],
+      statSync: () => ({ uid: 1000 }),
+      readFileSync: (p: string) => {
+        if (p.endsWith('/environ')) throw Object.assign(new Error('x'), { code: 'EACCES' });
+        if (p.includes('/self/')) return me;
+        return st('1000\t1000\t1000\t1000', '00000000000000ff');
+      },
+    } as unknown as typeof import('node:fs');
+    expect(scanOwned('0123456789abcdef0123456789abcdef', { fsImpl, uid: 1000, self: 1 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES_CAPS' });
+    const noStatus = { ...fsImpl, readFileSync: (p: string) => { throw Object.assign(new Error('x'), { code: p.endsWith('/environ') ? 'EACCES' : 'EACCES' }); } } as unknown as typeof import('node:fs');
+    expect(scanOwned('0123456789abcdef0123456789abcdef', { fsImpl: noStatus, uid: 1000, self: 1 })).toEqual({ error: true, code: 'LE_PROCS_E_ENVIRON_EACCES' });
   });
 });

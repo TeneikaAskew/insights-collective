@@ -20,8 +20,28 @@ export const MARKER = 'LE_OWNED_RUN';
 const TOKEN = /^[0-9a-f]{32}$/;
 /** The only lines the CLI may print (on exit 3). */
 export const REASONS = Object.freeze(['LE_PROCS_E_TOKEN', 'LE_PROCS_E_PROCDIR', 'LE_PROCS_E_STAT', 'LE_PROCS_E_ENVIRON_EACCES',
-  'LE_PROCS_E_ENVIRON_EPERM', 'LE_PROCS_E_ENVIRON_OTHER', 'LE_PROCS_E_UNCLASSIFIED']);
+  'LE_PROCS_E_ENVIRON_EPERM', 'LE_PROCS_E_ENVIRON_OTHER', 'LE_PROCS_E_UNCLASSIFIED',
+  'LE_PROCS_E_ENVIRON_EACCES_UIDMIX', 'LE_PROCS_E_ENVIRON_EACCES_CAPS', 'LE_PROCS_E_ENVIRON_EACCES_NSPID', 'LE_PROCS_E_ENVIRON_EACCES_PLAIN']);
 const environCode = (e) => (e && e.code === 'EACCES' ? 'LE_PROCS_E_ENVIRON_EACCES' : e && e.code === 'EPERM' ? 'LE_PROCS_E_ENVIRON_EPERM' : 'LE_PROCS_E_ENVIRON_OTHER');
+
+/**
+ * Diagnostic only (run 41685026242: EACCES on an own-uid environ AFTER the stack stop). Classifies WHY the kernel refused the
+ * read from the world-readable status file: mixed real/effective/saved/fs uids (UIDMIX), capabilities this scanner lacks
+ * (CAPS), a nested pid namespace (NSPID), or none of those (PLAIN). It never changes the answer: the scan still returns error.
+ * Reads only the Uid, CapPrm and NSpid fields; nothing from the status file is printed. Unreadable status -> plain EACCES.
+ */
+export function classifyEacces(statusText, selfStatusText, uid) {
+  const field = (t, k) => (String(t).split('\n').find((l) => l.startsWith(`${k}:`)) ?? '').slice(k.length + 1).trim().split(/\s+/).filter(Boolean);
+  const uids = field(statusText, 'Uid');
+  if (uids.length !== 4) return 'LE_PROCS_E_ENVIRON_EACCES';
+  if (uids.some((u) => Number(u) !== uid)) return 'LE_PROCS_E_ENVIRON_EACCES_UIDMIX';
+  const cap = (t) => { const v = field(t, 'CapPrm')[0]; return /^[0-9a-f]{1,16}$/i.test(v ?? '') ? BigInt(`0x${v}`) : null; };
+  const theirs = cap(statusText), mine = cap(selfStatusText);
+  if (theirs === null || mine === null) return 'LE_PROCS_E_ENVIRON_EACCES';
+  if ((theirs & ~mine) !== 0n) return 'LE_PROCS_E_ENVIRON_EACCES_CAPS';
+  if (field(statusText, 'NSpid').length > 1) return 'LE_PROCS_E_ENVIRON_EACCES_NSPID';
+  return 'LE_PROCS_E_ENVIRON_EACCES_PLAIN';
+}
 
 /**
  * Count live processes of uid whose environment holds exactly MARKER=token. Returns { count } or { error: true, code }.
@@ -39,7 +59,13 @@ export function scanOwned(token, { procRoot = '/proc', fsImpl = fs, uid = proces
     try { st = fsImpl.statSync(path.join(procRoot, n)); } catch (e) { if (e && (e.code === 'ENOENT' || e.code === 'ESRCH')) continue; return { error: true, code: 'LE_PROCS_E_STAT' }; }
     if (st.uid !== uid) continue;
     let env;
-    try { env = fsImpl.readFileSync(path.join(procRoot, n, 'environ')); } catch (e) { if (e && (e.code === 'ENOENT' || e.code === 'ESRCH')) continue; return { error: true, code: environCode(e) }; }
+    try { env = fsImpl.readFileSync(path.join(procRoot, n, 'environ')); } catch (e) { if (e && (e.code === 'ENOENT' || e.code === 'ESRCH')) continue;
+      let code = environCode(e);
+      if (code === 'LE_PROCS_E_ENVIRON_EACCES') {
+        try { code = classifyEacces(fsImpl.readFileSync(path.join(procRoot, n, 'status'), 'utf8'), fsImpl.readFileSync(path.join(procRoot, 'self', 'status'), 'utf8'), uid); } catch { /* keep plain EACCES */ }
+      }
+      return { error: true, code };
+    }
     let start = 0;
     for (let i = 0; i <= env.length; i++) {
       if (i === env.length || env[i] === 0) {
