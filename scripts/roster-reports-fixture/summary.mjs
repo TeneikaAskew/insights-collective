@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { FORBID_METHODS, FORBID_RESOURCES, KNOWN_RPCS, DIAG_ACTORS, DIAG_SCOPES, COUNT_CAP } from '../../e2e/roster-reports/request-policy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const LIMIT = 8 * 1024 * 1024;
@@ -60,7 +61,29 @@ const CATEGORIES = [
   ['TIMEOUT', /Timeout|timed out|exceeded/i],
   ['ASSERTION', /expect\(|toHave|toEqual|toBe/],
 ];
-const category = (msg) => (CATEGORIES.find(([, re]) => re.test(msg)) ?? ['OTHER'])[0];
+// Fixed refusal codes thrown by session-setup, the test fixture, the request policy and the sink. A message whose first
+// line is '[<Name>Error: ]<CODE>[ key=value ...]' is classified as that CODE, and only the keys below are kept, each
+// validated against a fixed enum (own-key lookup) or an integer range; anything else becomes 'unknown' or is dropped.
+export const CODES = fixed(['RR_POLICY_E_FORBIDDEN', 'RR_POLICY_E_LATE_START', 'RR_SETUP_E_SESSION_DIR', 'RR_SETUP_E_NONCE', 'RR_SETUP_E_PASSWORD',
+  'RR_SETUP_E_SIGNIN', 'RR_SETUP_E_ASSOCIATION', 'RR_SETUP_E_ORIGIN', 'RR_SETUP_E_APP_API', 'RR_SETUP_E_SESSION_STATE', 'RR_TEST_E_ORIGIN',
+  'RR_SINK_E_RECORD', 'RR_SINK_E_ROOT', 'RR_SINK_E_OPEN', 'RR_SINK_E_FILE', 'RR_SINK_E_SIZE', 'RR_SINK_E_WRITE', 'RR_SINK_E_UNKNOWN'].map((c) => [c, c]));
+const ownEnum = (obj) => (v) => (Object.hasOwn(obj, v) ? obj[v] : 'unknown');
+const intIn = (lo, hi) => (v) => (/^\d{1,6}$/.test(v) && Number(v) >= lo && Number(v) <= hi ? String(Number(v)) : 'unknown');
+const RPC_FIELD = (v) => (v === 'none' ? 'none' : ownEnum(KNOWN_RPCS)(v));
+const FIELDS = [['scope', ownEnum(DIAG_SCOPES)], ['actor', ownEnum(DIAG_ACTORS)], ['count', intIn(0, COUNT_CAP)], ['distinct', intIn(0, COUNT_CAP)],
+  ['method', ownEnum(FORBID_METHODS)], ['resource', ownEnum(FORBID_RESOURCES)], ['rpc', RPC_FIELD], ['http', intIn(100, 599)]];
+const CODE_HEAD = /^(?:[A-Za-z]{0,40}Error: )?(RR_[A-Z]{1,10}_E_[A-Z_]{1,24})(?: (.*))?$/;
+export function classifyCode(msg) {
+  const m = CODE_HEAD.exec((String(msg).split('\n')[0] ?? '').slice(0, 512));
+  if (!m) return null;
+  const code = pick(CODES, m[1], 'RR_UNKNOWN_CODE');
+  const got = new Map();
+  for (const t of (m[2] ?? '').split(' ').slice(0, 16)) { const kv = /^([a-z]{1,10})=(.*)$/.exec(t); if (kv && !got.has(kv[1])) got.set(kv[1], kv[2]); }
+  const parts = [code];
+  for (const [k, check] of FIELDS) if (got.has(k)) parts.push(`${k}=${check(got.get(k))}`);
+  return parts.join(' ');
+}
+const category = (msg) => classifyCode(msg) ?? (CATEGORIES.find(([, re]) => re.test(msg)) ?? ['OTHER'])[0];
 const where = (e) => {
   const loc = e && typeof e === 'object' ? e.location : null;
   const file = pick(SPEC_FILES, loc && typeof loc.file === 'string' ? path.basename(loc.file) : undefined, 'OTHER');

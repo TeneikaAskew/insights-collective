@@ -5,11 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as X from '../../../e2e/roster-reports/expected';
-import { classifyRequest, installRequestPolicy } from '../../../e2e/roster-reports/request-policy.mjs';
+import { classifyRequest, installRequestPolicy, forbiddenCategory, forbiddenMessage, FORBIDDEN_KEEP, COUNT_CAP } from '../../../e2e/roster-reports/request-policy.mjs';
 import * as ActorsModule from '../../../e2e/roster-reports/actors.mjs';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE, readBounded } from '../summary.mjs';
+import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE, readBounded, classifyCode } from '../summary.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
@@ -278,11 +278,11 @@ ok(/mktemp -d "\$TMPROOT\/rr-run\.XXXXXXXXXX"/.test(read('scripts/roster-reports
 // 8b. Wiring (static): the policy is on every test context and on the session-setup context; the witness emits every
 // projection kind the committed file holds, plus CERT and per-actor TELEMETRY, in bytewise order.
 const guarded = read('e2e/roster-reports/guarded-test.ts').replace(/^\s*\/\/.*$/gm, '');
-ok(/installRequestPolicy\(context, BINDING\.api\.origin/.test(guarded) && /requestPolicy: \[async \(\{ context, originGuard \}/.test(guarded)
-  && /expect\(policy\.forbidden, '[^']*'\)\.toEqual\(\[\]\)/.test(guarded) && (guarded.match(/\{ auto: true \}/g) ?? []).length === 2, 'guarded-test: auto request policy after the origin guard, forbidden must be empty');
+ok(/installRequestPolicy\(context, BINDING\.api\.origin/.test(guarded) && /requestPolicy: \[async \(\{ context, originGuard \}, use, testInfo\)/.test(guarded)
+  && /const refusal = policy\.forbiddenReport\('test', actorOfProject\(testInfo\.project\.name\)\);\s*\n\s*if \(refusal\) throw new Error\(refusal\);/.test(guarded) && (guarded.match(/\{ auto: true \}/g) ?? []).length === 2, 'guarded-test: auto request policy after the origin guard, forbidden must be empty');
 ok(!/readOnly|page\.on\('request'/.test(guarded), 'guarded-test: no after-the-fact read-only observer');
 const setup = read('e2e/roster-reports/session-setup.ts').replace(/^\s*\/\/.*$/gm, '');
-ok(/installRequestPolicy\(context, api\.origin/.test(setup) && /if \(policy\.forbidden\.length\) throw/.test(setup), 'session-setup: policy on the setup context, throws on any forbidden request');
+ok(/installRequestPolicy\(context, api\.origin/.test(setup) && /const refusal = policy\.forbiddenReport\('setup', role\);\s*\n\s*if \(refusal\) throw new Error\(refusal\);/.test(setup), 'session-setup: policy on the setup context, throws a fixed code on any forbidden request');
 ok(/^\s*sinkPath\(\);/m.test(setup) && /lstatSync/.test(setup) && /0o700/.test(setup) && /getuid/.test(setup) && !/RR_POLICY_LOG/.test(setup), 'session-setup: sink path checked before any browser, 0700 own real session dir');
 ok(/await policy\.finalize\(\);[^\n]*\n\s*(\/\/[^\n]*\n\s*)*const state = await context\.storageState/.test(setup), 'setup: telemetry finalized before the session state is taken');
 const wsql = read('scripts/roster-reports-fixture/witness.sql');
@@ -486,6 +486,78 @@ ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verifie
   }
   const rp = read('e2e/roster-reports/request-policy.mjs').replace(/^\s*\/\/.*$/gm, '');
   ok(/let actor;\n\s*try \{ actor = /.test(rp) && /catch \{ actor = 'unknown'; \}/.test(rp) && !/let actor = 'unknown'/.test(rp), 'attribution: no dead initializer; the catch assigns unknown');
+}
+
+// 8c4. Refusal diagnostics (run 41576138960: setup:80 forbidden throw printed as first=OTHER, because the classifier's
+// literal 'forbidden API requests' never matched the thrown 'request(s)'). Every setup/test refusal is now a FIXED code
+// with fixed-enum or integer fields; summary.mjs classifies it; nothing derived from a URL, path, id or token is printed.
+{
+  const OLD_MSG = 'Error: roster-reports setup: 2 forbidden API request(s) were aborted before send';
+  const g = (message: string, file = '/w/e2e/roster-reports/session-setup.ts', line = 80) =>
+    sp(rep(cases.default, 'expected', { errors: [{ message, location: { file, line } }] }), 1).lines.find((l) => l.startsWith('PLAYWRIGHT ')) ?? '';
+  ok(g(OLD_MSG) === 'PLAYWRIGHT exit=1 global_errors=1 first=OTHER file=session-setup.ts line=80 verdict=FAIL', `diag: the run's OLD message replays as first=OTHER (${g(OLD_MSG)})`);
+  const NEW_MSG = 'Error: RR_POLICY_E_FORBIDDEN scope=setup actor=admin count=2 distinct=1 method=POST resource=rpc rpc=platform_stats';
+  ok(g(NEW_MSG) === 'PLAYWRIGHT exit=1 global_errors=1 first=RR_POLICY_E_FORBIDDEN scope=setup actor=admin count=2 distinct=1 method=POST resource=rpc rpc=platform_stats file=session-setup.ts line=80 verdict=FAIL',
+    `diag: the NEW setup refusal is classified with its fixed fields (${g(NEW_MSG)})`);
+  // Every code the setup and test fixture can throw is in summary's CODES (none falls back to OTHER/RR_UNKNOWN_CODE).
+  const setupSrc = read('e2e/roster-reports/session-setup.ts'); const guardedSrc = read('e2e/roster-reports/guarded-test.ts');
+  const thrown = [...new Set([...`${setupSrc}\n${guardedSrc}`.matchAll(/new Error\(['`](RR_[A-Z_]+)/g)].map((m) => m[1]))].sort();
+  ok(thrown.join(',') === 'RR_SETUP_E_APP_API,RR_SETUP_E_ASSOCIATION,RR_SETUP_E_NONCE,RR_SETUP_E_ORIGIN,RR_SETUP_E_PASSWORD,RR_SETUP_E_SESSION_DIR,RR_SETUP_E_SESSION_STATE,RR_SETUP_E_SIGNIN,RR_TEST_E_ORIGIN', `diag: fixed codes thrown by setup/test (${thrown.join(',')})`);
+  for (const c of [...thrown, 'RR_POLICY_E_FORBIDDEN', 'RR_POLICY_E_LATE_START', 'RR_SINK_E_ROOT', 'RR_SINK_E_WRITE', 'RR_SINK_E_UNKNOWN']) ok(classifyCode(`Error: ${c}`) === c, `diag: ${c} classified as itself`);
+  ok(!/new Error\((['"`])(?!RR_)/.test(setupSrc.replace(/^\s*\/\/.*$/gm, '')) && !/new Error\((['"`])(?!RR_)/.test(guardedSrc.replace(/^\s*\/\/.*$/gm, '')), 'diag: setup and test fixture throw ONLY fixed RR_ codes (no free-text messages)');
+  ok(!/expect\((blocked|policy\.forbidden)/.test(guardedSrc), 'diag: no expect() that would print blocked origins or refused requests');
+  ok(/try \{ st = fs\.lstatSync\(d\); \} catch \{ throw new Error\('RR_SETUP_E_SESSION_DIR'\); \}/.test(setupSrc), 'diag: a missing session dir never puts its path in the message');
+  // Fallbacks and hostile values: unknown code, hostile fields, prototype keys, URL-ish values, oversize, duplicates.
+  ok(classifyCode('RR_FOO_E_BAR count=3') === 'RR_UNKNOWN_CODE count=3', 'diag: unknown code -> RR_UNKNOWN_CODE');
+  ok(classifyCode('roster-reports setup: x') === null && classifyCode('') === null && classifyCode('xRR_POLICY_E_FORBIDDEN') === null, 'diag: non-code messages fall through to the legacy categories');
+  const HOSTILE = 'RR_POLICY_E_FORBIDDEN scope=__proto__ actor=constructor count=-1 distinct=1e9 method=post resource=http://evil.example/rest/v1/secret?token=abc rpc=toString http=99999 extra=x private=marker';
+  const hc = classifyCode(HOSTILE) ?? '';
+  ok(hc === 'RR_POLICY_E_FORBIDDEN scope=unknown actor=unknown count=unknown distinct=unknown method=unknown resource=unknown rpc=unknown http=unknown', `diag: hostile fields -> unknown, extra keys dropped (${hc})`);
+  ok(!/evil|secret|token|marker|proto|constructor|toString|http:/.test(hc), 'diag: no hostile substring reaches the output');
+  ok(classifyCode('RR_POLICY_E_FORBIDDEN count=1 count=99') === 'RR_POLICY_E_FORBIDDEN count=1', 'diag: a duplicated key keeps the first value');
+  ok(classifyCode(`RR_POLICY_E_FORBIDDEN count=${'9'.repeat(600)}`) === 'RR_POLICY_E_FORBIDDEN count=unknown', 'diag: oversize value bounded');
+  ok(classifyCode('RR_SETUP_E_SIGNIN actor=admin http=401\n    at secret (/home/x/private.ts:1:1)') === 'RR_SETUP_E_SIGNIN actor=admin http=401', 'diag: only the first line is read (no stack text)');
+  ok(stageable([g(HOSTILE), g(NEW_MSG), g(OLD_MSG)]), 'diag: PLAYWRIGHT lines with codes stay in the staging grammar');
+  const caseLine = sp((() => { const r = rep(cases.default); (r.suites[0].specs[0].tests[0] as any).status = 'unexpected'; (r.suites[0].specs[0].tests[0] as any).results = [{ errors: [{ message: 'Error: RR_TEST_E_ORIGIN actor=instructor count=1', location: { file: '/w/e2e/roster-reports/guarded-test.ts', line: 21 } }] }]; return r; })(), 1).lines.find((l) => l.startsWith('CASE FAIL')) ?? '';
+  ok(/^CASE FAIL project=rr-instructor case=RR-I1 category=RR_TEST_E_ORIGIN actor=instructor count=1 file=guarded-test\.ts line=21$/.test(caseLine) && stageable([caseLine]), `diag: a test refusal is classified on its CASE line (${caseLine})`);
+  // forbiddenCategory: finite fields only, for hostile URLs too.
+  const fc = (m: string, u: string) => JSON.stringify(forbiddenCategory(m, u));
+  ok(fc('POST', `${A_ORIGIN}/rest/v1/rpc/platform_stats`) === '{"method":"POST","resource":"rpc","rpc":"platform_stats"}', 'diag: known RPC named from the fixed list');
+  ok(fc('POST', `${A_ORIGIN}/rest/v1/rpc/private_marker_fn`) === '{"method":"POST","resource":"rpc","rpc":"unknown"}', 'diag: unknown RPC -> unknown (name never stored)');
+  ok(fc('POST', `${A_ORIGIN}/rest/v1/rpc/has_admin_access?x=1`) === '{"method":"POST","resource":"rpc_read_with_query","rpc":"has_admin_access"}', 'diag: read RPC with a query');
+  ok(fc('POST', `${A_ORIGIN}/rest/v1/rpc/log_security_event?x=1`) === '{"method":"POST","resource":"rpc_telemetry_with_query","rpc":"log_security_event"}', 'diag: telemetry RPC with a query');
+  ok(fc('PATCH', `${A_ORIGIN}/rest/v1/notifications?id=eq.7150a000-0000-4000-8000-000000000001`) === '{"method":"PATCH","resource":"rest_table","rpc":"none"}', 'diag: table write -> rest_table, no table name or id');
+  ok(fc('POST', `${A_ORIGIN}/auth/v1/logout`) === '{"method":"POST","resource":"auth_other","rpc":"none"}' && fc('POST', `${A_ORIGIN}/auth/v1/token?grant_type=pkce`) === '{"method":"POST","resource":"auth_token","rpc":"none"}', 'diag: auth categories');
+  ok(fc('POST', `${A_ORIGIN}/storage/v1/object/sign/avatars/u/x.png`) === '{"method":"POST","resource":"storage_sign","rpc":"none"}' && fc('POST', `${A_ORIGIN}/storage/v1/object/list/avatars`) === '{"method":"POST","resource":"storage_list","rpc":"none"}' && fc('PUT', `${A_ORIGIN}/storage/v1/object/a/b`) === '{"method":"PUT","resource":"storage_other","rpc":"none"}', 'diag: storage categories');
+  ok(fc('POST', `${A_ORIGIN}/functions/v1/assistant-ai`) === '{"method":"POST","resource":"functions","rpc":"none"}' && fc('POST', `${A_ORIGIN}/graphql/v1`) === '{"method":"POST","resource":"graphql","rpc":"none"}' && fc('POST', `${A_ORIGIN}/realtime/v1/api`) === '{"method":"POST","resource":"realtime","rpc":"none"}', 'diag: functions/graphql/realtime');
+  ok(fc('BREW', `${A_ORIGIN}/private-marker/x`) === '{"method":"OTHER","resource":"other_path","rpc":"none"}' && fc('POST', 'not a url') === '{"method":"POST","resource":"unparseable","rpc":"none"}', 'diag: unknown method and path fall back; unparseable');
+  for (const h of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) ok(fc('POST', `${A_ORIGIN}/rest/v1/rpc/${h}`) === '{"method":"POST","resource":"rpc","rpc":"unknown"}' && fc(h, `${A_ORIGIN}/x`) === '{"method":"OTHER","resource":"other_path","rpc":"none"}', `diag: '${h}' as RPC or method -> fallback (own-key lookup)`);
+  ok(forbiddenMessage('setup', 'admin', [], 0) === null, 'diag: nothing refused -> no message');
+  const recs = [forbiddenCategory('POST', `${A_ORIGIN}/rest/v1/rpc/log_audit_event`), forbiddenCategory('PATCH', `${A_ORIGIN}/rest/v1/x`), forbiddenCategory('POST', `${A_ORIGIN}/rest/v1/rpc/log_audit_event`)];
+  ok(forbiddenMessage('setup', 'member', recs, 3) === 'RR_POLICY_E_FORBIDDEN scope=setup actor=member count=3 distinct=2 method=POST resource=rpc rpc=log_audit_event', 'diag: message describes the FIRST refusal plus count and distinct');
+  ok(forbiddenMessage('bogus', 'constructor', recs, 3)?.startsWith('RR_POLICY_E_FORBIDDEN scope=unknown actor=unknown ') === true, 'diag: scope/actor fall back to unknown');
+  ok(classifyCode(forbiddenMessage('test', 'instructor', recs, 3) ?? '') === forbiddenMessage('test', 'instructor', recs, 3), 'diag: every forbiddenMessage round-trips through the summary unchanged');
+  // Bounded acquisition and lifecycle through the real route handler on a fake context.
+  {
+    let handler: ((r: any) => Promise<unknown>) | null = null;
+    const ctx = { route: async (_p: string, h: any) => { handler = h; }, on: () => {} };
+    const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf });
+    const aborted: string[] = [];
+    const fire = (m: string, u: string) => handler!({ request: () => ({ method: () => m, url: () => u }), abort: async (why: string) => { aborted.push(why); }, fallback: async () => { aborted.push('fallback'); } });
+    await fire('POST', `${A_ORIGIN}/rest/v1/rpc/platform_stats?secret=marker`);
+    for (let i = 0; i < 40; i += 1) await fire('PATCH', `${A_ORIGIN}/rest/v1/t${i}?id=eq.${i}`);
+    await fire('GET', `${A_ORIGIN}/rest/v1/courses`);
+    ok(aborted.filter((a) => a === 'blockedbyclient').length === 41 && aborted.at(-1) === 'fallback', 'diag: every refusal still aborted before send; reads still pass');
+    ok(pol.forbidden.length === FORBIDDEN_KEEP && pol.refused.count === 41 && Object.isFrozen(pol.forbidden[0]), `diag: bounded records (${pol.forbidden.length}/${FORBIDDEN_KEEP}) and full count (${pol.refused.count})`);
+    ok(!JSON.stringify(pol.forbidden).includes('marker') && !JSON.stringify(pol.forbidden).includes('t1') && !/eq\./.test(JSON.stringify(pol.forbidden)), 'diag: no URL, query or table text stored');
+    ok(pol.forbiddenReport('test', 'admin') === 'RR_POLICY_E_FORBIDDEN scope=test actor=admin count=41 distinct=2 method=POST resource=rpc rpc=platform_stats', `diag: report (${pol.forbiddenReport('test', 'admin')})`);
+    await pol.finalize(0);
+    await fire('DELETE', `${A_ORIGIN}/rest/v1/x`);
+    ok(pol.refused.count === 42 && aborted.at(-1) === 'blockedbyclient', 'diag: a refusal after finalize is still aborted and counted (consumed after the awaited close)');
+    ok(COUNT_CAP === 99_999 && forbiddenMessage('setup', 'admin', recs, 10 ** 9)?.includes(' count=99999 ') === true, 'diag: count capped');
+  }
+  // Original error preserved: the first failure is kept and rethrown unchanged (no wrapping, no new message).
+  ok(/if \(failure !== null\) throw failure;/.test(setupSrc) && !/new Error\([^)]*failure/.test(setupSrc) && !/failure = new Error/.test(setupSrc), 'diag: the first failure is rethrown as is (never wrapped)');
 }
 
 // 8d. Sink source contract (what a file-level grant cannot itself enforce): exactly one write call, on the checked fd.
