@@ -45,6 +45,22 @@ const withOwnRoot = (fn, remove = removeOwnRoot) => {
     }
   }
 };
+// Negative-control harness (T 16:36): a check that deliberately makes the remover throw records each root it keeps in `kept`;
+// an OUTER finally removes every kept root that still exists, whether the check's assertions pass or fail. If the check failed,
+// its error is rethrown unchanged (PRIMARY) and a fallback-removal error is only attached as `fallbackCleanupError` and printed
+// as a secondary line; if the check passed, a fallback-removal error is thrown after every kept root has been tried.
+const withKeptRoots = (kept, fn, remove = removeOwnRoot) => {
+  let failed = false, primary;
+  try { return fn(kept); } catch (e) { failed = true; primary = e; throw e; } finally {
+    let first;
+    for (const d of kept) { try { if (fs.existsSync(d)) remove(d); } catch (c) { if (first === undefined) first = c; } }
+    if (first !== undefined) {
+      if (!failed) throw first;
+      console.error(`FALLBACK_CLEANUP_SECONDARY roots=${kept.length} code=${(first && first.code) || 'unknown'}`);
+      if (primary && typeof primary === 'object') { try { Object.defineProperty(primary, 'fallbackCleanupError', { value: first, enumerable: true }); } catch { /* the primary stays as thrown */ } }
+    }
+  }
+};
 const writeProof = (root) => {
   const proofDir = path.join(root, 'proof'); fs.mkdirSync(proofDir, { mode: 0o700 });
   const proof = path.join(proofDir, 'pairing-proof.json');
@@ -81,13 +97,22 @@ ok('own root: an injected failure after the real proof write is rethrown as itse
   assert.equal(thrown, injected); assert.equal(thrown.cleanupError, undefined); assert.equal(fs.existsSync(seen), false);
 });
 ok('own root: when cleanup ALSO fails the PRIMARY is preserved, the cleanup error is secondary; a passing check surfaces it', () => {
-  let seen, thrown; const primary = new Error('BA_K1_E_INJECTED'), cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
-  const orig = console.error, lines = []; console.error = (l) => lines.push(String(l));
-  try { try { withOwnRoot((root) => { seen = root; writeProof(root); throw primary; }, () => { throw cleanup; }); } catch (e) { thrown = e; } } finally { console.error = orig; }
-  assert.equal(thrown, primary); assert.equal(thrown.cleanupError, cleanup);
-  assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(seen)} code=EBUSY`]);
-  removeOwnRoot(seen); assert.equal(fs.existsSync(seen), false);
-  assert.throws(() => withOwnRoot((root) => { seen = root; return 'v'; }, () => { throw cleanup; }), (e) => e === cleanup);
-  removeOwnRoot(seen); assert.equal(fs.existsSync(seen), false);
+  const kept = []; const primary = new Error('BA_K1_E_INJECTED'), cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
+  const failingRemove = (d) => { kept.push(d); throw cleanup; };
+  withKeptRoots(kept, () => {
+    let thrown; const orig = console.error, lines = []; console.error = (l) => lines.push(String(l));
+    try { try { withOwnRoot((root) => { writeProof(root); throw primary; }, failingRemove); } catch (e) { thrown = e; } } finally { console.error = orig; }
+    assert.equal(thrown, primary); assert.equal(thrown.cleanupError, cleanup);
+    assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(kept[0])} code=EBUSY`]);
+    assert.throws(() => withOwnRoot(() => 'v', failingRemove), (e) => e === cleanup);
+    assert.equal(kept.length, 2); assert.ok(kept.every((d) => fs.existsSync(d)), 'the stub really did not remove them');
+  });
+  assert.equal(kept.length, 2); assert.ok(kept.every((d) => !fs.existsSync(d)), 'kept roots removed by the outer finally');
+});
+ok('negative-control harness: an assertion failing INSIDE it after a real proof write leaks no kept root and its error survives', () => {
+  const kept = []; let thrown; const injected = new Error('BA_K1_E_INJECTED');
+  try { withKeptRoots(kept, () => { try { withOwnRoot((root) => { writeProof(root); return 'v'; }, (d) => { kept.push(d); throw new Error('rm failed'); }); } catch { /* the kept root */ } assert.ok(fs.existsSync(kept[0])); throw injected; }); } catch (e) { thrown = e; }
+  assert.equal(thrown, injected); assert.equal(thrown.fallbackCleanupError, undefined);
+  assert.equal(kept.length, 1); assert.equal(fs.existsSync(kept[0]), false);
 });
 console.log(`PASS builder-authoring K1 shot selftest (${n} checks)`);

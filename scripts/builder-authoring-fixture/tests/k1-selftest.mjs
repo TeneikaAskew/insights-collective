@@ -256,6 +256,22 @@ ok('summary CLI in the K1 suite routes witness and manifest to the K1 comparison
   });
 });
 
+// Negative-control harness (T 16:36): a check that deliberately makes the remover throw records each root it keeps in `kept`;
+// an OUTER finally removes every kept root that still exists, whether the check's assertions pass or fail. If the check failed,
+// its error is rethrown unchanged (PRIMARY) and a fallback-removal error is only attached as `fallbackCleanupError` and printed
+// as a secondary line; if the check passed, a fallback-removal error is thrown after every kept root has been tried.
+const withKeptRoots = (kept, fn, remove = removeOwnRoot) => {
+  let failed = false, primary;
+  try { return fn(kept); } catch (e) { failed = true; primary = e; throw e; } finally {
+    let first;
+    for (const d of kept) { try { if (fs.existsSync(d)) remove(d); } catch (c) { if (first === undefined) first = c; } }
+    if (first !== undefined) {
+      if (!failed) throw first;
+      console.error(`FALLBACK_CLEANUP_SECONDARY roots=${kept.length} code=${(first && first.code) || 'unknown'}`);
+      if (primary && typeof primary === 'object') { try { Object.defineProperty(primary, 'fallbackCleanupError', { value: first, enumerable: true }); } catch { /* the primary stays as thrown */ } }
+    }
+  }
+};
 // ---- own-root cleanup, by injected failure (the real helper and the real put; each case checks its root is gone) ----
 const seen = [];
 const spy = (fn) => (d) => { seen.push(d); return fn(d); };
@@ -279,18 +295,44 @@ ok('own root: an injected helper failure (manifestK1 refusing a wrong mode) is r
   assert.ok(thrown instanceof SummaryError); assert.equal(seen.length, 1); gone(seen[0]);
 });
 ok('own root: when cleanup ALSO fails, the PRIMARY is rethrown unchanged and the cleanup error is only secondary', () => {
-  seen.length = 0; let thrown; const primary = new Error('BA_K1_E_INJECTED'); const cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
-  const lines = quietSecondary(() => { try { withOwnRoot(spy(() => { throw primary; }), () => { throw cleanup; }); } catch (e) { thrown = e; } });
-  assert.equal(thrown, primary, 'the primary is not masked'); assert.equal(thrown.message, 'BA_K1_E_INJECTED'); assert.equal(thrown.cleanupError, cleanup);
-  assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(seen[0])} code=EBUSY`]);
-  assert.ok(fs.existsSync(seen[0]), 'the stub really did not remove it'); removeOwnRoot(seen[0]); gone(seen[0]);
-  let p2; const lines2 = quietSecondary(() => { try { withOwnRoot(spy(() => { throw 'not an object'; }), () => { throw cleanup; }); } catch (e) { p2 = e; } });
-  assert.equal(p2, 'not an object'); assert.equal(lines2.length, 1); removeOwnRoot(seen[1]); gone(seen[1]);
+  const kept = []; const primary = new Error('BA_K1_E_INJECTED'); const cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
+  const failingRemove = (d) => { kept.push(d); throw cleanup; };
+  withKeptRoots(kept, () => {
+    let thrown; const lines = quietSecondary(() => { try { withOwnRoot(() => { throw primary; }, failingRemove); } catch (e) { thrown = e; } });
+    assert.equal(thrown, primary, 'the primary is not masked'); assert.equal(thrown.message, 'BA_K1_E_INJECTED'); assert.equal(thrown.cleanupError, cleanup);
+    assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(kept[0])} code=EBUSY`]);
+    assert.ok(fs.existsSync(kept[0]), 'the stub really did not remove it');
+    let p2; const lines2 = quietSecondary(() => { try { withOwnRoot(() => { throw 'not an object'; }, failingRemove); } catch (e) { p2 = e; } });
+    assert.equal(p2, 'not an object'); assert.equal(lines2.length, 1); assert.equal(kept.length, 2);
+  });
+  assert.equal(kept.length, 2); kept.forEach(gone);
 });
 ok('own root: a cleanup failure after a PASSING check is reported, not swallowed', () => {
-  seen.length = 0; const cleanup = new Error('rm failed');
-  assert.throws(() => withOwnRoot(spy(() => 'v'), () => { throw cleanup; }), (e) => e === cleanup);
-  removeOwnRoot(seen[0]); gone(seen[0]);
+  const kept = []; const cleanup = new Error('rm failed');
+  withKeptRoots(kept, () => {
+    assert.throws(() => withOwnRoot(() => 'v', (d) => { kept.push(d); throw cleanup; }), (e) => e === cleanup);
+    assert.equal(kept.length, 1);
+  });
+  kept.forEach(gone);
+});
+ok('negative-control harness: an assertion failing INSIDE it leaks no kept root and its error survives', () => {
+  const kept = []; let thrown; const injected = new assert.AssertionError({ message: 'injected', actual: 1, expected: 2, operator: 'strictEqual' });
+  try { withKeptRoots(kept, () => { try { withOwnRoot(() => 'v', (d) => { kept.push(d); throw new Error('rm failed'); }); } catch { /* the kept root */ } assert.ok(fs.existsSync(kept[0])); throw injected; }); } catch (e) { thrown = e; }
+  assert.equal(thrown, injected, 'the primary is the same object'); assert.equal(thrown.fallbackCleanupError, undefined);
+  assert.equal(kept.length, 1); kept.forEach(gone);
+});
+ok('negative-control harness: when its fallback removal ALSO fails the primary survives; after a pass the failure surfaces', () => {
+  const outer = [];
+  withKeptRoots(outer, () => {
+    const kept = []; let thrown; const primary = new Error('BA_K1_E_INJECTED'), fb = Object.assign(new Error('fallback failed'), { code: 'EPERM' });
+    try { withOwnRoot(() => 'v', (d) => { kept.push(d); outer.push(d); throw new Error('rm failed'); }); } catch { /* the kept root */ }
+    const lines = quietSecondary(() => { try { withKeptRoots(kept, () => { throw primary; }, () => { throw fb; }); } catch (e) { thrown = e; } });
+    assert.equal(thrown, primary, 'the primary is not masked'); assert.equal(thrown.fallbackCleanupError, fb);
+    assert.deepEqual(lines, ['FALLBACK_CLEANUP_SECONDARY roots=1 code=EPERM']);
+    assert.throws(() => withKeptRoots(kept, () => 'v', () => { throw fb; }), (e) => e === fb);
+    assert.ok(fs.existsSync(kept[0]), 'the failing fallback really did not remove it');
+  });
+  assert.equal(outer.length, 1); outer.forEach(gone);
 });
 ok('own root wiring: every temp root in both K1 writers comes from withOwnRoot, and only that root is removed', () => {
   for (const f of ['k1-selftest.mjs', 'k1-shot-selftest.mjs']) {
@@ -298,6 +340,8 @@ ok('own root wiring: every temp root in both K1 writers comes from withOwnRoot, 
     assert.equal(src.match(/mkdtemp[S]ync\(/g).length, 1, `${f}: one mkdtemp, inside withOwnRoot`);
     assert.equal(src.match(/recursive: tru[e]/g).length, 1, `${f}: one recursive removal, of the own root`);
     assert.doesNotMatch(src, /const tmp = \(\)/, `${f}: no unmanaged root helper`);
+    assert.doesNotMatch(src, /removeOwnRoot\((seen|kept|outer)/, `${f}: no in-body cleanup after assertions; kept roots go through withKeptRoots`);
+    assert.equal(src.match(/const withKeptRoot[s] = /g).length, 1, `${f}: the negative-control harness is defined`);
   }
 });
 
