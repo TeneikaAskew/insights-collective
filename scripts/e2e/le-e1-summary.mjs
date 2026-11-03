@@ -119,6 +119,9 @@ export function e1Result(report) {
 
 /** run.sh setup stage labels (its quiet labels), in the order setup runs them. */
 export const SETUP_STAGES = Object.freeze(['preflight', 'personas', 'fixture', 'read', 'quizhash', 'owner change', 'backend contract']);
+/** Fixed setup codes run.sh may print as exactly "LE-SETUP-CODE: <code>" (preflight exit status mapped by a fixed case). */
+export const SETUP_CODES = Object.freeze(['LE_PRE_E_INPUT', 'LE_PRE_E_P1', 'LE_PRE_E_P2', 'LE_PRE_E_P3_HTTP', 'LE_PRE_E_P3_COUNT',
+  'LE_PRE_E_P3_TABLES', 'LE_PRE_E_P4', 'LE_PRE_E_UNEXPECTED', 'UNMAPPED']);
 const CONTRACT_PASS = /^PASS le-contract: \d+ checks on the LOCAL isolated stack \(says nothing about the deployed backend\)$/;
 
 /**
@@ -136,14 +139,20 @@ export function setupFacts(text) {
   const pass = ls.filter((l) => CONTRACT_PASS.test(l)).length;
   const fail = ls.some((l) => l.startsWith('FAIL le-contract: '));
   const contract = pass === 1 && !fail ? 'PASS' : fail ? 'FAIL' : pass > 1 ? 'FAIL' : 'unattempted';
-  return { stage, contract };
+  // setup code: exactly one exact "LE-SETUP-CODE: <code>" line with an allowlisted code; none -> "none"; anything else -> "unclassified"
+  const codeLines = ls.filter((l) => l.startsWith('LE-SETUP-CODE: '));
+  let code = 'none';
+  if (codeLines.length === 1) { const c = codeLines[0].slice('LE-SETUP-CODE: '.length); code = SETUP_CODES.includes(c) ? c : 'unclassified'; }
+  else if (codeLines.length > 1) code = 'unclassified';
+  return { stage, contract, code };
 }
 
-export function lines({ commit, setup, stage, contract, result, cleanup }) {
+export function lines({ commit, setup, stage, code = 'none', contract, result, cleanup }) {
   return [
     `LE-E1 tier: authentic isolated LOCAL stack; commit=${commit}; not production, not deployed backend`,
     `LE-E1 setup: ${setup}`,
     `LE-E1 setup refused at: ${stage}`,
+    `LE-E1 setup code: ${code}`,
     `LE-E1 backend-contract: ${contract}`,
     "LE-E1 selection: 1 test (--grep 'E1 save')",
     `LE-E1 result: ${result}`,
@@ -159,7 +168,7 @@ function main(argv) {
   // The redacted setup output is written under umask 077 into the private parent; same-descriptor bounded read, 0600 only.
   const so = readPrivateBounded(setupFile, { max: 256 * 1024 });
   if (!so.ok) refuse('LE_SUM_E_SETUP_OUTPUT');
-  const { stage, contract } = setupFacts(so.text);
+  const { stage, contract, code } = setupFacts(so.text);
   // Consistency: a passed setup step must show the contract PASS and no refusal; a failed one must show a refusal.
   if (setup === 'PASS' && (contract !== 'PASS' || stage !== 'none')) refuse('LE_SUM_E_SETUP_INCONSISTENT');
   if (setup === 'FAIL' && stage === 'none') refuse('LE_SUM_E_SETUP_INCONSISTENT');
@@ -176,7 +185,7 @@ function main(argv) {
     result = c.result;
     if (result === 'passed' && pw !== '0') result = 'failed';
   }
-  for (const l of lines({ commit, setup, stage, contract, result, cleanup })) console.log(l);
+  for (const l of lines({ commit, setup, stage, code, contract, result, cleanup })) console.log(l);
   process.exit(result === 'passed' && setup === 'PASS' && contract === 'PASS' && cleanup === 'PASS' ? 0 : 1);
 }
 

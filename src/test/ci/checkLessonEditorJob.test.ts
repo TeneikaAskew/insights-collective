@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { laneProblems, LE_PROJECTS } from '../../../scripts/e2e/gb-launch-binding';
-import { E1_IDENTITY, e1Result, lines, readPrivateBounded, setupFacts, SETUP_STAGES } from '../../../scripts/e2e/le-e1-summary.mjs';
+import { E1_IDENTITY, e1Result, lines, readPrivateBounded, SETUP_CODES, setupFacts, SETUP_STAGES } from '../../../scripts/e2e/le-e1-summary.mjs';
 import { classifyEacces, REASONS, scanOwned } from '../../../scripts/e2e/le-owned-procs.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -163,7 +163,8 @@ describe('lesson-editor job (proposal)', () => {
     expect(e1Result(rep(E1, { stats: { expected: 2, unexpected: 0, flaky: 0, skipped: 0 } }))).toEqual({ result: 'failed' });
     expect(e1Result(rep(E1, { expectedStatus: 'failed' }))).toEqual({ result: 'failed' });
     const out = lines({ commit: 'a'.repeat(40), setup: 'PASS', stage: 'none', contract: 'PASS', result: 'passed', cleanup: 'PASS' });
-    expect(out).toHaveLength(7);
+    expect(out).toHaveLength(8);
+    expect(out).toContain('LE-E1 setup code: none');
     expect(out.join('\n')).not.toMatch(/SECRET|returned row/);
   });
 });
@@ -171,10 +172,10 @@ describe('lesson-editor job (proposal)', () => {
 describe('setupFacts: stage and contract verdict from the private setup output (fixed vocabulary only)', () => {
   const OK = 'PASS le-contract: 9 checks on the LOCAL isolated stack (says nothing about the deployed backend)';
   it('reads the contract verdict from its own lines, not from the setup outcome', () => {
-    expect(setupFacts(`x\n${OK}\n`)).toEqual({ stage: 'none', contract: 'PASS' });
-    expect(setupFacts('FAIL le-contract: 2 check(s) failed\nFAIL le-run: backend contract exited 1 (child stderr withheld: 0 bytes)\n')).toEqual({ stage: 'backend contract', contract: 'FAIL' });
+    expect(setupFacts(`x\n${OK}\n`)).toEqual({ stage: 'none', contract: 'PASS', code: 'none' });
+    expect(setupFacts('FAIL le-contract: 2 check(s) failed\nFAIL le-run: backend contract exited 1 (child stderr withheld: 0 bytes)\n')).toEqual({ stage: 'backend contract', contract: 'FAIL', code: 'none' });
     // the run 41676587739 shape: refused before the contract ran, so the contract is "unattempted", never FAIL
-    expect(setupFacts('FAIL le-run: preflight exited 1 (child stderr withheld: 120 bytes)\nFAIL le-run: preflight (read-only; nothing was written)\n')).toEqual({ stage: 'preflight', contract: 'unattempted' });
+    expect(setupFacts('FAIL le-run: preflight exited 1 (child stderr withheld: 120 bytes)\nFAIL le-run: preflight (read-only; nothing was written)\n')).toEqual({ stage: 'preflight', contract: 'unattempted', code: 'none' });
     expect(setupFacts(`${OK}\n${OK}\n`).contract).toBe('FAIL');
     expect(setupFacts(`${OK} extra\n`).contract).toBe('unattempted');
     expect(setupFacts(`  ${OK}\n`).contract).toBe('unattempted');
@@ -185,6 +186,13 @@ describe('setupFacts: stage and contract verdict from the private setup output (
     expect(setupFacts('FAIL le-run: private dir exists (never reused)\n').stage).toBe('unclassified');
     expect(setupFacts('FAIL le-run: SECRET-TEXT\n').stage).toBe('unclassified');
     expect(setupFacts('FAIL le-run: fixture exited 1\nFAIL le-run: preflight exited 1\n').stage).toBe('fixture');
+  });
+  it('reads one exact allowlisted setup code line; anything else is unclassified, never copied', () => {
+    for (const c of SETUP_CODES) expect(setupFacts(`LE-SETUP-CODE: ${c}\nFAIL le-run: preflight exited 23\n`).code).toBe(c);
+    expect(setupFacts('LE-SETUP-CODE: LE_PRE_E_P3_HTTP extra\n').code).toBe('unclassified');
+    expect(setupFacts('LE-SETUP-CODE: SECRET\n').code).toBe('unclassified');
+    expect(setupFacts('LE-SETUP-CODE: LE_PRE_E_P1\nLE-SETUP-CODE: LE_PRE_E_P2\n').code).toBe('unclassified');
+    expect(setupFacts(' LE-SETUP-CODE: LE_PRE_E_P1\n').code).toBe('none');
   });
 });
 
