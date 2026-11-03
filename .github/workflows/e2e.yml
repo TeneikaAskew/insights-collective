@@ -36,7 +36,8 @@ on:
         # learner-quiz: the learner quiz lifecycle job at the end. LOCAL stack, NEW schema, score-quiz on the local Edge runtime.
         # gradebook-journey: LOCAL-ONLY PROPOSAL (unrun). The gradebook no-quiz UI journey on the no-Edge stack below.
         # lesson-editor: LOCAL-ONLY PROPOSAL (unrun). Lesson-editor E1 save/reload on #142's product, no-Edge stack below.
-        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, lesson-editor]
+        # le-isolation-probe: SYNTHETIC feasibility probe only (unrun). Sealed container vs a dummy nonce endpoint; no stack.
+        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, lesson-editor, le-isolation-probe]
 
 permissions: {}
 
@@ -1789,3 +1790,55 @@ jobs:
           retention-days: 14
           if-no-files-found: error
           path: le-upload/
+
+  # SYNTHETIC lane-isolation feasibility probe (r4 correction, review candidate). It answers one question: can a FROM-scratch
+  # image built from host files, run once with --network none, all caps dropped, no-new-privileges, a read-only root and
+  # exact binds, reach a job-owned DUMMY nonce endpoint only through a mounted unix socket, launch the pinned headless shell
+  # with chromiumSandbox: true, and be torn down with every gate verified? No stack, credentials, fixtures, E1, pairing,
+  # migrations or policy changes; no secrets; no upload; no retry. It proves nothing about the E1 lane or le_procs.
+  le-isolation-probe:
+    name: Lane-isolation synthetic feasibility probe (no stack, no credentials, dummy nonce endpoint only)
+    if: inputs.specs == 'le-isolation-probe'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Pin the headless shell (the one browser the probe may launch)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/iso-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          cat "$R"
+          echo "ISO_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      - name: Run the probe once (fixed codes only; every teardown gate verified; no retry)
+        run: scripts/e2e/le-iso/run-probe.mjs "$GITHUB_WORKSPACE" "$(command -v node)" "$ISO_SHELL_PATH"
