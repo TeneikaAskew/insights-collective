@@ -145,7 +145,7 @@ describe('the plan is bound to the user who started it', () => {
 describe('copied lesson text', () => {
   it('a lesson with content (copied) is created with that content', async () => {
     const r = input({ outline: [{ title: 'S', lessons: [{ title: 'L', type: 'page', content: '<p>Copied</p>' }] }] });
-    const plan = createPlan(r, uuid);
+    const plan = createPlan(r, uuid, 'u1');
     await run(plan, r);
     expect([...db.tables.content_items.values()][0].content).toBe('<p>Copied</p>');
   });
