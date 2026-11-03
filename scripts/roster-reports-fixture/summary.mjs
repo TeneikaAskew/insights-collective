@@ -26,6 +26,12 @@ export const PROJECTS = fixed(['rr-instructor', 'rr-admin', 'rr-learner', 'rr-er
 export const CASES = fixed(['RR-I1', 'RR-I2', 'RR-I3', 'RR-I4', 'RR-I5', 'RR-M1', 'RR-M2', 'RR-A1', 'RR-L1', 'RR-L2', 'RR-L3', 'RR-P1'].map((c) => [c, c]));
 export const STATUS = fixed([['expected', 'PASS'], ['unexpected', 'FAIL'], ['skipped', 'SKIP'], ['flaky', 'FLAKY']]);
 export const SPEC_FILES = fixed(['instructor.spec.ts', 'admin.spec.ts', 'learner.spec.ts', 'mobile-keyboard.spec.ts', 'error.pending.ts', 'guarded-test.ts', 'helpers.ts', 'session-setup.ts'].map((f) => [f, f]));
+// Lane-reachable helper modules (finite basename allowlist): an error located in one of these keeps its basename instead of
+// collapsing to OTHER. Diagnostic wording only; it names where the error was raised, not why.
+export const HELPER_FILES = fixed(['origin-guard.mjs', 'request-policy.mjs', 'actors.mjs', 'expected.ts', 'console-errors.fixture.ts', 'local-binding.mjs', 'private-dir.mjs'].map((f) => [f, f]));
+// Pinned phase map: origin-guard.mjs (PINS.txt sha256 896ed452...) line 46 is `return route.fulfill({ response })`. Only that
+// exact file and line is FULFILL; any other origin-guard line is UNKNOWN. No other file gets a phase field.
+const PHASES = new Map([['origin-guard.mjs', new Map([[46, 'FULFILL']])]]);
 export const VARIANTS = fixed([['default', 'default'], ['pending', 'pending']]);
 const pick = (map, v, fallback) => (typeof v === 'string' && map.has(v) ? map.get(v) : fallback);
 const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
@@ -60,6 +66,10 @@ const CATEGORIES = [
   ['POLICY', /forbidden API requests/],
   ['TIMEOUT', /Timeout|timed out|exceeded/i],
   ['ASSERTION', /expect\(|toHave|toEqual|toBe/],
+  // Wording-only Playwright categories, tried LAST so every message the patterns above already classify keeps its old
+  // category. They describe the error text ("disposed", "closed"); they are not a cause.
+  ['RESPONSE_DISPOSED', /Fetch response has been disposed/],
+  ['TARGET_CLOSED', /Target page, context or browser has been closed/],
 ];
 // Fixed refusal codes thrown by session-setup, the test fixture, the request policy and the sink. A message whose first
 // line is '[<Name>Error: ]<CODE>[ key=value ...]' is classified as that CODE, and only the keys below are kept, each
@@ -86,9 +96,12 @@ export function classifyCode(msg) {
 const category = (msg) => classifyCode(msg) ?? (CATEGORIES.find(([, re]) => re.test(msg)) ?? ['OTHER'])[0];
 const where = (e) => {
   const loc = e && typeof e === 'object' ? e.location : null;
-  const file = pick(SPEC_FILES, loc && typeof loc.file === 'string' ? path.basename(loc.file) : undefined, 'OTHER');
+  const base = loc && typeof loc.file === 'string' ? path.basename(loc.file) : undefined;
+  const file = pick(SPEC_FILES, base, pick(HELPER_FILES, base, 'OTHER'));
   const line = int(loc?.line, 1, 99999);
-  return ` file=${file} line=${line === null ? 'NONE' : line}`;
+  const phases = PHASES.get(file);
+  const ph = phases ? ` phase=${(line !== null && phases.get(line)) || 'UNKNOWN'}` : '';
+  return ` file=${file} line=${line === null ? 'NONE' : line}${ph}`;
 };
 
 export function summarizePlaywright(report, pwExit, variant, cases) {

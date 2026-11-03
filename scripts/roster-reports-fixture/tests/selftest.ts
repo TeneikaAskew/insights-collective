@@ -226,6 +226,48 @@ const loc = sp({ suites: [{ specs: [{ title: 'RR-I1 x', tests: [{ projectName: '
 ok(loc.lines.includes('CASE FAIL project=rr-instructor case=RR-I1 category=ASSERTION file=instructor.spec.ts line=42'), 'summary: first error carries a pinned spec file and integer line (privacy-safe stage diagnostic)');
 ok(JSON.stringify([...new Set([...cases.default, ...cases.pendingExtra].map((c: string[]) => c[0]))].sort()) === JSON.stringify(['rr-admin', 'rr-error-pending', 'rr-instructor', 'rr-learner'])
   && [...cases.default, ...cases.pendingExtra].every((c: string[]) => sp(rep([c]), 0).lines.some((l) => l === `CASE PASS project=${c[0]} case=${c[1]}`)), 'summary enums: every cases.json project and case is in the fixed maps');
+// 7e. Helper-location diagnostics (run 41630759851: RR-L3 category=OTHER file=OTHER line=46). A finite helper basename
+// allowlist, two wording-only categories tried last, and ONE pinned phase (origin-guard.mjs:46 = FULFILL). Fixed output only.
+{
+  const one = (message: unknown, file: unknown, line: unknown) => sp({ suites: [{ specs: [{ title: 'RR-L3 x', tests: [{ projectName: 'rr-learner', status: 'unexpected', results: [{ errors: [{ message, location: { file, line } }] }] }] }] }] }, 1);
+  const first = (message: unknown, file: unknown, line: unknown) => one(message, file, line).lines[0];
+  const G = '/home/runner/work/x/x/e2e/gradebook-roles/origin-guard.mjs';
+  const D = 'Error: route.fulfill: Fetch response has been disposed';
+  const T = 'Error: "route.fetch: Target page, context or browser has been closed" while running route callback.';
+  const cases7e: [string, unknown, unknown, unknown, string][] = [
+    ['disposed at the pinned fulfill line', D, G, 46, 'category=RESPONSE_DISPOSED file=origin-guard.mjs line=46 phase=FULFILL'],
+    ['target closed at another guard line', T, G, 45, 'category=TARGET_CLOSED file=origin-guard.mjs line=45 phase=UNKNOWN'],
+    ['guard file, line not an integer', D, G, '46', 'category=RESPONSE_DISPOSED file=origin-guard.mjs line=NONE phase=UNKNOWN'],
+    ['guard file, fractional line', D, G, 46.5, 'category=RESPONSE_DISPOSED file=origin-guard.mjs line=NONE phase=UNKNOWN'],
+    ['other helper: basename kept, no phase', 'boom', '/w/e2e/roster-reports/request-policy.mjs', 46, 'category=OTHER file=request-policy.mjs line=46'],
+    ['shared console fixture basename kept', 'boom', '/w/e2e/fixtures/console-errors.fixture.ts', 12, 'category=OTHER file=console-errors.fixture.ts line=12'],
+    ['expect failure mentioning closed stays ASSERTION', 'expect(locator).toBeVisible() failed\nTarget page, context or browser has been closed', '/w/e2e/roster-reports/learner.spec.ts', 17, 'category=ASSERTION file=learner.spec.ts line=17'],
+    ['timeout mentioning disposed stays TIMEOUT', 'Test timeout of 60000ms exceeded.\nFetch response has been disposed', G, 46, 'category=TIMEOUT file=origin-guard.mjs line=46 phase=FULFILL'],
+    ['RR code still wins', 'RR_TEST_E_ORIGIN actor=member count=1 Fetch response has been disposed', G, 46, 'category=RR_TEST_E_ORIGIN actor=member count=1 file=origin-guard.mjs line=46 phase=FULFILL'],
+    ['unknown file stays OTHER, no phase', D, '/w/node_modules/playwright-core/lib/client/network.js', 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: constructor basename', D, '/w/constructor', 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: __proto__ basename', D, '/w/__proto__', 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: near-miss guard name', D, '/w/origin-guard.mjs.secret-marker', 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: case variant', D, '/w/Origin-Guard.mjs', 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: non-string file', D, { toString: () => 'origin-guard.mjs' }, 46, 'category=RESPONSE_DISPOSED file=OTHER line=46'],
+    ['hostile: non-string message', { m: D }, G, 46, 'category=OTHER file=origin-guard.mjs line=46 phase=FULFILL'],
+  ];
+  for (const [what, msg, file, line, want] of cases7e) {
+    const r = one(msg, file, line);
+    ok(!r.ok && r.lines[0] === `CASE FAIL project=rr-learner case=RR-L3 ${want}` && stageable(r.lines), `helper diag: ${what}`);
+  }
+  const leak = first('Error: route.fulfill: Fetch response has been disposed http://127.0.0.1:54321/rest/v1/x?token=eyJsecret.secret.x secret-marker', '/w/secret-marker/origin-guard.mjs', 46);
+  ok(!/secret|eyJ|http|127\.0|rest\/v1|token|\/w\//.test(leak) && leak.endsWith('category=RESPONSE_DISPOSED file=origin-guard.mjs line=46 phase=FULFILL'), 'helper diag: no URL, token, message text or directory reaches the line');
+  ok(sp(rep(cases.default), 0).ok && sp(rep(cases.default), 0).lines.every((l) => !/phase=/.test(l)), 'helper diag: a passing inventory is unchanged (no phase fields)');
+  ok(loc.lines.includes('CASE FAIL project=rr-instructor case=RR-I1 category=ASSERTION file=instructor.spec.ts line=42'), 'helper diag: spec-file locations unchanged');
+  // The FULFILL pin is tied to the reviewed origin guard: PINS.txt must still carry its sha256, and when the file is present
+  // its line 46 must be the fulfill call. A changed guard changes the pin and fails here until the phase map is re-reviewed.
+  const GUARD_PIN = '896ed452dfbd70e1e89babe6bc1f1a8e2b7f3acc00d6d8a46c6c332b6789250a';
+  ok(new RegExp(`^${GUARD_PIN} {2}e2e/gradebook-roles/origin-guard\\.mjs$`, 'm').test(read('scripts/roster-reports-fixture/PINS.txt')), 'helper diag: phase map pinned to the reviewed origin-guard.mjs sha256');
+  const guardPath = path.join(ROOT, 'e2e/gradebook-roles/origin-guard.mjs');
+  if (fs.existsSync(guardPath)) ok(fs.readFileSync(guardPath, 'utf8').split('\n')[45].trim() === 'if (status < 300 || status > 399 || status === 304) return route.fulfill({ response });', 'helper diag: origin-guard.mjs line 46 is the fulfill call');
+  else console.log('INFO helper diag: origin-guard.mjs not on disk here; line-46 text check SKIPPED (the sha256 pin check above still ran)');
+}
 const sumSrc = read('scripts/roster-reports-fixture/summary.mjs').replace(/^\s*\/\/.*$/gm, '');
 ok(!/\$\{(t\.projectName|spec\.title|e\.message|variant|pwExit|loc\.file)\}/.test(sumSrc) && !/STATUS\[|PROJECTS\[|CASES\[/.test(sumSrc), 'summary source: no input string interpolated, no bracket lookup on an enum');
 
