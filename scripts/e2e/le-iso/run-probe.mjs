@@ -123,31 +123,38 @@ export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, 
 }
 
 /**
- * r7 host diagnostics (read-only): docker client/server and runc versions, the daemon's seccomp/AppArmor options, the
- * kernel release and the host's user-namespace switches, and whether a setuid sandbox helper sits beside the shell.
+ * r7/r8 host diagnostics (read-only): docker client/server and runc versions, the daemon's seccomp/AppArmor options, the
+ * kernel release and the host's user-namespace switches, and whether a file named chrome-sandbox sits beside the shell.
  * Every value is reduced by hostDiagLine to a closed code or a plain version; nothing else is printed.
+ * r8: never throws. Every key starts UNKNOWN; a rejected or failed query, a malformed value, or any unexpected error leaves
+ * UNKNOWN. Queries still go through x(), so an unreaped client keeps marking the run UNRESOLVED (evidence preserved).
  */
 export async function hostDiag(d, x, fsx, shell) {
-  const r = { CONTAINER_APPARMOR: 'UNKNOWN' };
-  const readText = (p) => { try { return fsx.readFileSync(p, 'utf8'); } catch (e) { return e?.code === 'ENOENT' ? 'ABSENT' : null; } };
-  const v = await x('docker', ['version', '--format', '{{json .}}'], { timeout: 30000 });
-  let vj = null;
-  try { vj = v.ok ? JSON.parse(v.stdout) : null; } catch { vj = null; }
-  r.DOCKER_CLIENT = vj?.Client?.Version;
-  r.DOCKER_SERVER = vj?.Server?.Version;
-  r.RUNC = (Array.isArray(vj?.Server?.Components) ? vj.Server.Components.find((c) => c?.Name === 'runc')?.Version : undefined)?.replace(/^v/, '');
-  const i = await x('docker', ['info', '--format', '{{json .SecurityOptions}}'], { timeout: 30000 });
-  let opts = null;
-  try { opts = i.ok ? JSON.parse(i.stdout) : null; } catch { opts = null; }
-  const sec = daemonSecurity(opts);
-  r.DAEMON_SECCOMP = sec.seccomp; r.DAEMON_APPARMOR = sec.apparmor;
-  const rel = readText('/proc/sys/kernel/osrelease');
-  r.KERNEL = typeof rel === 'string' ? (rel.match(/^(\d{1,4}\.\d{1,4})/) ?? [])[1] : undefined;
-  const sw = (p, kind) => { const t = readText(p); return t === 'ABSENT' ? 'ABSENT' : sysctlClass(t, kind); };
-  r.HOST_MAX_USERNS = sw('/proc/sys/user/max_user_namespaces', 'count');
-  r.HOST_AA_RESTRICT_USERNS = sw('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'switch');
-  r.HOST_USERNS_CLONE = sw('/proc/sys/kernel/unprivileged_userns_clone', 'switch');
-  try { r.SUID_HELPER = fsx.existsSync(path.join(path.dirname(shell), 'chrome_sandbox')) ? 'PRESENT' : 'ABSENT'; } catch { r.SUID_HELPER = 'UNKNOWN'; }
+  const r = Object.fromEntries(HOST_DIAG_ORDER.map((k) => [k, 'UNKNOWN']));
+  const str = (v) => (typeof v === 'string' ? v : undefined);
+  const q = async (args) => { try { const o = await x('docker', args, { timeout: 30000 }); return o?.ok === true && typeof o.stdout === 'string' ? o.stdout : null; } catch { return null; } };
+  const json = (t) => { try { return t === null ? null : JSON.parse(t); } catch { return null; } };
+  try {
+    const vj = json(await q(['version', '--format', '{{json .}}']));
+    r.DOCKER_CLIENT = str(vj?.Client?.Version) ?? 'UNKNOWN';
+    r.DOCKER_SERVER = str(vj?.Server?.Version) ?? 'UNKNOWN';
+    const comps = Array.isArray(vj?.Server?.Components) ? vj.Server.Components : [];
+    const rv = str(comps.find((c) => c?.Name === 'runc')?.Version);
+    r.RUNC = rv === undefined ? 'UNKNOWN' : rv.replace(/^v/, '');
+    const sec = daemonSecurity(json(await q(['info', '--format', '{{json .SecurityOptions}}'])));
+    r.DAEMON_SECCOMP = sec.seccomp; r.DAEMON_APPARMOR = sec.apparmor;
+    const readText = (p) => { try { return fsx.readFileSync(p, 'utf8'); } catch (e) { return e?.code === 'ENOENT' ? 'ABSENT' : null; } };
+    const rel = readText('/proc/sys/kernel/osrelease');
+    r.KERNEL = (typeof rel === 'string' && rel !== 'ABSENT' ? (rel.match(/^(\d{1,4}\.\d{1,4})/) ?? [])[1] : undefined) ?? 'UNKNOWN';
+    const sw = (p, kind) => { const t = readText(p); return t === 'ABSENT' ? 'ABSENT' : sysctlClass(t, kind); };
+    r.HOST_MAX_USERNS = sw('/proc/sys/user/max_user_namespaces', 'count');
+    r.HOST_AA_RESTRICT_USERNS = sw('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'switch');
+    r.HOST_USERNS_CLONE = sw('/proc/sys/kernel/unprivileged_userns_clone', 'switch');
+    // Existence only, never usability (owner, setuid bit and mode are not read). Only ENOENT is ABSENT; EACCES and every
+    // other error stay UNKNOWN. Chromium's helper name is chrome-sandbox (hyphen).
+    try { fsx.statSync(path.join(path.dirname(shell), 'chrome-sandbox')); r.CHROME_SANDBOX_FILE = 'EXISTS'; }
+    catch (e) { r.CHROME_SANDBOX_FILE = e?.code === 'ENOENT' ? 'ABSENT' : 'UNKNOWN'; }
+  } catch { /* any key not yet set stays UNKNOWN */ }
   return r;
 }
 
@@ -178,10 +185,11 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     return { ok, say };
   }
 
-  // r7 host diagnostics: read-only queries; a failure prints UNKNOWN and never changes the run's verdict.
-  const hd = await hostDiag(d, x, fsx, shell);
-
+  // Host diagnostics: read-only queries; a failure prints UNKNOWN and never changes the run's verdict. r8: inside the try,
+  // so teardown and evidence preservation run even if the diagnostics were ever to throw.
+  let hd = Object.fromEntries(HOST_DIAG_ORDER.map((k) => [k, 'UNKNOWN']));
   try {
+    hd = await hostDiag(d, x, fsx, shell);
     const b = await (d.buildImage ?? buildImage)({ ...d, exec: x }, { ctl: H, node, shell }); // ldd/build/inspect clients tracked too
     if (typeof b === 'string') { fail(b); } else {
       buildInvoked = true; imageId = b.id;

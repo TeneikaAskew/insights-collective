@@ -11,7 +11,7 @@ import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
 import { apparmorLabel, daemonSecurity, HOST_DIAG, HOST_DIAG_ORDER, hostDiagLine, INNER_DIAG, INNER_DIAG_ORDER, sysctlClass, absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
 import { formatResults, innerDiag, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
-import { buildImage, createArgs, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
+import { buildImage, createArgs, hostDiag, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -719,6 +719,94 @@ describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed cod
     expect(a.join(' ')).not.toMatch(/seccomp|apparmor|unconfined|--cap-add|--privileged|userns/);
     const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
     expect(inner).toMatch(/chromiumSandbox: true/);
+  });
+
+  // r8: direct hostDiag tests. The orchestrator fake answers version/info with ok:false, so parsing is covered here.
+  const VERSION_JSON = JSON.stringify({ Client: { Version: '28.0.4', ApiVersion: '1.48', GoVersion: 'go1.23.7', Os: 'linux', Arch: 'amd64' },
+    Server: { Platform: { Name: 'Docker Engine - Community' }, Version: '28.0.4', Components: [
+      { Name: 'Engine', Version: '28.0.4', Details: { ApiVersion: '1.48' } }, { Name: 'containerd', Version: 'v1.7.27' },
+      { Name: 'runc', Version: '1.2.5', Details: { GitCommit: 'v1.2.5-0-g59923ef' } }, { Name: 'docker-init', Version: '0.19.0' }] } });
+  const INFO_JSON = JSON.stringify(['name=apparmor', 'name=seccomp,profile=builtin', 'name=cgroupns']);
+  const HOST_FILES: Record<string, string> = { '/proc/sys/kernel/osrelease': '6.8.0-1036-azure\n', '/proc/sys/user/max_user_namespaces': '63229\n',
+    '/proc/sys/kernel/apparmor_restrict_unprivileged_userns': '1\n' };
+  type Ans = { ok: boolean; stdout: unknown; unreaped?: boolean } | Error;
+  const hd = (o: { version?: Ans; info?: Ans; files?: Record<string, string>; stat?: string | null; readErr?: string } = {}) => {
+    const calls: string[][] = []; const statted: string[] = [];
+    const x = async (bin: string, args: string[]) => {
+      calls.push([bin, ...args]);
+      const a = args[0] === 'version' ? (o.version ?? { ok: true, stdout: VERSION_JSON }) : args[0] === 'info' ? (o.info ?? { ok: true, stdout: INFO_JSON }) : { ok: false, stdout: '' };
+      if (a instanceof Error) throw a;
+      return a;
+    };
+    const files = o.files ?? HOST_FILES;
+    const err = (code: string) => Object.assign(new Error(code), { code });
+    const fsx = {
+      readFileSync: (p: string) => { if (o.readErr) throw err(o.readErr); if (!(p in files)) throw err('ENOENT'); return files[p]; },
+      statSync: (p: string) => { statted.push(p); if (o.stat === undefined) return {}; throw err(o.stat ?? 'ENOENT'); },
+    };
+    return hostDiag({}, x, fsx, SHELL).then((r: Record<string, string>) => ({ r, calls, statted, lines: HOST_DIAG_ORDER.map((k) => hostDiagLine(k, r[k])) }));
+  };
+  it('r8 hostDiag parses real-shaped docker version/info output', async () => {
+    const { r, calls, statted, lines } = await hd();
+    expect(calls).toEqual([['docker', 'version', '--format', '{{json .}}'], ['docker', 'info', '--format', '{{json .SecurityOptions}}']]);
+    expect(r).toMatchObject({ DOCKER_CLIENT: '28.0.4', DOCKER_SERVER: '28.0.4', RUNC: '1.2.5', KERNEL: '6.8', DAEMON_SECCOMP: 'BUILTIN', DAEMON_APPARMOR: 'PRESENT',
+      HOST_MAX_USERNS: 'POSITIVE', HOST_AA_RESTRICT_USERNS: 'ON', HOST_USERNS_CLONE: 'ABSENT', CHROME_SANDBOX_FILE: 'EXISTS', CONTAINER_APPARMOR: 'UNKNOWN' });
+    expect(statted).toEqual(['/s/chrome-sandbox']);
+    expect(lines).toContain('ISO_DIAG RUNC 1.2.5');
+    const v = JSON.parse(VERSION_JSON); v.Server.Components[2].Version = 'v1.2.5';
+    expect((await hd({ version: { ok: true, stdout: JSON.stringify(v) } })).r.RUNC).toBe('1.2.5');
+  });
+  it('r8 hostDiag maps malformed values to UNKNOWN without throwing', async () => {
+    const shapes: unknown[] = [
+      { Client: { Version: 28 }, Server: { Version: ['28.0.4'], Components: [{ Name: 'runc', Version: 125 }] } },
+      { Client: null, Server: { Components: [{ Name: 'runc', Version: { v: '1.2.5' } }] } },
+      { Server: { Components: 'runc' } }, { Server: { Components: [null, 7, { Name: 'runc' }] } }, null, 42, 'x'];
+    for (const s of shapes) {
+      const { r, lines } = await hd({ version: { ok: true, stdout: JSON.stringify(s) } });
+      expect([r.DOCKER_CLIENT, r.DOCKER_SERVER, r.RUNC], JSON.stringify(s)).toEqual(['UNKNOWN', 'UNKNOWN', 'UNKNOWN']);
+      expect(lines.filter((l) => / (DOCKER_CLIENT|DOCKER_SERVER|RUNC) /.test(l)).every((l) => l.endsWith(' UNKNOWN'))).toBe(true);
+    }
+    for (const stdout of ['not json', '', 17, null, undefined])
+      expect((await hd({ version: { ok: true, stdout }, info: { ok: true, stdout } })).r).toMatchObject({ DOCKER_CLIENT: 'UNKNOWN', RUNC: 'UNKNOWN', DAEMON_SECCOMP: 'UNKNOWN', DAEMON_APPARMOR: 'UNKNOWN' });
+    for (const info of [{}, 'name=seccomp', [7, null]]) expect((await hd({ info: { ok: true, stdout: JSON.stringify(info) } })).r.DAEMON_SECCOMP).not.toBe('BUILTIN');
+    const crlf = JSON.parse(VERSION_JSON); crlf.Client.Version = '28.0.4\n'; crlf.Server.Version = '28.0.4\r'; crlf.Server.Components[2].Version = '1.2.5\r\n';
+    expect((await hd({ version: { ok: true, stdout: JSON.stringify(crlf) } })).lines.filter((l) => / (DOCKER_CLIENT|DOCKER_SERVER|RUNC) /.test(l)))
+      .toEqual(['ISO_DIAG DOCKER_CLIENT UNKNOWN', 'ISO_DIAG DOCKER_SERVER UNKNOWN', 'ISO_DIAG RUNC UNKNOWN']);
+    for (const v of ['28.0.4\n', '28.0.4\r', '\n28.0.4', '28.0\r\n.4']) expect(hostDiagLine('DOCKER_CLIENT', v)).toBe('ISO_DIAG DOCKER_CLIENT UNKNOWN');
+  });
+  it('r8 hostDiag: rejected and failed calls give UNKNOWN and the other keys are still read', async () => {
+    for (const a of [new Error('spawn EACCES'), { ok: false, stdout: VERSION_JSON }]) {
+      const { r } = await hd({ version: a, info: a });
+      expect(r).toMatchObject({ DOCKER_CLIENT: 'UNKNOWN', DOCKER_SERVER: 'UNKNOWN', RUNC: 'UNKNOWN', DAEMON_SECCOMP: 'UNKNOWN', DAEMON_APPARMOR: 'UNKNOWN', KERNEL: '6.8', CHROME_SANDBOX_FILE: 'EXISTS' });
+    }
+  });
+  it('r8 chrome-sandbox: existence only; ENOENT is ABSENT, permission and other errors stay UNKNOWN', async () => {
+    expect((await hd({ stat: 'ENOENT' })).r.CHROME_SANDBOX_FILE).toBe('ABSENT');
+    for (const e of ['EACCES', 'EPERM', 'ELOOP', 'EIO', null]) expect((await hd({ stat: e })).r.CHROME_SANDBOX_FILE, String(e)).toBe(e === null ? 'ABSENT' : 'UNKNOWN');
+    expect((await hd({ readErr: 'EACCES' })).r).toMatchObject({ KERNEL: 'UNKNOWN', HOST_MAX_USERNS: 'UNKNOWN', HOST_AA_RESTRICT_USERNS: 'UNKNOWN', HOST_USERNS_CLONE: 'UNKNOWN' });
+    expect(HOST_DIAG).not.toHaveProperty('SUID_HELPER');
+    expect(HOST_DIAG.CHROME_SANDBOX_FILE).toEqual(['EXISTS', 'ABSENT', 'UNKNOWN']);
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/run-probe.mjs'), 'utf8');
+    expect(src).not.toMatch(/chrome_sandbox/);
+  });
+  it('r8 an unreaped diagnostic client still marks the run UNRESOLVED and preserves evidence', async () => {
+    for (const on of ['version', 'info']) {
+      const f = fake({ unreapedOn: on });
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.ok, on).toBe(false);
+      expect(r.say).toEqual(expect.arrayContaining(['ISO_E_CLIENT_UNREAPED', 'ISO_PRESERVED_DIRS', 'ISO_DIAG DOCKER_CLIENT UNKNOWN']));
+      expect(r.say).not.toContain('ISO_DIRS_REMOVED');
+      expect(f.dirs.has(H)).toBe(true);
+    }
+  });
+  it('r8 rejected diagnostic calls inside runProbe leave the verdict and full teardown unchanged', async () => {
+    const f = fake(); const base = f.d.exec;
+    f.d.exec = ((bin: string, args: string[]) => { if (args[0] === 'version' || args[0] === 'info') throw new Error('boom'); return base(bin, args); }) as typeof base;
+    const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+    const g = await run();
+    expect(r.ok).toBe(true);
+    expect(r.say.filter((l) => !l.startsWith('ISO_DIAG '))).toEqual(g.say.filter((l) => !l.startsWith('ISO_DIAG ')));
+    expect(r.say).toEqual(expect.arrayContaining(['ISO_DIRS_REMOVED', 'ISO_IMAGE_REMOVED', 'ISO_DIAG RUNC UNKNOWN']));
   });
 });
 

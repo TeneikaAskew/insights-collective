@@ -76,7 +76,7 @@ export const HOST_DIAG = Object.freeze({
   HOST_MAX_USERNS: ['ZERO', 'POSITIVE', 'ABSENT', 'UNKNOWN'],
   HOST_AA_RESTRICT_USERNS: ['ON', 'OFF', 'ABSENT', 'UNKNOWN'],
   HOST_USERNS_CLONE: ['ON', 'OFF', 'ABSENT', 'UNKNOWN'],
-  SUID_HELPER: ['PRESENT', 'ABSENT', 'UNKNOWN'],
+  CHROME_SANDBOX_FILE: ['EXISTS', 'ABSENT', 'UNKNOWN'], // existence only; says nothing about owner, setuid or usability
 });
 export const HOST_DIAG_ORDER = Object.freeze(Object.keys(HOST_DIAG));
 export const VERSION_RE = /^\d{1,4}\.\d{1,4}(\.\d{1,4})?$/;
@@ -85,7 +85,8 @@ export const VERSION_RE = /^\d{1,4}\.\d{1,4}(\.\d{1,4})?$/;
 export function hostDiagLine(key, value) {
   const spec = HOST_DIAG[key];
   if (!spec) return 'ISO_DIAG UNKNOWN UNKNOWN';
-  const ok = spec === 'VERSION' ? typeof value === 'string' && VERSION_RE.test(value) : spec.includes(value);
+  // r8: terminal (or any) CR/LF is rejected explicitly, not left to the regex anchors.
+  const ok = spec === 'VERSION' ? typeof value === 'string' && !/[\r\n]/.test(value) && VERSION_RE.test(value) : spec.includes(value);
   return `ISO_DIAG ${key} ${ok ? value : 'UNKNOWN'}`;
 }
 
