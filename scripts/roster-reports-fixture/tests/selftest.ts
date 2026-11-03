@@ -339,6 +339,18 @@ try {
   neg('file mode 0644', 'RR_SINK_E_FILE', (r) => { fs.chmodSync(r.file, 0o644); });
   neg('file hard-linked (nlink 2)', 'RR_SINK_E_FILE', (r) => { fs.linkSync(r.file, path.join(r.session, 'hl')); });
   neg('file over the size bound', 'RR_SINK_E_SIZE', (r) => { fs.truncateSync(r.file, MAX_BYTES); });
+  // Existing file: the explicit 0o600 open argument changes nothing on an existing file (no O_CREAT): an existing 0600
+  // file is appended and stays 0600 / nlink 1 even under a permissive umask.
+  { const r = fresh(); const prev = process.umask(0); try { ok(sinkCode(() => appendTelemetry(R, r.env)) === 'OK' && (fs.statSync(r.file).mode & 0o777) === 0o600 && fs.statSync(r.file).nlink === 1 && fs.statSync(r.file).size > 0, 'sink: existing 0600 file appended, mode/nlink unchanged (umask 0)'); } finally { process.umask(prev); } }
+  { const r = fresh(); fs.rmSync(r.file); const prev = process.umask(0); try { ok(sinkCode(() => appendTelemetry(R, r.env)) === 'RR_SINK_E_OPEN' && !fs.existsSync(r.file), 'sink: absent file -> RR_SINK_E_OPEN and still not created (umask 0)'); } finally { process.umask(prev); } }
+  // Wrong owner needs chown, which only root can do; elsewhere these are reported as SKIPPED, never as passed.
+  if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    neg('file owned by another uid', 'RR_SINK_E_FILE', (r) => { fs.chownSync(r.file, 65534, 65534); });
+    neg('session dir owned by another uid', 'RR_SINK_E_ROOT', (r) => { fs.chownSync(r.session, 65534, 65534); });
+    neg('rr-run parent owned by another uid', 'RR_SINK_E_ROOT', (r) => { fs.chownSync(r.parent, 65534, 65534); });
+  } else {
+    console.log('INFO sink: wrong-owner controls SKIPPED (not root; chown unavailable)');
+  }
   const big = fresh(); fs.truncateSync(big.file, MAX_BYTES);
   ok(fs.statSync(big.file).size === MAX_BYTES, 'sink: a refused append leaves the file unchanged');
   const miss = fresh(); fs.rmSync(miss.file); sinkCode(() => appendTelemetry(R, miss.env));
@@ -481,7 +493,11 @@ const actorsSrc = read('e2e/roster-reports/actors.mjs');
 const code8 = actorsSrc.replace(/^\s*\/\/.*$/gm, '');
 ok((code8.match(/\bfs\.\w+/g) ?? []).sort().join(',') === 'fs.appendFileSync,fs.closeSync,fs.constants,fs.constants,fs.constants,fs.constants,fs.fstatSync,fs.lstatSync,fs.openSync,fs.realpathSync',
   `sink contract: exactly these fs calls (${(code8.match(/\bfs\.\w+/g) ?? []).sort().join(',')})`);
-ok(/fs\.openSync\(p, fs\.constants\.O_WRONLY \| fs\.constants\.O_APPEND \| fs\.constants\.O_NOFOLLOW \| fs\.constants\.O_NONBLOCK\)/.test(code8) && !/O_CREAT|O_TRUNC/.test(code8), 'sink contract: open flags exact, no O_CREAT/O_TRUNC');
+// The one open, exactly (alert 624 response: explicit 0o600 third argument; flags unchanged, no O_CREAT/O_TRUNC, so the
+// mode argument is never applied by the kernel to an existing file and no file is ever created or re-permissioned).
+const OPEN_LINE = "  try { fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_APPEND | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK, 0o600); }";
+ok(actorsSrc.split('\n').filter((l) => l === OPEN_LINE).length === 1 && (code8.match(/openSync\(/g) ?? []).length === 1, 'sink contract: the one openSync line is exactly the reviewed line (flags + 0o600)');
+ok(!/O_CREAT|O_TRUNC|O_EXCL/.test(code8) && !/\b(f|l)?ch(mod|own)(Sync)?\b|\bumask\b|\butimes/.test(code8), 'sink contract: no O_CREAT/O_TRUNC/O_EXCL and no permission-changing call (chmod/chown/umask)');
 ok(/fs\.appendFileSync\(fd, line\)/.test(code8) && (code8.match(/appendFileSync/g) ?? []).length === 1, 'sink contract: the one write goes through the checked descriptor');
 ok(/st\.nlink !== 1/.test(code8) && /\(st\.mode & 0o777\) !== 0o600/.test(code8) && /st\.isFile\(\)/.test(code8) && /fs\.closeSync\(fd\)/.test(code8), 'sink contract: same-fd regular/0600/nlink/close');
 ok(/Object\.create\(null\)/.test(code8) && /Object\.hasOwn\(map, v\)/.test(code8) && !/\bin (RPCS|ACTORS|STATUSES|ACTOR_IDS)\b/.test(code8), 'sink contract: null-prototype enums with own-key lookup');
