@@ -142,10 +142,14 @@ export function compareInspect(inspect, exp) {
   for (const k of ['NetworkMode', 'PidMode', 'IpcMode', 'UTSMode', 'UsernsMode', 'CgroupnsMode', 'Privileged', 'ReadonlyRootfs',
     'PublishAllPorts', 'AutoRemove', 'Init']) if ((hc[k] ?? (typeof exp[k] === 'boolean' ? false : '')) !== exp[k]) bad.push(k);
   for (const k of ['CapAdd', 'CapDrop', 'SecurityOpt', 'Devices', 'DeviceCgroupRules', 'VolumesFrom', 'Links', 'ExtraHosts', 'Dns',
-    'DnsSearch', 'DnsOptions', 'Binds']) {
+    'DnsSearch', 'DnsOptions']) {
     const v = arr(hc[k]);
     if (v === null || !same(v, exp[k])) bad.push(k);
   }
+  // Binds (r6): exactly the expected entries, compared as a sorted list. The docker CLI builds HostConfig.Binds by ranging
+  // over a Go map (docker/cli v28.0.4 cli/command/container/opts.go: `for bind := range copts.volumes.GetMap()`), so
+  // their ORDER varies run to run. Each entry must still match byte for byte, with no extra, missing or duplicate entry.
+  { const v = arr(hc.Binds); if (v === null || !same([...v].sort(), [...exp.Binds].sort())) bad.push('Binds'); }
   if (!same(hc.RestartPolicy ?? null, exp.RestartPolicy)) bad.push('RestartPolicy');
   if ((hc.LogConfig ?? {}).Type !== exp.LogConfig.Type) bad.push('LogConfig');
   if (!same(hc.Tmpfs ?? {}, exp.Tmpfs)) bad.push('Tmpfs');

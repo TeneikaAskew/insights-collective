@@ -646,6 +646,25 @@ describe('le-iso r5 corrections for run 41724586201 (fakes only)', () => {
   });
 });
 
+describe('le-iso r6: Binds order from the docker CLI is not significant (fakes only)', () => {
+  const exp = () => expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+  const withBinds = (b: unknown) => { const g = goodInspect(); return { ...g, HostConfig: { ...g.HostConfig, Binds: b } }; };
+  it('every permutation of the exact three binds passes; the run-3 shape (reordered binds) no longer refuses', () => {
+    const [a, b, c] = exp().Binds;
+    for (const p of [[a, b, c], [a, c, b], [b, a, c], [b, c, a], [c, a, b], [c, b, a]]) expect(compareInspect(withBinds(p), exp())).toEqual([]);
+  });
+  it('a changed, missing, extra, duplicated or absent bind still refuses as Binds', () => {
+    const [a, b, c] = exp().Binds;
+    for (const bad of [[a, b, c.replace(':rw,', ':ro,')], [a, b], [a, b, c, `${TEMP}/x:/x:ro,rprivate`], [a, a, c], [a, b, `${c} `], null, 'x'])
+      expect(compareInspect(withBinds(bad), exp())).toContain('Binds');
+  });
+  it('the expectation itself is not mutated by the sorted comparison', () => {
+    const e = exp(); const before = [...e.Binds];
+    compareInspect(withBinds([...e.Binds].reverse()), e);
+    expect(e.Binds).toEqual(before);
+  });
+});
+
 describe('le-isolation-probe job', () => {
   it('passes the shared policy, is its own option, and carries no stack, secret, upload or retry', async () => {
     expect(await checkWorkflowText(WF)).toEqual([]);
