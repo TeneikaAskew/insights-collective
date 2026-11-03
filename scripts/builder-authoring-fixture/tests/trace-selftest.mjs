@@ -9,6 +9,7 @@ import { createRequire } from 'node:module';
 import { r1TraceInstall, r1TraceRead, r1TraceFields, r1TraceDescription, parseR1Trace, validSnapshot, settleR1Read, R1_TRACE_FIELDS,
   R1_TRACE_ORDER, R1_TRACE_ANNOTATION } from '../r1-trace.mjs';
 import { summarizeReport, checkLines, LINE } from '../summary.mjs';
+import { r1MonitorDescription, parseR1Monitor, R1_MONITOR_ANNOTATION, R1_MONITOR_FIELDS, R1_MONITOR_ORDER } from '../r1-monitor.mjs';
 import { INVENTORY } from '../ids.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -402,6 +403,33 @@ const goodTests = () => INVENTORY.map((x) => ({ projectName: x.project, status: 
   results: [{ status: x.expect === 'passed' ? 'passed' : 'skipped', retry: 0, steps: [] }], c: x.case }));
 const report = (tests) => ({ errors: [], suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const r1 = (t, p) => t[INVENTORY.findIndex((x) => x.project === p && x.case === 'R1')];
+ok('summary prints R1MONITOR from list constants next to R1TRACE; absent, duplicate and hostile print a fixed state; verdict and budget unchanged', () => {
+  const good = { v: 1, late: false, errors: 0, cont: 'Y', unreg: 'Y', keys: 'SAS', keysOver: false, off: 0, moves: 1, moveW: 'T', overs: 1, overW: 'T', drops: 1, cancels: 0, endW: 'S', endEarly: false, slot: 'Y' };
+  const desc = r1MonitorDescription('INSTALLED', good);
+  assert.equal(desc, 'ctx=LIVE seq=BOUND move_collision=TARGET over_requested=TARGET end=DROP end_over=SELF');
+  const t = goodTests();
+  r1(t, 'ba-1440').results[0].annotations = [{ type: R1_MONITOR_ANNOTATION, description: desc }];
+  r1(t, 'ba-768').annotations = [{ type: R1_MONITOR_ANNOTATION, description: desc }, { type: R1_MONITOR_ANNOTATION, description: desc }];
+  r1(t, 'ba-390').results[0].annotations = [{ type: R1_MONITOR_ANNOTATION, description: desc.replace('SELF', 'sec-1') }];
+  const r = summarizeReport(report(t), 0);
+  assert.equal(r.ok, true);
+  assert.ok(r.lines.includes(`R1MONITOR project=ba-1440 ${desc}`));
+  assert.ok(r.lines.includes('R1MONITOR project=ba-768 state=duplicate'));
+  assert.ok(r.lines.includes('R1MONITOR project=ba-390 state=unlisted'));
+  assert.equal(summarizeReport(report(goodTests()), 0).lines.filter((l) => l.startsWith('R1MONITOR ') && l.endsWith(' state=absent')).length, 3);
+  for (const hostile of [`${desc} extra=1`, desc.replace('ctx=', 'cTx='), desc.split(' ').reverse().join(' '), `${desc}\nVERDICT PASS`, 'x'.repeat(300),
+    desc.replace('end=DROP', 'end=toString'), desc.replace('end=DROP', 'end=__proto__'), null, 7, {}]) assert.equal(parseR1Monitor(hostile), null, String(hostile).slice(0, 40));
+  // worst-case budget: the longest word in every field on all three R1 lines still fits the 64-line / 4096-byte cap
+  const longest = (k) => R1_MONITOR_FIELDS[k].reduce((x, y) => (y.length > x.length ? y : x));
+  const worst = R1_MONITOR_ORDER.map((k) => `${k}=${longest(k)}`).join(' ');
+  assert.ok(parseR1Monitor(worst));
+  const tw = goodTests();
+  for (const p of ['ba-1440', 'ba-768', 'ba-390']) r1(tw, p).results[0].annotations = [{ type: R1_MONITOR_ANNOTATION, description: worst }];
+  assert.ok(checkLines(summarizeReport(report(tw), 0).lines));
+  assert.ok(checkLines(r.lines));
+  const t3 = goodTests(); r1(t3, 'ba-768').results = []; r1(t3, 'ba-768').status = 'skipped';
+  assert.ok(!summarizeReport(report(t3), 1).lines.some((l) => l.startsWith('R1MONITOR project=ba-768')));
+});
 ok('summary prints R1TRACE from list constants; absent, duplicate and hostile annotations print a fixed state; verdict unchanged', () => {
   const desc = r1TraceDescription(true, { v: 4, regionsSeen: 2, keys: 'SAS', keysOverflow: false, onHandle: 3, firstSpacePrevented: true, arrowCapture: false, arrowDocument: false, arrowBubble: true, movedEver: true, movedUnknown: false, annLast: 'PICKED',
     dropSeen: false, otherText: 0, pressedEver: true, pressedAtEnd: true, handleDetachedEver: false, regionReplaced: false, scrollEvents: 0, errors: 0 });
@@ -569,7 +597,7 @@ ok('wiring: installed on the handle before focus, read in finally, keys and orac
   const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
   const iInstall = spec.indexOf('handle.evaluate(r1TraceInstall'), iFocus = spec.indexOf('await handle.focus();'), iFinally = spec.indexOf('} finally {');
   assert.ok(iInstall > 0 && iInstall < iFocus && iFocus < iFinally);
-  assert.match(spec, /\} finally \{\s*const read = await settleR1Read\(\(\) => page\.evaluate\(r1TraceRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, read\.snap, read\.state\) \}\);\s*\}/);
+  assert.match(spec, /\} finally \{\s*const read = await settleR1Read\(\(\) => page\.evaluate\(r1TraceRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_TRACE_ANNOTATION, description: r1TraceDescription\(traceInstalled, read\.snap, read\.state\) \}\);\s*const mon = await settleR1Read\(\(\) => page\.evaluate\(r1MonitorRead\), R1_TRACE_READ_DEADLINE_MS\);\s*info\.annotations\.push\(\{ type: R1_MONITOR_ANNOTATION, description: r1MonitorDescription\(monitorInstalled, mon\.snap, mon\.state\) \}\);\s*\}/);
   assert.match(spec, /handle\.evaluate\(r1TraceInstall, \{ moving, target, ttlMs: R1_TRACE_TTL\.spec \}, \{ timeout: 5_000 \}\)/);
   assert.match(spec, /\.then\(\(v\) => v === 'INSTALLED'\)\.catch\(\(\) => false\);/);
   assert.match(spec, /await handle\.focus\(\);\s*scrollBefore = [^\n]+\n\s*await page\.keyboard\.press\('Space'\);\s*await page\.evaluate\(\(\) => new Promise\(\(r\) => setTimeout\(r, 0\)\)\);\s*await page\.keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/);
@@ -580,7 +608,7 @@ ok('barrier experiment: exactly ONE zero-delay task barrier, after the pickup Sp
   const BARRIER = 'await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));';
   assert.equal(spec.split(BARRIER).length - 1, 1, 'exactly one barrier');
   assert.equal((spec.match(/setTimeout/g) ?? []).length, 1, 'no other timer');
-  assert.equal((spec.match(/page\.evaluate\(/g) ?? []).length, 4, 'scrollBefore, barrier, scrollAfter, trace read: nothing else');
+  assert.equal((spec.match(/page\.evaluate\(/g) ?? []).length, 5, 'scrollBefore, barrier, scrollAfter, trace read, monitor read: nothing else');
   for (const banned of ['waitForTimeout', 'waitForFunction', 'page.waitFor', '.waitFor(', 'sleep', 'setInterval', 'requestAnimationFrame', 'retry', 'toPass'])
     assert.ok(!spec.includes(banned), banned);
   assert.equal((spec.match(/expect\.poll/g) ?? []).length, 6, 'the existing DB settle/readback polls only, unchanged from the no-barrier spec');
@@ -595,6 +623,32 @@ ok('barrier experiment: exactly ONE zero-delay task barrier, after the pickup Sp
   assert.match(spec.slice(iDown), /^keyboard\.press\('ArrowDown'\);\s*await page\.keyboard\.press\('Space'\);\s*\}, \{ count: 1, status: \[200, 204\] \}\);/,
     'the R1 block still ends at the exact one-call 200/204 oracle');
   for (const k of ['for (', 'for(', 'while (', 'while(', '.repeat(']) assert.ok(!spec.slice(iSpace - 400, iDown + 200).includes(k), `no loop ${k}`);
+});
+// ---- R1 monitor observation (TEST-ONLY diagnostic) ----
+ok('monitor wiring: installed on the handle before focus, read in finally after the trace, nothing of it between the keys', () => {
+  const spec = strip(fs.readFileSync(path.join(ROOT, 'e2e', 'builder-authoring', 'reorder.spec.ts'), 'utf8'));
+  const iInstall = spec.indexOf('handle.evaluate(r1MonitorInstall'), iTrace = spec.indexOf('handle.evaluate(r1TraceInstall'), iFocus = spec.indexOf('await handle.focus();');
+  const iFinally = spec.indexOf('} finally {'), iTraceRead = spec.indexOf('page.evaluate(r1TraceRead)'), iRead = spec.indexOf('page.evaluate(r1MonitorRead)');
+  assert.ok(iTrace > 0 && iTrace < iInstall && iInstall < iFocus && iFocus < iFinally && iFinally < iTraceRead && iTraceRead < iRead);
+  assert.equal(spec.split('r1MonitorInstall').length - 1, 2, 'imported once, installed once');
+  assert.equal(spec.split('r1MonitorRead').length - 1, 2, 'imported once, read once');
+  assert.match(spec, /handle\.evaluate\(r1MonitorInstall, \{ moving, target, ttlMs: R1_TRACE_TTL\.spec \}, \{ timeout: 5_000 \}\)\s*\.catch\(\(\) => 'NOT_INSTALLED'\);/);
+  const iSpace = spec.indexOf("keyboard.press('Space')"), iEnd = spec.indexOf('}, { count: 1, status: [200, 204] });');
+  assert.ok(!/Monitor|monitor/.test(spec.slice(iSpace, iEnd)), 'nothing of the observer between the keys');
+});
+ok('the monitor observer writes nothing to the DOM, product or library state beyond its one listener', () => {
+  const src = strip(fs.readFileSync(path.join(HERE, '..', 'r1-monitor.mjs'), 'utf8'));
+  for (const banned of ['preventDefault', 'stopPropagation', 'stopImmediatePropagation', 'setAttribute', 'removeAttribute', 'appendChild',
+    'removeChild', 'innerHTML', 'fetch(', 'XMLHttpRequest', 'sendBeacon', 'WebSocket', 'localStorage', 'sessionStorage', 'console.',
+    'postMessage', 'document.cookie', 'location', '.style', 'getBoundingClientRect', 'getComputedStyle', '__REACT_DEVTOOLS', 'dispatch(',
+    'memoizedProps =', 'memoizedState =', '.value =', 'addInitScript', 'onCommitFiberRoot']) assert.ok(!src.includes(banned), banned);
+  assert.ok(!/\.(textContent|nodeValue|data|id|className|scrollTop|scrollLeft|current)\s*=[^=]/.test(src), 'DOM/ref property write');
+  assert.equal((src.match(/addEventListener\(/g) ?? []).length, 1);
+  assert.match(src, /window\.addEventListener\('keydown', onKey, \{ capture: true, passive: true \}\);/);
+  assert.equal((src.match(/reg0\(listener\)/g) ?? []).length, 1, 'one registration');
+  // every listener callback goes through the never-throwing guard
+  assert.match(src, /var guard = function \(fn\) \{ return function \(e\) \{ if \(!S\.live\) return; try \{ fn\(e\); \} catch \(_\) \{ S\.errors = sat\(S\.errors\); S\.live = false; \} \}; \};/);
+  for (const n of ['onDragMove', 'onDragOver', 'onDragEnd', 'onDragCancel']) assert.match(src, new RegExp(`${n}: guard\\(function`));
 });
 ok('the recorder writes nothing: no preventDefault / stopPropagation, no DOM writes, no network, storage or console', () => {
   const src = strip(fs.readFileSync(path.join(HERE, '..', 'r1-trace.mjs'), 'utf8'));
