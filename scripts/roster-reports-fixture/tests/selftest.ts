@@ -5,13 +5,23 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import * as X from '../../../e2e/roster-reports/expected';
-import { classifyRequest } from '../../../e2e/roster-reports/request-policy.mjs';
-import { summarizePlaywright, compareWitness, LINE } from '../summary.mjs';
+import { classifyRequest, installRequestPolicy } from '../../../e2e/roster-reports/request-policy.mjs';
+import * as ActorsModule from '../../../e2e/roster-reports/actors.mjs';
+import os from 'node:os';
+import crypto from 'node:crypto';
+import { summarizePlaywright, compareWitness as compareWitnessRaw, LINE } from '../summary.mjs';
 
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const read = (p: string) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 let failures = 0; let checks = 0;
 const ok = (cond: boolean, what: string) => { checks += 1; if (!cond) { failures += 1; console.log(`FAIL ${what}`); } };
+// Missing exports or a throwing consumer count as failed checks (behaviour), not a crash of the whole selftest.
+const AM = ActorsModule as Record<string, any>;
+const appendTelemetry = (r: object, env: object) => (typeof AM.appendTelemetry === 'function' ? AM.appendTelemetry(r, env) : (() => { throw new Error('NO_EXPORT'); })());
+const sinkPath = (env: object) => (typeof AM.sinkPath === 'function' ? AM.sinkPath(env) : 'NO_EXPORT');
+const actorOf = (id: string) => (typeof AM.actorOf === 'function' ? AM.actorOf(id) : 'NO_EXPORT');
+const MAX_BYTES: number = typeof AM.MAX_BYTES === 'number' ? AM.MAX_BYTES : 256 * 1024;
+const compareWitness = (...a: Parameters<typeof compareWitnessRaw>) => { try { return compareWitnessRaw(...a); } catch { return { ok: false, lines: ['WITNESS THREW'] }; } };
 
 // 1. Manifest: unique, well-formed, run-owned namespace.
 const manifest = read('scripts/roster-reports-fixture/MANIFEST.tsv').split('\n').filter((l) => l && !l.startsWith('#')).map((l) => l.split('\t'));
@@ -174,17 +184,27 @@ const expSeed = read('scripts/roster-reports-fixture/expected-seed.txt');
 const tel = (a: number, i: number, m: number) => `TELEMETRY actor=admin security_events=${a}\nTELEMETRY actor=instructor security_events=${i}\nTELEMETRY actor=member security_events=${m}`;
 const W = (seedText: string, cert: string, t: string) => `${seedText}${cert}\n${t}\n`;
 const pre = W(expSeed, 'CERT none', tel(0, 0, 0));
-const log = (rows: object[]) => rows.map((r) => JSON.stringify(r)).join('\n');
-const L2 = log([{ rpc: 'log_security_event', actor: 'instructor', status: 204 }, { rpc: 'log_security_event', actor: 'member', status: 204 }, { rpc: 'log_security_event', actor: 'admin', status: 500 }]);
+const rec = (actor: string, status: string) => ({ rpc: 'log_security_event', actor, status });
+const log = (rows: object[]) => rows.map((r) => `${JSON.stringify(r)}\n`).join('');
+const L2 = log([rec('instructor', 'success'), rec('member', 'success')]);
 ok(compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 1)), L2).ok, 'witness: identical seed and reconciled telemetry pass');
 ok(!compareWitness(expSeed, W(expSeed.replace('age_days=30', 'age_days=31'), 'CERT none', tel(0, 0, 0)), W(expSeed.replace('age_days=30', 'age_days=31'), 'CERT none', tel(0, 0, 0)), '').ok, 'witness: seed projection differing from committed fails');
 ok(!compareWitness(expSeed, pre, W(expSeed.replace(/ read$/m, ' started'), 'CERT none', tel(0, 0, 0)), '').ok, 'witness: seed changed pre->post fails');
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT course=x', tel(0, 0, 0)), '').ok, 'witness: certificate change fails');
 ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 2, 1)), L2).ok, 'witness: telemetry delta mismatch fails');
-ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 1)), `${L2}\n${log([{ rpc: 'log_security_event', actor: 'other', status: 204 }])}`).ok, 'witness: unattributed telemetry fails');
+const post11 = W(expSeed, 'CERT none', tel(0, 1, 1));
+for (const [what, extra] of [['failed', rec('admin', 'failed')], ['pending', rec('member', 'pending')], ['unknown actor', rec('unknown', 'success')]] as const) {
+  ok(!compareWitness(expSeed, pre, post11, L2 + log([extra])).ok, `witness: a ${what} telemetry record fails even when deltas match`);
+}
+ok(!compareWitness(expSeed, pre, post11, `${L2}{"rpc":"log_security_event","actor":"constructor","status":"success"}\n`).ok, 'witness: non-enum actor line is malformed and fails');
+ok(!compareWitness(expSeed, pre, post11, `${L2}{"rpc":"log_security_event","actor":"admin","status":"success","x":1}\n`).ok, 'witness: extra field is malformed and fails');
+ok(!compareWitness(expSeed, pre, post11, L2.slice(0, -1)).ok, 'witness: a sink without its final newline fails');
+ok(!compareWitness(expSeed, pre, post11, log([rec('instructor', 'success')])).ok, 'witness: a delta with no observation (missing) fails');
+ok(!compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 0)), L2).ok, 'witness: an observation with no delta fails');
+ok(compareWitness(expSeed, pre, pre, '').ok, 'witness: no telemetry and no delta passes (empty sink)');
 ok(!compareWitness('', pre, pre, '').ok, 'witness: empty committed projection fails');
 for (const [what, r] of [['pass', compareWitness(expSeed, pre, W(expSeed, 'CERT none', tel(0, 1, 1)), L2)],
-  ['all failures', compareWitness('', pre, W(expSeed.replace(/ read$/m, ' started'), 'CERT x', tel(3, 0, 0)), `${L2}\n${log([{ rpc: 'log_security_event', actor: 'other', status: 204 }])}`)],
+  ['all failures', compareWitness('', pre, W(expSeed.replace(/ read$/m, ' started'), 'CERT x', tel(3, 0, 0)), L2 + log([rec('unknown', 'success'), rec('admin', 'pending'), rec('admin', 'failed')]) + 'junk\n')],
   ['missing actor', compareWitness(expSeed, W(expSeed, 'CERT none', ''), pre, '')]] as const) ok(stageable(r.lines), `witness lines stageable (${what})`);
 // Every fixed line run.sh itself writes into the evidence dir is stageable too.
 const echoed = [...read('scripts/roster-reports-fixture/run.sh').matchAll(/echo "(.*)" > "\$OUT\//g)].map((m) => m[1].replace(/\$\([^)]*\)|\$[A-Z_]+/g, '0'));
@@ -199,7 +219,8 @@ ok(/installRequestPolicy\(context, BINDING\.api\.origin/.test(guarded) && /reque
 ok(!/readOnly|page\.on\('request'/.test(guarded), 'guarded-test: no after-the-fact read-only observer');
 const setup = read('e2e/roster-reports/session-setup.ts').replace(/^\s*\/\/.*$/gm, '');
 ok(/installRequestPolicy\(context, api\.origin/.test(setup) && /if \(policy\.forbidden\.length\) throw/.test(setup), 'session-setup: policy on the setup context, throws on any forbidden request');
-ok(/isAbsolute\(process\.env\.RR_POLICY_LOG/.test(setup) && /lstatSync/.test(setup) && /0o700/.test(setup) && /getuid/.test(setup), 'session-setup: absolute policy log, 0700 own real session dir');
+ok(/^\s*sinkPath\(\);/m.test(setup) && /lstatSync/.test(setup) && /0o700/.test(setup) && /getuid/.test(setup) && !/RR_POLICY_LOG/.test(setup), 'session-setup: sink path checked before any browser, 0700 own real session dir');
+ok(/await policy\.drain\(\);\s*\n\s*const state = await context\.storageState/.test(setup) && /await use\(forbidden\);\s*\n\s*await drain\(\);/.test(guarded), 'setup and every test drain telemetry (pending reported) before their context ends');
 const wsql = read('scripts/roster-reports-fixture/witness.sql');
 const kinds = [...new Set(read('scripts/roster-reports-fixture/expected-seed.txt').split('\n').filter(Boolean).map((l) => l.split(' ')[1]))].sort();
 ok(kinds.join(',') === 'course,enrollment,item,module,profile,progression,user' && kinds.every((k) => wsql.includes(`'SEED ${k} '`)), `witness.sql emits every committed SEED kind (${kinds.join(',')})`);
@@ -209,6 +230,112 @@ const helpers = read('e2e/roster-reports/helpers.ts');
 ok(/export async function assertRrStudents/.test(helpers) && /export async function assertRrReports/.test(helpers)
   && ['instructor.spec.ts', 'admin.spec.ts'].every((f) => /assertRrStudents\(/.test(read(`e2e/roster-reports/${f}`)) && /assertRrReports\(/.test(read(`e2e/roster-reports/${f}`))), 'instructor and admin share the same Students/Reports assertions');
 
+const A_ORIGIN = 'http://127.0.0.1:54321';
+// 8c. The telemetry sink (e2e/roster-reports/actors.mjs), exercised on a scratch private tree that has run.sh's shape.
+const sinkCode = (f: () => void) => { try { f(); return 'OK'; } catch (e) { return String((e as Error).message); } };
+const mkRun = () => {
+  const parent = path.join(fs.realpathSync(os.tmpdir()), `rr-run.${crypto.randomBytes(8).toString('hex').slice(0, 10)}`);
+  fs.mkdirSync(parent, { mode: 0o700 }); fs.mkdirSync(path.join(parent, 'session'), { mode: 0o700 });
+  const file = path.join(parent, 'session', 'policy.jsonl');
+  fs.closeSync(fs.openSync(file, 'wx', 0o600)); fs.chmodSync(file, 0o600);
+  return { parent, session: path.join(parent, 'session'), file, env: { RR_SESSION_DIR: path.join(parent, 'session') } };
+};
+const runs: string[] = [];
+const fresh = () => { const r = mkRun(); runs.push(r.parent); return r; };
+try {
+  const good = fresh();
+  ok(sinkPath(good.env) === good.file, 'sink: path is exactly <RR_SESSION_DIR>/policy.jsonl');
+  ok(sinkCode(() => appendTelemetry({ rpc: 'log_security_event', actor: 'member', status: 'success', extra: 'dropped' }, good.env)) === 'OK'
+    && fs.readFileSync(good.file, 'utf8') === '{"rpc":"log_security_event","actor":"member","status":"success"}\n', 'sink: one canonical line, extra fields dropped');
+  ok((fs.statSync(good.file).mode & 0o777) === 0o600 && fs.statSync(good.file).nlink === 1, 'sink: file stays 0600, nlink 1');
+  for (const [field, v] of [['actor', 'constructor'], ['actor', 'toString'], ['actor', '__proto__'], ['actor', 'hasOwnProperty'], ['actor', 'other'], ['actor', 'Admin'],
+    ['rpc', 'constructor'], ['rpc', 'get_user_roles'], ['status', 'ok'], ['status', '204'], ['status', 'valueOf']] as const) {
+    const r = { rpc: 'log_security_event', actor: 'admin', status: 'success', [field]: v };
+    ok(sinkCode(() => appendTelemetry(r, good.env)) === 'RR_SINK_E_RECORD', `sink: ${field}=${v} refused (own-key enum)`);
+  }
+  ok(sinkCode(() => appendTelemetry({ rpc: 'log_security_event', actor: 'admin', status: 204 as unknown as string }, good.env)) === 'RR_SINK_E_RECORD', 'sink: numeric status refused');
+  ok(actorOf('constructor') === 'unknown' && actorOf('__proto__') === 'unknown' && actorOf('e2e00000-0000-4000-8000-000000000003') === 'member', 'actorOf: own-key lookup only');
+  const R = { rpc: 'log_security_event', actor: 'admin', status: 'success' };
+  const neg = (what: string, code: string, setup: (r: ReturnType<typeof mkRun>) => Record<string, string> | void) => {
+    const r = fresh(); const env = setup(r) ?? r.env;
+    ok(sinkCode(() => appendTelemetry(R, env)) === code, `sink: ${what} -> ${code}`);
+  };
+  neg('relative root', 'RR_SINK_E_ROOT', () => ({ RR_SESSION_DIR: 'rr-run.abcdefghij/session' }));
+  neg('unset root', 'RR_SINK_E_ROOT', () => ({}));
+  neg('root not named session', 'RR_SINK_E_ROOT', (r) => { const d = path.join(r.parent, 'other'); fs.mkdirSync(d, { mode: 0o700 }); return { RR_SESSION_DIR: d }; });
+  neg('parent not rr-run.XXXXXXXXXX', 'RR_SINK_E_ROOT', (r) => { const p2 = `${r.parent}x`; fs.mkdirSync(p2, { mode: 0o700 }); fs.mkdirSync(path.join(p2, 'session'), { mode: 0o700 }); runs.push(p2); return { RR_SESSION_DIR: path.join(p2, 'session') }; });
+  neg('session dir 0755', 'RR_SINK_E_ROOT', (r) => { fs.chmodSync(r.session, 0o755); });
+  neg('rr-run parent 0755', 'RR_SINK_E_ROOT', (r) => { fs.chmodSync(r.parent, 0o755); });
+  neg('session dir is a symlink', 'RR_SINK_E_ROOT', (r) => { const real = path.join(r.parent, 'real'); fs.renameSync(r.session, real); fs.symlinkSync(real, r.session); });
+  neg('non-physical root (trailing slash)', 'RR_SINK_E_ROOT', (r) => ({ RR_SESSION_DIR: `${r.session}/` }));
+  neg('file missing (sink never creates)', 'RR_SINK_E_OPEN', (r) => { fs.rmSync(r.file); });
+  neg('file is a symlink', 'RR_SINK_E_OPEN', (r) => { const t = path.join(r.session, 't'); fs.renameSync(r.file, t); fs.symlinkSync(t, r.file); });
+  neg('file is a FIFO (O_NONBLOCK, no reader)', 'RR_SINK_E_OPEN', (r) => { fs.rmSync(r.file); execFileSync('mkfifo', ['-m', '600', r.file]); });
+  neg('file is a directory', 'RR_SINK_E_OPEN', (r) => { fs.rmSync(r.file); fs.mkdirSync(r.file, { mode: 0o700 }); });
+  neg('file mode 0644', 'RR_SINK_E_FILE', (r) => { fs.chmodSync(r.file, 0o644); });
+  neg('file hard-linked (nlink 2)', 'RR_SINK_E_FILE', (r) => { fs.linkSync(r.file, path.join(r.session, 'hl')); });
+  neg('file over the size bound', 'RR_SINK_E_SIZE', (r) => { fs.truncateSync(r.file, MAX_BYTES); });
+  const big = fresh(); fs.truncateSync(big.file, MAX_BYTES);
+  ok(fs.statSync(big.file).size === MAX_BYTES, 'sink: a refused append leaves the file unchanged');
+  const miss = fresh(); fs.rmSync(miss.file); sinkCode(() => appendTelemetry(R, miss.env));
+  ok(!fs.existsSync(miss.file), 'sink: a refused append on a missing file creates nothing');
+} finally {
+  for (const d of runs) fs.rmSync(d, { recursive: true, force: true });
+}
+ok(runs.every((d) => !fs.existsSync(d)), `sink scratch trees removed and verified absent (${runs.length})`);
+
+// 8c2. Telemetry lifecycle on a fake context: each request is reported exactly once as success, failed or pending.
+{
+  const handlers: Record<string, Array<(x: any) => any>> = {};
+  const ctx = { route: async () => {}, on: (ev: string, f: (x: any) => any) => { (handlers[ev] ??= []).push(f); } };
+  const fire = async (ev: string, x: any) => { for (const f of handlers[ev] ?? []) await f(x); };
+  const mk = (uid: string, status?: number) => ({ method: () => 'POST', url: () => `${A_ORIGIN}/rest/v1/rpc/log_security_event`,
+    postData: () => JSON.stringify({ p_user_id: uid }), response: async () => (status === undefined ? null : { status: () => status }) });
+  const seen: Array<{ rpc: string; actor: string; status: string }> = [];
+  const pol: any = await installRequestPolicy(ctx as any, A_ORIGIN, { actorOf, onTelemetry: (r: any) => seen.push(r) });
+  const ok1 = mk('e2e00000-0000-4000-8000-000000000002', 204); const bad1 = mk('e2e00000-0000-4000-8000-000000000003', 500);
+  const lost = mk('e2e00000-0000-4000-8000-000000000001'); const open1 = mk('e2e00000-0000-4000-8000-000000000003'); const stranger = mk('nobody', 204);
+  for (const r of [ok1, bad1, lost, open1, stranger]) await fire('request', r);
+  await fire('requestfinished', ok1); await fire('requestfinished', bad1); await fire('requestfailed', lost); await fire('requestfinished', stranger);
+  await fire('requestfinished', ok1);
+  if (typeof pol.drain === 'function') await pol.drain(10);
+  await fire('requestfinished', open1);
+  const got = seen.map((r) => `${r.actor}:${r.status}`).join(',');
+  ok(typeof pol.drain === 'function' && got === 'instructor:success,member:failed,admin:failed,unknown:success,member:pending', `lifecycle: exactly once each, pending at drain (${got})`);
+  ok(seen.length > 0 && seen.every((r) => ['success', 'failed', 'pending'].includes(r.status)), 'lifecycle: every reported status is a sink enum');
+}
+
+// 8d. Sink source contract (what a file-level grant cannot itself enforce): exactly one write call, on the checked fd.
+const actorsSrc = read('e2e/roster-reports/actors.mjs');
+const code8 = actorsSrc.replace(/^\s*\/\/.*$/gm, '');
+ok((code8.match(/\bfs\.\w+/g) ?? []).sort().join(',') === 'fs.appendFileSync,fs.closeSync,fs.constants,fs.constants,fs.constants,fs.constants,fs.fstatSync,fs.lstatSync,fs.openSync,fs.realpathSync',
+  `sink contract: exactly these fs calls (${(code8.match(/\bfs\.\w+/g) ?? []).sort().join(',')})`);
+ok(/fs\.openSync\(p, fs\.constants\.O_WRONLY \| fs\.constants\.O_APPEND \| fs\.constants\.O_NOFOLLOW \| fs\.constants\.O_NONBLOCK\)/.test(code8) && !/O_CREAT|O_TRUNC/.test(code8), 'sink contract: open flags exact, no O_CREAT/O_TRUNC');
+ok(/fs\.appendFileSync\(fd, line\)/.test(code8) && (code8.match(/appendFileSync/g) ?? []).length === 1, 'sink contract: the one write goes through the checked descriptor');
+ok(/st\.nlink !== 1/.test(code8) && /\(st\.mode & 0o777\) !== 0o600/.test(code8) && /st\.isFile\(\)/.test(code8) && /fs\.closeSync\(fd\)/.test(code8), 'sink contract: same-fd regular/0600/nlink/close');
+ok(/Object\.create\(null\)/.test(code8) && /Object\.hasOwn\(map, v\)/.test(code8) && !/\bin (RPCS|ACTORS|STATUSES|ACTOR_IDS)\b/.test(code8), 'sink contract: null-prototype enums with own-key lookup');
+ok(/JSON\.stringify\(\{ rpc: rec\.rpc, actor: rec\.actor, status: rec\.status \}\)/.test(code8), 'sink contract: fixed three fields');
+ok(!/process\.env\.RR_POLICY_LOG|env\.RR_POLICY_LOG/.test(code8) && /path\.join\(d, SINK_BASENAME\)/.test(code8) && /SINK_BASENAME = 'policy\.jsonl'/.test(code8), 'sink contract: fixed basename under the session root, no env-named file');
+const callers = fs.readdirSync(path.join(ROOT, 'e2e/roster-reports')).filter((f) => /appendTelemetry\(/.test(read(`e2e/roster-reports/${f}`)));
+ok(callers.sort().join(',') === 'actors.mjs,guarded-test.ts,session-setup.ts', `sink contract: callers are exactly setup and the test fixture (${callers.join(',')})`);
+
+// 8e. PROPOSED exact-file ALLOWED entry (NOT applied; security.yml is unchanged and the gate stays red). It is a
+// file-level grant: any write API inside that one file would pass the gate; 8d is what pins the API use.
+const PROPOSED = `${/ALLOWED='([^']+)'/.exec(sec8())?.[1]?.replace(/\)$/, '')}|e2e/roster-reports/actors\\.mjs$)`;
+function sec8() { return read('.github/workflows/security.yml'); }
+const proposed = new RegExp(PROPOSED);
+ok(PROPOSED === "^(scripts/|e2e/fixtures/console-errors\\.fixture\\.ts$|src/test/ci/checkLocalTarget\\.test\\.ts$|e2e/roster-reports/actors\\.mjs$)", `proposal: ${PROPOSED}`);
+ok(proposed.test('e2e/roster-reports/actors.mjs'), 'proposal: grants exactly e2e/roster-reports/actors.mjs');
+for (const n of ['e2e/roster-reports/actors.mjs.bak', 'e2e/roster-reports/actors.mjsx', 'e2e/roster-reports/actors_mjs', 'e2e/roster-reports/Actors.mjs',
+  'e2e/roster-reports/request-policy.mjs', 'e2e/roster-reports/guarded-test.ts', 'e2e/roster-reports/session-setup.ts', 'e2e/roster-reports/sub/actors.mjs',
+  'e2e/roster-reports-x/actors.mjs', 'xe2e/roster-reports/actors.mjs', 'e2e/gradebook-roles/actors.mjs', 'e2e/roster-reports/actors.ts', 'src/actors.mjs']) {
+  ok(!proposed.test(n), `proposal neighbour-negative: ${n} still gated`);
+}
+const tracked = execFileSync('git', ['ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs'], { cwd: ROOT, encoding: 'utf8' }).split('\n').filter(Boolean);
+const gateHits = (re: RegExp) => tracked.filter((f) => !re.test(f) && /writeFile|writeFileSync|createWriteStream|appendFile|appendFileSync|Deno\.write/.test(read(f)));
+ok(gateHits(new RegExp(/ALLOWED='([^']+)'/.exec(sec8())?.[1] ?? '^$')).join(',') === 'e2e/roster-reports/actors.mjs', 'gate today: RED on exactly e2e/roster-reports/actors.mjs (preserved)');
+ok(gateHits(proposed).length === 0, 'gate with the proposal: no hits (only if the exact-file grant is approved)');
+
 // 9. run.sh ordering and always-run collection (static).
 const code = run.replace(/^\s*#.*$/gm, '');
 const at = (re: RegExp) => { const m = re.exec(code); return m ? m.index : -1; };
@@ -216,6 +343,7 @@ const order = [/RR_E_PIN\b/, /RR_E_D1_CONSTANT/, /served-app-check\.mjs" "\$E2E_
 ok(order.every((x) => x >= 0) && order.every((x, i) => i === 0 || x > order[i - 1]), `run.sh order: pins, D1 constant, served app, D1 verify, carrier, API readback, seed, witness, PW, summary, witness, compare, cleanup, inventory (${order.join(',')})`);
 const afterPw = code.slice(at(/playwright test/));
 ok(!/refuse /.test(afterPw), 'run.sh: nothing after Playwright refuses (post witness, compare and cleanup always run)');
+ok(!/RR_POLICY_LOG/.test(code) && /POLICY_LOG="\$PARENT\/session\/policy\.jsonl"\n: > "\$POLICY_LOG"; chmod 600 "\$POLICY_LOG"/.test(code), 'run.sh: creates the empty 0600 sink at the fixed path; no env names the file');
 ok(/\[ "\$\{PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-\}" = "\$GB_SHELL_PATH" \]/.test(code) && /\[ -n "\$\{GB_SHELL_PATH:-\}" \]/.test(code), 'run.sh: pinned shell bound and non-empty');
 const pins = read('scripts/roster-reports-fixture/PINS.txt');
 const pinned = [...pins.matchAll(/^[0-9a-f]{64} {2}(\S+)$/gm)].map((m) => m[1]);

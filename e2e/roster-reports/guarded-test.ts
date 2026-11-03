@@ -17,8 +17,9 @@ export const test = base.extend<{ originGuard: Array<{ origin: string; kind: str
   // Depends on originGuard so it is installed after it and runs first for every request of the context.
   requestPolicy: [async ({ context, originGuard }, use) => {
     void originGuard;
-    const { forbidden } = await installRequestPolicy(context, BINDING.api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
+    const { forbidden, drain } = await installRequestPolicy(context, BINDING.api.origin, { actorOf, onTelemetry: (r) => appendTelemetry(r) });
     await use(forbidden);
+    await drain();
     expect(forbidden, 'forbidden API requests (each was aborted before it was sent)').toEqual([]);
   }, { auto: true }],
 });

@@ -50,7 +50,10 @@ private_ok() { [ -d "$1" ] && [ ! -L "$1" ] && [ "$(stat -c '%u %a' -- "$1")" = 
 chmod 700 "$PARENT"; private_ok "$PARENT" || refuse RR_E_DIRS
 mkdir -m 700 "$PARENT/raw" "$PARENT/session" "$PARENT/psql" || refuse RR_E_DIRS
 for d in raw session psql; do private_ok "$PARENT/$d" || refuse RR_E_DIRS; done
-RAW="$PARENT/raw"; POLICY_LOG="$PARENT/session/policy.jsonl"
+RAW="$PARENT/raw"
+# The telemetry sink file: fixed name in the private session dir, created EMPTY here (0600). The sink (actors.mjs) only
+# appends to an existing file through one checked descriptor; it never creates, truncates or removes it.
+POLICY_LOG="$PARENT/session/policy.jsonl"
 : > "$POLICY_LOG"; chmod 600 "$POLICY_LOG"
 mkdir -m 700 "$OUT" || refuse RR_E_DIRS
 psql_run() { node "$ROOT/scripts/gradebook-fixture/journey/private-psql.mjs" run "$PARENT/psql" "$1" "$2" > "$RAW/$3.out" 2> "$RAW/$3.err"; }
@@ -84,7 +87,7 @@ else echo "RR_SEED_BAD witness_pre=FAILED" > "$OUT/seed.txt"; : > "$RAW/witness-
 PW=99
 if [ "$RC" -eq 0 ]; then
   set +e
-  (cd "$ROOT" && RR_SESSION_DIR="$PARENT/session" RR_POLICY_LOG="$POLICY_LOG" RR_ASSOCIATION_NONCE="$NONCE" npx --no-install playwright test \
+  (cd "$ROOT" && RR_SESSION_DIR="$PARENT/session" RR_ASSOCIATION_NONCE="$NONCE" npx --no-install playwright test \
     -c playwright.roster-reports.config.ts --reporter=json --output="$RAW/test-results") > "$RAW/playwright.json" 2> "$RAW/playwright.err"; PW=$?
   set -e
 fi

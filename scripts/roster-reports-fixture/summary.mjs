@@ -8,7 +8,7 @@
 //       (project, case) inventory equals cases.json EXACTLY (no omission, duplicate or extra) and every case passed
 //   summary.mjs witness <expected-seed> <pre> <post> <policy log>    -> WITNESS lines; exit 0 only when the pre SEED section
 //       equals the committed projection exactly, SEED and CERT sections are unchanged pre->post, and the security_events delta
-//       per actor equals the telemetry calls the request policy recorded with a 2xx status
+//       per actor equals the 'success' records of known actors in the sink; any failed, pending, unknown or malformed record fails
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,11 +19,12 @@ export const LINE = /^[A-Z][A-Z0-9_]*( [A-Z][A-Z0-9_]*| [a-z][a-z0-9_]*=[A-Za-z0
 const tok = (v) => (/^[A-Za-z0-9_.,-]{1,64}$/.test(String(v)) ? String(v) : 'X');
 
 /** Read a regular file through a single handle, refusing links, non-files and anything over `max` bytes. */
-export function readBounded(p, max = LIMIT) {
-  const fd = fs.openSync(p, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+export function readBounded(p, max = LIMIT, { privateFile = false } = {}) {
+  const fd = fs.openSync(p, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0));
   try {
     const st = fs.fstatSync(fd);
     if (!st.isFile()) throw new Error('SUMMARY_E_NOT_FILE');
+    if (privateFile && ((st.mode & 0o777) !== 0o600 || st.nlink !== 1 || (typeof process.getuid === 'function' && st.uid !== process.getuid()))) throw new Error('SUMMARY_E_SINK_FILE');
     if (st.size > max) throw new Error('SUMMARY_E_TOO_LARGE');
     const buf = Buffer.alloc(st.size);
     let off = 0;
@@ -96,12 +97,18 @@ export function compareWitness(expectedSeed, pre, post, policyLog) {
     return [m[1], Number(m[2])];
   }));
   const before = count(pre); const after = count(post);
+  // Every sink line must be exactly a canonical record. Only success by a known actor counts; anything else fails.
   const recorded = { admin: 0, instructor: 0, member: 0 };
-  let unattributed = 0;
-  for (const l of policyLog.split('\n').filter(Boolean)) {
-    const r = JSON.parse(l);
-    if (r.rpc !== 'log_security_event' || !(r.status >= 200 && r.status < 300)) continue;
-    if (r.actor in recorded) recorded[r.actor] += 1; else unattributed += 1;
+  const bad = { unknown: 0, failed: 0, pending: 0, malformed: 0 };
+  const KNOWN = new Set(['admin', 'instructor', 'member']);
+  const lines2 = policyLog === '' ? [] : policyLog.split('\n');
+  if (lines2.length && lines2.pop() !== '') bad.malformed += 1; // the file must end with a newline
+  for (const l of lines2) {
+    const m = /^\{"rpc":"log_security_event","actor":"(admin|instructor|member|unknown)","status":"(success|failed|pending)"\}$/.exec(l);
+    if (!m) { bad.malformed += 1; continue; }
+    if (m[2] !== 'success') bad[m[2]] += 1;
+    else if (!KNOWN.has(m[1])) bad.unknown += 1;
+    else recorded[m[1]] += 1;
   }
   for (const a of ['admin', 'instructor', 'member']) {
     if (!(a in before) || !(a in after)) { lines.push(`WITNESS TELEMETRY MISSING actor=${a}`); ok = false; continue; }
@@ -110,7 +117,7 @@ export function compareWitness(expectedSeed, pre, post, policyLog) {
     lines.push(`WITNESS TELEMETRY ${match ? 'RECONCILED' : 'MISMATCH'} actor=${a} delta=${delta} recorded=${recorded[a]}`);
     if (!match) ok = false;
   }
-  if (unattributed) { lines.push(`WITNESS TELEMETRY UNATTRIBUTED count=${unattributed}`); ok = false; }
+  for (const [k, n] of Object.entries(bad)) if (n) { lines.push(`WITNESS TELEMETRY ${k.toUpperCase()} count=${n}`); ok = false; }
   lines.push(`WITNESS verdict=${ok ? 'PASS' : 'FAIL'}`);
   return { ok, lines };
 }
@@ -125,7 +132,7 @@ function main(argv) {
       return r.ok ? 0 : 1;
     }
     if (mode === 'witness' && a.length === 4) {
-      const r = compareWitness(readBounded(a[0]), readBounded(a[1]), readBounded(a[2]), readBounded(a[3]));
+      const r = compareWitness(readBounded(a[0]), readBounded(a[1]), readBounded(a[2]), readBounded(a[3], 256 * 1024, { privateFile: true }));
       console.log(r.lines.join('\n'));
       return r.ok ? 0 : 1;
     }

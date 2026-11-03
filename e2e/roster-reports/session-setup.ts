@@ -11,7 +11,7 @@ import { chromiumExecutableOption } from '../support/chromium-executable';
 import { assertStrictLocalBinding } from '../gradebook-roles/local-binding.mjs';
 import { newGuardedContext } from '../gradebook-roles/origin-guard.mjs';
 import { installRequestPolicy } from './request-policy.mjs';
-import { actorOf, appendTelemetry } from './actors.mjs';
+import { actorOf, appendTelemetry, sinkPath } from './actors.mjs';
 import { RR } from './expected';
 
 export const ROLES = {
@@ -36,7 +36,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
   const { api, app, anonKey } = assertStrictLocalBinding();
   const dir = sessionDir();
   const nonce = process.env.RR_ASSOCIATION_NONCE ?? '';
-  if (!path.isAbsolute(process.env.RR_POLICY_LOG ?? '')) throw new Error('roster-reports setup: RR_POLICY_LOG must be an absolute private path');
+  sinkPath(); // the telemetry sink's fixed path and private parents must hold before any browser exists (RR_SINK_E_ROOT)
   if (!/^[0-9a-f]{32}$/.test(nonce)) throw new Error('roster-reports setup: RR_ASSOCIATION_NONCE must be 32 hex characters written by run.sh through the DB DSN');
   const password = process.env.E2E_TEST_PASSWORD ?? '';
   if (!password) throw new Error('roster-reports setup: no synthetic password');
@@ -68,6 +68,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       page.on('request', (r) => { if (/\/(rest|auth|storage|functions)\/v1\//.test(r.url())) origins.add(new URL(r.url()).origin); });
       await page.goto(app.origin, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2_000);
+      await policy.drain();
       const state = await context.storageState({ path: path.join(dir, `${role}.json`) });
       fs.chmodSync(path.join(dir, `${role}.json`), 0o600);
       if (blocked.length) throw new Error(`roster-reports setup: ${blocked.length} request(s) to non-approved origins were blocked`);
