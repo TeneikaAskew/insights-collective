@@ -104,8 +104,9 @@ describe('security.yml fs-write ALLOWED list', () => {
     expect(writes[0][1].match(WRITE_CALL)?.[0].startsWith('append')).toBe(true);
     const opens = lines.filter((l) => /fs\.openSync\(/.test(l));
     expect(opens).toHaveLength(1);
-    expect(opens[0]).toMatch(/O_WRONLY \| fs\.constants\.O_APPEND \| fs\.constants\.O_NOFOLLOW \| fs\.constants\.O_NONBLOCK\)/);
-    expect(opens[0]).not.toMatch(/O_CREAT|O_TRUNC/);
+    expect(opens[0]).toMatch(/O_WRONLY \| fs\.constants\.O_APPEND \| fs\.constants\.O_NOFOLLOW \| fs\.constants\.O_NONBLOCK, 0o600\)/);
+    expect(opens[0]).not.toMatch(/O_CREAT|O_TRUNC|O_EXCL/);
+    expect(lines.filter((l) => /\b(f?chmod|f?chown|umask)(Sync)?\(/.test(l))).toEqual([]);
   });
 
   it('gate is clean with the entry and flags exactly the roster sink without it', () => {
