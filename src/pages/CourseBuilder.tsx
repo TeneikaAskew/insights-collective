@@ -340,7 +340,8 @@ const CourseBuilder = () => {
 
         // Same input as a failed attempt resumes that attempt's plan (same ids), so a retry finishes the
         // same course instead of creating another one.
-        const plan = planFor(creationPlanRef.current, r);
+        // The plan is bound to the signed-in user; another (or no) account cannot resume it.
+        const plan = planFor(creationPlanRef.current, r, instructorId);
         creationPlanRef.current = plan;
         const courseId = await runCreationPlan({
           plan,
@@ -538,7 +539,8 @@ const CourseBuilder = () => {
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      await reorders.request('sections', ordered, {
+      // Scope per course: a reorder for another course never shares this queue or its send.
+      await reorders.request(`sections:${courseId}`, ordered, {
         current: () => modulesRef.current.map((m) => m.id),
         apply: (order) => setModules((prev) => applyIdOrder(prev, order)),
         send: (order) => CanvasContentService.reorderModules(courseId, order),

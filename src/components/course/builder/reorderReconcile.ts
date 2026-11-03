@@ -35,13 +35,15 @@ export interface ReorderRequest {
 
 interface ScopeState {
   busy: boolean;
-  queued: string[] | null;
+  /** The newest waiting order together with its own request: it is sent through its own `send`, never another's. */
+  queued: { order: string[]; r: ReorderRequest } | null;
   /** Last order known to be stored: the idle baseline, then each order the server accepted. */
   confirmed: string[];
 }
 
 /**
- * One reorder request per scope at a time. A reorder made while one is in flight is shown at once and
+ * One reorder request per scope at a time. A scope must name the exact target (e.g. `sections:<courseId>`),
+ * so requests for different courses or sections never share a queue. A reorder made while one is in flight is shown at once and
  * sent when the scope is free (only the newest waiting order is sent). Only the last request's outcome
  * decides what is shown: if it fails, the server order is reloaded, or, if that read fails too, the last
  * order the server accepted is shown. A failed request followed by a newer one never shows a speculative
@@ -59,18 +61,20 @@ export function createReorderCoordinator() {
       if (!st.busy) st.confirmed = r.current();
       r.apply(ordered);
       if (st.busy) {
-        st.queued = ordered;
+        st.queued = { order: ordered, r };
         return;
       }
       st.busy = true;
       try {
-        let next: string[] | null = ordered;
+        let next: { order: string[]; r: ReorderRequest } | null = { order: ordered, r };
+        let last = next;
         let lastErr: any = null;
         while (next) {
           st.queued = null;
+          last = next;
           try {
-            await r.send(next);
-            st.confirmed = next;
+            await next.r.send(next.order);
+            st.confirmed = next.order;
             lastErr = null;
           } catch (err) {
             lastErr = err;
@@ -78,17 +82,19 @@ export function createReorderCoordinator() {
           next = st.queued;
         }
         if (lastErr) {
+          // Reconcile through the last request's own callbacks (the one whose outcome decides).
+          const lr = last.r;
           let server: string[] | null = null;
           try {
-            server = await r.reload();
+            server = await lr.reload();
           } catch {
             server = null;
           }
           // Anything dragged while reloading was built on the failed order; the reconciled order wins.
           st.queued = null;
           st.confirmed = server ?? st.confirmed;
-          r.apply(st.confirmed);
-          r.onFailed(lastErr, server ? 'server' : 'last-confirmed');
+          lr.apply(st.confirmed);
+          lr.onFailed(lastErr, server ? 'server' : 'last-confirmed');
         }
       } finally {
         st.busy = false;

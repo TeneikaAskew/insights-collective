@@ -26,6 +26,8 @@ export interface PlannedSection {
   lessons: PlannedLesson[];
 }
 export interface CreationPlan {
+  /** The signed-in user who started this creation. Only that user may run or resume it. */
+  ownerId: string | null;
   fingerprint: string;
   courseId: string;
   thumbnailNonce: string;
@@ -48,6 +50,16 @@ export class CreationInputChangedError extends Error {
   }
 }
 
+export class CreationOwnerMismatchError extends Error {
+  constructor() {
+    super(
+      'This course creation was started by a different account (or you are signed out). Sign in as that account ' +
+        'to finish it, or reload the page to start a new course as yourself.',
+    );
+    this.name = 'CreationOwnerMismatchError';
+  }
+}
+
 export class CreationConflictError extends Error {
   constructor(readonly table: string, readonly id: string) {
     super(`A ${table} record with the planned id already exists but is not the one this course creation made.`);
@@ -67,8 +79,13 @@ export function fingerprintOf(r: NewCourseWizardResult): string {
   });
 }
 
-export function createPlan(r: NewCourseWizardResult, uuid: () => string = () => crypto.randomUUID()): CreationPlan {
+export function createPlan(
+  r: NewCourseWizardResult,
+  uuid: () => string = () => crypto.randomUUID(),
+  ownerId: string | null = null,
+): CreationPlan {
   return {
+    ownerId,
     fingerprint: fingerprintOf(r),
     courseId: uuid(),
     thumbnailNonce: uuid(),
@@ -92,13 +109,24 @@ export function createPlan(r: NewCourseWizardResult, uuid: () => string = () => 
 }
 
 /**
- * Returns the plan to run for this wizard input: the existing one if it is for the same input or nothing
- * was written yet (then a fresh one), and throws if writes already happened for different input.
+ * Returns the plan to run for this wizard input and signed-in user: the existing one if it is the same
+ * user's plan for the same input; a fresh one if nothing was written yet. Throws, before any write, if the
+ * user is signed out, or writes already happened under another user or for different input.
  */
-export function planFor(existing: CreationPlan | null, r: NewCourseWizardResult, uuid?: () => string): CreationPlan {
-  if (existing && existing.fingerprint === fingerprintOf(r)) return existing;
-  if (existing && existing.started) throw new CreationInputChangedError(existing.courseId);
-  return createPlan(r, uuid);
+export function planFor(
+  existing: CreationPlan | null,
+  r: NewCourseWizardResult,
+  userId: string | null,
+  uuid?: () => string,
+): CreationPlan {
+  if (!userId) throw new CreationOwnerMismatchError();
+  if (existing && existing.started) {
+    if (existing.ownerId !== userId) throw new CreationOwnerMismatchError();
+    if (existing.fingerprint !== fingerprintOf(r)) throw new CreationInputChangedError(existing.courseId);
+    return existing;
+  }
+  if (existing && existing.ownerId === userId && existing.fingerprint === fingerprintOf(r)) return existing;
+  return createPlan(r, uuid, userId);
 }
 
 type Client = { from: (table: string) => any; storage: { from: (bucket: string) => any } };
@@ -146,6 +174,8 @@ export interface CreationInput {
 /** Runs (or resumes) the plan. Resolves with the course id once every planned row is confirmed. */
 export async function runCreationPlan({ plan, result: r, instructorId, client, report, onThumbnailError }: CreationInput): Promise<string> {
   const { confirmed } = plan;
+  // The plan belongs to the user who started it; nobody else may resume it (checked before any write).
+  if (!instructorId || plan.ownerId !== instructorId) throw new CreationOwnerMismatchError();
 
   // 1) Thumbnail: a fixed object path per plan, so a retry overwrites rather than adds a file.
   if (r.thumbnailFile && instructorId && !plan.thumbnail.settled) {

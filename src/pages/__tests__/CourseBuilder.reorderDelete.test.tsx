@@ -2,7 +2,7 @@
 // ABOUTME: removed no row must not drop the item locally. Real CanvasContentService over a fake client.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import CourseBuilder from '../CourseBuilder';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
@@ -85,7 +85,10 @@ function table(name: string) {
   });
   for (const m of ['order', 'in', 'limit', 'update']) b[m] = vi.fn(() => b);
   const run = () => {
-    if (name === 'courses') return { data: course, error: null };
+    if (name === 'courses') {
+      const id = filters.find(([c]) => c === 'id')?.[1] ?? course.id;
+      return { data: { ...course, id }, error: null };
+    }
     const store: Map<string, any> = name === 'modules' ? mods : items;
     const match = (r: any) => filters.every(([c, v]) => r[c] === v);
     if (op === 'delete') {
@@ -130,6 +133,15 @@ function seed() {
   };
 }
 
+function GoToCourse2() {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate('/courses/course-2/builder?view=curriculum')}>
+      open course 2
+    </button>
+  );
+}
+
 function renderBuilder() {
   return render(
     <TooltipProvider>
@@ -137,6 +149,7 @@ function renderBuilder() {
         <Routes>
           <Route path="/courses/:courseId/builder" element={<CourseBuilder />} />
         </Routes>
+        <GoToCourse2 />
       </MemoryRouter>
     </TooltipProvider>,
   );
@@ -146,10 +159,13 @@ function renderBuilder() {
 // ---- overlapping reorders: every RPC is held until the test settles it ----
 type Pending = { key: string; settle: (ok: boolean) => void };
 let pending: Pending[] = [];
+let rpcCalls: Array<[string, any]> = [];
 function deferRpc() {
   pending = [];
+  rpcCalls = [];
   rpcBehaviour = (name, args) =>
     new Promise((res) => {
+      rpcCalls.push([name, args]);
       const key = (args.p_module_ids ?? args.p_item_ids).join(',');
       pending.push({
         key,
@@ -307,6 +323,28 @@ describe.each(SCOPES)('T-54 overlapping $name reorders end on the stored order',
     await drive({ [sc.a]: 'fail', [sc.b]: 'ok' }, [sc.b, sc.a]);
     await waitFor(() => expect(sc.server()).toBe(sc.b));
     await waitFor(() => expect(sc.shown()).toBe(sc.b));
+  });
+});
+
+
+describe('T-54 reorder targets stay bound to their own course', () => {
+  it('B1 switching course A to course B while A is pending: each reorder goes to its own course', async () => {
+    mods.set('m4', { id: 'm4', course_id: 'course-2', title: 'Section m4', position: 0 });
+    mods.set('m5', { id: 'm5', course_id: 'course-2', title: 'Section m5', position: 1 });
+    await loaded();
+    deferRpc();
+    fireEvent.click(screen.getByText('swap first sections'));
+    await waitFor(() => expect(rpcCalls).toHaveLength(1));
+    fireEvent.click(screen.getByText('open course 2'));
+    await waitFor(() => expect(sectionOrder()).toBe('m4,m5'));
+    fireEvent.click(screen.getByText('reverse sections'));
+    await drive({ 'm2,m1,m3': 'ok', 'm5,m4': 'ok' }, ['m2,m1,m3', 'm5,m4']);
+    await waitFor(() => expect(rpcCalls).toHaveLength(2));
+    expect(rpcCalls.map(([n, a]) => [n, a.p_course_id, a.p_module_ids.join(',')])).toEqual([
+      ['reorder_modules', 'course-1', 'm2,m1,m3'],
+      ['reorder_modules', 'course-2', 'm5,m4'],
+    ]);
+    await waitFor(() => expect(sectionOrder()).toBe('m5,m4'));
   });
 });
 
