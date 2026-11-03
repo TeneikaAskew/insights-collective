@@ -8,7 +8,9 @@
 //   P2 queue guard: net.http_request_queue exists, trigger t09_drop_http_request is on it and enabled, the queue is empty,
 //      local_evidence.egress_attempts exists. A LOCAL-SHIM queue is refused unless LE_ALLOW_SHIM=1.
 //   P3 API <-> DB: GoTrue's admin user total and PostgREST's exact public.courses count (service key, GET only) equal the
-//      database's, and PostgREST's exposed table set equals the database's public tables. (Consistency, not identity: two
+//      database's, and PostgREST serves the fixture tables and >= 90% of the database's public tables, read from the
+//      OpenAPI root with the SERVICE key (p3-exposure.mjs; anon holds no privilege on quiz_questions by design, so an anon
+//      root omits it). (Consistency, not identity: two
 //      empty stacks would agree; the loopback origins and ports are the identity.)
 //   P4 app -> API: the served app's entry bundle names exactly this API origin and no hosted *.supabase.co project.
 // psql stderr and HTTP bodies are never printed; only labels, counts and exit statuses.
@@ -18,6 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { apiOrigin, readSecretFile, request } from '../t09/api-http.mjs';
 import { checkDsn, childEnv, writePassfile } from './pgconn.mjs';
+import { runP3 } from './p3-exposure.mjs';
 
 // Private passfile (pgconn.mjs rule): the DSN in psql's argv is password-free; the secret path is only in the child env.
 let PF_DIR = '';
@@ -121,27 +124,9 @@ const dbUsers = Number(sql('P3 users', `select count(*) from auth.users`));
 const dbCourses = Number(sql('P3 courses', `select count(*) from public.courses`));
 const dbTables = sql('P3 tables', `select coalesce(string_agg(tablename, ',' order by tablename), '') from pg_tables where schemaname = 'public'`)
   .split(',').filter(Boolean);
-const svc = { apikey: service, Authorization: `Bearer ${service}` };
-let users, courses, root;
-try {
-  users = await request(API, 'GET', '/auth/v1/admin/users?page=1&per_page=1', { headers: svc });
-  courses = await request(API, 'GET', '/rest/v1/courses?select=id&limit=1', { headers: { ...svc, Prefer: 'count=exact' } });
-  root = await request(API, 'GET', '/rest/v1/', { headers: { apikey: anon } });
-} catch (e) {
-  fail('P3: request failed (detail withheld)');
-}
-if (users.status !== 200 || courses.status !== 200 || root.status !== 200) fail(`P3: HTTP ${users.status}/${courses.status}/${root.status}`);
-const apiUsers = Number(users.headers.get('x-total-count') ?? users.json?.total ?? NaN);
-const apiCourses = Number((courses.headers.get('content-range') ?? '').split('/')[1]);
-if (apiUsers !== dbUsers) fail(`P3: GoTrue reports ${apiUsers} users, the database ${dbUsers}`);
-if (apiCourses !== dbCourses) fail(`P3: PostgREST reports ${apiCourses} courses, the database ${dbCourses}`);
-const defs = Object.keys(root.json?.definitions ?? {});
-const exposed = dbTables.filter((t) => defs.includes(t));
-const REQUIRED = ['content_items', 'courses', 'modules', 'quizzes', 'quiz_questions', 'profiles', 'user_roles'];
-const lacking = REQUIRED.filter((t) => !dbTables.includes(t) || !defs.includes(t));
-if (lacking.length) fail(`P3: ${lacking.length} fixture table(s) not both in the database and exposed by PostgREST`);
-if (!dbTables.length || exposed.length < Math.ceil(dbTables.length * 0.9)) fail(`P3: PostgREST exposes ${exposed.length}/${dbTables.length} of this database's public tables`);
-ok(`P3 API matches DB: users ${dbUsers}, courses ${dbCourses}, ${exposed.length}/${dbTables.length} public tables exposed`);
+const p3 = await runP3({ request, API, keys: { anon, service }, db: { users: dbUsers, courses: dbCourses, tables: dbTables } });
+if (!p3.ok) fail(p3.reason);
+ok(p3.line);
 
 // P4 (the app's entry bundle; no credentials sent to the app origin)
 let html;
