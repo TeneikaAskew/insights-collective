@@ -1,0 +1,14 @@
+-- ABOUTME: Pre-seed carrier: ONLY the RR course row, carrying this run's association nonce. run.sh substitutes __NONCE__
+-- ABOUTME: (32 hex) into a private copy, applies it after D1 verify, then reads it back through the anon API before the seed.
+\set ON_ERROR_STOP 1
+begin;
+do $$
+begin
+  if exists (select 1 from public.courses where id = '7150a000-0000-4000-8000-000000000001') then
+    raise exception 'RR_CARRIER_E_EXISTS';
+  end if;
+end $$;
+insert into public.courses (id, title, description, category, level, published, instructor_id) values
+  ('7150a000-0000-4000-8000-000000000001', 'RR Fixture Course', 'rr-association:__NONCE__', 'data-science', 'beginner', true, 'e2e00000-0000-4000-8000-000000000002');
+commit;
+select 'RR_CARRIER_OK';

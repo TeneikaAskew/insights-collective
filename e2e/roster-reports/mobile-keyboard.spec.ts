@@ -11,7 +11,7 @@ async function noHorizontalOverflow(page: import('@playwright/test').Page) {
   expect(scroll, 'page must not scroll horizontally at 390px').toBeLessThanOrEqual(inner);
 }
 
-test('Students at 390x844: values visible, no horizontal overflow, keyboard order', async ({ page }) => {
+test('RR-M1 Students at 390x844: values visible, no horizontal overflow, keyboard order', async ({ page }) => {
   await page.goto(builder(RR.course, 'students'));
   await waitForStudents(page);
   await expect(page.getByTestId('roster-avg-progress')).toBeVisible();
@@ -34,7 +34,7 @@ test('Students at 390x844: values visible, no horizontal overflow, keyboard orde
   await expect(page.getByRole('button', { name: 'Needs attention' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('Reports at 390x844: KPIs visible and no horizontal overflow', async ({ page }) => {
+test('RR-M2 Reports at 390x844: KPIs visible and no horizontal overflow', async ({ page }) => {
   await page.goto(builder(RR.course, 'reports'));
   await waitForReports(page);
   await expect(page.getByText('Completion rate', { exact: true })).toBeVisible();

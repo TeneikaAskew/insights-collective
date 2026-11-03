@@ -1,12 +1,15 @@
--- ABOUTME: Focused fixture-only cleanup for the T-15 acceptance seed: deletes exactly the MANIFEST.tsv ids (explicit lists),
--- ABOUTME: in FK order, checking each count. Not run by the disposable-stack job (the stack is destroyed); for a shared stack.
+-- ABOUTME: NOT EXECUTED and NOT for shared-stack use. Reference only: deletes exactly the MANIFEST.tsv ids (explicit lists), in
+-- ABOUTME: FK order, checking each count. run.sh never calls it; the disposable stack is destroyed with the job.
+-- It deletes nothing outside the manifest: if the completion trigger issued any certificate for a fixture course (ids not in
+-- the manifest), it REFUSES instead of deleting it, so the exact-id claim holds. Any shared-stack use needs its own review.
 \set ON_ERROR_STOP 1
 begin;
 do $$
 declare n int;
 begin
-  -- Certificates the completion trigger may have issued, for fixture courses only.
-  delete from public.certificates where course_id in ('7150a000-0000-4000-8000-000000000001', '7150a000-0000-4000-8000-000000000002', '7150a000-0000-4000-8000-000000000003');
+  if exists (select 1 from public.certificates where course_id in ('7150a000-0000-4000-8000-000000000001', '7150a000-0000-4000-8000-000000000002', '7150a000-0000-4000-8000-000000000003')) then
+    raise exception 'RR_CLEAN_E_CERTIFICATES: non-manifest certificate rows reference fixture courses; refusing';
+  end if;
   delete from public.content_item_progressions where id in ('7150a000-0000-4000-8000-000000000401', '7150a000-0000-4000-8000-000000000402', '7150a000-0000-4000-8000-000000000403', '7150a000-0000-4000-8000-000000000404', '7150a000-0000-4000-8000-000000000405', '7150a000-0000-4000-8000-000000000406', '7150a000-0000-4000-8000-000000000407', '7150a000-0000-4000-8000-000000000408', '7150a000-0000-4000-8000-000000000409', '7150a000-0000-4000-8000-000000000410', '7150a000-0000-4000-8000-000000000411', '7150a000-0000-4000-8000-000000000412');
   get diagnostics n = row_count; if n <> 12 then raise exception 'RR_CLEAN_E_PROGRESSIONS %', n; end if;
   delete from public.enrollments where id in ('7150a000-0000-4000-8000-000000000301', '7150a000-0000-4000-8000-000000000302', '7150a000-0000-4000-8000-000000000303', '7150a000-0000-4000-8000-000000000304', '7150a000-0000-4000-8000-000000000305', '7150a000-0000-4000-8000-000000000311', '7150a000-0000-4000-8000-000000000312', '7150a000-0000-4000-8000-000000000321');
