@@ -60,6 +60,11 @@ function fakePsql(o = {}) {
     if (script.includes(IDENTITIES_SQL)) { st.calls.push('ids'); st.idn = (st.idn ?? 0) + 1; return o.idsChange && st.idn > 1 ? ['policy\tx\t1', 'function\ty\t2'] : ['function\ty\t2']; }
     if (script.startsWith('begin;\nset local lock_timeout')) { st.calls.push('mirror'); if (o.mirrorFails) { const e = new Error('x'); e.code = 'PSQL_E_EXIT'; throw e; } st.mirrored = true; return []; }
     if (script.startsWith('select count(*) from storage.objects where position(')) { st.calls.push('residue'); return [String(o.residue ?? 0)]; }
+    if (script.startsWith('\\set ON_ERROR_STOP 1\nbegin;\n') && script.includes("select 'owner_delete_origin=' ||")) {
+      st.calls.push('diag:N1');
+      if (o.diag === 'EXIT') { const e = new Error('x'); e.code = 'PSQL_E_EXIT'; throw e; }
+      return o.diag ?? ['insert=ALLOWED', 'learner_select=COUNT_1', 'instructor_select=COUNT_1', 'owner_delete=SQLSTATE_42501', 'owner_delete_origin=TRIGGER_FUNC_MATCH', 'after_delete=COUNT_1', 'delete_triggers=COUNT_1'];
+    }
     if (script.startsWith('\\set ON_ERROR_STOP 1\nbegin;\n')) {
       const id = Object.keys(EXPECT).find((k) => script.includes(`-${k}.pdf'`));
       st.calls.push(`probe:${id}`);
@@ -259,6 +264,65 @@ await t('JOB S4 catalog change after a probe refuses immediately', async () => {
 });
 await t('JOB S3 without an S1 capture refuses (no stock file)', async () => { const r = await runAll({}, [['s3']]); eq(r.err === null, false); });
 await t('JOB second S1 in the same private dir refuses (wx)', async () => { const r = await runAll({}, [['s1'], ['s1']]); eq(r.err === null, false); });
+// s4d: the bounded N1 origin diagnostic (UNRUN against any real stack; fakes only)
+const PRE = [['s0'], ['s1'], ['s2'], ['s3']];
+const S4D = [...PRE, ['s4d', '41000000001', '1']];
+const DG = ['insert=ALLOWED', 'learner_select=COUNT_1', 'instructor_select=COUNT_1', 'owner_delete=SQLSTATE_42501', 'owner_delete_origin=TRIGGER_FUNC_MATCH', 'after_delete=COUNT_1', 'delete_triggers=COUNT_1'];
+const MARK = 'SYNTHETIC_PRIVATE_MARKER';
+await t('S4D positive: the fixed DIAG line, then residue and catalog; s4 is untouched (no diag call there)', async () => {
+  const r = await runAll({}, S4D);
+  eq(r.err, null);
+  const d = r.out.filter((l) => l.startsWith('S4 N1 DIAG'));
+  eq(d.length, 3);
+  eq(d[0], 'S4 N1 DIAG origin=TRIGGER_FUNC_MATCH owner_delete=SQLSTATE_42501 after_delete=COUNT_1 delete_triggers=COUNT_1 (label of the innermost raising frame only; wording labels are not proven origins; raw context never left the session)');
+  eq(d[1], 'S4 N1 DIAG RESIDUE 0 PASS'); eq(d[2].startsWith('S4 N1 DIAG CATALOG PASS'), true);
+  eq(r.calls.slice(-3).join(','), 'diag:N1,residue,capture');
+  const s4 = await runAll({}, ALL); eq(s4.calls.includes('diag:N1'), false);
+});
+await t('S4D producer failure: PRODUCER_FAILED, residue and catalog still attempted, then the step FAILS', async () => {
+  const r = await runAll({ diag: 'EXIT' }, S4D);
+  eq(r.err, 'ST_E_S4D_PRODUCER'); eq(r.out.includes('S4 N1 DIAG PRODUCER_FAILED'), true); eq(r.calls.slice(-3).join(','), 'diag:N1,residue,capture');
+});
+await t('S4D hostile substitution in EVERY field (marker, padding, case, extra text, leading zeros): UNPARSEABLE, marker never printed, step FAILS', async () => {
+  const hostile = (k, v) => [MARK, `${v} ${MARK}`, `${v}\n${MARK}`, ` ${v}`, v.toLowerCase(), `${v}=${MARK}`, v.replace(/_(\d+)$/, '_0$1'), 'COUNT_1234567', 'SQLSTATE_42501X', 'ALLOWED_'];
+  for (let i = 0; i < DG.length; i++) {
+    const [k, v] = DG[i].split('=');
+    for (const h of hostile(k, v)) {
+      if (h === v) continue;
+      const diag = DG.slice(); diag[i] = `${k}=${h}`;
+      const r = await runAll({ diag }, S4D);
+      if (r.err !== 'ST_E_S4D_INVALID' || !r.out.includes('S4 N1 DIAG UNPARSEABLE') || r.out.some((l) => l.includes(MARK))) throw new Error(`field ${k} value ${JSON.stringify(h)}: ${r.err}`);
+      eq(r.calls.slice(-2).join(','), 'residue,capture');
+    }
+    const kd = DG.slice(); kd[i] = `${MARK}=${v}`; const r2 = await runAll({ diag: kd }, S4D); eq(r2.err, 'ST_E_S4D_INVALID'); eq(r2.out.some((l) => l.includes(MARK)), false);
+  }
+});
+await t('S4D wrong order, missing, extra or raw-text lines: UNPARSEABLE, step FAILS', async () => {
+  for (const diag of [[DG[1], DG[0], ...DG.slice(2)], DG.slice(0, 6), [...DG, 'x=COUNT_1'], ['insert=ALLOWED', 'Direct deletion is not allowed (synthetic)'], []]) {
+    const r = await runAll({ diag }, S4D); eq(r.err, 'ST_E_S4D_INVALID'); eq(r.out.includes('S4 N1 DIAG UNPARSEABLE'), true); eq(r.out.some((l) => l.includes('Direct deletion')), false);
+  }
+});
+await t('S4D preconditions: failed insert, a select COUNT_0, or a no-op delete never attribute (no false DELETE_ALLOWED), step FAILS', async () => {
+  const cases4 = [
+    ['insert=SQLSTATE_42501', 'learner_select=COUNT_0', 'instructor_select=COUNT_0', 'owner_delete=ALLOWED', 'owner_delete_origin=DELETE_NO_ROWS', 'after_delete=COUNT_0', 'delete_triggers=COUNT_1'],
+    ['insert=ALLOWED', 'learner_select=COUNT_0', 'instructor_select=COUNT_1', 'owner_delete=ALLOWED', 'owner_delete_origin=DELETE_ALLOWED', 'after_delete=COUNT_0', 'delete_triggers=COUNT_0'],
+    ['insert=ALLOWED', 'learner_select=COUNT_1', 'instructor_select=COUNT_0', 'owner_delete=SQLSTATE_42501', 'owner_delete_origin=TRIGGER_FUNC_MATCH', 'after_delete=COUNT_1', 'delete_triggers=COUNT_1']];
+  for (const diag of cases4) {
+    const r = await runAll({ diag }, S4D); eq(r.err, 'ST_E_S4D_INVALID');
+    eq(r.out.some((l) => l.startsWith('S4 N1 DIAG PRECONDITION_FAILED ') && l.endsWith('(no owner_delete attribution)')), true);
+    eq(r.out.some((l) => l.startsWith('S4 N1 DIAG origin=')), false);
+  }
+});
+await t('S4D ALLOWED vs an error category (or an error vs a no-error category): UNPARSEABLE, step FAILS', async () => {
+  for (const diag of [[...DG.slice(0, 3), 'owner_delete=ALLOWED', 'owner_delete_origin=PRIVILEGE_WORDING', ...DG.slice(5)], [...DG.slice(0, 4), 'owner_delete_origin=DELETE_ALLOWED', ...DG.slice(5)]]) {
+    const r = await runAll({ diag }, S4D); eq(r.err, 'ST_E_S4D_INVALID');
+  }
+});
+await t('S4D residue drift or catalog drift after a VALID diagnostic still fails the step; catalog is attempted after a residue failure', async () => {
+  const r1 = await runAll({ residue: 1 }, S4D); eq(r1.err, 'ST_E_RESIDUE'); eq(r1.out.includes('S4 N1 DIAG RESIDUE FAIL'), true); eq(r1.calls.slice(-2).join(','), 'residue,capture');
+  let n = 0; const r2 = await runAll({ afterCapture: () => { n++; return n >= 2 ? stockText({ policies: '', limitsFromLive: true }) : stockText({ policies: livePolicyLines, limitsFromLive: true }); } }, S4D);
+  eq(r2.err, 'ST_E_S4_CATALOG');
+});
 await t('JOB usage', async () => { const r = await runAll({}, [['s4', '1']]); eq(r.err, 'ST_E_USAGE'); });
 await t('JOB output carries no policy names, expressions or limits', async () => {
   const r = await runAll(); const text = r.out.join('\n');
