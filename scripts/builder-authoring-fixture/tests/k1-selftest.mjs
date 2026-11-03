@@ -209,11 +209,27 @@ ok('witness K1: an unknown, duplicate or missing line refuses', () => {
 });
 
 // ---- manifest (K1: copied only) ----
-const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-k1-')); fs.chmodSync(d, 0o700); return d; };
+// Own-root lifecycle (T 16:23): every check that writes gets a FRESH private root (mkdtemp, then 0700) and that exact root is
+// removed whatever happens, including when an assertion or a helper throws. If the check fails AND the removal fails too, the
+// check's own error is rethrown unchanged (PRIMARY); the removal error is attached as `cleanupError` and printed as a secondary
+// line, and never replaces it. A removal failure after a passing check is not swallowed.
+const removeOwnRoot = (d) => fs.rmSync(d, { recursive: true, force: true });
+const withOwnRoot = (fn, remove = removeOwnRoot) => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-k1-'));
+  let failed = false, primary;
+  try { fs.chmodSync(d, 0o700); return fn(d); } catch (e) { failed = true; primary = e; throw e; } finally {
+    try { remove(d); } catch (c) {
+      if (!failed) throw c;
+      console.error(`CLEANUP_SECONDARY root=${path.basename(d)} code=${(c && c.code) || 'unknown'}`);
+      if (primary && typeof primary === 'object') { try { Object.defineProperty(primary, 'cleanupError', { value: c, enumerable: true }); } catch { /* the primary stays as thrown */ } }
+    }
+  }
+};
 const put = (d, f, t) => fs.writeFileSync(path.join(d, f), t, { mode: 0o600 });
 const uuid = (i) => `9c000000-0000-4000-8000-00000000000${i}`;
 ok('manifest K1: exactly three distinct copied records pass; a created record, missing, duplicate or malformed record fails', () => {
-  const d = tmp(); PROJECTS.forEach((p, i) => put(d, `copied-${p}.json`, JSON.stringify({ id: uuid(i) }))); put(d, 'report.json', '{}');
+  withOwnRoot((d) => {
+  PROJECTS.forEach((p, i) => put(d, `copied-${p}.json`, JSON.stringify({ id: uuid(i) }))); put(d, 'report.json', '{}');
   assert.deepEqual(manifestK1(d), { ok: true, lines: ['MANIFEST copied=3 projects=ba-1440,ba-768,ba-390', 'VERDICT PASS'] });
   put(d, 'created-ba-1440.json', JSON.stringify({ id: uuid(5) }));
   assert.equal(manifestK1(d).lines[0], 'MANIFEST FAIL reason=unknown_file', 'no C1 record in the K1 run');
@@ -226,17 +242,63 @@ ok('manifest K1: exactly three distinct copied records pass; a created record, m
   assert.equal(manifestK1(d).lines[0], 'MANIFEST FAIL reason=bad_id');
   fs.rmSync(path.join(d, 'copied-ba-390.json')); put(d, 'copied-ba-390.json', JSON.stringify({ id: uuid(2) })); fs.chmodSync(path.join(d, 'copied-ba-390.json'), 0o644);
   assert.throws(() => manifestK1(d), SummaryError, 'wrong mode');
-  fs.rmSync(d, { recursive: true });
+  });
 });
 ok('summary CLI in the K1 suite routes witness and manifest to the K1 comparisons (the tail of run.sh is unchanged)', () => {
-  const d = tmp(); const pre = path.join(d, 'pre.txt'), po = path.join(d, 'post.txt');
+  withOwnRoot((d) => {
+  const pre = path.join(d, 'pre.txt'), po = path.join(d, 'post.txt');
   put(d, 'pre.txt', KW()); put(d, 'post.txt', post());
   const r = spawnSync(process.execPath, [path.join(FIX, 'summary.mjs'), 'witness', pre, po], { encoding: 'utf8', env: { ...process.env, BA_SUITE: 'k1' } });
   assert.equal(r.status, 0, r.stdout); assert.match(r.stdout, /^WITNESS PASS a_rows=9 b_rows=3 s_rows=6 /);
   const base = { ...process.env }; delete base.BA_SUITE;
   const b = spawnSync(process.execPath, [path.join(FIX, 'summary.mjs'), 'witness', pre, po], { encoding: 'utf8', env: base });
   assert.equal(b.status, 2, 'the baseline comparison refuses a K1 witness'); assert.equal(b.stdout, 'SUMMARY FAIL reason=witness_line\n');
-  fs.rmSync(d, { recursive: true });
+  });
+});
+
+// ---- own-root cleanup, by injected failure (the real helper and the real put; each case checks its root is gone) ----
+const seen = [];
+const spy = (fn) => (d) => { seen.push(d); return fn(d); };
+const gone = (d) => assert.equal(fs.existsSync(d), false, `own root removed: ${path.basename(d)}`);
+const quietSecondary = (fn) => { const orig = console.error, lines = []; console.error = (l) => lines.push(String(l)); try { fn(); } finally { console.error = orig; } return lines; };
+ok('own root: a passing check returns its value and its root is removed', () => {
+  seen.length = 0;
+  assert.equal(withOwnRoot(spy((d) => { put(d, 'copied-ba-1440.json', '{}'); assert.equal(fs.statSync(d).mode & 0o777, 0o700); return 'v'; })), 'v');
+  assert.equal(seen.length, 1); gone(seen[0]);
+});
+ok('own root: an injected assertion failure after a real write is rethrown as itself and the root is removed', () => {
+  seen.length = 0; let thrown;
+  const injected = new assert.AssertionError({ message: 'injected', actual: 1, expected: 2, operator: 'strictEqual' });
+  try { withOwnRoot(spy((d) => { put(d, 'copied-ba-1440.json', '{}'); throw injected; })); } catch (e) { thrown = e; }
+  assert.equal(thrown, injected, 'the primary is the same object'); assert.equal(thrown.cleanupError, undefined);
+  assert.equal(seen.length, 1); gone(seen[0]);
+});
+ok('own root: an injected helper failure (manifestK1 refusing a wrong mode) is rethrown and the root is removed', () => {
+  seen.length = 0; let thrown;
+  try { withOwnRoot(spy((d) => { PROJECTS.forEach((p, i) => put(d, `copied-${p}.json`, JSON.stringify({ id: uuid(i) }))); fs.chmodSync(path.join(d, 'copied-ba-390.json'), 0o644); manifestK1(d); })); } catch (e) { thrown = e; }
+  assert.ok(thrown instanceof SummaryError); assert.equal(seen.length, 1); gone(seen[0]);
+});
+ok('own root: when cleanup ALSO fails, the PRIMARY is rethrown unchanged and the cleanup error is only secondary', () => {
+  seen.length = 0; let thrown; const primary = new Error('BA_K1_E_INJECTED'); const cleanup = Object.assign(new Error('rm failed'), { code: 'EBUSY' });
+  const lines = quietSecondary(() => { try { withOwnRoot(spy(() => { throw primary; }), () => { throw cleanup; }); } catch (e) { thrown = e; } });
+  assert.equal(thrown, primary, 'the primary is not masked'); assert.equal(thrown.message, 'BA_K1_E_INJECTED'); assert.equal(thrown.cleanupError, cleanup);
+  assert.deepEqual(lines, [`CLEANUP_SECONDARY root=${path.basename(seen[0])} code=EBUSY`]);
+  assert.ok(fs.existsSync(seen[0]), 'the stub really did not remove it'); removeOwnRoot(seen[0]); gone(seen[0]);
+  let p2; const lines2 = quietSecondary(() => { try { withOwnRoot(spy(() => { throw 'not an object'; }), () => { throw cleanup; }); } catch (e) { p2 = e; } });
+  assert.equal(p2, 'not an object'); assert.equal(lines2.length, 1); removeOwnRoot(seen[1]); gone(seen[1]);
+});
+ok('own root: a cleanup failure after a PASSING check is reported, not swallowed', () => {
+  seen.length = 0; const cleanup = new Error('rm failed');
+  assert.throws(() => withOwnRoot(spy(() => 'v'), () => { throw cleanup; }), (e) => e === cleanup);
+  removeOwnRoot(seen[0]); gone(seen[0]);
+});
+ok('own root wiring: every temp root in both K1 writers comes from withOwnRoot, and only that root is removed', () => {
+  for (const f of ['k1-selftest.mjs', 'k1-shot-selftest.mjs']) {
+    const src = fs.readFileSync(path.join(HERE, f), 'utf8');
+    assert.equal(src.match(/mkdtemp[S]ync\(/g).length, 1, `${f}: one mkdtemp, inside withOwnRoot`);
+    assert.equal(src.match(/recursive: tru[e]/g).length, 1, `${f}: one recursive removal, of the own root`);
+    assert.doesNotMatch(src, /const tmp = \(\)/, `${f}: no unmanaged root helper`);
+  }
 });
 
 // ---- oracle: the complete stored outline and the complete rendered sections ----
