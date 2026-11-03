@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ABOUTME: Builder-authoring screenshot export (UNRUN): the only way a PNG leaves the run. Same rules as the gradebook
-// ABOUTME: journey's shot-export.mjs (its readHandle and sanitizePng reused unchanged), for the builder's own 10 names.
+// ABOUTME: journey's shot-export.mjs (its readHandle and sanitizePng reused unchanged), for the builder's own 13 names.
 //
 //   ba-shots.mjs <private shot dir> <private session dir> <pairing proof file> <export dir (must not exist)>
 // Entries: <name>.png + <name>.scan.json pairs or <name>.withheld.json alone, names from ids.mjs SHOT_NAMES; anything else
@@ -9,7 +9,7 @@
 //   SHOT name=<n> sha256=<hex> bytes=<n> width=<w> height=<h>
 //   WITHHELD name=<n> reason=<R> [before=.. shot=.. after=.. final=.. marks=<0-3> sum=<EQ|NE>]   (MUTATED only)
 //   NOT_TAKEN name=<n>          (the test never reached the shot)
-//   SHOTS captured=<n> withheld=<n> not_taken=<n> planned=10
+//   SHOTS captured=<n> withheld=<n> not_taken=<n> planned=13
 // Any refusal: "ba-shots refused: BA_SHOT_E_*", exit 3.
 import fs from 'node:fs';
 import path from 'node:path';

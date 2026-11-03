@@ -72,7 +72,7 @@ step RUN_E_APP appverify "PASS served app verified by the pinned shared verifier
 step RUN_E_PAIRING pairing "PASS pairing: carrier written through the DSN, read back through the DSN and the anon API" -- node "$GBJ/pairing-producer.mjs" pair "$PARENT/proof" "$RAW"
 echo "PAIRING PASS dsn_write=1 dsn_read=match api_read=match" > "$OUT/pairing.txt"
 # 6. Seed bound to that proof (seed.sql refuses unless this database holds the carrier); plain INSERTs, refuses a used stack.
-step RUN_E_SEED seed "BA_SEED_OK courses=2 sections=5 lessons=5" -- node "$HERE/ba-db.mjs" seed "$BA_PAIRING_PROOF" "$BA_SESSION_DIR" "$RAW"
+step RUN_E_SEED seed "BA_SEED_OK courses=3 sections=7 lessons=8" -- node "$HERE/ba-db.mjs" seed "$BA_PAIRING_PROOF" "$BA_SESSION_DIR" "$RAW"
 cp "$RAW/seed.out" "$OUT/seed.txt"
 # 7. Witness before the specs (private raw lines).
 node "$HERE/ba-db.mjs" witness "$RAW" "$RAW/witness-pre.txt" "$BA_NONCE" > "$RAW/witness-pre.out" 2> "$RAW/witness-pre.err" || refuse RUN_E_WITNESS_PRE

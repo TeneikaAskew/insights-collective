@@ -33,21 +33,43 @@ export const B = {
   ],
 };
 
-export const SEEDED_COURSES = [A.course, B.course];
-export const SEEDED_MODULES = [...A.sections, ...B.sections].map((s) => s.id);
-export const SEEDED_ITEMS = [...A.lessons, A.deletable, A.vanishing].map((l) => l.id);
+/** Course S (T-18): the source of "Copy from another course". Two sections, three lessons with lesson text. It is copied,
+ *  never changed (whole-row witness). The text holds an ordinary relative link and an ordinary public link only. */
+export const S = {
+  course: '9b6e0000-0000-4000-8000-000000000003',
+  title: 'Builder Acceptance Copy Source',
+  sections: [
+    { id: '9b6e0000-0000-4000-8000-000000000031', title: 'BS Section One', position: 0 },
+    { id: '9b6e0000-0000-4000-8000-000000000032', title: 'BS Section Two', position: 1 },
+  ],
+  lessons: [
+    { id: '9b6e0000-0000-4000-8000-000000000301', section: 0, title: 'BS Lesson Text', type: 'page', position: 0,
+      content: '<p>Read <a href="/courses">the catalog</a> and <a href="https://example.org/guide?page=2#intro">the guide</a>.</p>' },
+    { id: '9b6e0000-0000-4000-8000-000000000302', section: 0, title: 'BS Lesson Check', type: 'quiz', position: 1, content: '' },
+    { id: '9b6e0000-0000-4000-8000-000000000303', section: 1, title: 'BS Lesson Essay', type: 'assignment', position: 0,
+      content: '<p>Write 200 words.</p>' },
+  ],
+};
+
+export const SEEDED_COURSES = [A.course, B.course, S.course];
+export const SEEDED_MODULES = [...A.sections, ...B.sections, ...S.sections].map((s) => s.id);
+export const SEEDED_ITEMS = [...A.lessons, A.deletable, A.vanishing, ...S.lessons].map((l) => l.id);
 
 /** Wizard-created courses carry this marker plus the run nonce in their title (the same nonce in every project). */
 export const CREATED_TITLE_PREFIX = 'BA Wizard Course';
 export const createdTitle = (nonce) => `${CREATED_TITLE_PREFIX} ${nonce}`;
+/** Courses made by "Copy from another course" (BA-K1) carry this marker plus the run nonce (the same in every project). */
+export const COPIED_TITLE_PREFIX = 'BA Wizard Copy';
+export const copiedTitle = (nonce) => `${COPIED_TITLE_PREFIX} ${nonce}`;
 
 /** The three viewport projects, in run order (each depends on the one before). */
 export const PROJECTS = Object.freeze(['ba-1440', 'ba-768', 'ba-390']);
 /** Every case id. D1 and D2 act on one-shot rows, so they execute in ba-1440 only and are intentionally skipped elsewhere. */
 // R1S: the separately labelled SYNCHRONIZED-INPUT CANDIDATE of R1 (reorder.spec.ts); R1 itself is unchanged.
-export const CASES = Object.freeze(['R1', 'R1S', 'R2', 'C1', 'D1', 'D2']);
+// K1: T-18 copy from another course (copy.spec.ts), in every project.
+export const CASES = Object.freeze(['R1', 'R1S', 'R2', 'C1', 'K1', 'D1', 'D2']);
 export const ONLY_1440 = Object.freeze(['D1', 'D2']);
-/** The exact 18-entry inventory: 14 executions plus 4 intentional skips. */
+/** The exact 21-entry inventory: 17 executions plus 4 intentional skips. */
 export const INVENTORY = Object.freeze(PROJECTS.flatMap((project) => CASES.map((c) => ({
   project, case: c, expect: ONLY_1440.includes(c) && project !== 'ba-1440' ? 'skipped' : 'passed',
 }))));
@@ -57,6 +79,7 @@ export const SHOT_PLAN = Object.freeze({
   ba_r1_1440: ['ba-1440', 'curriculum-a'], ba_r1_768: ['ba-768', 'curriculum-a'], ba_r1_390: ['ba-390', 'curriculum-a'],
   ba_r2_1440: ['ba-1440', 'curriculum-a'], ba_r2_768: ['ba-768', 'curriculum-a'], ba_r2_390: ['ba-390', 'curriculum-a'],
   ba_c1_1440: ['ba-1440', 'curriculum-created'], ba_c1_768: ['ba-768', 'curriculum-created'], ba_c1_390: ['ba-390', 'curriculum-created'],
+  ba_k1_1440: ['ba-1440', 'curriculum-copied'], ba_k1_768: ['ba-768', 'curriculum-copied'], ba_k1_390: ['ba-390', 'curriculum-copied'],
   ba_d2_refused_1440: ['ba-1440', 'curriculum-a'],
 });
 export const SHOT_NAMES = Object.freeze(Object.keys(SHOT_PLAN));
