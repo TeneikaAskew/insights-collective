@@ -16,9 +16,10 @@ export const STAGES = map(['before_state', 'ui_reorder', 'db_settled', 'after_re
   'ui_delete', 'db_readback', 'out_of_band_delete', 'ui_delete_refused']);
 export const STAGE_UNLISTED = 'unlisted';
 
-/** Request-observation verdicts (observe-core OBS_* failures reduced to one fixed word; COUNT split by direction). */
+/** Request-observation verdicts (observe-core OBS_* failures reduced to one fixed word; COUNT split by direction).
+ *  COUNT_ZERO means zero EXACT matches of the wanted call. It may coexist with a near miss (a similar call that did not
+ *  match exactly), so it never means "no request was sent" and never names a unique cause on its own. */
 export const OBS_KINDS = Object.freeze(['COUNT_ZERO', 'COUNT_UNDER', 'COUNT_OVER', 'STATUS', 'FAILED', 'PENDING', 'NEAR_MISS', 'ORDER', 'OTHER']);
-/** R1 keyboard drop, from dnd-kit's own onDragEnd announcement after the drop key, and whether the window scrolled. */
 /**
  * One OBS_KINDS word for a non-empty observe-core verdict (DIAGNOSTIC only: any failure still fails). Precedence: COUNT
  * (ZERO / UNDER / OVER against the wanted count), STATUS, FAILED, PENDING, NEAR_MISS, ORDER; else OTHER.
@@ -37,8 +38,41 @@ export function obsKind(failures, want) {
   }
   return 'OTHER';
 }
-export const R1_DROPS = Object.freeze(['DROP_TARGET', 'DROP_SELF', 'DROP_OTHER', 'DROP_NONE', 'NO_DROP']);
-export const R1_SCROLLS = Object.freeze(['SCROLLED', 'STILL']);
+/** R1 keyboard drop, from dnd-kit's own onDragEnd announcement after the drop key, and whether the window scrolled. A read
+ *  that failed, or returned nothing usable, is DROP_UNAVAILABLE / SCROLL_UNAVAILABLE: never a default such as NO_DROP or STILL. */
+export const R1_DROPS = Object.freeze(['DROP_TARGET', 'DROP_SELF', 'DROP_OTHER', 'DROP_NONE', 'NO_DROP', 'DROP_UNAVAILABLE']);
+export const R1_SCROLLS = Object.freeze(['SCROLLED', 'STILL', 'SCROLL_UNAVAILABLE']);
+
+/**
+ * Reduce dnd-kit's live-region texts to one R1_DROPS word. `texts` is what the spec read, or null when the read failed.
+ * No region, a non-string entry, or unusable ids is DROP_UNAVAILABLE. Ids are compared here, never printed.
+ */
+export function r1DropKind(texts, moving, target) {
+  if (!Array.isArray(texts) || texts.length === 0 || !texts.every((t) => typeof t === 'string')) return 'DROP_UNAVAILABLE';
+  if (typeof moving !== 'string' || typeof target !== 'string' || !moving || !target || moving === target) return 'DROP_UNAVAILABLE';
+  const pre = `Draggable item ${moving} was dropped`;
+  const t = texts.map((x) => x.trim()).find((x) => x.startsWith(pre));
+  if (t === undefined) return 'NO_DROP';
+  if (t === `${pre}.`) return 'DROP_NONE';
+  if (t === `${pre} over droppable area ${target}`) return 'DROP_TARGET';
+  if (t === `${pre} over droppable area ${moving}`) return 'DROP_SELF';
+  return 'DROP_OTHER';
+}
+
+/** SCROLLED / STILL only from two valid samples (finite numbers); anything else is SCROLL_UNAVAILABLE. */
+export function r1ScrollKind(before, after) {
+  const ok = (v) => typeof v === 'number' && Number.isFinite(v);
+  if (!ok(before) || !ok(after)) return 'SCROLL_UNAVAILABLE';
+  return before === after ? 'STILL' : 'SCROLLED';
+}
+
+/** The R1 failure code. The primary category is the observer's own BA_OBS_E_<kind> when the error is exactly that, else
+ *  OTHER; drop and scroll words outside their lists become their UNAVAILABLE word. */
+export function r1Code(message, drop, scroll) {
+  const m = typeof message === 'string' ? /^BA_OBS_E_([A-Z_]+)$/.exec(message) : null;
+  const primary = m && OBS_KINDS.includes(m[1]) ? m[1] : 'OTHER';
+  return `BA_R1_E_${primary}_${R1_DROPS.includes(drop) ? drop : 'DROP_UNAVAILABLE'}_${R1_SCROLLS.includes(scroll) ? scroll : 'SCROLL_UNAVAILABLE'}`;
+}
 
 /** Every own error code a spec or helper throws inside a test (the error class). Generated codes are products of the
  *  fixed lists above, so the set stays finite and every member is a constant written here. */

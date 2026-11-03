@@ -1,7 +1,8 @@
 # Builder authoring acceptance: contract (source; one hosted RED run, 41564184929)
 
 Scope: course builder reorder (T-54), zero-row delete (T-54) and scratch creation (T-56) as frozen on #165 at c364f71d.
-Real UI against a fresh disposable local stack in the shared runner job. Nothing here has run. No SQL, RLS or RPC change,
+Real UI against a fresh disposable local stack in the shared runner job. It has run once, hosted (41564184929, RED; see
+"R1 diagnostic"). No SQL, RLS or RPC change,
 no production seed, no failure injection. The subset below cannot close T-54 or T-56 on its own: P1 to P5 stay PENDING.
 
 ## Controls
@@ -84,7 +85,8 @@ is not evidence of preservation; the witness is.
     R1 fails can still print `WITNESS PASS`, as 41564184929 did.
   - one digest each over every course, module and lesson outside the fixture and the run's wizard courses (identical). Learner history on fixture courses (enrollments, progressions, certificates) is expected EMPTY and is
   reported as `preservation=not_exercised`: this lane does not test preservation of learner data.
-- Screenshots: 10 PLANNED, not guaranteed and none taken yet (R1, R2, C1 at each width; D2 refusal at 1440), taken after
+- Screenshots: 10 PLANNED, not guaranteed (R1, R2, C1 at each width; D2 refusal at 1440). Run 41564184929 exported 3
+  (R2, C1, D2 at 1440), withheld 0, not taken 7 (R1 failed; 768 and 390 were not attempted). They are taken after
   the UI and stored rows settled, through the gradebook journey's capture window, guard and scan (unchanged) with this
   lane's plan, sound for these known synthetic pages; a capture that is not provably clean is WITHHELD with a fixed reason,
   and the spec's own result never depends on it. Export keeps critical PNG chunks only: stripping ancillary chunks is
@@ -108,37 +110,46 @@ Readers of private files use `readBounded` (no-follow, regular, single hard link
 ## R1 diagnostic (finite, diagnostic only; the oracle is unchanged)
 
 Run 41564184929 (ref 09412bcc) failed BA-R1 at 1440 in `ui_reorder` with `error=assertion`. From retained evidence that
-stage has two possible failing assertions (section-card uniqueness in `helpers.ts`, or the observer's `expect` in
-`observe.ts`), and the artifact carries neither the line, the RPC count, the status nor the failure array, so the cause is
-NOT identified. A source-derived hypothesis (dnd-kit 6.3.1 `KeyboardSensor`: an ArrowDown that crosses the viewport middle
+stage has three possible failing assertions in two source areas: the two section-card uniqueness `expect`s in
+`helpers.ts` (`sectionCard`: one visible heading, one reorder handle in the card) and the observer's `expect` in
+`observe.ts`. The artifact carries neither the line, the RPC count, the status nor the failure array, so the cause is NOT
+identified. A source-derived hypothesis (dnd-kit 6.3.1 `KeyboardSensor`: an ArrowDown that crosses the viewport middle
 on a scrollable window calls `scrollTo({behavior:'smooth'})` and returns without moving `over`, so an immediate Space can
-drop on itself and send zero RPCs) is a hypothesis only; no product or spec interaction change is made for it.
+drop on itself, so no reorder RPC would match) is a hypothesis only; no product or spec interaction change is made for it.
+The saved keyboard-announcement wait is OPTIONAL, UNAPPLIED and unqualified.
 
 The next authorized run reports one fixed code instead of `assertion`, still failing on any deviation (exactly one
 `reorder_modules` RPC, terminal 200/204, is unchanged):
 - `BA_R1_E_LOCATE`: the section card or its handle was not uniquely located.
-- `BA_R1_E_<obs>_<drop>_<scroll>`: the observer failed. `<obs>` is the first observe-core verdict kind by fixed precedence
-  (`COUNT_ZERO`, `COUNT_UNDER`, `COUNT_OVER`, `STATUS`, `FAILED`, `PENDING`, `NEAR_MISS`, `ORDER`, else `OTHER`). `<drop>`
+- `BA_R1_E_<obs>_<drop>_<scroll>`: anything else in the action failed. `<obs>` is the observer's own verdict kind when the
+  error is exactly `BA_OBS_E_<kind>` (first by fixed precedence: `COUNT_ZERO`, `COUNT_UNDER`, `COUNT_OVER`, `STATUS`,
+  `FAILED`, `PENDING`, `NEAR_MISS`, `ORDER`), else `OTHER`. `COUNT_ZERO` means zero EXACT matches of the wanted call: it
+  can coexist with a near miss, so it never means "no request was sent" and never names a unique cause by itself. `<drop>`
   compares dnd-kit's own default drop announcement (its live region; CurriculumView sets no custom announcements, and its
   sortable ids are the module ids) to the moving and target fixture section ids: `DROP_TARGET`, `DROP_SELF`,
-  `DROP_OTHER`, `DROP_NONE` (dropped, no droppable named) or `NO_DROP` (no drop announced). `<scroll>` is `SCROLLED` or
-  `STILL` (window.scrollY at failure versus after focus). Ids and counts are compared in the spec, never printed.
-- `BA_OBS_E_<obs>`: the same verdict kind for every other observed action (R2, C1, D1, D2).
+  `DROP_OTHER`, `DROP_NONE` (dropped, no droppable named), `NO_DROP` (regions read, no drop announced) or
+  `DROP_UNAVAILABLE` (the read failed, found no region, or returned a non-string). `<scroll>` is `SCROLLED` or `STILL` only
+  from two valid samples (window.scrollY after focus, and at failure), else `SCROLL_UNAVAILABLE`; a failed read is never
+  defaulted. The reducers (`r1DropKind`, `r1ScrollKind`, `r1Code`) live in `codes.mjs` and are controlled in the selftest.
+  Ids and counts are compared in code, never printed.
+- `BA_OBS_E_<obs>`: the same verdict kind for every other action observed with `expectCalls` (R2, D1, D2). C1 does not use
+  `expectCalls`, so it never emits these codes.
 
 ## Playwright inventory classification
 
 The config chains projects (`ba-768` depends on `ba-1440`, `ba-390` on `ba-768`). When any test in a dependency fails,
-Playwright reports every dependent test as `status=skipped` with `results=[]`. The summary now tells those apart instead of
-counting them as executed failures, and still fails: an incomplete inventory is never accepted.
+Playwright does not start the dependents and reports them as `status=skipped` with `results=[]`. That is the explanation for
+run 41564184929, from its graph and its one 1440 failure. The summary itself sees only the report shape, so its names are
+neutral: it separates executed from unattempted entries and still fails; an incomplete inventory is never accepted.
 - `PLAYWRIGHT exit= entries= passed= failed= skipped= ...` is unchanged (failed counts every entry that is not as expected).
-- `PLAYWRIGHT_BREAKDOWN executed_passed= executed_failed= dependency_unattempted= intended_skip_not_reached=
-  intended_skipped=`. "Unattempted" is defined by report shape (skipped, zero results); the summary does not see the
-  dependency graph, so it names the most likely reason, not a proven one.
-- Per entry: `TEST FAIL ... reason=dependency_unattempted attempts=0` for an expected-pass entry never attempted, and
-  `reason=intended_skip_not_reached attempts=0` for one of the four intended `test.skip` cases never reached (its skip call
-  did not run, so it is not an intentional skip result).
-- Run 41564184929 reads as: executed 4 passed and 1 failed (ba-1440 R1), 10 unattempted, of which 4 are intended skips not
-  reached.
+- `PLAYWRIGHT_BREAKDOWN executed_passed= executed_failed= unattempted= intended_skip_unattempted= intended_skipped=`.
+  Executed means at least one result. `executed_failed` counts every attempted entry that is not as expected, including an
+  intended skip that was executed, retried or has several results. `unattempted` is the report shape skipped with zero
+  results; it does not prove a cause. `intended_skip_unattempted` is the part of it planned as an intentional skip.
+- Per entry: `TEST FAIL ... reason=unattempted attempts=0` for an expected-pass entry, and
+  `reason=intended_skip_unattempted attempts=0` for one of the four intended `test.skip` cases (its skip call did not run,
+  so it is not an intentional skip result).
+- Run 41564184929 reads as: executed 4 passed and 1 failed (ba-1440 R1), 10 unattempted, of which 4 are intended skips.
 
 ## Dependencies
 

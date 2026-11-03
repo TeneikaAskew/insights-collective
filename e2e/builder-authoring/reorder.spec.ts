@@ -5,27 +5,13 @@ import { test, expect } from './guarded-test';
 import { A, route } from './ids';
 import { storedSections, storedLessons, shownSectionTitles, sectionCard, shownLessonTitles } from './helpers';
 import { expectCalls } from './observe';
+import { r1Code, r1DropKind, r1ScrollKind } from '../../scripts/builder-authoring-fixture/codes.mjs';
 import { shot } from './shot';
 
 const sectionTitle = (id: string) => A.sections.find((s) => s.id === id)!.title;
 const lessonTitle = (id: string) => A.lessons.find((l) => l.id === id)!.title;
 const sameSet = (a: string[], b: string[]) => expect([...a].sort()).toEqual([...b].sort());
 const suffix = (p: string) => p.replace('ba-', '') as '1440' | '768' | '390';
-
-/**
- * DIAGNOSTIC for R1 (reads only; changes no timing before the drop): what dnd-kit itself announced for the drop of `moving`
- * in its live regions (its default onDragEnd text), reduced to one fixed word. The ids are this fixture's section ids.
- */
-async function r1Drop(page: Page, moving: string, target: string): Promise<'DROP_TARGET' | 'DROP_SELF' | 'DROP_OTHER' | 'DROP_NONE' | 'NO_DROP'> {
-  const texts = await page.locator('[id^="DndLiveRegion"]').evaluateAll((els) => els.map((e) => (e.textContent ?? '').trim()));
-  const pre = `Draggable item ${moving} was dropped`;
-  const t = texts.find((x) => x.startsWith(pre));
-  if (t === undefined) return 'NO_DROP';
-  if (t === `${pre}.`) return 'DROP_NONE';
-  if (t === `${pre} over droppable area ${target}`) return 'DROP_TARGET';
-  if (t === `${pre} over droppable area ${moving}`) return 'DROP_SELF';
-  return 'DROP_OTHER';
-}
 
 test('BA-R1 section reorder is stored and survives reload', async ({ page }, info) => {
   const curriculum = route.curriculum(A.course);
@@ -45,20 +31,21 @@ test('BA-R1 section reorder is stored and survives reload', async ({ page }, inf
     let handle: ReturnType<Page['getByRole']>;
     try { handle = (await sectionCard(page, sectionTitle(moving))).getByRole('button', { name: 'Reorder section' }); }
     catch { throw new Error('BA_R1_E_LOCATE'); }
-    let scrollBefore = 0;
+    // Diagnostic reads never abort or default: a failed read is null and reduces to its UNAVAILABLE word.
+    let scrollBefore: unknown = null;
     try {
       await expectCalls(page, { method: 'POST', path: '/rest/v1/rpc/reorder_modules' }, async () => {
         await handle.focus();
-        scrollBefore = await page.evaluate(() => window.scrollY);
+        scrollBefore = await page.evaluate(() => window.scrollY).catch(() => null);
         await page.keyboard.press('Space');
         await page.keyboard.press('ArrowDown');
         await page.keyboard.press('Space');
       }, { count: 1, status: [200, 204] });
     } catch (e) {
-      const m = e instanceof Error ? /^BA_OBS_E_([A-Z_]+)$/.exec(e.message) : null;
-      const drop = await r1Drop(page, moving, target).catch(() => 'NO_DROP' as const);
-      const scrolled = (await page.evaluate(() => window.scrollY).catch(() => scrollBefore)) !== scrollBefore ? 'SCROLLED' : 'STILL';
-      throw new Error(`BA_R1_E_${m ? m[1] : 'OTHER'}_${drop}_${scrolled}`);
+      const texts = await page.locator('[id^="DndLiveRegion"]')
+        .evaluateAll((els) => els.map((el) => el.textContent ?? '')).catch(() => null);
+      const scrollAfter = await page.evaluate(() => window.scrollY).catch(() => null);
+      throw new Error(r1Code(e instanceof Error ? e.message : null, r1DropKind(texts, moving, target), r1ScrollKind(scrollBefore, scrollAfter)));
     }
   });
   await test.step('db_settled', async () => {
