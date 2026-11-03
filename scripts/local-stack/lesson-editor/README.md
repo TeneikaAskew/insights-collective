@@ -36,6 +36,11 @@ real version trigger and conditional fence, roles under real RLS, and the recove
      the fixture tables and at least 90% of the database's public tables. **This is consistency, not identity**: two empty
      stacks agree. Authenticated identity pairing of the owned stack (API and DB from the same owned `supabase start`) is the
      shared owner's step before `setup` (see the integration proposal).
+     **The exposure root is read with the SERVICE key** (`p3-exposure.mjs`). PostgREST's OpenAPI view lists only tables the
+     requesting role holds privileges on, and anon deliberately holds none on `quiz_questions` (answer key hidden), so an anon
+     root refused a correct stack (E1 run 41676587739). Nothing is granted to anon; `quiz_questions` stays required.
+     No-network self-test: `node scripts/local-stack/lesson-editor/tests/p3-selftest.mjs` (in-process fake with a
+     privilege-following root; the OLD anon-root P3, rebuilt from source, must refuse what the new P3 accepts).
    - P4 app matches API: the served entry bundle names exactly this API origin and no hosted `*.supabase.co` project.
 5. Personas, fixture, LOCAL backend contract. Any failure after the private dir exists removes it (and `personas.mjs`
    removes its own partial output). GoTrue accounts already made stay, but the stack is disposable and P1 refuses reuse.
@@ -119,6 +124,7 @@ Violation and refusal records carry only a reason and an origin. The lesson-edit
 - **`run.sh`**: `setup`, `owner`, `read`, `quizhash`, `evidence`, `cleanup` (header). `quizhash` covers the quiz
   DEFINITION and its questions only.
 - **`tests/guards-selftest.sh`**, **`tests/fake-stack-http.mjs`**, **`tests/mutate-runner.mjs`**: LOCAL-SIM self-test and its runner-copy controls (below).
+  Note: `fake-stack-http.mjs` serves one root to every key, so it cannot see the anon/service difference; `tests/p3-selftest.mjs` covers that.
 - **`e2e/lesson-editor/`**: `playwright.lesson-editor.config.ts` (scratch: no globalSetup/teardown/webServer, Chromium,
   1 worker, 0 retries, traces off), `lesson-editor.spec.ts`, `egress-test.ts`, `egress-boundary.ts`, `egress-proxy.ts`,
   `egress-selftest.spec.ts` and `playwright.egress-selftest.config.ts`.
