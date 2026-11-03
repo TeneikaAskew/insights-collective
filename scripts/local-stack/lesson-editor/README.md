@@ -38,10 +38,20 @@ real version trigger and conditional fence, roles under real RLS, and the recove
      shared owner's step before `setup` (see the integration proposal).
      **The exposure root is read with the SERVICE key** (`p3-exposure.mjs`). PostgREST's OpenAPI view lists only tables the
      requesting role holds privileges on, and anon deliberately holds none on `quiz_questions` (answer key hidden), so an anon
-     root refused a correct stack (E1 run 41676587739). Nothing is granted to anon; `quiz_questions` stays required.
+     root would refuse a correct stack (source diagnosis le-e1-diag-r1; not observed in a run). Nothing is granted to anon;
+     `quiz_questions` stays required.
+     **The exact course count may answer 206.** With `Prefer: count=exact` PostgREST answers 206 Partial Content when the
+     total exceeds the one row returned; the job has 6 courses before setup. Only that read accepts 200 or 206, the count must
+     still equal the database's, and every other P3 request must answer 200 (diagnosis le-e1-diag-r2; not observed).
      No-network self-test: `node scripts/local-stack/lesson-editor/tests/p3-selftest.mjs` (in-process fake with a
-     privilege-following root; the OLD anon-root P3, rebuilt from source, must refuse what the new P3 accepts).
+     privilege-following root and PostgREST's 206 count answer; the OLD anon-root P3 and the OLD 200-only count rule, each
+     rebuilt from source, must refuse what the new P3 accepts).
    - P4 app matches API: the served entry bundle names exactly this API origin and no hosted `*.supabase.co` project.
+   - **Refusal codes.** The detail line stays private. The exit status names the check (`preflight-codes.mjs`): 20 INPUT,
+     21 P1, 22 P2, 23 P3_HTTP, 24 P3_COUNT, 25 P3_TABLES, 26 P4, 27 UNEXPECTED. `run.sh setup` maps ONLY that status through
+     a fixed case table to exactly one line, `LE-SETUP-CODE: LE_PRE_E_<CHECK>`, or `LE-SETUP-CODE: UNMAPPED` for any other
+     status (for example a module-load failure). The line carries no count or body. Self-test:
+     `node scripts/local-stack/lesson-editor/tests/preflight-codes-selftest.mjs`.
 5. Personas, fixture, LOCAL backend contract. Any failure after the private dir exists removes it (and `personas.mjs`
    removes its own partial output). GoTrue accounts already made stay, but the stack is disposable and P1 refuses reuse.
 

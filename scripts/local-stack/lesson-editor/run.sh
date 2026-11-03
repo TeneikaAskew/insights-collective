@@ -85,6 +85,15 @@ local_api() { node "$ROOT/scripts/local-stack/t09/api-http.mjs" check "$1" >/dev
 persona_id() { node -e 'try{const o=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));const p=o[process.argv[2]];if(!p||!/^[0-9a-f-]{36}$/.test(p.id))process.exit(1);console.log(p.id)}catch{process.exit(1)}' "$1" "$2" 2>/dev/null; }
 abspath() { node -e 'console.log(require("path").resolve(process.argv[1]))' "$1"; }
 inside() { case "$1/" in "$2"/*) return 0 ;; *) return 1 ;; esac; }
+# preflight_code <exit status>: the ONE public code for a preflight refusal, chosen from the exit status alone (never from
+# child output). Must equal preflight-codes.mjs (tests/preflight-codes-selftest.mjs). Any other status is UNMAPPED.
+preflight_code() {
+  case "$1" in
+    20) echo LE_PRE_E_INPUT ;; 21) echo LE_PRE_E_P1 ;; 22) echo LE_PRE_E_P2 ;; 23) echo LE_PRE_E_P3_HTTP ;;
+    24) echo LE_PRE_E_P3_COUNT ;; 25) echo LE_PRE_E_P3_TABLES ;; 26) echo LE_PRE_E_P4 ;; 27) echo LE_PRE_E_UNEXPECTED ;;
+    *) echo UNMAPPED ;;
+  esac
+}
 COURSE=ed170000-0000-4000-8000-0000000000c1
 ACK='-c le.fixture_ack=isolated-local-stack'
 PRIVATE_NAMES='^(personas\.json|state-(OWNER|OTHER|STUDENT)\.json)$'
@@ -105,7 +114,8 @@ case "$cmd" in
     [ -e "$WORK" ] && refuse "private dir exists (never reused)"
     [ -e "$EVID" ] && refuse "evidence dir exists (never reused)"
     inside "$WORK" "$EVID" || inside "$EVID" "$WORK" && refuse "private and evidence dirs must not contain each other"
-    quiet "preflight" node "$HERE/preflight.mjs" "$API" "$APP" "$DB" "$ANON" "$SERVICE" || refuse "preflight (read-only; nothing was written)"
+    st=0; quiet "preflight" node "$HERE/preflight.mjs" "$API" "$APP" "$DB" "$ANON" "$SERVICE" || st=$?
+    if [ "$st" -ne 0 ]; then echo "LE-SETUP-CODE: $(preflight_code "$st")" >&2; refuse "preflight (read-only; nothing was written)"; fi
     mkdir -m 700 "$EVID" || refuse "cannot create evidence dir"
     ARMED_WORK="$WORK" 
     quiet "personas" node "$HERE/personas.mjs" "$API" "$ANON" "$SERVICE" "$APP" "$WORK" || refuse "personas"
