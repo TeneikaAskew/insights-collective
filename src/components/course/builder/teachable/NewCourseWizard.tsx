@@ -1,12 +1,14 @@
 // ABOUTME: 4-step Teachable-style new-course wizard with live previews.
 // ABOUTME: Steps: About, Thumbnail (with image preview), Outline (AI-generated with regenerate/edit), Confirm (full preview).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Upload, Check, RefreshCw, Loader2, Trash2, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { ContentItemType } from '@/types/canvas';
 import {
+  assertCourseOwned,
+  assertNoCredentialReferences,
   listCopyableCourses,
   loadCourseOutline,
   type CopyableCourse,
@@ -66,11 +68,17 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  // Copy from another course (T-18): the author's own courses, and the one picked.
-  const [copyCourses, setCopyCourses] = useState<CopyableCourse[] | null>(null);
+  // Copy from another course (T-18): the author's own courses (with the account they were listed for), the
+  // one picked, and which source and account produced the outline now shown.
+  const [copyCourses, setCopyCourses] = useState<{ userId: string; courses: CopyableCourse[] } | null>(null);
   const [copySourceId, setCopySourceId] = useState('');
+  const [copyAdopted, setCopyAdopted] = useState<{ sourceId: string; userId: string } | null>(null);
   const [copyLoading, setCopyLoading] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
+  // Every method change, source change, re-entry, close and unmount bumps this. An async result applies only
+  // if no bump happened since it started, so a superseded list, outline or AI draft never lands.
+  const intentRef = useRef(0);
+  const bumpIntent = () => ++intentRef.current;
 
   // Live thumbnail preview URL (created + revoked as file changes)
   const thumbnailUrl = useMemo(
@@ -83,46 +91,108 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     };
   }, [thumbnailUrl]);
 
+  // Closing the wizard discards copy work in flight and the copied outline; unmounting discards results.
+  useEffect(() => {
+    if (open) return;
+    intentRef.current += 1;
+    setCopyCourses(null);
+    setCopySourceId('');
+    setCopyAdopted(null);
+    setCopyLoading(false);
+    setCopyError(null);
+    // Runs on open/close only; reads the method at that moment.
+    if (outlineMethod === 'copy') setOutline([]);
+  }, [open]);
+  useEffect(
+    () => () => {
+      intentRef.current += 1;
+    },
+    [],
+  );
+
   if (!open) return null;
 
+  const currentUserId = async (): Promise<string> => {
+    const { data } = await supabase.auth.getUser();
+    const userId = data.user?.id;
+    if (!userId) throw new Error('Sign in again to copy from your courses.');
+    return userId;
+  };
+
+  const clearCopy = () => {
+    setCopySourceId('');
+    setCopyAdopted(null);
+    setCopyLoading(false);
+    setCopyError(null);
+  };
+
+  // Entering copy always re-lists for the account signed in now; a list kept from earlier is not reused.
   const startCopy = async () => {
+    const intent = bumpIntent();
     setOutlineMethod('copy');
     // Never carry another method's outline into a copy.
     setOutline([]);
-    setCopySourceId('');
-    setCopyError(null);
-    if (copyCourses) return;
+    clearCopy();
+    setCopyCourses(null);
     setCopyLoading(true);
     try {
-      const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (!userId) throw new Error('Sign in again to copy from your courses.');
-      setCopyCourses(await listCopyableCourses(supabase, userId));
+      const userId = await currentUserId();
+      const courses = await listCopyableCourses(supabase, userId);
+      if (intent !== intentRef.current) return;
+      setCopyCourses({ userId, courses });
     } catch (err: any) {
+      if (intent !== intentRef.current) return;
       setCopyError(err?.message || 'Your courses could not be loaded.');
     } finally {
-      setCopyLoading(false);
+      if (intent === intentRef.current) setCopyLoading(false);
     }
   };
 
   const pickCopySource = async (id: string) => {
-    setCopySourceId(id);
+    const intent = bumpIntent();
     setOutline([]);
-    setCopyError(null);
+    clearCopy();
+    setCopySourceId(id);
     if (!id) return;
+    const listedFor = copyCourses?.userId;
     setCopyLoading(true);
     try {
-      const sections = await loadCourseOutline(supabase, id);
-      if (sections.length === 0) setCopyError('That course has no sections to copy.');
+      const userId = await currentUserId();
+      if (userId !== listedFor) {
+        throw new Error('You are signed in as a different account now. Choose "Copy from another course" again.');
+      }
+      // Ownership is checked again here, against the account signed in now, before anything is read.
+      const sections = await loadCourseOutline(supabase, id, userId);
+      if (intent !== intentRef.current) return;
       setOutline(sections);
+      setCopyAdopted({ sourceId: id, userId });
     } catch (err: any) {
+      if (intent !== intentRef.current) return;
       setCopyError(err?.message || 'That course could not be read.');
     } finally {
-      setCopyLoading(false);
+      if (intent === intentRef.current) setCopyLoading(false);
     }
   };
 
+  const chooseMethod = (m: NewCourseWizardResult['outlineMethod']) => {
+    if (m === 'copy') {
+      void startCopy();
+      return;
+    }
+    if (m === outlineMethod) return;
+    bumpIntent();
+    const leavingCopy = outlineMethod === 'copy';
+    if (leavingCopy) {
+      // A copied outline never carries into another method.
+      setOutline([]);
+      clearCopy();
+    }
+    setOutlineMethod(m);
+    if (m === 'scratch' && (leavingCopy || outline.length === 0)) seedScratchOutline();
+  };
+
   const generateOutline = async () => {
+    const intent = bumpIntent();
     setGenerating(true);
     setGenError(null);
     try {
@@ -131,13 +201,11 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (Array.isArray(data?.sections)) {
-        setOutline(data.sections);
-      } else {
-        throw new Error('No sections returned');
-      }
+      if (!Array.isArray(data?.sections)) throw new Error('No sections returned');
+      // A draft that arrives after the author moved to another method is dropped.
+      if (intent === intentRef.current) setOutline(data.sections);
     } catch (err: any) {
-      setGenError(err?.message || 'Failed to generate outline');
+      if (intent === intentRef.current) setGenError(err?.message || 'Failed to generate outline');
     } finally {
       setGenerating(false);
     }
@@ -154,7 +222,15 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     if (step === 2) {
       if (outlineMethod === 'ai') return aiDescription.trim().length > 10 && outline.length > 0;
       if (outlineMethod === 'scratch') return true;
-      if (outlineMethod === 'copy') return !copyLoading && !!copySourceId && outline.length > 0;
+      if (outlineMethod === 'copy') {
+        return (
+          !copyLoading &&
+          !!copySourceId &&
+          copyAdopted?.sourceId === copySourceId &&
+          copyAdopted?.userId === copyCourses?.userId &&
+          outline.length > 0
+        );
+      }
       return false;
     }
     return true;
@@ -165,6 +241,18 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
     setSubmitError(null);
     setProgressSteps([]);
     try {
+      if (outlineMethod === 'copy') {
+        // Checked again right before any write: the same account that adopted this outline is signed in, it
+        // still owns the source, and the outline carries no credential reference. Any failure writes nothing.
+        const intent = intentRef.current;
+        const userId = await currentUserId();
+        if (!copyAdopted || copyAdopted.sourceId !== copySourceId || copyAdopted.userId !== userId) {
+          throw new Error('The copied outline was loaded for a different account. Go back and choose the course again.');
+        }
+        await assertCourseOwned(supabase, copyAdopted.sourceId, userId);
+        assertNoCredentialReferences(outline);
+        if (intent !== intentRef.current) throw new Error('The copy changed while it was being checked. Please try again.');
+      }
       // Ensure a starter outline for scratch flow
       let finalOutline = outline;
       if (outlineMethod === 'scratch' && outline.length === 0) {
@@ -342,7 +430,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
               <div className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setOutlineMethod('ai')}
+                  onClick={() => chooseMethod('ai')}
                   className={cn(
                     'w-full rounded-lg px-5 py-4 text-left relative bg-muted/50',
                     outlineMethod === 'ai' ? 'border-2 border-foreground' : 'border border-border',
@@ -421,14 +509,7 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                     <button
                       key={m}
                       type="button"
-                      onClick={() => {
-                        if (m === 'copy') {
-                          void startCopy();
-                          return;
-                        }
-                        setOutlineMethod(m);
-                        if (m === 'scratch' && outline.length === 0) seedScratchOutline();
-                      }}
+                      onClick={() => chooseMethod(m)}
                       className={cn(
                         'w-full rounded-lg px-5 py-4 text-left bg-muted/50',
                         active ? 'border-2 border-foreground' : 'border border-border',
@@ -459,9 +540,9 @@ export function NewCourseWizard({ open, onCancel, onFinish }: NewCourseWizardPro
                       onChange={(e) => void pickCopySource(e.target.value)}
                     >
                       <option value="">
-                        {copyCourses && copyCourses.length === 0 ? 'You have no courses to copy' : 'Choose a course'}
+                        {copyCourses && copyCourses.courses.length === 0 ? 'You have no courses to copy' : 'Choose a course'}
                       </option>
-                      {(copyCourses ?? []).map((c) => (
+                      {(copyCourses?.courses ?? []).map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.title}
                         </option>
