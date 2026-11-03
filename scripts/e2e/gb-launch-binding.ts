@@ -23,16 +23,28 @@ export function bindingProblems(env: NodeJS.ProcessEnv, projects: Project[], set
   return problems;
 }
 
+// Lanes: journey (playwright.gradebook-roles.config.ts, output unchanged) and lesson-editor (the lesson-editor lane's own
+// e2e/lesson-editor/playwright.lesson-editor.config.ts, exactly one project; its egress fixture spreads the same launchOptions).
+export const LE_PROJECTS = ['lesson-editor-chromium'];
+export function laneProblems(lane: string | undefined, projects: Project[]): string[] {
+  if (lane !== 'lesson-editor') return [];
+  return projects.map((p) => p.name ?? '?').join(',') === LE_PROJECTS.join(',') ? [] : [`lesson-editor projects are not exactly ${LE_PROJECTS.join(', ')}`];
+}
+const tag = (lane: string | undefined) => (lane === 'lesson-editor' ? 'LE-LAUNCH' : 'GB-LAUNCH');
+
 async function main() {
-  if (process.env.GB_LANE !== 'journey') throw new Error('GB_LANE must be journey');
-  const cfg = (await import('../../playwright.gradebook-roles.config')).default as { projects?: Project[] };
+  const lane = process.env.GB_LANE, T = tag(lane);
+  let cfg: { projects?: Project[] };
+  if (lane === 'journey') cfg = (await import('../../playwright.gradebook-roles.config')).default as { projects?: Project[] };
+  else if (lane === 'lesson-editor') cfg = (await import('../../e2e/lesson-editor/playwright.lesson-editor.config')).default as { projects?: Project[] };
+  else throw new Error('GB_LANE must be journey or lesson-editor');
   const projects = cfg.projects ?? [];
-  const problems = bindingProblems(process.env, projects, chromiumExecutableOption());
+  const problems = [...bindingProblems(process.env, projects, chromiumExecutableOption()), ...laneProblems(lane, projects)];
   if (problems.length) throw new Error(problems.join('; '));
-  for (const p of projects) console.log(`GB-LAUNCH project ${p.name} executablePath=${p.use?.launchOptions?.executablePath}`);
-  console.log(`GB-LAUNCH session-setup executablePath=${chromiumExecutableOption().executablePath}`);
-  console.log(`GB-LAUNCH ok: ${projects.length} projects and the setup launch bind the pinned headless shell`);
+  for (const p of projects) console.log(`${T} project ${p.name} executablePath=${p.use?.launchOptions?.executablePath}`);
+  console.log(`${T} session-setup executablePath=${chromiumExecutableOption().executablePath}`);
+  console.log(`${T} ok: ${projects.length} projects and the setup launch bind the pinned headless shell`);
 }
 
 const isMain = process.argv[1] && /gb-launch-binding\.ts$/.test(process.argv[1]);
-if (isMain) main().catch((e) => { console.log(`GB-LAUNCH REFUSED: ${e instanceof Error ? e.message.split('\n')[0] : 'unexpected error'}`); process.exit(1); });
+if (isMain) main().catch((e) => { console.log(`${tag(process.env.GB_LANE)} REFUSED: ${e instanceof Error ? e.message.split('\n')[0] : 'unexpected error'}`); process.exit(1); });
