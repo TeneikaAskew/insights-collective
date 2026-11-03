@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// ABOUTME: Pure in-process fake selftest for the builder-authoring fixture: ids and seed shape, the exact 21-entry inventory
-// ABOUTME: summary, the witness comparison and the created/copied manifest. No DB, no network, no browser. Needs no #162 file.
+// ABOUTME: Pure in-process fake selftest for the builder-authoring fixture: ids and seed shape, the exact 18-entry inventory
+// ABOUTME: summary, the witness comparison and the created-course manifest. No DB, no network, no browser. Needs no #162 file.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { A, B, S, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
+import { A, B, SEEDED_COURSES, SEEDED_MODULES, SEEDED_ITEMS, INVENTORY, PROJECTS, SHOT_NAMES } from '../ids.mjs';
 import { summarizeReport, compareWitness, manifest, checkLines, errorClass, failedStage, childCode, readBounded, LINE, SummaryError } from '../summary.mjs';
 import { pick, STAGES, TEST_ERRORS, CHILD_CODES, SUMMARY_REASONS, OBS_KINDS, R1_DROPS, R1_SCROLLS, obsKind, r1DropKind, r1ScrollKind, r1Code } from '../codes.mjs';
 import { spawnSync } from 'node:child_process';
@@ -19,8 +19,7 @@ const ok = (name, fn) => { fn(); n += 1; console.log(`ok ${n} ${name}`); };
 const TITLES = { R1: 'BA-R1 section reorder is stored and survives reload',
   R1S: 'BA-R1S SYNCHRONIZED-INPUT CANDIDATE section reorder waits for the target announcement, is stored and survives reload', R2: 'BA-R2 lesson reorder is stored and survives reload',
   C1: 'BA-C1 scratch creation makes one complete course and opens it', D1: 'BA-D1 an applied delete removes the lesson, in the UI and in storage',
-  D2: 'BA-D2 a delete that matches zero rows is refused and the lesson stays on screen',
-  K1: 'BA-K1 copy from another course makes one complete copy, opens it, keeps it after reload and leaves the source unchanged' };
+  D2: 'BA-D2 a delete that matches zero rows is refused and the lesson stays on screen' };
 const entry = (project, c, status, extra = {}) => ({ projectName: project, status, results: [{ status: status === 'expected' ? 'passed' : status === 'skipped' ? 'skipped' : 'failed', retry: 0, steps: [], ...extra }], c });
 const report = (tests, errors = []) => ({ errors, suites: [{ title: 'f', specs: tests.map((t) => ({ title: TITLES[t.c], tests: [t] })), suites: [] }] });
 const goodTests = () => INVENTORY.map((x) => entry(x.project, x.case, x.expect === 'passed' ? 'expected' : 'skipped'));
@@ -29,7 +28,6 @@ const firstFail = (r) => r.lines.find((l) => l.startsWith('TEST FAIL') || l.star
 const W = (over = {}) => {
   const rows = {
     b_course: [[B.course, 'b'.repeat(32)]], b_module: B.sections.map((s) => [s.id, 'c'.repeat(32)]), b_item: [],
-    s_course: [[S.course, '7'.repeat(32)]], s_module: S.sections.map((s) => [s.id, '8'.repeat(32)]), s_item: S.lessons.map((l) => [l.id, '9'.repeat(32)]),
     a_course: [[A.course, 'd'.repeat(32)]], a_module: A.sections.map((s) => [s.id, 'e'.repeat(32)]),
     a_item: [...A.lessons, A.deletable, A.vanishing].map((l) => [l.id, 'f'.repeat(32)]), ...over.rows,
   };
@@ -51,9 +49,8 @@ ok('every seeded id is in the 9b6e0000 namespace and unique', () => {
   assert.equal(new Set(all).size, all.length);
   for (const id of all) assert.match(id, /^9b6e0000-0000-4000-8000-0000000[0-9]{5}$/);
 });
-ok('the inventory is exactly 21 entries: 17 executions (R1S is the separately labelled synchronized candidate, K1 the T-18 copy) and 4 intentional delete skips', () => {
-  assert.equal(INVENTORY.length, 21);
-  assert.deepEqual(INVENTORY.filter((x) => x.case === 'K1').map((x) => `${x.project}:${x.expect}`), ['ba-1440:passed', 'ba-768:passed', 'ba-390:passed']);
+ok('the inventory is exactly 18 entries: 14 executions (R1S is the separately labelled synchronized candidate) and 4 intentional delete skips', () => {
+  assert.equal(INVENTORY.length, 18);
   assert.deepEqual(INVENTORY.filter((x) => x.case === 'R1S').map((x) => `${x.project}:${x.expect}`), ['ba-1440:passed', 'ba-768:passed', 'ba-390:passed']);
   assert.deepEqual(INVENTORY.filter((x) => x.expect === 'skipped').map((x) => `${x.project}:${x.case}`), ['ba-768:D1', 'ba-768:D2', 'ba-390:D1', 'ba-390:D2']);
   assert.deepEqual(PROJECTS, ['ba-1440', 'ba-768', 'ba-390']);
@@ -78,11 +75,11 @@ ok('no SQL cleanup file remains in the lane', () => {
 });
 
 // ---- playwright inventory summary ----
-ok('a complete run passes with 17 PASS and 4 SKIP lines, all in the staging grammar', () => {
+ok('a complete run passes with 14 PASS and 4 SKIP lines, all in the staging grammar', () => {
   const r = summarizeReport(report(goodTests()), 0);
   assert.equal(r.ok, true);
-  assert.equal(r.lines[0], 'PLAYWRIGHT exit=0 entries=21 passed=17 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0');
-  assert.equal(r.lines.filter((l) => l.startsWith('TEST PASS')).length, 17);
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=0 entries=18 passed=14 failed=0 skipped=4 missing=0 duplicate=0 unknown=0 global_errors=0');
+  assert.equal(r.lines.filter((l) => l.startsWith('TEST PASS')).length, 14);
   assert.equal(r.lines.filter((l) => l.startsWith('TEST SKIP')).length, 4);
   assert.equal(r.lines.at(-1), 'VERDICT PASS');
   assert.ok(checkLines(r.lines));
@@ -129,7 +126,7 @@ ok('a retried pass is not a pass', () => {
   const u = goodTests(); u[0].results[0].retry = 1;
   assert.equal(summarizeReport(report(u), 0).ok, false, 'a single result that is itself a retry is not a first-try pass');
 });
-ok('(4) an intentional skip with two results, a retried result or an executed result fails; exactly 21, no retries', () => {
+ok('(4) an intentional skip with two results, a retried result or an executed result fails; exactly 18, no retries', () => {
   const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
   const cases = [
     (e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); },
@@ -149,17 +146,17 @@ ok('(B) intended-skip breakdown: executed, retried or multi-result violations ar
   const idx = INVENTORY.findIndex((x) => x.project === 'ba-768' && x.case === 'D1');
   const bd = (mutate) => { const t = goodTests(); mutate(t[idx]); return summarizeReport(report(t), 1).lines[1]; };
   const bdLine = (ep, ef, u, iu, is) => `PLAYWRIGHT_BREAKDOWN executed_passed=${ep} executed_failed=${ef} unattempted=${u} intended_skip_unattempted=${iu} intended_skipped=${is}`;
-  assert.equal(bd(() => {}), bdLine(17, 0, 0, 0, 4));                                          // valid intentional skip
-  assert.equal(bd((e) => { e.results[0].status = 'passed'; e.status = 'expected'; }), bdLine(17, 1, 0, 0, 3)); // executed
-  assert.equal(bd((e) => { e.results[0].retry = 1; }), bdLine(17, 1, 0, 0, 3));                // retried
-  assert.equal(bd((e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); }), bdLine(17, 1, 0, 0, 3)); // two results
-  assert.equal(bd((e) => { e.results = []; }), bdLine(17, 0, 1, 1, 3));                        // zero attempts
+  assert.equal(bd(() => {}), bdLine(14, 0, 0, 0, 4));                                          // valid intentional skip
+  assert.equal(bd((e) => { e.results[0].status = 'passed'; e.status = 'expected'; }), bdLine(14, 1, 0, 0, 3)); // executed
+  assert.equal(bd((e) => { e.results[0].retry = 1; }), bdLine(14, 1, 0, 0, 3));                // retried
+  assert.equal(bd((e) => { e.results.push({ status: 'skipped', retry: 1, steps: [] }); }), bdLine(14, 1, 0, 0, 3)); // two results
+  assert.equal(bd((e) => { e.results = []; }), bdLine(14, 0, 1, 1, 3));                        // zero attempts
   // an expected-pass entry: executed failure versus zero attempts
   const r1 = INVENTORY.findIndex((x) => x.project === 'ba-1440' && x.case === 'R1');
   const t = goodTests(); t[r1] = entry('ba-1440', 'R1', 'unexpected');
-  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(16, 1, 0, 0, 4));
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(13, 1, 0, 0, 4));
   t[r1] = { projectName: 'ba-1440', status: 'skipped', results: [], c: 'R1' };
-  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(16, 0, 1, 0, 4));
+  assert.equal(summarizeReport(report(t), 1).lines[1], bdLine(13, 0, 1, 0, 4));
   assert.ok(!summarizeReport(report(t), 1).lines.join('\n').includes('dependency'));
 });
 
@@ -168,13 +165,13 @@ ok('hosted run 41564184929 shape: 1 executed failure, 4 passes, 10 unattempted (
   const i = (p, c) => INVENTORY.findIndex((x) => x.project === p && x.case === c);
   t[i('ba-1440', 'R1')] = entry('ba-1440', 'R1', 'unexpected', { error: { message: 'Error: BA_OBS_E_COUNT_ZERO' }, steps: [{ title: 'ui_reorder', error: {} }] });
   for (const p of ['ba-768', 'ba-390']) for (const c of ['R1', 'R2', 'C1', 'D1', 'D2']) t[i(p, c)] = { projectName: p, status: 'skipped', results: [], c };
-  // that run predates BA-R1S and BA-K1: its report has exactly the 15 old entries, so the 3 R1S and 3 K1 rows read as MISSING and nothing else moves
-  const old = t.filter((e) => e.c !== 'R1S' && e.c !== 'K1');
+  // that run predates BA-R1S: its report has exactly the 15 old entries, so the 3 R1S rows read as MISSING and nothing else moves
+  const old = t.filter((e) => e.c !== 'R1S');
   assert.equal(old.length, 15);
   const r = summarizeReport(report(old), 1);
   assert.equal(r.ok, false);
-  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=6 duplicate=0 unknown=0 global_errors=0');
-  for (const p of ['ba-1440', 'ba-768', 'ba-390']) for (const c of ['R1S', 'K1']) assert.ok(r.lines.includes(`TEST MISSING project=${p} case=${c}`));
+  assert.equal(r.lines[0], 'PLAYWRIGHT exit=1 entries=15 passed=4 failed=11 skipped=0 missing=3 duplicate=0 unknown=0 global_errors=0');
+  for (const p of ['ba-1440', 'ba-768', 'ba-390']) assert.ok(r.lines.includes(`TEST MISSING project=${p} case=R1S`));
   assert.equal(r.lines[1], 'PLAYWRIGHT_BREAKDOWN executed_passed=4 executed_failed=1 unattempted=10 intended_skip_unattempted=4 intended_skipped=0');
   assert.ok(r.lines.includes('TEST FAIL project=ba-1440 case=R1 status=unexpected attempts=1 stage=ui_reorder error=BA_OBS_E_COUNT_ZERO'));
   assert.ok(r.lines.includes('TEST FAIL project=ba-768 case=R1 reason=unattempted attempts=0'));
@@ -351,7 +348,7 @@ ok('(5) the private reader refuses a second hard link (single-link check), a sym
 ok('witness: B whole rows untouched, A projections untouched, exactly the two one-shot lessons gone, nothing else changed', () => {
   const r = compareWitness(W(), postW());
   assert.equal(r.ok, true);
-  assert.deepEqual(r.lines, ['WITNESS PASS b_rows=3 s_rows=6 a_course=1 a_sections=3 a_lessons_kept=3 a_lessons_deleted=2 other=unchanged',
+  assert.deepEqual(r.lines, ['WITNESS PASS b_rows=3 a_course=1 a_sections=3 a_lessons_kept=3 a_lessons_deleted=2 other=unchanged',
     'WITNESS_SCOPE b=whole_rows a_course_fields=20 a_module_fields=11 a_item_fields=10 excluded=updated_at,position probe=sensitive',
     'LEARNER_HISTORY EMPTY enrollments=0 progressions=0 certificates=0 preservation=not_exercised', 'VERDICT PASS']);
   assert.ok(checkLines(r.lines));
@@ -362,15 +359,6 @@ ok('witness: a touched B row, a changed A section, a third deletion or a non-fix
   assert.ok(compareWitness(W(), postW({ rows: { a_item: A.lessons.slice(1).map((l) => [l.id, 'f'.repeat(32)]) } })).lines.includes('WITNESS FAIL kind=a_item'));
   assert.ok(compareWitness(W(), W()).lines.includes('WITNESS FAIL kind=a_item'), 'nothing deleted is a failure too');
   assert.ok(compareWitness(W(), postW({ other_items: '6 ' + '9'.repeat(32) })).lines.includes('WITNESS FAIL kind=other_items'));
-});
-ok('K1 witness: the copy source rows are whole-row unchanged; a touched, removed or extra source row fails by kind', () => {
-  const sItems = S.lessons.map((l) => [l.id, '9'.repeat(32)]);
-  assert.ok(compareWitness(W(), postW({ rows: { s_course: [[S.course, '1'.repeat(32)]] } })).lines.includes('WITNESS FAIL kind=s_course'));
-  assert.ok(compareWitness(W(), postW({ rows: { s_module: S.sections.map((x, i) => [x.id, (i ? '8' : '1').repeat(32)]) } })).lines.includes('WITNESS FAIL kind=s_module'));
-  assert.ok(compareWitness(W(), postW({ rows: { s_item: [...sItems.slice(0, 2), [S.lessons[2].id, '1'.repeat(32)]] } })).lines.includes('WITNESS FAIL kind=s_item'));
-  assert.ok(compareWitness(W(), postW({ rows: { s_item: sItems.slice(1) } })).lines.includes('WITNESS FAIL kind=s_item'), 'a removed source lesson');
-  assert.ok(compareWitness(W({ rows: { s_item: sItems.slice(1) } }), postW({ rows: { s_item: sItems.slice(1) } })).lines.includes('WITNESS FAIL kind=pre_s_item'), 'a pre-state without the seeded source');
-  assert.ok(compareWitness(W(), postW()).ok);
 });
 ok('(3) witness probe: an insensitive column, a wrongly excluded column, a missing probe or a changed field count fails', () => {
   // an extra column left out of the projection (e.g. module.description): 3 more excluded, 3 fewer sensitive
@@ -407,27 +395,11 @@ ok('witness: an unknown or duplicate line refuses', () => {
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'ba-st-')); fs.chmodSync(d, 0o700); return d; };
 const put = (d, f, t) => fs.writeFileSync(path.join(d, f), t, { mode: 0o600 });
 const uuid = (i) => `9c000000-0000-4000-8000-00000000000${i}`;
-ok('manifest: three created and three copied exact records pass; missing, malformed, duplicate, unknown, oversize or wrong-mode records fail', () => {
-  const d = tmp(); PROJECTS.forEach((p, i) => { put(d, `created-${p}.json`, JSON.stringify({ id: uuid(i) })); put(d, `copied-${p}.json`, JSON.stringify({ id: uuid(i + 3) })); }); put(d, 'report.json', '{}');
-  assert.deepEqual(manifest(d), { ok: true, lines: ['MANIFEST created=3 copied=3 projects=ba-1440,ba-768,ba-390', 'VERDICT PASS'] });
-  fs.rmSync(path.join(d, 'copied-ba-768.json'));
-  assert.deepEqual(manifest(d).lines, ['MANIFEST created=3 copied=2 missing=ba-768', 'VERDICT FAIL'], 'a missing copy record fails');
-  put(d, 'copied-ba-768.json', JSON.stringify({ id: uuid(1) }));
-  assert.equal(manifest(d).lines[0], 'MANIFEST FAIL reason=duplicate_id', 'a copy id equal to a created id fails');
-  fs.rmSync(path.join(d, 'copied-ba-768.json')); put(d, 'copied-ba-768.json', JSON.stringify({ id: uuid(3) }));
-  assert.equal(manifest(d).lines[0], 'MANIFEST FAIL reason=duplicate_id', 'two copies with one id fail');
-  fs.rmSync(path.join(d, 'copied-ba-768.json')); put(d, 'copied-ba-768.json', JSON.stringify({ id: 'not-a-uuid' }));
-  assert.equal(manifest(d).lines[0], 'MANIFEST FAIL reason=bad_id');
-  fs.rmSync(path.join(d, 'copied-ba-768.json')); put(d, 'copied-ba-768.json', JSON.stringify({ id: uuid(4) }));
-  put(d, 'copied-ba-999.json', JSON.stringify({ id: uuid(9) }));
-  assert.equal(manifest(d).lines[0], 'MANIFEST FAIL reason=unknown_file', 'an unknown project copy record fails');
-  fs.rmSync(path.join(d, 'copied-ba-999.json'));
-  assert.ok(manifest(d).ok);
-  PROJECTS.forEach((p) => fs.rmSync(path.join(d, `copied-${p}.json`)));
-  assert.deepEqual(manifest(d).lines, ['MANIFEST created=3 copied=0 missing=ba-1440,ba-768,ba-390', 'VERDICT FAIL'], 'created only (no copy) fails');
-  PROJECTS.forEach((p, i) => put(d, `copied-${p}.json`, JSON.stringify({ id: uuid(i + 3) })));
+ok('manifest: three exact records pass; missing, malformed, duplicate, unknown, oversize or wrong-mode records fail', () => {
+  const d = tmp(); PROJECTS.forEach((p, i) => put(d, `created-${p}.json`, JSON.stringify({ id: uuid(i) }))); put(d, 'report.json', '{}');
+  assert.deepEqual(manifest(d), { ok: true, lines: ['MANIFEST created=3 projects=ba-1440,ba-768,ba-390', 'VERDICT PASS'] });
   fs.rmSync(path.join(d, 'created-ba-390.json'));
-  assert.deepEqual(manifest(d).lines, ['MANIFEST created=2 copied=3 missing=ba-390', 'VERDICT FAIL']);
+  assert.deepEqual(manifest(d).lines, ['MANIFEST created=2 missing=ba-390', 'VERDICT FAIL']);
   put(d, 'created-ba-390.json', JSON.stringify({ id: uuid(0) }));
   assert.equal(manifest(d).lines[0], 'MANIFEST FAIL reason=duplicate_id');
   fs.rmSync(path.join(d, 'created-ba-390.json')); put(d, 'created-ba-390.json', JSON.stringify({ id: uuid(2), x: 1 }));
@@ -444,6 +416,6 @@ ok('the staging grammar accepts the fixed lines and rejects titles and messages'
   assert.ok(LINE.test('SHOT name=ba_r1_1440 sha256=' + 'a'.repeat(64) + ' bytes=10 width=1440 height=900'));
   assert.ok(!LINE.test('TEST PASS BA-R1 section reorder'));
   assert.ok(!LINE.test('SHOTS 3 captured 0 withheld of 10'));
-  assert.equal(SHOT_NAMES.length, 13); // 10 earlier plus ba_k1_1440, ba_k1_768, ba_k1_390
+  assert.equal(SHOT_NAMES.length, 10);
 });
 console.log(`PASS builder-authoring fixture selftest (${n} checks)`);

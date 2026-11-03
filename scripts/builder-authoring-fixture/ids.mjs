@@ -51,14 +51,25 @@ export const S = {
   ],
 };
 
-export const SEEDED_COURSES = [A.course, B.course, S.course];
-export const SEEDED_MODULES = [...A.sections, ...B.sections, ...S.sections].map((s) => s.id);
-export const SEEDED_ITEMS = [...A.lessons, A.deletable, A.vanishing, ...S.lessons].map((l) => l.id);
+/**
+ * The suite this process runs. Only the run adapter (run.sh) sets BA_SUITE: unset is the unchanged 18-entry baseline
+ * (R1, R1S, R2, C1, D1, D2); 'k1' is the separate K1-only copy run (T-18), which never runs a baseline case. Any other
+ * value refuses at import, so a wrong selection cannot fall back to either suite.
+ */
+const SUITE_ENV = process.env.BA_SUITE;
+if (SUITE_ENV !== undefined && SUITE_ENV !== 'k1') throw new Error('BA_E_SUITE');
+export const SUITE = SUITE_ENV === 'k1' ? 'k1' : 'full';
+const K1 = SUITE === 'k1';
+
+/** Rows seed.sql creates (A, B); the K1 run adds seed-k1.sql (S) after it. */
+export const SEEDED_COURSES = K1 ? [A.course, B.course, S.course] : [A.course, B.course];
+export const SEEDED_MODULES = (K1 ? [...A.sections, ...B.sections, ...S.sections] : [...A.sections, ...B.sections]).map((s) => s.id);
+export const SEEDED_ITEMS = (K1 ? [...A.lessons, A.deletable, A.vanishing, ...S.lessons] : [...A.lessons, A.deletable, A.vanishing]).map((l) => l.id);
 
 /** Wizard-created courses carry this marker plus the run nonce in their title (the same nonce in every project). */
 export const CREATED_TITLE_PREFIX = 'BA Wizard Course';
 export const createdTitle = (nonce) => `${CREATED_TITLE_PREFIX} ${nonce}`;
-/** Courses made by "Copy from another course" (BA-K1) carry this marker plus the run nonce (the same in every project). */
+/** Courses made by "Copy from another course" (BA-K1, K1 run only) carry this marker plus the run nonce. */
 export const COPIED_TITLE_PREFIX = 'BA Wizard Copy';
 export const copiedTitle = (nonce) => `${COPIED_TITLE_PREFIX} ${nonce}`;
 
@@ -66,20 +77,21 @@ export const copiedTitle = (nonce) => `${COPIED_TITLE_PREFIX} ${nonce}`;
 export const PROJECTS = Object.freeze(['ba-1440', 'ba-768', 'ba-390']);
 /** Every case id. D1 and D2 act on one-shot rows, so they execute in ba-1440 only and are intentionally skipped elsewhere. */
 // R1S: the separately labelled SYNCHRONIZED-INPUT CANDIDATE of R1 (reorder.spec.ts); R1 itself is unchanged.
-// K1: T-18 copy from another course (copy.spec.ts), in every project.
-export const CASES = Object.freeze(['R1', 'R1S', 'R2', 'C1', 'K1', 'D1', 'D2']);
+// K1 (K1 run only): T-18 copy from another course (copy.spec.ts), in every project.
+export const CASES = Object.freeze(K1 ? ['K1'] : ['R1', 'R1S', 'R2', 'C1', 'D1', 'D2']);
 export const ONLY_1440 = Object.freeze(['D1', 'D2']);
-/** The exact 21-entry inventory: 17 executions plus 4 intentional skips. */
+/** Baseline: the exact 18-entry inventory, 14 executions plus 4 intentional skips. K1 run: exactly 3 executions. */
 export const INVENTORY = Object.freeze(PROJECTS.flatMap((project) => CASES.map((c) => ({
   project, case: c, expect: ONLY_1440.includes(c) && project !== 'ba-1440' ? 'skipped' : 'passed',
 }))));
 
 /** Real screenshots (gradebook capture rules, builder plan): name -> [project, route key]. */
-export const SHOT_PLAN = Object.freeze({
+export const SHOT_PLAN = Object.freeze(K1 ? {
+  ba_k1_1440: ['ba-1440', 'curriculum-copied'], ba_k1_768: ['ba-768', 'curriculum-copied'], ba_k1_390: ['ba-390', 'curriculum-copied'],
+} : {
   ba_r1_1440: ['ba-1440', 'curriculum-a'], ba_r1_768: ['ba-768', 'curriculum-a'], ba_r1_390: ['ba-390', 'curriculum-a'],
   ba_r2_1440: ['ba-1440', 'curriculum-a'], ba_r2_768: ['ba-768', 'curriculum-a'], ba_r2_390: ['ba-390', 'curriculum-a'],
   ba_c1_1440: ['ba-1440', 'curriculum-created'], ba_c1_768: ['ba-768', 'curriculum-created'], ba_c1_390: ['ba-390', 'curriculum-created'],
-  ba_k1_1440: ['ba-1440', 'curriculum-copied'], ba_k1_768: ['ba-768', 'curriculum-copied'], ba_k1_390: ['ba-390', 'curriculum-copied'],
   ba_d2_refused_1440: ['ba-1440', 'curriculum-a'],
 });
 export const SHOT_NAMES = Object.freeze(Object.keys(SHOT_PLAN));

@@ -1,32 +1,44 @@
-// ABOUTME: BA-K1 (EXECUTABLE, no injection; T-18): "Copy from another course" lists exactly the instructor's courses, makes
-// ABOUTME: exactly one new course with the source's sections, lessons and lesson text, opens it, keeps it after reload, source unchanged.
+// ABOUTME: BA-K1 (K1 run only, playwright.builder-authoring-k1.config.ts; T-18): "Copy from another course" lists exactly the
+// ABOUTME: instructor's courses and makes exactly one complete copy, opens it and keeps it complete after reload; source unchanged.
 import { test, expect } from './guarded-test';
 import { copiedTitle, route, INSTRUCTOR_ID, PROJECTS, S } from './ids';
-import { rest, recordCopiedCourse, copiedBefore, sectionCard, shownLessonTitles } from './helpers';
+import { read, assertStoredOutline, assertRendered, recordCopiedCourse, copiedBefore } from './k1-helpers';
+import { k1Error } from '../../scripts/builder-authoring-fixture/k1-oracle.mjs';
 import { shot } from './shot';
 import type { Page } from '@playwright/test';
 
-/** A test-side read (Node fetch as the signed-in instructor); anything but a 200 array is a fixed error. */
-async function read(page: Page, query: string): Promise<any[]> {
-  const r = await rest(page, query);
-  if (r.status !== 200 || !Array.isArray(r.body)) throw new Error('BA_K1_E_READ');
-  return r.body;
-}
 const idsWithTitle = async (page: Page, title: string) =>
   (await read(page, `courses?select=id&title=eq.${encodeURIComponent(title)}`)).map((r) => r.id).sort();
 
-/** A course's stored outline: [section title, position, [[lesson title, type, position, content], ...]], in stored order. */
-async function storedOutline(page: Page, course: string) {
-  const mods = await read(page, `modules?select=id,title,position&course_id=eq.${course}&order=position.asc,id.asc`);
-  const items = await read(page, `content_items?select=id,module_id,title,type,position,content&course_id=eq.${course}&order=position.asc,id.asc`);
-  return {
-    outline: mods.map((m) => [m.title, m.position, items.filter((i) => i.module_id === m.id).map((i) => [i.title, i.type, i.position, i.content])]),
-    items,
-  };
-}
+/** S as seeded: [section title, position, [[lesson title, type, position, content], ...]]. */
 const EXPECTED = S.sections.map((s, si) => [
   s.title, s.position, S.lessons.filter((l) => l.section === si).map((l) => [l.title, l.type, l.position, l.content]),
-]);
+]) as [string, number, [string, string, number, string][]][];
+
+/** The copy, complete: its outline is exactly S's, every row is new, and each quiz/assignment lesson has its own row. */
+async function assertCompleteCopy(page: Page, id: string) {
+  const { mods, itemsByCourse } = await assertStoredOutline(page, id, EXPECTED);
+  const sourceIds = new Set([...S.sections.map((s) => s.id), ...S.lessons.map((l) => l.id)]);
+  if ([...mods, ...itemsByCourse].some((r) => sourceIds.has(r.id))) throw k1Error(['NOT_NEW']);
+  for (const it of itemsByCourse) {
+    if (it.type === 'quiz') {
+      const q = await read(page, `quizzes?select=content_item_id,module_id&content_item_id=eq.${it.id}`);
+      if (JSON.stringify(q) !== JSON.stringify([{ content_item_id: it.id, module_id: it.module_id }])) throw k1Error(['CHILD']);
+    } else if (it.type === 'assignment') {
+      const a = await read(page, `assignments?select=content_item_id,course_id,module_id&content_item_id=eq.${it.id}`);
+      if (JSON.stringify(a) !== JSON.stringify([{ content_item_id: it.id, course_id: id, module_id: it.module_id }])) throw k1Error(['CHILD']);
+    }
+  }
+}
+/** S unchanged: its complete outline is still exactly the seed (the run's witness also compares its whole rows). */
+async function assertSourceUnchanged(page: Page) {
+  try { await assertStoredOutline(page, S.course, EXPECTED); } catch { throw k1Error(['SOURCE']); }
+}
+/** The rendered curriculum, polled until it settles: exactly S's sections in order, each with exactly its lessons. */
+const rendered = async (page: Page) => {
+  await expect.poll(async () => { try { await assertRendered(page, EXPECTED); return 'ok'; } catch (e) { return (e as Error).message; } },
+    { message: 'the visible sections and lessons are exactly the copy' }).toBe('ok');
+};
 
 test('BA-K1 copy from another course makes one complete copy, opens it, keeps it after reload and leaves the source unchanged', async ({ page }, info) => {
   const project = info.project.name;
@@ -38,7 +50,7 @@ test('BA-K1 copy from another course makes one complete copy, opens it, keeps it
     expect(recorded.length, 'one copy per earlier project').toBe(PROJECTS.indexOf(project));
     before = await idsWithTitle(page, title);
     expect(before, 'the stored set is exactly what the earlier projects recorded').toEqual(recorded);
-    expect((await storedOutline(page, S.course)).outline, 'the source is exactly the seed').toEqual(EXPECTED);
+    await assertSourceUnchanged(page);
   });
   await test.step('ui_copy', async () => {
     const mine = (await read(page, `courses?select=title&instructor_id=eq.${INSTRUCTOR_ID}`)).map((c) => c.title || 'Untitled course').sort();
@@ -66,36 +78,28 @@ test('BA-K1 copy from another course makes one complete copy, opens it, keeps it
     await page.getByRole('button', { name: 'Create course' }).click();
     await page.waitForURL(/\/courses\/[0-9a-f-]{36}\/builder$/);
     id = new URL(page.url()).pathname.split('/')[2];
-    expect(id).not.toBe(S.course);
+    if (id === S.course) throw k1Error(['NOT_NEW']);
     recordCopiedCourse(project, id);
   });
   await test.step('db_settled', async () => {
     expect(await idsWithTitle(page, title), 'exactly one new course').toEqual([...before, id].sort());
-    expect(await read(page, `courses?select=id,instructor_id,title,published&id=eq.${id}`)).toEqual([{ id, instructor_id: INSTRUCTOR_ID, title, published: false }]);
-    const copy = await storedOutline(page, id);
-    expect(copy.outline, 'sections, lessons, types, positions and lesson text equal the source').toEqual(EXPECTED);
-    const ids = copy.items.map((i) => i.id);
-    expect(ids.some((x) => S.lessons.some((l) => l.id === x)), 'new rows, not the source rows').toBe(false);
-    const quiz = copy.items.find((i) => i.type === 'quiz');
-    const essay = copy.items.find((i) => i.type === 'assignment');
-    expect((await read(page, `quizzes?select=content_item_id&content_item_id=eq.${quiz.id}`)).length, 'the quiz lesson has its quiz row').toBe(1);
-    expect((await read(page, `assignments?select=content_item_id,course_id&content_item_id=eq.${essay.id}`)), 'the essay lesson has its assignment row').toEqual([{ content_item_id: essay.id, course_id: id }]);
-    expect((await storedOutline(page, S.course)).outline, 'the source is unchanged').toEqual(EXPECTED);
+    const c = await read(page, `courses?select=id,instructor_id,title,published&id=eq.${id}`);
+    if (JSON.stringify(c) !== JSON.stringify([{ id, instructor_id: INSTRUCTOR_ID, title, published: false }])) throw k1Error(['COURSE']);
+    await assertCompleteCopy(page, id);
+    await assertSourceUnchanged(page);
   });
   const curriculum = route.curriculum(id);
-  const expectRendered = async () => {
-    for (const [si, s] of S.sections.entries()) {
-      expect(await shownLessonTitles(await sectionCard(page, s.title))).toEqual(S.lessons.filter((l) => l.section === si).map((l) => l.title));
-    }
-  };
   await test.step('rendered', async () => {
     await page.goto(curriculum);
-    await expectRendered();
+    await rendered(page);
   });
   await test.step('after_reload', async () => {
     await page.reload();
-    await expectRendered();
+    await rendered(page);
+    // the complete stored state again, not only the ids: the copy's outline, its rows and children, and the source
     expect(await idsWithTitle(page, title)).toEqual([...before, id].sort());
+    await assertCompleteCopy(page, id);
+    await assertSourceUnchanged(page);
   });
   await test.step('screenshot', () => shot(page, info, `ba_k1_${project.replace('ba-', '')}`, curriculum));
 });

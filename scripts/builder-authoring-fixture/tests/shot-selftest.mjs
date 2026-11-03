@@ -74,8 +74,8 @@ ok('write then export: one PNG (ancillary chunk dropped), one withheld with diag
   const lines = exportBaShots({ shotDir: shots, sessionDir: session, proofFile: proof, exportDir: path.join(root, 'export') });
   assert.match(lines[0], /^SHOT name=ba_r1_1440 sha256=[0-9a-f]{64} bytes=\d+ width=2 height=1$/);
   assert.equal(lines[1], 'WITHHELD name=ba_r1_768 reason=MUTATED before=0.1.0.0.0.0.0.0.0.0 shot=0.0.0.0.0.0.0.0.0.0 after=0.0.0.0.0.0.0.0.0.0 final=0.0.0.0.0.0.0.0.0.0 marks=3 sum=EQ');
-  assert.equal(lines.filter((l) => l.startsWith('NOT_TAKEN')).length, 11);
-  assert.equal(lines.at(-1), 'SHOTS captured=1 withheld=1 not_taken=11 planned=13');
+  assert.equal(lines.filter((l) => l.startsWith('NOT_TAKEN')).length, 8);
+  assert.equal(lines.at(-1), 'SHOTS captured=1 withheld=1 not_taken=8 planned=10');
   assert.ok(lines.every((l) => LINE.test(l)));
   const out = fs.readFileSync(path.join(root, 'export', 'ba_r1_1440.png'));
   assert.ok(!out.includes(Buffer.from(NONCE)) && !out.includes(Buffer.from('tEXt')));
