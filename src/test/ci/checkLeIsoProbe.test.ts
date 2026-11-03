@@ -9,8 +9,8 @@ import type { Browser, BrowserServer, BrowserType } from 'playwright-core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
-import { absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
-import { formatResults, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
+import { apparmorLabel, daemonSecurity, HOST_DIAG, HOST_DIAG_ORDER, hostDiagLine, INNER_DIAG, INNER_DIAG_ORDER, sysctlClass, absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
+import { formatResults, innerDiag, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
 import { buildImage, createArgs, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
@@ -22,7 +22,7 @@ const CIDV = 'c'.repeat(64);
 const IMG = `sha256:${'a'.repeat(64)}`;
 const REPO = '/w/repo', TEMP = '/rt', NODE = '/n/bin/node', SHELL = '/s/chrome-headless-shell';
 const H = `${TEMP}/le-iso-host`, S = `${TEMP}/le-iso-sock`, O = `${TEMP}/le-iso-out`;
-const passLines = () => `${INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`).join('\n')}\nLE-ISO END\n`;
+const passLines = () => `${[...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} UNKNOWN`)].join('\n')}\nLE-ISO END\n`;
 const stat = (start: string) => `9 (node) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 ${start} 0 0`;
 
 function goodInspect(over: Record<string, unknown> = {}) {
@@ -158,8 +158,8 @@ describe('le-iso host orchestrator (fakes only)', () => {
     const r = await run();
     expect(r.say.filter((l) => l.startsWith('ISO_E_'))).toEqual([]);
     expect(r.ok).toBe(true);
-    const fixed = new Set([...HOST_CODES, ...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`)]);
-    for (const l of r.say) expect(fixed.has(l), l).toBe(true);
+    const fixed = new Set([...HOST_CODES, ...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} UNKNOWN`)]);
+    for (const l of r.say.filter((x) => !x.startsWith('ISO_DIAG '))) expect(fixed.has(l), l).toBe(true);
     expect(r.say.slice(0, 6)).toEqual(['ISO_INPUT_OK', 'ISO_IMAGE_OK', 'ISO_ENDPOINT_OK', 'ISO_CREATE_OK', 'ISO_CONFIG_OK', 'ISO_RUN_DONE']);
     expect(r.say.slice(-8)).toEqual(['ISO_STOP_OK', 'ISO_EXIT_OK', 'ISO_RM_OK', 'ISO_ABSENT', 'ISO_ENDPOINT_STOPPED', 'ISO_IMAGE_REMOVED', 'ISO_DIRS_REMOVED', 'ISO_INNER_PASS']);
     const order = r.calls.map((c) => c[1]).filter((x) => ['start', 'stop', 'wait', 'rm'].includes(x));
@@ -376,7 +376,7 @@ describe('run 41718226106 follow-up (r4): observed sequence, created-never-start
   it('reproduces the observed failure path and now tears it down with field-name-only diagnostics', async () => {
     const f = fake({ inspectOver: tmpfsDrift(), stopFails: true, final: '0 0\n' });
     const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
-    expect(r.say).toEqual(['ISO_INPUT_OK', 'ISO_IMAGE_OK', 'ISO_ENDPOINT_OK', 'ISO_CREATE_OK', 'ISO_E_CONFIG', 'ISO_CONFIG_FIELD Tmpfs',
+    expect(r.say.filter((l) => !l.startsWith('ISO_DIAG '))).toEqual(['ISO_INPUT_OK', 'ISO_IMAGE_OK', 'ISO_ENDPOINT_OK', 'ISO_CREATE_OK', 'ISO_E_CONFIG', 'ISO_CONFIG_FIELD Tmpfs',
       'ISO_STOP_SKIPPED_NEVER_STARTED', 'ISO_CREATED_NEVER_STARTED', 'ISO_RM_OK', 'ISO_ABSENT', 'ISO_ENDPOINT_STOPPED',
       'ISO_IMAGE_REMOVED', 'ISO_DIRS_REMOVED', 'ISO_INNER_FAIL']);
     expect(r.ok).toBe(false);
@@ -662,6 +662,63 @@ describe('le-iso r6: Binds order from the docker CLI is not significant (fakes o
     const e = exp(); const before = [...e.Binds];
     compareInspect(withBinds([...e.Binds].reverse()), e);
     expect(e.Binds).toEqual(before);
+  });
+});
+
+describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed codes; fakes only)', () => {
+  it('host diagnostic lines print only a closed code or a plain version, never other text', () => {
+    expect(hostDiagLine('DOCKER_SERVER', '28.0.4')).toBe('ISO_DIAG DOCKER_SERVER 28.0.4');
+    expect(hostDiagLine('KERNEL', '6.8')).toBe('ISO_DIAG KERNEL 6.8');
+    for (const bad of ['28.0.4-ce', '28.0.4\nX', '/etc/passwd', '', undefined, null, 'v1.2.5'])
+      expect(hostDiagLine('RUNC', bad as string)).toBe('ISO_DIAG RUNC UNKNOWN');
+    expect(hostDiagLine('DAEMON_SECCOMP', 'BUILTIN')).toBe('ISO_DIAG DAEMON_SECCOMP BUILTIN');
+    expect(hostDiagLine('DAEMON_SECCOMP', 'profile=/x')).toBe('ISO_DIAG DAEMON_SECCOMP UNKNOWN');
+    expect(hostDiagLine('NOPE', 'ON')).toBe('ISO_DIAG UNKNOWN UNKNOWN');
+    expect(HOST_DIAG_ORDER).toEqual(Object.keys(HOST_DIAG));
+  });
+  it('daemon security options, sysctls and AppArmor labels map to closed codes', () => {
+    expect(daemonSecurity(['name=apparmor', 'name=seccomp,profile=builtin', 'name=cgroupns'])).toEqual({ seccomp: 'BUILTIN', apparmor: 'PRESENT' });
+    expect(daemonSecurity(['name=seccomp,profile=unconfined'])).toEqual({ seccomp: 'UNCONFINED', apparmor: 'ABSENT' });
+    expect(daemonSecurity(['name=seccomp,profile=/etc/x.json'])).toEqual({ seccomp: 'CUSTOM', apparmor: 'ABSENT' });
+    expect(daemonSecurity([])).toEqual({ seccomp: 'ABSENT', apparmor: 'ABSENT' });
+    expect(daemonSecurity(null)).toEqual({ seccomp: 'UNKNOWN', apparmor: 'UNKNOWN' });
+    expect(sysctlClass('0\n', 'count')).toBe('ZERO'); expect(sysctlClass('63229\n', 'count')).toBe('POSITIVE');
+    expect(sysctlClass('1\n', 'switch')).toBe('ON'); expect(sysctlClass('0', 'switch')).toBe('OFF');
+    expect(sysctlClass('2', 'switch')).toBe('UNKNOWN'); expect(sysctlClass('x', 'count')).toBe('UNKNOWN'); expect(sysctlClass(null as unknown as string, 'count')).toBe('UNKNOWN');
+    expect(apparmorLabel('docker-default (enforce)\n')).toBe('DOCKER_DEFAULT_ENFORCE');
+    expect(apparmorLabel('docker-default (complain)')).toBe('DOCKER_DEFAULT_OTHER');
+    expect(apparmorLabel('unconfined')).toBe('UNCONFINED');
+    expect(apparmorLabel('my-profile (enforce)')).toBe('OTHER');
+    expect(apparmorLabel(null as unknown as string)).toBe('UNKNOWN');
+  });
+  it('the in-container diagnostics read only the three files and reduce them to codes', () => {
+    const files: Record<string, string> = { '/proc/self/status': 'Seccomp:\t2\nSeccomp_filters:\t1\n', '/proc/self/attr/apparmor/current': 'docker-default (enforce)\n', '/proc/sys/user/max_user_namespaces': '63229\n' };
+    const seen: string[] = [];
+    const rd = (p: string) => { seen.push(p); if (!(p in files)) throw new Error('ENOENT'); return files[p]; };
+    expect(innerDiag(rd)).toEqual({ SECCOMP_FILTERS: 'ONE', APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE', MAX_USERNS: 'POSITIVE' });
+    expect(new Set(seen)).toEqual(new Set(Object.keys(files)));
+    expect(innerDiag(() => { throw new Error('x'); })).toEqual({ SECCOMP_FILTERS: 'UNKNOWN', APPARMOR_LABEL: 'UNKNOWN', MAX_USERNS: 'UNKNOWN' });
+  });
+  it('inner diagnostic lines are strictly classified and never change pass', () => {
+    const all = Object.fromEntries(INNER_ORDER.map((t) => [t, INNER_TESTS[t].expected]));
+    const ok = classifyInner(formatResults(all, { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'UNCONFINED', MAX_USERNS: 'ZERO' }));
+    expect(ok).toMatchObject({ ok: true, pass: true, diag: { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'UNCONFINED', MAX_USERNS: 'ZERO' } });
+    expect(formatResults(all, { MAX_USERNS: 'lots' })).toContain('LE-ISO-DIAG MAX_USERNS UNKNOWN');
+    expect(classifyInner(passLines().replace('LE-ISO-DIAG MAX_USERNS UNKNOWN', 'LE-ISO-DIAG MAX_USERNS 12'))).toEqual({ ok: false });
+    expect(classifyInner(passLines().replace('LE-ISO-DIAG MAX_USERNS UNKNOWN\n', ''))).toEqual({ ok: false });
+    for (const k of INNER_DIAG_ORDER) expect(INNER_DIAG[k]).toContain('UNKNOWN');
+  });
+  it('the orchestrator adds only read-only docker queries; create flags and teardown are unchanged', async () => {
+    const r = await run();
+    const extra = r.calls.filter((c) => c[0] === 'docker' && ['version', 'info'].includes(c[1]));
+    expect(extra).toEqual([['docker', 'version', '--format', '{{json .}}'], ['docker', 'info', '--format', '{{json .SecurityOptions}}']]);
+    expect(r.say.filter((l) => l.startsWith('ISO_DIAG ')).map((l) => l.split(' ')[1])).toEqual([...HOST_DIAG_ORDER]);
+    expect(r.say.filter((l) => l.startsWith('LE-ISO-DIAG ')).map((l) => l.split(' ')[1])).toEqual([...INNER_DIAG_ORDER]);
+    expect(r.ok).toBe(true);
+    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL });
+    expect(a.join(' ')).not.toMatch(/seccomp|apparmor|unconfined|--cap-add|--privileged|userns/);
+    const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
+    expect(inner).toMatch(/chromiumSandbox: true/);
   });
 });
 

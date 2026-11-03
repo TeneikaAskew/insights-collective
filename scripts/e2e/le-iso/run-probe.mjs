@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd, stopOutputCategory, tmpfsSpec } from './expect.mjs';
+import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd, stopOutputCategory, tmpfsSpec, HOST_DIAG_ORDER, INNER_DIAG_ORDER, daemonSecurity, hostDiagLine, sysctlClass } from './expect.mjs';
 
 /**
  * A genuinely bounded client exec. At `timeout` the client gets SIGTERM, after `grace` SIGKILL, and after another `grace`
@@ -122,6 +122,35 @@ export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, 
     imageId, node, path.join(repo, 'scripts/e2e/le-iso/inner-probe.mjs'), repo, shell];
 }
 
+/**
+ * r7 host diagnostics (read-only): docker client/server and runc versions, the daemon's seccomp/AppArmor options, the
+ * kernel release and the host's user-namespace switches, and whether a setuid sandbox helper sits beside the shell.
+ * Every value is reduced by hostDiagLine to a closed code or a plain version; nothing else is printed.
+ */
+export async function hostDiag(d, x, fsx, shell) {
+  const r = { CONTAINER_APPARMOR: 'UNKNOWN' };
+  const readText = (p) => { try { return fsx.readFileSync(p, 'utf8'); } catch (e) { return e?.code === 'ENOENT' ? 'ABSENT' : null; } };
+  const v = await x('docker', ['version', '--format', '{{json .}}'], { timeout: 30000 });
+  let vj = null;
+  try { vj = v.ok ? JSON.parse(v.stdout) : null; } catch { vj = null; }
+  r.DOCKER_CLIENT = vj?.Client?.Version;
+  r.DOCKER_SERVER = vj?.Server?.Version;
+  r.RUNC = (Array.isArray(vj?.Server?.Components) ? vj.Server.Components.find((c) => c?.Name === 'runc')?.Version : undefined)?.replace(/^v/, '');
+  const i = await x('docker', ['info', '--format', '{{json .SecurityOptions}}'], { timeout: 30000 });
+  let opts = null;
+  try { opts = i.ok ? JSON.parse(i.stdout) : null; } catch { opts = null; }
+  const sec = daemonSecurity(opts);
+  r.DAEMON_SECCOMP = sec.seccomp; r.DAEMON_APPARMOR = sec.apparmor;
+  const rel = readText('/proc/sys/kernel/osrelease');
+  r.KERNEL = typeof rel === 'string' ? (rel.match(/^(\d{1,4}\.\d{1,4})/) ?? [])[1] : undefined;
+  const sw = (p, kind) => { const t = readText(p); return t === 'ABSENT' ? 'ABSENT' : sysctlClass(t, kind); };
+  r.HOST_MAX_USERNS = sw('/proc/sys/user/max_user_namespaces', 'count');
+  r.HOST_AA_RESTRICT_USERNS = sw('/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'switch');
+  r.HOST_USERNS_CLONE = sw('/proc/sys/kernel/unprivileged_userns_clone', 'switch');
+  try { r.SUID_HELPER = fsx.existsSync(path.join(path.dirname(shell), 'chrome_sandbox')) ? 'PRESENT' : 'ABSENT'; } catch { r.SUID_HELPER = 'UNKNOWN'; }
+  return r;
+}
+
 export async function runProbe(d, { repo, node, shell, temp }) {
   const say = [];
   const out = (c) => say.push(c);
@@ -148,6 +177,9 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     } catch { fail('ISO_E_INPUT_ROLLBACK'); }
     return { ok, say };
   }
+
+  // r7 host diagnostics: read-only queries; a failure prints UNKNOWN and never changes the run's verdict.
+  const hd = await hostDiag(d, x, fsx, shell);
 
   try {
     const b = await (d.buildImage ?? buildImage)({ ...d, exec: x }, { ctl: H, node, shell }); // ldd/build/inspect clients tracked too
@@ -197,6 +229,8 @@ export async function runProbe(d, { repo, node, shell, temp }) {
         : compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O }));
       // The check is unchanged; only the NAMES of the differing fields are printed (fixed list, never values).
       if (bad.length) { fail('ISO_E_CONFIG'); for (const l of configFieldLines(bad)) out(l); } else out('ISO_CONFIG_OK');
+      const ap = obj && typeof obj.AppArmorProfile === 'string' ? obj.AppArmorProfile : null;
+      hd.CONTAINER_APPARMOR = ap == null ? 'UNKNOWN' : ap === '' ? 'EMPTY' : ap === 'docker-default' ? 'DOCKER_DEFAULT' : ap === 'unconfined' ? 'UNCONFINED' : 'OTHER';
     }
 
     if (ok) {
@@ -208,8 +242,13 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       if (r.timedOut) fail('ISO_E_START_TIMEOUT');
       else if (!cls.ok && !r.ok) fail('ISO_E_START');
       else if (!cls.ok) { out('ISO_RUN_DONE'); fail('ISO_E_INNER_OUTPUT'); }
-      else { out('ISO_RUN_DONE'); for (const t of INNER_ORDER) out(`LE-ISO ${t} ${cls.results[t]}`); innerPass = cls.pass && r.ok; }
+      else {
+        out('ISO_RUN_DONE'); for (const t of INNER_ORDER) out(`LE-ISO ${t} ${cls.results[t]}`);
+        for (const k of INNER_DIAG_ORDER) out(`LE-ISO-DIAG ${k} ${cls.diag[k]}`);
+        innerPass = cls.pass && r.ok;
+      }
     }
+    for (const k of HOST_DIAG_ORDER) out(hostDiagLine(k, hd[k]));
   } finally {
     // Teardown, always; each gate has its own code; no retry. The run identity (control dir with lane.cid, image.id, ready,
     // final) and the bound dirs are PRESERVED unless cleanup is positively established: container absent, endpoint gone.

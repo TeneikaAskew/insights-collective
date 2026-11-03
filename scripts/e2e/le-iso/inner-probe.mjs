@@ -12,7 +12,7 @@ import dns from 'node:dns/promises';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { IN, INNER_ORDER, INNER_TESTS, dnsVerdict, launchErrorCode, mountsVerdict } from './expect.mjs';
+import { IN, INNER_DIAG, INNER_DIAG_ORDER, INNER_ORDER, INNER_TESTS, apparmorLabel, dnsVerdict, launchErrorCode, mountsVerdict, sysctlClass } from './expect.mjs';
 
 const FWD_PORT = 54321;
 const results = {};
@@ -114,8 +114,26 @@ export function tmpVerdict(fsx, dir, tryWrite) {
 }
 
 /** The exact stdout: one line per test in INNER_ORDER (a missing result reports that test's first failure code), then END. */
-export function formatResults(res) {
-  return `${INNER_ORDER.map((t) => `LE-ISO ${t} ${res[t] ?? INNER_TESTS[t].other[0]}`).join('\n')}\nLE-ISO END\n`;
+export function formatResults(res, diag = {}) {
+  const tests = INNER_ORDER.map((t) => `LE-ISO ${t} ${res[t] ?? INNER_TESTS[t].other[0]}`);
+  const diags = INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} ${INNER_DIAG[k].includes(diag[k]) ? diag[k] : 'UNKNOWN'}`);
+  return `${[...tests, ...diags].join('\n')}\nLE-ISO END\n`;
+}
+
+/**
+ * r7 diagnostics (read-only; never pass/fail): seccomp filter count, the process's AppArmor label, and the user-namespace
+ * limit visible inside the container. readText(path) returns the file's text or throws. Returns closed codes only.
+ */
+export function innerDiag(readText) {
+  const read = (p) => { try { return readText(p); } catch { return null; } };
+  const status = read('/proc/self/status');
+  const nf = status == null ? null : (status.split('\n').find((l) => l.startsWith('Seccomp_filters:')) ?? '').split(/\s+/)[1];
+  const label = read('/proc/self/attr/apparmor/current') ?? read('/proc/self/attr/current');
+  return {
+    SECCOMP_FILTERS: nf == null || !/^\d+$/.test(nf) ? 'UNKNOWN' : nf === '0' ? 'ZERO' : nf === '1' ? 'ONE' : 'MANY',
+    APPARMOR_LABEL: apparmorLabel(label),
+    MAX_USERNS: sysctlClass(read('/proc/sys/user/max_user_namespaces'), 'count'),
+  };
 }
 
 async function main() {
@@ -210,7 +228,9 @@ async function main() {
   }
   if (fwd) fwd.close();
 
-  process.stdout.write(formatResults(results));
+  let diag = {};
+  try { diag = innerDiag((p) => readSmall(p, 65536)); } catch { diag = {}; }
+  process.stdout.write(formatResults(results, diag));
   process.exit(INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected) ? 0 : 1);
 }
 

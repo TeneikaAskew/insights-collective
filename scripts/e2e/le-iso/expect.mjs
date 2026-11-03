@@ -57,6 +57,68 @@ export const INNER_TESTS = Object.freeze({
 export const INNER_ORDER = Object.freeze(Object.keys(INNER_TESTS));
 
 /**
+ * r7 DIAGNOSTICS ONLY (never pass/fail): closed-list codes about the sandbox's launch constraints, read without changing
+ * any flag. In-container lines are `LE-ISO-DIAG <KEY> <CODE>`, printed after the tests and before END, in this order.
+ */
+export const INNER_DIAG = Object.freeze({
+  SECCOMP_FILTERS: ['ONE', 'MANY', 'ZERO', 'UNKNOWN'], // /proc/self/status Seccomp_filters
+  APPARMOR_LABEL: ['DOCKER_DEFAULT_ENFORCE', 'DOCKER_DEFAULT_OTHER', 'UNCONFINED', 'OTHER', 'UNKNOWN'], // /proc/self/attr
+  MAX_USERNS: ['ZERO', 'POSITIVE', 'UNKNOWN'], // /proc/sys/user/max_user_namespaces as seen in the container
+});
+export const INNER_DIAG_ORDER = Object.freeze(Object.keys(INNER_DIAG));
+
+/** Host-side DIAGNOSTICS ONLY: `ISO_DIAG <KEY> <CODE>`. VERSION keys print a version only if it matches VERSION_RE. */
+export const HOST_DIAG = Object.freeze({
+  DOCKER_CLIENT: 'VERSION', DOCKER_SERVER: 'VERSION', RUNC: 'VERSION', KERNEL: 'VERSION',
+  DAEMON_SECCOMP: ['BUILTIN', 'UNCONFINED', 'CUSTOM', 'ABSENT', 'UNKNOWN'],
+  DAEMON_APPARMOR: ['PRESENT', 'ABSENT', 'UNKNOWN'],
+  CONTAINER_APPARMOR: ['DOCKER_DEFAULT', 'UNCONFINED', 'EMPTY', 'OTHER', 'UNKNOWN'],
+  HOST_MAX_USERNS: ['ZERO', 'POSITIVE', 'ABSENT', 'UNKNOWN'],
+  HOST_AA_RESTRICT_USERNS: ['ON', 'OFF', 'ABSENT', 'UNKNOWN'],
+  HOST_USERNS_CLONE: ['ON', 'OFF', 'ABSENT', 'UNKNOWN'],
+  SUID_HELPER: ['PRESENT', 'ABSENT', 'UNKNOWN'],
+});
+export const HOST_DIAG_ORDER = Object.freeze(Object.keys(HOST_DIAG));
+export const VERSION_RE = /^\d{1,4}\.\d{1,4}(\.\d{1,4})?$/;
+
+/** One host diagnostic line; a value outside the key's closed list (or not a plain version) prints UNKNOWN. */
+export function hostDiagLine(key, value) {
+  const spec = HOST_DIAG[key];
+  if (!spec) return 'ISO_DIAG UNKNOWN UNKNOWN';
+  const ok = spec === 'VERSION' ? typeof value === 'string' && VERSION_RE.test(value) : spec.includes(value);
+  return `ISO_DIAG ${key} ${ok ? value : 'UNKNOWN'}`;
+}
+
+/** Daemon security options (docker info .SecurityOptions, e.g. "name=seccomp,profile=builtin") to closed codes. */
+export function daemonSecurity(opts) {
+  if (!Array.isArray(opts)) return { seccomp: 'UNKNOWN', apparmor: 'UNKNOWN' };
+  const sc = opts.find((o) => typeof o === 'string' && /^name=seccomp(,|$)/.test(o));
+  const prof = sc ? (sc.split(',').find((k) => k.startsWith('profile=')) ?? '').slice(8) : null;
+  return {
+    seccomp: !sc ? 'ABSENT' : prof === 'builtin' || prof === 'default' ? 'BUILTIN' : prof === 'unconfined' ? 'UNCONFINED' : prof ? 'CUSTOM' : 'UNKNOWN',
+    apparmor: opts.some((o) => o === 'name=apparmor' || (typeof o === 'string' && o.startsWith('name=apparmor,'))) ? 'PRESENT' : 'ABSENT',
+  };
+}
+
+/** A /proc/sys integer file's text to ZERO/POSITIVE (max_user_namespaces) or OFF/ON (0/1 switches); else UNKNOWN. */
+export function sysctlClass(text, kind) {
+  const v = typeof text === 'string' ? text.trim() : '';
+  if (!/^\d{1,10}$/.test(v)) return 'UNKNOWN';
+  if (kind === 'count') return v === '0' ? 'ZERO' : 'POSITIVE';
+  return v === '0' ? 'OFF' : v === '1' ? 'ON' : 'UNKNOWN';
+}
+
+/** An AppArmor label (/proc/self/attr/...) to a closed code. */
+export function apparmorLabel(text) {
+  const v = typeof text === 'string' ? text.replace(/\0/g, '').trim() : '';
+  if (!v) return 'UNKNOWN';
+  if (v === 'unconfined') return 'UNCONFINED';
+  if (v === 'docker-default (enforce)') return 'DOCKER_DEFAULT_ENFORCE';
+  if (v.startsWith('docker-default')) return 'DOCKER_DEFAULT_OTHER';
+  return 'OTHER';
+}
+
+/**
  * Every field name compareInspect can report, plus the three inspect-read failures. The host prints a mismatch ONLY as
  * `ISO_CONFIG_FIELD <name>` with a name from this list (anything else prints UNKNOWN): never a value, path or id.
  */
@@ -226,13 +288,15 @@ export function parseLdd(text) {
 
 /**
  * Classify the container's stdout: exactly one line `LE-ISO <TEST> <CODE>` per test in INNER_ORDER, in order, each code
- * from that test's allowlist, then `LE-ISO END`. Returns { ok, pass, results } or { ok:false } for any other shape.
+ * from that test's allowlist, then (r7) exactly one `LE-ISO-DIAG <KEY> <CODE>` per INNER_DIAG_ORDER key from its closed list,
+ * then `LE-ISO END`. Diagnostics never affect pass. Returns { ok, pass, results, diag } or { ok:false } for any other shape.
  */
 export function classifyInner(stdout) {
   const lines = String(stdout).split('\n').filter((l) => l !== '');
-  if (lines.length !== INNER_ORDER.length + 1 || lines[lines.length - 1] !== 'LE-ISO END') return { ok: false };
-  const results = {};
-  for (let i = 0; i < INNER_ORDER.length; i++) {
+  const n = INNER_ORDER.length, k = INNER_DIAG_ORDER.length;
+  if (lines.length !== n + k + 1 || lines[lines.length - 1] !== 'LE-ISO END') return { ok: false };
+  const results = {}, diag = {};
+  for (let i = 0; i < n; i++) {
     const t = INNER_ORDER[i];
     const m = lines[i].match(/^LE-ISO ([A-Z0-9]+) ([A-Z0-9_]+)$/);
     if (!m || m[1] !== t) return { ok: false };
@@ -240,7 +304,13 @@ export function classifyInner(stdout) {
     if (m[2] !== spec.expected && !spec.other.includes(m[2])) return { ok: false };
     results[t] = m[2];
   }
-  return { ok: true, pass: INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected), results };
+  for (let j = 0; j < k; j++) {
+    const key = INNER_DIAG_ORDER[j];
+    const m = lines[n + j].match(/^LE-ISO-DIAG ([A-Z0-9_]+) ([A-Z0-9_]+)$/);
+    if (!m || m[1] !== key || !INNER_DIAG[key].includes(m[2])) return { ok: false };
+    diag[key] = m[2];
+  }
+  return { ok: true, pass: INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected), results, diag };
 }
 
 /** The closed category of a mount point that is not allowed (never the path itself). */
