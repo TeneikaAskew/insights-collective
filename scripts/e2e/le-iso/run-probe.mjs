@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
+import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd } from './expect.mjs';
 
 /**
  * A genuinely bounded client exec. At `timeout` the client gets SIGTERM, after `grace` SIGKILL, and after another `grace`
@@ -127,8 +127,10 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   const out = (c) => say.push(c);
   const fsx = d.fs;
   const H = path.join(temp, 'le-iso-host'), S = path.join(temp, 'le-iso-sock'), O = path.join(temp, 'le-iso-out');
-  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false, createTried = false, buildInvoked = false;
+  let ok = true, imageId = null, cid = null, child = null, endpoint = null, innerPass = false, createTried = false, buildInvoked = false, startInvoked = false, clientUnreaped = false;
   const fail = (c) => { ok = false; out(c); };
+  // Every docker/ldd client call goes through x(): a client left unreaped after SIGKILL marks the run UNRESOLVED.
+  const x = async (...a) => { const r = await d.exec(...a); if (r?.unreaped) clientUnreaped = true; return r; };
 
   // Inputs: absolute existing paths, fresh dirs (an existing dir is never reused). A partial setup removes ONLY the dirs
   // this run created (empty, non-recursive) and verifies they are gone; a pre-existing dir is never touched.
@@ -148,7 +150,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   }
 
   try {
-    const b = await (d.buildImage ?? buildImage)(d, { ctl: H, node, shell });
+    const b = await (d.buildImage ?? buildImage)({ ...d, exec: x }, { ctl: H, node, shell }); // ldd/build/inspect clients tracked too
     if (typeof b === 'string') { fail(b); } else {
       buildInvoked = true; imageId = b.id;
       if (b.code === 'ISO_IMAGE_OK' && imageId) out(b.code); else fail(b.code === 'ISO_IMAGE_OK' ? 'ISO_E_IMAGE_BUILD' : b.code);
@@ -175,7 +177,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     if (ok) {
       const cidfile = path.join(H, 'lane.cid');
       createTried = true;
-      const c = await d.exec('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
+      const c = await x('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
       let read = null;
       try { read = fsx.readFileSync(cidfile, 'utf8').trim(); } catch { read = null; }
       const said = c.stdout.trim();
@@ -188,17 +190,20 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     }
 
     if (ok) {
-      const i = await d.exec('docker', ['container', 'inspect', cid]);
+      const i = await x('docker', ['container', 'inspect', cid]);
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
-      const bad = i.ok && obj && obj.Id === cid ? compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O })) : ['INSPECT'];
-      if (bad.length) fail('ISO_E_CONFIG'); else out('ISO_CONFIG_OK');
+      const bad = !i.ok ? ['INSPECT_EXEC'] : !obj ? ['INSPECT_PARSE'] : obj.Id !== cid ? ['INSPECT_ID']
+        : compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O }));
+      // The check is unchanged; only the NAMES of the differing fields are printed (fixed list, never values).
+      if (bad.length) { fail('ISO_E_CONFIG'); for (const l of configFieldLines(bad)) out(l); } else out('ISO_CONFIG_OK');
     }
 
     if (ok) {
       // Bounded client: at 300 s the docker CLI gets SIGTERM, then SIGKILL; the CID is kept and the container is stopped
       // host-side in teardown (killing the client does not stop the container).
-      const r = await d.exec('docker', ['start', '-a', cid], { timeout: 300000, max: 1 << 16 });
+      startInvoked = true;
+      const r = await x('docker', ['start', '-a', cid], { timeout: 300000, max: 1 << 16 });
       const cls = classifyInner(r.stdout);
       if (r.timedOut) fail('ISO_E_START_TIMEOUT');
       else if (!cls.ok && !r.ok) fail('ISO_E_START');
@@ -211,23 +216,31 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     let containerGone = !createTried; // nothing was created, so nothing can survive
     if (createTried && !cid) fail('ISO_E_CID_UNKNOWN');
     if (cid) {
-      // Explicit, bounded stop: `docker start -a` returning (or its client being killed on timeout) does not stop the
-      // container. stop sends SIGTERM to init, then SIGKILL after 10 s; it succeeds on an already-exited container too.
-      const st = await d.exec('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
-      if (!st.ok || st.stdout.trim() !== cid) fail('ISO_E_STOP'); else out('ISO_STOP_OK');
-      const w = await d.exec('docker', ['wait', cid], { timeout: 30000 });
-      const i = await d.exec('docker', ['container', 'inspect', cid]);
+      // Started (start was invoked): explicit, bounded stop, because `docker start -a` returning (or its client being
+      // killed) does not stop the container; then a bounded wait. Never started: no stop/wait (run 41718226106 showed stop
+      // failing on a created container); the inspect below must then VERIFY the created-never-started state.
+      let waited = true;
+      if (startInvoked) {
+        const st = await x('docker', ['stop', '--time', '10', cid], { timeout: 30000 });
+        if (st.timedOut) fail('ISO_E_STOP_TIMEOUT'); else if (!st.ok) fail('ISO_E_STOP_STATUS');
+        else if (st.stdout.trim() !== cid) fail('ISO_E_STOP_OUTPUT'); else out('ISO_STOP_OK');
+        const w = await x('docker', ['wait', cid], { timeout: 30000 });
+        waited = w.ok && /^-?\d+$/.test(w.stdout.trim());
+        if (w.timedOut) fail('ISO_E_WAIT_TIMEOUT'); else if (!waited) fail('ISO_E_WAIT');
+      } else out('ISO_STOP_SKIPPED_NEVER_STARTED');
+      const i = await x('docker', ['container', 'inspect', cid]);
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
-      const stopped = w.ok && /^-?\d+$/.test(w.stdout.trim()) && i.ok && !!obj && obj.Id === cid && exitStateOk(obj);
-      if (!w.ok) fail('ISO_E_WAIT');
-      else if (!stopped) fail('ISO_E_EXIT_STATE');
-      else out('ISO_EXIT_OK');
+      const seen = i.ok && !!obj && obj.Id === cid;
+      const neverStarted = seen && createdNeverStarted(obj);
+      const exited = seen && waited && startInvoked && exitStateOk(obj);
+      const stopped = exited || neverStarted;
+      if (exited) out('ISO_EXIT_OK'); else if (neverStarted) out('ISO_CREATED_NEVER_STARTED'); else fail('ISO_E_EXIT_STATE');
       if (stopped) {
         // rm only a container positively seen stopped (no -f); then require a successful, empty listing.
-        const rm = await d.exec('docker', ['rm', cid], { timeout: 30000 });
+        const rm = await x('docker', ['rm', cid], { timeout: 30000 });
         if (!rm.ok || rm.stdout.trim() !== cid) fail('ISO_E_RM'); else out('ISO_RM_OK');
-        const ls = await d.exec('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}'], { timeout: 30000 });
+        const ls = await x('docker', ['container', 'ls', '-a', '--no-trunc', '--filter', `id=${cid}`, '--format', '{{.ID}}'], { timeout: 30000 });
         const v = absenceVerdict(ls.ok, ls.stdout, cid);
         if (v === 'absent') { out('ISO_ABSENT'); containerGone = true; } else fail(v === 'present' ? 'ISO_E_STILL_PRESENT' : 'ISO_E_ABSENCE_UNDECIDED');
       }
@@ -262,8 +275,11 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       else if (code !== 'timeout') {
         let fin = null;
         try { fin = fsx.readFileSync(path.join(H, 'final'), 'utf8').match(/^(\d+) (\d+)\n$/); } catch { fin = null; }
+        // Connections: a container that ran must have used the endpoint (>= 1); one that never started must not have
+        // (exactly 0). Either way none may remain open. Termination and absence gates above are unchanged.
+        const want = (n) => (startInvoked ? n >= 1 : n === 0);
         if (code !== 0) fail('ISO_E_ENDPOINT_TERMINATION');
-        else if (!fin || Number(fin[1]) < 1 || Number(fin[2]) !== 0) fail('ISO_E_ENDPOINT_CONNS');
+        else if (!fin || !want(Number(fin[1])) || Number(fin[2]) !== 0) fail('ISO_E_ENDPOINT_CONNS');
         else if (endpoint) out('ISO_ENDPOINT_STOPPED');
       }
     }
@@ -273,17 +289,18 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     if (buildInvoked && !imageId) fail('ISO_E_IMAGE_UNKNOWN');
     else if (imageId && !containerGone) fail('ISO_PRESERVED_IMAGE');
     else if (imageId) {
-      const r = await d.exec('docker', ['image', 'rm', imageId], { timeout: 60000 });
+      const r = await x('docker', ['image', 'rm', imageId], { timeout: 60000 });
       if (!r.ok) fail('ISO_E_IMAGE_REMOVE');
       else {
-        const ls = await d.exec('docker', ['image', 'ls', '-a', '-q', '--no-trunc'], { timeout: 30000 });
+        const ls = await x('docker', ['image', 'ls', '-a', '-q', '--no-trunc'], { timeout: 30000 });
         const ids = ls.stdout.split('\n').map((l) => l.trim()).filter(Boolean);
         if (!ls.ok || ids.some((x) => !IMAGE_ID.test(x))) fail('ISO_E_IMAGE_ABSENCE');
         else if (ids.includes(imageId)) fail('ISO_E_IMAGE_ABSENCE');
         else { out('ISO_IMAGE_REMOVED'); imageGone = true; }
       }
     }
-    if (!containerGone || !endpointGone || !imageGone) fail('ISO_PRESERVED_DIRS');
+    if (clientUnreaped) fail('ISO_E_CLIENT_UNREAPED');
+    if (!containerGone || !endpointGone || !imageGone || clientUnreaped) fail('ISO_PRESERVED_DIRS');
     else {
       try {
         for (const p of [H, S, O]) fsx.rmSync(p, { recursive: true, force: false });

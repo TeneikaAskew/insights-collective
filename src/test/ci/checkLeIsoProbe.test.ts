@@ -9,7 +9,7 @@ import type { Browser, BrowserServer, BrowserType } from 'playwright-core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
-import { absenceVerdict, classifyInner, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INNER_ORDER, INNER_TESTS, mountsVerdict, parseLdd } from '../../../scripts/e2e/le-iso/expect.mjs';
+import { absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INNER_ORDER, INNER_TESTS, mountsVerdict, parseLdd } from '../../../scripts/e2e/le-iso/expect.mjs';
 import { formatResults, sandboxCheck } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
 import { buildImage, createArgs, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
 
@@ -34,19 +34,21 @@ function goodInspect(over: Record<string, unknown> = {}) {
 
 type Opt = { inner?: string; startOk?: boolean; readyPid?: number; startNow?: string; lsC?: [boolean, string]; final?: string;
   exitCode?: number; ignoreTerm?: boolean; ignoreKill?: boolean; inspectOver?: Record<string, unknown>; images?: string;
-  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean; rmFails?: boolean; imagesOk?: boolean };
-const RUNNING = { Status: 'running', Running: true, Restarting: false, Pid: 77, Dead: false };
+  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean; unreapedOn?: string; stopTimeout?: boolean; inspectFails?: boolean; inspectGarbage?: boolean; rmFails?: boolean; imagesOk?: boolean; createdState?: Record<string, unknown>; stopOut?: string; final0?: string };
+const RUNNING = { Status: 'running', Running: true, Paused: false, Restarting: false, Pid: 77, Dead: false, StartedAt: '2026-11-03T21:04:40Z' };
+const CREATED_STATE = { Status: 'created', Running: false, Paused: false, Restarting: false, Pid: 0, Dead: false, StartedAt: '0001-01-01T00:00:00Z' };
 function fake(o: Opt = {}) {
   const files = new Map<string, string>();
   const dirs = new Set<string>([REPO, NODE, SHELL, TEMP]);
   const calls: string[][] = [];
   const procs = new Map<string, string>();
   let running = false;
+  let started = false;
   let exists = false;
   const die = (code: number | null) => {
     procs.delete('/proc/4242/stat'); dirs.delete('/proc/4242');
     if (code === 0) files.set(`${H}/final`, o.final ?? '2 0\n');
-    setTimeout(() => child.emit('exit', code), 0);
+    process.nextTick(() => child.emit('exit', code)); // before any timer: the 5 ms fake sleep must never win the exit race under load
   };
   const child = Object.assign(new EventEmitter(), { pid: 4242, exitCode: null as number | null, signalCode: null as string | null, kill: (sig: string) => {
     calls.push(['kill', sig]);
@@ -64,13 +66,17 @@ function fake(o: Opt = {}) {
   const exec = (bin: string, args: string[]) => {
     calls.push([bin, ...args]);
     const [a0, a1] = args;
+    if (o.unreapedOn && a0 === o.unreapedOn) return { ok: false, stdout: '', timedOut: true, unreaped: true };
+    if (o.stopTimeout && a0 === 'stop') return { ok: false, stdout: '', timedOut: true };
+    if (o.inspectFails && a0 === 'container' && a1 === 'inspect') return { ok: false, stdout: '' };
+    if (o.inspectGarbage && a0 === 'container' && a1 === 'inspect') return { ok: true, stdout: 'not json' };
     if (a0 === 'create') {
       const cf = args[args.indexOf('--cidfile') + 1]; const c = o.createCid ?? CIDV; files.set(cf, `${c}\n`); exists = true;
       return { ok: true, stdout: `${o.createOut ?? c}\n` };
     }
-    if (a0 === 'container' && a1 === 'inspect') return exists ? { ok: true, stdout: JSON.stringify([goodInspect({ ...o.inspectOver, ...(running ? { State: RUNNING } : {}) })]) } : { ok: false, stdout: '' };
-    if (a0 === 'start') { running = true; if (o.hangs) return { ok: false, stdout: '' }; running = false; return { ok: o.startOk ?? true, stdout: o.inner ?? passLines() }; }
-    if (a0 === 'stop') { if (o.stopFails) return { ok: false, stdout: '' }; running = false; return { ok: true, stdout: `${CIDV}\n` }; }
+    if (a0 === 'container' && a1 === 'inspect') return exists ? { ok: true, stdout: JSON.stringify([goodInspect({ ...o.inspectOver, ...(running ? { State: RUNNING } : started ? {} : { State: o.createdState ?? CREATED_STATE }) })]) } : { ok: false, stdout: '' };
+    if (a0 === 'start') { running = true; started = true; if (o.hangs) return { ok: false, stdout: '' }; running = false; return { ok: o.startOk ?? true, stdout: o.inner ?? passLines() }; }
+    if (a0 === 'stop') { if (o.stopFails) return { ok: false, stdout: '' }; running = false; return { ok: true, stdout: o.stopOut ?? `${CIDV}\n` }; }
     if (a0 === 'wait') return running ? { ok: false, stdout: '' } : { ok: true, stdout: '0\n' };
     if (a0 === 'rm') { if (running) return { ok: false, stdout: '' }; exists = false; return { ok: true, stdout: `${CIDV}\n` }; }
     if (a0 === 'container' && a1 === 'ls') return { ok: (o.lsC ?? [true, ''])[0], stdout: o.lsC ? o.lsC[1] : exists ? `${CIDV}\n` : '' };
@@ -344,11 +350,11 @@ describe('le-iso bounded client exec (fake ChildProcess; no process is spawned)'
     expect(await makeExec(() => Object.assign(e, { stdout: new EventEmitter(), kill: () => true }) as never, { grace: 10 })('docker', [], { timeout: 50 })).toMatchObject({ ok: false });
   });
   it('orchestrator: a docker start client that ignores SIGTERM is killed, the CID is kept, then stop/wait/rm run', async () => {
-    const f = fake();
+    const f = fake({ hangs: true }); // the fake daemon marks the container running when start is invoked
     const order: string[] = [];
     const spawnFn = (bin: string, args: string[]) => {
       order.push(args[0]);
-      if (args[0] === 'start') return fakeProc({ delay: 1e9, ignore: ['SIGTERM'] });
+      if (args[0] === 'start') { f.d.exec(bin, args); return fakeProc({ delay: 1e9, ignore: ['SIGTERM'] }); }
       const r = f.d.exec(bin, args) as { ok: boolean; stdout: string };
       return fakeProc({ out: r.stdout, code: r.ok ? 0 : 1 });
     };
@@ -360,6 +366,82 @@ describe('le-iso bounded client exec (fake ChildProcess; no process is spawned)'
     expect(after.slice(0, 4)).toEqual(['start', 'stop', 'wait', 'container']);
     expect(r.ok).toBe(false);
   }, 2000);
+});
+
+describe('run 41718226106 follow-up (r4): observed sequence, created-never-started teardown, field names (fakes only)', () => {
+  // Observed on the hosted runner at 81ae0073: INPUT_OK, IMAGE_OK, ENDPOINT_OK, CREATE_OK, E_CONFIG, E_STOP, E_EXIT_STATE,
+  // E_ENDPOINT_CONNS, PRESERVED_IMAGE, PRESERVED_DIRS, INNER_FAIL. Reproduced here with a config drift on a container left
+  // in the created state whose daemon refuses `stop`; r4 must not call stop/wait at all, verify the created state, remove it.
+  const tmpfsDrift = () => { const b = goodInspect(); return { HostConfig: { ...b.HostConfig, Tmpfs: { '/tmp': 'rw' } } }; };
+  it('reproduces the observed failure path and now tears it down with field-name-only diagnostics', async () => {
+    const f = fake({ inspectOver: tmpfsDrift(), stopFails: true, final: '0 0\n' });
+    const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+    expect(r.say).toEqual(['ISO_INPUT_OK', 'ISO_IMAGE_OK', 'ISO_ENDPOINT_OK', 'ISO_CREATE_OK', 'ISO_E_CONFIG', 'ISO_CONFIG_FIELD Tmpfs',
+      'ISO_STOP_SKIPPED_NEVER_STARTED', 'ISO_CREATED_NEVER_STARTED', 'ISO_RM_OK', 'ISO_ABSENT', 'ISO_ENDPOINT_STOPPED',
+      'ISO_IMAGE_REMOVED', 'ISO_DIRS_REMOVED', 'ISO_INNER_FAIL']);
+    expect(r.ok).toBe(false);
+    expect(f.calls.some((c) => ['start', 'stop', 'wait'].includes(c[1]))).toBe(false);
+    expect(r.say.join('\n')).not.toMatch(/rw|\/tmp|sha256|[0-9a-f]{12}/);
+  });
+  it('a never-started container that the endpoint saw connections for fails CONNS (must be exactly 0)', async () => {
+    const r = await run({ inspectOver: tmpfsDrift(), final: '1 0\n' });
+    expect(r.say).toContain('ISO_E_ENDPOINT_CONNS');
+    expect(r.say).toContain('ISO_DIRS_REMOVED'); // termination/absence gates still decide cleanup
+  });
+  it('a started container still needs >= 1 connection and none open', async () => {
+    expect((await run({ final: '0 0\n' })).say).toContain('ISO_E_ENDPOINT_CONNS');
+    expect((await run({ final: '3 1\n' })).say).toContain('ISO_E_ENDPOINT_CONNS');
+    expect((await run({ final: '3 0\n' })).say).toContain('ISO_ENDPOINT_STOPPED');
+  });
+  it('an unverified created state is never removed: control and image preserved', async () => {
+    for (const st of [{ ...CREATED_STATE, StartedAt: '2026-11-03T21:04:40Z' }, { ...CREATED_STATE, Status: 'exited' }, { ...CREATED_STATE, Pid: 5 }, { ...CREATED_STATE, Dead: true }]) {
+      const f = fake({ inspectOver: tmpfsDrift(), createdState: st, final: '0 0\n' });
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.say, JSON.stringify(st)).toEqual(expect.arrayContaining(['ISO_E_EXIT_STATE', 'ISO_PRESERVED_IMAGE', 'ISO_PRESERVED_DIRS']));
+      expect(f.calls.some((c) => c[1] === 'rm')).toBe(false);
+      expect(f.files.get(`${H}/lane.cid`)).toBe(`${CIDV}\n`);
+    }
+  });
+  it('createdNeverStarted accepts only the exact never-ran shape', () => {
+    expect(createdNeverStarted({ State: CREATED_STATE })).toBe(true);
+    for (const k of ['Running', 'Paused', 'Restarting', 'Dead']) expect(createdNeverStarted({ State: { ...CREATED_STATE, [k]: true } })).toBe(false);
+    expect(createdNeverStarted({ State: { ...CREATED_STATE, StartedAt: undefined } })).toBe(false);
+    expect(createdNeverStarted({})).toBe(false);
+  });
+  it('field names only: fixed list, de-duplicated, unknown names masked; inspect read failures named', async () => {
+    expect(configFieldLines(['Tmpfs', 'Tmpfs', 'EffectiveMounts'])).toEqual(['ISO_CONFIG_FIELD Tmpfs', 'ISO_CONFIG_FIELD EffectiveMounts']);
+    expect(configFieldLines(['/home/runner/secret'])).toEqual(['ISO_CONFIG_FIELD UNKNOWN']);
+    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+    const all = compareInspect({ Id: 'x', Mounts: 'bad', HostConfig: { Binds: 'bad', CapAdd: 'bad' }, Config: { Volumes: { a: 1 }, ExposedPorts: { b: 1 } } }, exp);
+    for (const n of all) expect(CONFIG_FIELDS).toContain(n);
+    expect((await run({ inspectFails: true })).say).toEqual(expect.arrayContaining(['ISO_E_CONFIG', 'ISO_CONFIG_FIELD INSPECT_EXEC']));
+    expect((await run({ inspectGarbage: true })).say).toEqual(expect.arrayContaining(['ISO_E_CONFIG', 'ISO_CONFIG_FIELD INSPECT_PARSE']));
+  });
+  it('the config check itself is unchanged: any drift still refuses before start', async () => {
+    const r = await run({ inspectOver: tmpfsDrift(), final: '0 0\n' });
+    expect(r.calls.some((c) => c[1] === 'start')).toBe(false);
+    expect(r.ok).toBe(false);
+  });
+  it('stop failures are told apart by fixed code (status, timeout, output)', async () => {
+    const t = await run({ hangs: true, stopTimeout: true });
+    expect(t.say).toContain('ISO_E_STOP_TIMEOUT');
+    const o = await run({ stopOut: 'other\n' });
+    expect(o.say).toContain('ISO_E_STOP_OUTPUT');
+  });
+  it('any unreaped client keeps every record, even when everything else reports clean', async () => {
+    for (const on of ['rm', 'image', 'stop', 'create']) {
+      const f = fake({ unreapedOn: on, final: on === 'create' ? '0 0\n' : '2 0\n' });
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.say, on).toEqual(expect.arrayContaining(['ISO_E_CLIENT_UNREAPED', 'ISO_PRESERVED_DIRS']));
+      expect(r.say).not.toContain('ISO_DIRS_REMOVED');
+      expect(f.dirs.has(H)).toBe(true);
+    }
+  });
+  it('CodeQL alert 636 (js/useless-assignment-to-local, inner-probe.mjs SANDBOX branch): no dead initial value', () => {
+    const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
+    expect(inner).not.toMatch(/let code = 'SANDBOX_E_LAUNCH'/);
+    expect(inner).toMatch(/let code; \/\/ CodeQL alert 636/);
+  });
 });
 
 describe('le-iso container termination (fakes only)', () => {
@@ -375,7 +457,7 @@ describe('le-iso container termination (fakes only)', () => {
   });
   it('a container that cannot be stopped is never removed, and its run identity is preserved', async () => {
     const r = await run({ hangs: true, stopFails: true });
-    expect(r.say).toEqual(expect.arrayContaining(['ISO_E_STOP', 'ISO_E_WAIT', 'ISO_PRESERVED_IMAGE', 'ISO_PRESERVED_DIRS']));
+    expect(r.say).toEqual(expect.arrayContaining(['ISO_E_STOP_STATUS', 'ISO_E_WAIT', 'ISO_E_EXIT_STATE', 'ISO_PRESERVED_IMAGE', 'ISO_PRESERVED_DIRS']));
     expect(r.calls.some((c) => c[1] === 'rm')).toBe(false);
     expect(r.calls.some((c) => c[1] === 'image' && c[2] === 'rm')).toBe(false);
     for (const p of [H, S, O]) expect(r.dirs.has(p)).toBe(true);

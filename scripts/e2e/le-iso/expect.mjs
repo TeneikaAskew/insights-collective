@@ -12,8 +12,8 @@ export const HOST_CODES = Object.freeze([
   'ISO_CREATE_OK', 'ISO_E_CREATE', 'ISO_E_CID', 'ISO_E_CID_UNKNOWN',
   'ISO_CONFIG_OK', 'ISO_E_CONFIG',
   'ISO_RUN_DONE', 'ISO_E_START', 'ISO_E_START_TIMEOUT',
-  'ISO_STOP_OK', 'ISO_E_STOP',
-  'ISO_EXIT_OK', 'ISO_E_EXIT_STATE', 'ISO_E_WAIT',
+  'ISO_STOP_OK', 'ISO_E_STOP_STATUS', 'ISO_E_STOP_TIMEOUT', 'ISO_E_STOP_OUTPUT', 'ISO_STOP_SKIPPED_NEVER_STARTED',
+  'ISO_EXIT_OK', 'ISO_CREATED_NEVER_STARTED', 'ISO_E_EXIT_STATE', 'ISO_E_WAIT', 'ISO_E_WAIT_TIMEOUT', 'ISO_E_CLIENT_UNREAPED',
   'ISO_RM_OK', 'ISO_E_RM',
   'ISO_ABSENT', 'ISO_E_ABSENCE_UNDECIDED', 'ISO_E_STILL_PRESENT',
   'ISO_ENDPOINT_STOPPED', 'ISO_E_ENDPOINT_IDENTITY_CHANGED', 'ISO_E_ENDPOINT_TERMINATION', 'ISO_E_ENDPOINT_CONNS', 'ISO_ENDPOINT_KILLED',
@@ -44,6 +44,22 @@ export const INNER_TESTS = Object.freeze({
   SANDBOX: { expected: 'SANDBOX_ON_NONCE_MATCH', other: ['SANDBOX_E_LAUNCH', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT'] },
 });
 export const INNER_ORDER = Object.freeze(Object.keys(INNER_TESTS));
+
+/**
+ * Every field name compareInspect can report, plus the three inspect-read failures. The host prints a mismatch ONLY as
+ * `ISO_CONFIG_FIELD <name>` with a name from this list (anything else prints UNKNOWN): never a value, path or id.
+ */
+export const CONFIG_FIELDS = Object.freeze(['INSPECT_EXEC', 'INSPECT_PARSE', 'INSPECT_ID', 'INSPECT', 'Image', 'User', 'Volumes',
+  'ExposedPorts', 'NetworkMode', 'PidMode', 'IpcMode', 'UTSMode', 'UsernsMode', 'CgroupnsMode', 'Privileged', 'ReadonlyRootfs',
+  'PublishAllPorts', 'AutoRemove', 'Init', 'CapAdd', 'CapDrop', 'SecurityOpt', 'Devices', 'DeviceCgroupRules', 'VolumesFrom',
+  'Links', 'ExtraHosts', 'Dns', 'DnsSearch', 'DnsOptions', 'Binds', 'RestartPolicy', 'LogConfig', 'Tmpfs', 'PortBindings', 'Mounts',
+  'NanoCpus', 'Memory', 'MemorySwap', 'PidsLimit', 'ShmSize', 'EffectiveMounts']);
+
+/** The fixed diagnostic lines for a config mismatch (field names only, de-duplicated, list order). */
+export function configFieldLines(bad) {
+  const names = [...new Set(bad)];
+  return names.map((n) => `ISO_CONFIG_FIELD ${CONFIG_FIELDS.includes(n) ? n : 'UNKNOWN'}`);
+}
 
 /** Container resource bounds (passed to docker create and checked in inspect). */
 export const LIMITS = Object.freeze({ NanoCpus: 1_000_000_000, Memory: 1_073_741_824, MemorySwap: 1_073_741_824, PidsLimit: 256, ShmSize: 67_108_864 });
@@ -126,6 +142,16 @@ export function dnsVerdict(outcome) {
   if (outcome === 'resolved') return 'DNS_E_RESOLVED';
   if (outcome === 'ECONNREFUSED') return 'DNS_NONE';
   return 'DNS_E_UNDECIDED';
+}
+
+/**
+ * A container that was created and verifiably NEVER started: Status created, not running/paused/restarting/dead, no pid,
+ * and the zero StartedAt Docker reports for a container that never ran. Only this, or exitStateOk, permits a plain rm.
+ */
+export function createdNeverStarted(inspect) {
+  const s = inspect?.State ?? {};
+  return s.Status === 'created' && s.Running === false && s.Paused === false && s.Restarting === false && s.Dead === false
+    && s.Pid === 0 && s.StartedAt === '0001-01-01T00:00:00Z';
 }
 
 /** The state a finished container must report before removal. */

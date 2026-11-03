@@ -184,7 +184,7 @@ async function main() {
   // SANDBOX: see sandboxCheck. Reaches only the in-container forwarder.
   if (!nonce || !shell || !repo || !fwd) set('SANDBOX', 'SANDBOX_E_INPUT');
   else {
-    let code = 'SANDBOX_E_LAUNCH';
+    let code; // CodeQL alert 636 (js/useless-assignment-to-local): both branches below assign it
     try {
       const { chromium } = createRequire(path.join(repo, 'package.json'))('playwright-core');
       code = await sandboxCheck(chromium, { shell, url: `http://127.0.0.1:${FWD_PORT}/`, nonce, readCmdline: (pid) => fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8') });
