@@ -209,6 +209,16 @@ const helpers = read('e2e/roster-reports/helpers.ts');
 ok(/export async function assertRrStudents/.test(helpers) && /export async function assertRrReports/.test(helpers)
   && ['instructor.spec.ts', 'admin.spec.ts'].every((f) => /assertRrStudents\(/.test(read(`e2e/roster-reports/${f}`)) && /assertRrReports\(/.test(read(`e2e/roster-reports/${f}`))), 'instructor and admin share the same Students/Reports assertions');
 
+// 8c. The security.yml fs-write gate: no writer in the e2e tree; the only telemetry writer is policy-log.mjs (under scripts/).
+const sec = read('.github/workflows/security.yml');
+const allowed = new RegExp(/ALLOWED='([^']+)'/.exec(sec)?.[1] ?? '^$');
+const WRITER = /writeFile|writeFileSync|createWriteStream|appendFile|appendFileSync|Deno\.write/;
+const owned = [...fs.readdirSync(path.join(ROOT, 'e2e/roster-reports')).map((f) => `e2e/roster-reports/${f}`), 'playwright.roster-reports.config.ts'];
+const writers = owned.filter((f) => !allowed.test(f) && WRITER.test(read(f)));
+ok(/ALLOWED='/.test(sec) && writers.length === 0, `fs-write gate: no writer outside ALLOWED in owned e2e files (${writers.join(',')})`);
+ok(allowed.test('scripts/roster-reports-fixture/policy-log.mjs') && /appendFileSync\(p, `\$\{line\}\\n`, \{ mode: 0o600 \}\)/.test(read('scripts/roster-reports-fixture/policy-log.mjs'))
+  && /JSON\.stringify\(\{ rpc: String\(rec\.rpc\), actor: String\(rec\.actor\), status: Number\(rec\.status\) \}\)/.test(read('scripts/roster-reports-fixture/policy-log.mjs')), 'policy-log.mjs: under scripts/, fixed fields, 0600');
+
 // 9. run.sh ordering and always-run collection (static).
 const code = run.replace(/^\s*#.*$/gm, '');
 const at = (re: RegExp) => { const m = re.exec(code); return m ? m.index : -1; };
