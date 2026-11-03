@@ -25,28 +25,31 @@ export type Role = keyof typeof ROLES;
 /** The private session dir: absolute, a real directory (not a link), owned by this user, mode 0700. */
 export function sessionDir(env = process.env): string {
   const d = env.RR_SESSION_DIR ?? '';
-  if (!path.isAbsolute(d)) throw new Error('roster-reports refused: RR_SESSION_DIR must be an absolute private directory');
-  const st = fs.lstatSync(d);
+  if (!path.isAbsolute(d)) throw new Error('RR_SETUP_E_SESSION_DIR');
+  let st: fs.Stats;
+  try { st = fs.lstatSync(d); } catch { throw new Error('RR_SETUP_E_SESSION_DIR'); } // no path in the message
   if (!st.isDirectory() || st.isSymbolicLink() || (st.mode & 0o777) !== 0o700 || (typeof process.getuid === 'function' && st.uid !== process.getuid())) {
-    throw new Error('roster-reports refused: RR_SESSION_DIR must be a 0700 directory owned by this user');
+    throw new Error('RR_SETUP_E_SESSION_DIR');
   }
   return d;
 }
 
+// Every refusal below is a FIXED code (RR_SETUP_E_*, RR_POLICY_E_*, RR_SINK_E_*) with fixed-enum or integer fields only, so
+// summary.mjs can classify it without printing input text. The first failure is kept and rethrown unchanged.
 export default async function sessionSetup(_config: FullConfig): Promise<void> {
   const { api, app, anonKey } = assertStrictLocalBinding();
   const dir = sessionDir();
   const nonce = process.env.RR_ASSOCIATION_NONCE ?? '';
   sinkPath(); // the telemetry sink's fixed path and private parents must hold before any browser exists (RR_SINK_E_ROOT)
-  if (!/^[0-9a-f]{32}$/.test(nonce)) throw new Error('roster-reports setup: RR_ASSOCIATION_NONCE must be 32 hex characters written by run.sh through the DB DSN');
+  if (!/^[0-9a-f]{32}$/.test(nonce)) throw new Error('RR_SETUP_E_NONCE');
   const password = process.env.E2E_TEST_PASSWORD ?? '';
-  if (!password) throw new Error('roster-reports setup: no synthetic password');
+  if (!password) throw new Error('RR_SETUP_E_PASSWORD');
   for (const [role, email] of Object.entries(ROLES) as Array<[Role, string]>) {
     const res = await fetch(`${api.origin}/auth/v1/token?grant_type=password`, {
       method: 'POST', redirect: 'error', headers: { apikey: anonKey, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (res.status !== 200) throw new Error(`roster-reports setup: sign-in for ${role} returned HTTP ${res.status}`);
+    if (res.status !== 200) throw new Error(`RR_SETUP_E_SIGNIN actor=${role} http=${res.status}`);
     const t = await res.json();
     if (role === 'instructor') {
       const r = await fetch(`${api.origin}/rest/v1/courses?id=eq.${RR.course}&select=description`, {
@@ -54,7 +57,7 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       });
       const rows = r.status === 200 ? await r.json() : null;
       if (!Array.isArray(rows) || rows.length !== 1 || rows[0].description !== `rr-association:${nonce}`) {
-        throw new Error(`roster-reports setup: the approved API did not return the DB-written association nonce (HTTP ${r.status})`);
+        throw new Error(`RR_SETUP_E_ASSOCIATION actor=${role} http=${r.status}`);
       }
     }
     const value = JSON.stringify({ access_token: t.access_token, refresh_token: t.refresh_token, token_type: 'bearer', expires_in: t.expires_in, expires_at: Math.floor(Date.now() / 1000) + t.expires_in, user: t.user });
@@ -76,11 +79,12 @@ export default async function sessionSetup(_config: FullConfig): Promise<void> {
       // O_NOFOLLOW at 0600, fixed codes; no Playwright path write followed by an after-the-fact chmod.
       const state = await context.storageState();
       writePrivateFile(dir, `${role}.json`, JSON.stringify(state));
-      if (blocked.length) throw new Error(`roster-reports setup: ${blocked.length} request(s) to non-approved origins were blocked`);
-      if (policy.forbidden.length) throw new Error(`roster-reports setup: ${policy.forbidden.length} forbidden API request(s) were aborted before send`);
-      if ([...origins].some((o) => o !== api.origin) || !origins.has(api.origin)) throw new Error('roster-reports setup: app -> API association unproven');
+      if (blocked.length) throw new Error(`RR_SETUP_E_ORIGIN actor=${role} count=${blocked.length}`);
+      const refusal = policy.forbiddenReport('setup', role);
+      if (refusal) throw new Error(refusal);
+      if ([...origins].some((o) => o !== api.origin) || !origins.has(api.origin)) throw new Error(`RR_SETUP_E_APP_API actor=${role}`);
       if (!state.origins.some((o) => o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')))) {
-        throw new Error(`roster-reports setup: ${role} session was not persisted by the app`);
+        throw new Error(`RR_SETUP_E_SESSION_STATE actor=${role}`);
       }
     } catch (e) { failure = e; }
     // Finalize telemetry on EVERY path (including a setup throw). Every later error is kept only when nothing failed

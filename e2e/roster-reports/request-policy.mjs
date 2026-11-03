@@ -9,12 +9,68 @@
 //   POST /rest/v1/rpc/get_user_roles           -> 'read-rpc'
 //   POST /rest/v1/rpc/log_security_event       -> 'telemetry' (inserts one public.security_events row; every one is
 //                                                 tracked to success/failed/pending and reconciled against the witness)
-//   anything else non-GET to the API           -> 'forbidden': route.abort('blockedbyclient'), recorded, test fails
+//   anything else non-GET to the API           -> 'forbidden': route.abort('blockedbyclient'), recorded as a FINITE category
+//                                                 (forbiddenCategory), counted; setup/test fail with RR_POLICY_E_FORBIDDEN
 // Requests to other origins are left to the origin guard (route.fallback()). Install this AFTER installOriginGuard so it
 // runs first (Playwright runs the most recently added matching route first).
 
 export const READ_RPCS = Object.freeze(['has_admin_access', 'is_course_instructor', 'get_user_roles']);
 export const TELEMETRY_RPCS = Object.freeze(['log_security_event']);
+
+// Forbidden-request DIAGNOSTICS (fixed enums only). A refused request is recorded as { method, resource, rpc }: method and
+// resource are fixed categories; rpc is a name from KNOWN_RPCS (the app's own RPC names, a constant list) or 'unknown' /
+// 'none'. No URL, path segment, query, id or token derived from the request is ever stored or printed.
+const enumOf = (...names) => Object.freeze(Object.assign(Object.create(null), Object.fromEntries(names.map((n) => [n, n]))));
+export const FORBID_METHODS = enumOf('GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'OTHER');
+export const FORBID_RESOURCES = enumOf('unparseable', 'rpc', 'rpc_read_with_query', 'rpc_telemetry_with_query', 'rest_table',
+  'auth_token', 'auth_other', 'storage_sign', 'storage_list', 'storage_other', 'functions', 'realtime', 'graphql', 'other_path');
+export const KNOWN_RPCS = enumOf('admin_user_role_counts', 'blog_post_authors', 'can_access_course_materials', 'check_course_completion',
+  'course_contacts', 'course_roster_stats', 'find_available_peers', 'form_submission_counts', 'generate_initial_assistant_message',
+  'get_course_stats', 'get_most_discussed_content', 'get_my_calendar_feed_token', 'get_quiz_questions', 'get_quiz_questions_for_authoring',
+  'get_quiz_questions_for_taking', 'get_student_video_progress', 'get_user_roles', 'has_admin_access', 'increment_blog_post_view',
+  'is_conversation_participant', 'is_course_instructor', 'log_audit_event', 'log_security_event', 'log_submission_file_access',
+  'mark_conversation_read', 'open_course_thread', 'platform_stats', 'reorder_content_items', 'reorder_modules', 'replace_availability',
+  'search_admin_users', 'search_form_submissions', 'select_random_questions', 'start_quiz_attempt', 'update_user_roles');
+export const DIAG_ACTORS = enumOf('admin', 'instructor', 'member', 'unknown');
+export const DIAG_SCOPES = enumOf('setup', 'test');
+export const FORBIDDEN_KEEP = 16; // bounded: at most this many records are kept; count keeps counting (capped)
+export const COUNT_CAP = 99_999;
+const own = (map, v, fallback) => (typeof v === 'string' && Object.hasOwn(map, v) ? map[v] : fallback);
+
+/** The finite category of a refused request. Never returns any substring of the URL. */
+export function forbiddenCategory(method, rawUrl) {
+  const m = own(FORBID_METHODS, String(method).toUpperCase(), 'OTHER');
+  let u;
+  try { u = new URL(rawUrl); } catch { return Object.freeze({ method: m, resource: 'unparseable', rpc: 'none' }); }
+  const p = u.pathname;
+  const rpc = /^\/rest\/v1\/rpc\/([^/]+)$/.exec(p);
+  if (rpc) {
+    const name = own(KNOWN_RPCS, rpc[1], 'unknown');
+    const q = u.search !== '';
+    const resource = q && READ_RPCS.includes(rpc[1]) ? 'rpc_read_with_query' : q && TELEMETRY_RPCS.includes(rpc[1]) ? 'rpc_telemetry_with_query' : 'rpc';
+    return Object.freeze({ method: m, resource, rpc: name });
+  }
+  const r = p.startsWith('/rest/v1/') ? 'rest_table'
+    : p === '/auth/v1/token' ? 'auth_token' : p.startsWith('/auth/v1/') ? 'auth_other'
+      : p.startsWith('/storage/v1/object/sign/') ? 'storage_sign' : p.startsWith('/storage/v1/object/list/') ? 'storage_list'
+        : p.startsWith('/storage/v1/') ? 'storage_other' : p.startsWith('/functions/v1/') ? 'functions'
+          : p.startsWith('/realtime/v1/') ? 'realtime' : p.startsWith('/graphql/v1') ? 'graphql' : 'other_path';
+  return Object.freeze({ method: m, resource: r, rpc: 'none' });
+}
+
+/**
+ * The fixed-code refusal line for a policy: null when nothing was refused, else
+ * 'RR_POLICY_E_FORBIDDEN scope=<setup|test> actor=<enum> count=<n> distinct=<n> method=<enum> resource=<enum> rpc=<enum>',
+ * describing the FIRST refused request (the earliest is the most likely cause) plus totals.
+ */
+export function forbiddenMessage(scope, actor, forbidden, count) {
+  const n = Math.min(Number.isInteger(count) && count > 0 ? count : forbidden.length, COUNT_CAP);
+  if (!n) return null;
+  const f = forbidden[0] ?? { method: 'OTHER', resource: 'other_path', rpc: 'unknown' };
+  const distinct = new Set(forbidden.map((r) => `${r.method} ${r.resource} ${r.rpc}`)).size;
+  return `RR_POLICY_E_FORBIDDEN scope=${own(DIAG_SCOPES, scope, 'unknown')} actor=${own(DIAG_ACTORS, actor, 'unknown')} count=${n} distinct=${distinct}`
+    + ` method=${own(FORBID_METHODS, f.method, 'OTHER')} resource=${own(FORBID_RESOURCES, f.resource, 'other_path')} rpc=${own(KNOWN_RPCS, f.rpc, f.rpc === 'none' ? 'none' : 'unknown')}`;
+}
 
 /**
  * @param {string} method @param {string} rawUrl @param {string} apiOrigin
@@ -46,10 +102,11 @@ export function classifyRequest(method, rawUrl, apiOrigin) {
  * test fixture fail on it. Sink errors are collected and rethrown by finalize() and assertClosed().
  * @param {import('@playwright/test').BrowserContext} context @param {string} apiOrigin
  * @param {{ actorOf?: (userId: string) => string, onTelemetry?: (rec: { rpc: string, actor: string, status: string }) => void }} [opts]
- * @returns {Promise<{ forbidden: string[], telemetry: Array<{ rpc: string, actor: string, status: string }>, late: { starts: number, completions: number }, finalize: (ms?: number) => Promise<void>, assertClosed: () => void }>}
+ * @returns {Promise<{ forbidden: Array<{ method: string, resource: string, rpc: string }>, refused: { count: number }, telemetry: Array<{ rpc: string, actor: string, status: string }>, late: { starts: number, completions: number }, finalize: (ms?: number) => Promise<void>, assertClosed: () => void, forbiddenReport: (scope: string, actor: string) => string | null }>}
  */
 export async function installRequestPolicy(context, apiOrigin, opts = {}) {
-  const forbidden = [];
+  const forbidden = []; // finite records only (forbiddenCategory), at most FORBIDDEN_KEEP
+  const refused = { count: 0 }; // every refusal, capped at COUNT_CAP
   const telemetry = [];
   const tracked = new Map(); // request -> { rpc, actor }; present from 'request' until its single emit
   const late = { starts: 0, completions: 0 }; // starts: NEW telemetry after the cutoff; completions: of already-emitted ones
@@ -68,7 +125,11 @@ export async function installRequestPolicy(context, apiOrigin, opts = {}) {
   await context.route('**/*', async (route) => {
     const req = route.request();
     const c = classifyRequest(req.method(), req.url(), apiOrigin);
-    if (c.verdict === 'forbid') { forbidden.push(c.kind); return route.abort('blockedbyclient'); }
+    if (c.verdict === 'forbid') {
+      refused.count = Math.min(refused.count + 1, COUNT_CAP);
+      if (forbidden.length < FORBIDDEN_KEEP) forbidden.push(forbiddenCategory(req.method(), req.url()));
+      return route.abort('blockedbyclient');
+    }
     // After the cutoff a NEW telemetry call is aborted before it is sent (no server effect); it was already recorded
     // as a non-PASS 'failed' record by the 'request' handler below.
     if (frozen && c.verdict === 'telemetry') return route.abort('blockedbyclient');
@@ -119,5 +180,7 @@ export async function installRequestPolicy(context, apiOrigin, opts = {}) {
     if (late.starts) throw new Error(`RR_POLICY_E_LATE_START count=${late.starts}`);
     if (sinkErrors.length) throw new Error(sinkErrors[0]);
   };
-  return { forbidden, telemetry, late, finalize, assertClosed };
+  /** Fixed-code refusal line for this policy (see forbiddenMessage), or null. */
+  const forbiddenReport = (scope, actor) => forbiddenMessage(scope, actor, forbidden, refused.count);
+  return { forbidden, refused, telemetry, late, finalize, assertClosed, forbiddenReport };
 }
