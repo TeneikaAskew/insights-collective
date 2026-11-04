@@ -637,6 +637,27 @@ describe('constraint 1: the whole owned subtree is validated first; any refusal 
     expect(w.f.nodes.has(`${AP.A.output}/arm-A/x.txt`)).toBe(true);
     expect(cl.ok).toBe(false);
   });
+  it('composed: pw-output created but its identity unverifiable is RESERVED, never content; preserved with every ancestor', async () => {
+    let once = false;
+    const w = await done({ failLstatBig: (p) => p === AP.A.output && !once && (once = true) });
+    expect(parseSynCreated(w.f.text(`${C}/syn-created`), P)!.map((e) => e.path)).toEqual([P, AP.A.P, AP.A.lane, AP.A.out, AP.A.work, AP.A.evidence]);
+    expect(w.f.nodes.has(AP.A.output)).toBe(true);
+    const cl = w.clean();
+    expect(cl).toEqual({ ok: false, lines: ['SYN_CLEANUP PRESERVED CHILD P', 'SYN_CLEANUP PRESERVED CHILD P/A', 'SYN_CLEANUP PRESERVED CHILD P/A/lane',
+      'SYN_CLEANUP PRESERVED UNRECORDED P/A/lane/evidence', 'SYN_CLEANUP REMOVED 2 OF 6', 'SYN_CLEANUP PRESERVED'] });
+    expect(w.f.nodes.has(AP.A.output)).toBe(true);
+    expect(w.f.ops).not.toContain(`rmdir ${AP.A.output}`);
+  });
+  it('composed: a recorded ancestor swapped AFTER validation stops removal beneath it; its unchanged file is never unlinked', async () => {
+    let swapped = false;
+    const w = await done({ onUnlink: (p, f) => { if (!swapped && p === `${AP.A.output}/.last-run.json`) { swapped = true; f.nodes.set(AP.A.out, { ...f.nodes.get(AP.A.out), ino: 888888 }); } } });
+    const cl = w.clean();
+    expect(swapped).toBe(true);
+    expect(cl.ok).toBe(false);
+    expect(cl.lines).toEqual(expect.arrayContaining(['SYN_CLEANUP PRESERVED CHANGED P/A/out', 'SYN_CLEANUP PRESERVED CHILD P/A', 'SYN_CLEANUP PRESERVED CHILD P']));
+    expect(w.f.nodes.has(AP.A.laneTxt)).toBe(true);
+    expect(w.f.ops).not.toContain(`unlink ${AP.A.laneTxt}`);
+  });
   it('static: the cleanup never removes recursively by API and has no writer; the control dir is not in its scope', () => {
     const src = read('scripts/e2e/le-lane/synthetic.mjs');
     const code = src.split('\n').filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*')).join('\n');

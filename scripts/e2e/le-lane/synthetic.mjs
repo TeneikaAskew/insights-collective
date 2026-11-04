@@ -13,7 +13,7 @@
 // API, never following a link, never crossing a device, and only after the aggregate lane verdict proves no container is left.
 import fs from 'node:fs';
 import path from 'node:path';
-import { SYN_ARMS, lanePaths, laneExitFromGates, selectLine, synArmPaths, synArmResult, synCreatedPath, synIntentPath, synOwnership, synSummaryLines } from './contract.mjs';
+import { SYN_ARMS, lanePaths, laneExitFromGates, selectLine, synArmDirs, synArmPaths, synArmResult, synCreatedPath, synIntentPath, synOwnership, synSummaryLines } from './contract.mjs';
 import { readVerdict } from './gates.mjs';
 import { readPrivateBounded } from '../le-e1-summary.mjs';
 
@@ -54,6 +54,12 @@ const MAX_ENTRIES = 10000, MAX_DEPTH = 16;
  * 4. only unrefused subtrees are removed, deepest first, each entry re-checked by lstat (same dev and ino and type) right before
  *    its unlink or rmdir (never a recursive removal);
  * 5. every recorded path that was not preserved must then be absent.
+ * Infrastructure paths (P and every arm's six dirs, evidence/pw-output included) are RESERVED: one without its own record is
+ * never generated content; it refuses its parent (UNRECORDED), which propagates. Before each removal, every validated ancestor up
+ * to P is re-checked too (same dev, ino, a real directory, no direct refusal); a changed ancestor refuses its anchor (CHANGED).
+ * Scope of the claim: these are path-based lstat checks in a trusted runner workspace. lstat does not follow the LAST component,
+ * but the kernel still resolves every intermediate component, and check-then-unlink is not atomic, so this narrows but does not
+ * prevent an arbitrary hostile concurrent mutation of the tree.
  * Returns { ok, lines }. ok only when nothing was preserved (or nothing was created).
  */
 export function synCleanup(fsx, { C, P, R, uid }) {
@@ -68,6 +74,7 @@ export function synCleanup(fsx, { C, P, R, uid }) {
   if (own.state === 'NOT_INVOKED') return done(true, 'SYN_CLEANUP NOT_INVOKED');
   if (own.state === 'UNRESOLVED') return done(false, 'SYN_CLEANUP PRESERVED UNRESOLVED_OWNERSHIP');
   const rec = new Map(own.entries.map((e) => [e.path, e]));
+  const RESERVED = new Set([P, ...SYN_ARMS.flatMap((a) => synArmDirs(synArmPaths(root, a)))]);
   const rel = (p) => (p === P ? 'P' : `P/${path.relative(P, p)}`);
   const refused = new Map(); // recorded path -> reason
   /** Refuse a recorded path and propagate the refusal to EVERY recorded ancestor up to P at once. */
@@ -79,7 +86,7 @@ export function synCleanup(fsx, { C, P, R, uid }) {
   const lst = (p) => { try { return fsx.lstatSync(p, { bigint: true }); } catch (e) { return e?.code === 'ENOENT' ? 'ENOENT' : null; } };
   // Validate an unrecorded entry inside a content dir; returns ops (deepest first) or null when refused.
   const unrecorded = (q, dev, depth) => {
-    if (--budget < 0 || depth > MAX_DEPTH) return null;
+    if (--budget < 0 || depth > MAX_DEPTH || RESERVED.has(q)) return null;
     const s = lst(q);
     if (!s || s === 'ENOENT' || String(s.dev) !== dev || Number(s.uid) !== uid) return null;
     const id = { path: q, dev: String(s.dev), ino: String(s.ino) };
@@ -106,6 +113,7 @@ export function synCleanup(fsx, { C, P, R, uid }) {
     for (const n of names) {
       const q = path.join(p, n);
       if (rec.has(q)) { ops.push(...recorded(q)); continue; }
+      if (RESERVED.has(q)) { refuse(p, 'UNRECORDED'); continue; } // reserved infrastructure without its own record
       if (!CONTENT.test(path.relative(P, p))) { refuse(p, 'UNRECORDED'); continue; }
       const sub = unrecorded(q, e.dev, 1);
       if (sub) ops.push(...sub); else refuse(p, 'FOREIGN');
@@ -118,10 +126,23 @@ export function synCleanup(fsx, { C, P, R, uid }) {
   for (const p of rec.keys()) if (!visited.has(p)) refuse(p, 'UNVERIFIED');
   // Removal: only unrefused entries, deepest first, each re-checked right before its own unlink or rmdir.
   const anchorOf = (q) => (rec.has(q) ? q : [...rec.keys()].filter((r) => q.startsWith(`${r}/`)).sort((x, y) => y.length - x.length)[0]);
+  const ident = new Map(ops.map((o) => [o.path, o]));
+  /** The first validated ancestor of q (up to P) that is directly refused or no longer the same real directory; else null. */
+  const ancestorFault = (q) => {
+    for (let a = path.dirname(q); a === P || a.startsWith(`${P}/`); a = path.dirname(a)) {
+      if (refused.has(a) && refused.get(a) !== 'CHILD') return a;
+      const id = ident.get(a), s = id ? lst(a) : 'SKIP';
+      if (s !== 'SKIP' && (!s || s === 'ENOENT' || !s.isDirectory() || s.isSymbolicLink() || String(s.dev) !== id.dev || String(s.ino) !== id.ino)) return a;
+      if (a === P) break;
+    }
+    return null;
+  };
   for (const o of ops) {
     const anchor = anchorOf(o.path);
     if (refused.has(anchor) && o.kind === 'dir' && rec.has(o.path)) continue;
     if (refused.has(anchor) && refused.get(anchor) !== 'CHILD') continue; // nothing inside a directly refused dir is touched
+    const fault = ancestorFault(o.path);
+    if (fault) { refuse(anchorOf(fault), 'CHANGED'); continue; }
     const s = lst(o.path);
     const same = s && s !== 'ENOENT' && String(s.dev) === o.dev && String(s.ino) === o.ino
       && (o.kind === 'dir' ? s.isDirectory() && !s.isSymbolicLink() : o.kind === 'link' ? s.isSymbolicLink() : s.isFile() && !s.isSymbolicLink());
