@@ -1,7 +1,7 @@
 // ABOUTME: Per-course roster stats for the Manage Courses table. Aggregated
 // ABOUTME: server-side via the course_roster_stats RPC — tallying an unbounded
 // ABOUTME: enrollments select client-side is silently truncated at the
-// ABOUTME: PostgREST row cap. A course with no data shows "—", never a fake 0.
+// ABOUTME: PostgREST row cap. Progress is reported unknown ("—"), never a fake 0.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,12 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('useCourseRosterStats');
 
-export type CourseRosterStat = { enrolled: number; avgProgress: number };
+/**
+ * avgProgress is null (unknown) until course_roster_stats is rebuilt from
+ * content_item_progressions: the RPC averages enrollments.completion_status,
+ * which the app never writes, so its value is 0 for every real course.
+ */
+export type CourseRosterStat = { enrolled: number; avgProgress: number | null };
 
 export function useCourseRosterStats() {
   const [statsByCourse, setStatsByCourse] = useState<Record<string, CourseRosterStat>>({});
@@ -19,8 +24,7 @@ export function useCourseRosterStats() {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // avg_progress is computed from the same completion_status column the
-      // course drawer displays, so the roster column and the drawer agree.
+      // Only `enrolled` is trusted from this RPC; see CourseRosterStat.
       const { data, error } = await supabase.rpc('course_roster_stats');
       if (cancelled) return;
       if (error || !data) {
@@ -40,7 +44,7 @@ export function useCourseRosterStats() {
         if (!row.course_id) continue;
         next[row.course_id] = {
           enrolled: Number(row.enrolled) || 0,
-          avgProgress: Math.round(Number(row.avg_progress) || 0),
+          avgProgress: null,
         };
       }
       setStatsByCourse(next);

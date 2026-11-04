@@ -224,7 +224,7 @@ const AppSidebar = () => {
             <div className="relative w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-md bg-gradient-to-tr from-ss-lav to-ss-lav-deep">
               <GraduationCap className="h-4 w-4 text-primary-foreground" />
             </div>
-            {open && <span className="font-bold text-base">Insights Collective</span>}
+            <span className={open ? "font-bold text-base" : "sr-only"}>Insights Collective</span>
           </Link>
         </div>
       </SidebarHeader>
@@ -277,7 +277,10 @@ const AppSidebar = () => {
 
 
                           <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
-                          {open && <span className="text-xs truncate">{item.title}</span>}
+                          {/* Collapsed, the rail is icons only; the label stays in the accessibility tree (sr-only)
+                              so every link keeps a name. Removing it left icon-only anchors with no accessible name
+                              (live audit T-42, /course-management at 1180x757 with the rail collapsed). */}
+                          <span className={open ? "text-xs truncate" : "sr-only"}>{item.title}</span>
                           {open && item.highlight && !item.active && (
                             <Badge className="ml-auto h-4 text-[10px] bg-sidebar-accent/20 text-sidebar-accent hover:bg-sidebar-accent/30">
                               New
@@ -302,7 +305,7 @@ const AppSidebar = () => {
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'font-medium' : SIDEBAR_NAV_INACTIVE}`}>
                       <Link to={item.url} className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-sidebar-accent-foreground' : 'text-muted-foreground'}`} />
-                        {open && <span className="text-xs truncate">{item.title}</span>}
+                        <span className={open ? "text-xs truncate" : "sr-only"}>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>)}
@@ -311,7 +314,7 @@ const AppSidebar = () => {
                     <SidebarMenuButton asChild className={SIDEBAR_NAV_INACTIVE}>
                       <Link to="/course-management" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                        {open && <span className="text-xs truncate">My Courses</span>}
+                        <span className={open ? "text-xs truncate" : "sr-only"}>My Courses</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
@@ -323,7 +326,7 @@ const AppSidebar = () => {
                     <SidebarMenuButton asChild isActive={location.pathname.startsWith('/admin/blog')} className={location.pathname.startsWith('/admin/blog') ? '' : SIDEBAR_NAV_INACTIVE}>
                       <Link to="/admin/blog" className={`flex items-center rounded-md py-1.5 ${open ? 'space-x-2 px-2' : 'justify-center w-8 h-8 px-0 mx-auto'}`}>
                         <Newspaper className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" />
-                        {open && <span className="text-xs truncate">Manage Blog</span>}
+                        <span className={open ? "text-xs truncate" : "sr-only"}>Manage Blog</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
