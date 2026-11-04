@@ -126,8 +126,8 @@ describe('EmbeddedVideoPlayer', () => {
   });
 
   it('falls back to timing from mount when IntersectionObserver is unavailable', () => {
-    // @ts-expect-error simulate an environment without IntersectionObserver
-    delete globalThis.IntersectionObserver;
+    // Simulate an environment without IntersectionObserver.
+    delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
     const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
     act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS + 1); });
     expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'slow');
