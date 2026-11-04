@@ -227,19 +227,57 @@ export const PRECHECK_CODES = Object.freeze(['LANE_E_UMASK', 'LANE_E_ENV', 'LANE
 export const LANE_APPARMOR = Object.freeze(['APPARMOR_DOCKER_DEFAULT_ENFORCE', 'APPARMOR_E_UNKNOWN', 'APPARMOR_E_UNCONFINED',
   'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE', 'APPARMOR_E_OTHER_PROFILE']);
 
+// E1 diagnostics r1 (closed values only; diagnostic, never acceptance).
+/** runChild result shapes: CLOSE_WITH_CODE = close supplied an exit code 0..255 (it can still follow timeout signalling);
+ *  REAP_UNCONFIRMED = runChild's final unreaped fallback; NO_CODE = spawn throw, child error, close without a code, or any
+ *  other shape. It never says SPAWN_FAILED, TIMED_OUT or RETURNED_NORMALLY: the wrapper does not record those. */
+export const E1_RESULT_CLASSES = Object.freeze(['CLOSE_WITH_CODE', 'REAP_UNCONFIRMED', 'NO_CODE']);
+export const REPORT_STATES = Object.freeze(['MISSING', 'INVALID', 'PARSED']);
+/** The fixed codes e2e/lesson-editor/sandbox-launch.mjs and egress-test.ts throw (checked against those sources by test). */
+export const REPORTED_ERROR_CODES = Object.freeze(['LANE_E_APPARMOR_POST', 'LANE_E_APPARMOR_PRE', 'LANE_E_BROWSER_CLOSE', 'LANE_E_CONNECT',
+  'LANE_E_LAUNCH_HUNG', 'LANE_E_LAUNCH_LATE', 'LANE_E_LAUNCH_LATE_REJECTED', 'LANE_E_LAUNCH_REJECTED', 'LANE_E_SANDBOX_ARTIFACTS',
+  'LANE_E_SANDBOX_DEFAULTS', 'LANE_E_SANDBOX_EFFECTIVE', 'LANE_E_SANDBOX_EXE', 'LANE_E_SANDBOX_OFF', 'LANE_E_SANDBOX_OPTION',
+  'LANE_E_SANDBOX_PID', 'LANE_E_SANDBOX_UNREAD', 'LANE_E_SERVER_CLOSE', 'LANE_E_SERVER_KILL']);
+export const REPORTED_ERROR_VALUES = Object.freeze([...REPORTED_ERROR_CODES, 'MULTIPLE', 'UNKNOWN']);
+
+/** Classify a runChild result object. Only the two exact known shapes get a specific class; everything else is NO_CODE. */
+export function e1ResultClass(res) {
+  if (!res || typeof res !== 'object' || Array.isArray(res)) return 'NO_CODE';
+  const keys = Object.keys(res);
+  if (keys.some((k) => !['code', 'out', 'unreaped'].includes(k))) return 'NO_CODE';
+  if (res.unreaped === true) return res.code === null ? 'REAP_UNCONFIRMED' : 'NO_CODE';
+  if ('unreaped' in res) return 'NO_CODE';
+  return Number.isInteger(res.code) && res.code >= 0 && res.code <= 255 ? 'CLOSE_WITH_CODE' : 'NO_CODE';
+}
+
+/** A message from a DEFINED report error field: exactly `<CODE>` or `Error: <CODE>` (Playwright's name prefix). */
+export function reportedErrorCode(message) {
+  if (typeof message !== 'string') return null;
+  const m = /^(?:Error: )?([A-Z_]+)$/.exec(message);
+  return m && REPORTED_ERROR_CODES.includes(m[1]) ? m[1] : null;
+}
+
 /**
  * Parse lane.txt. Shapes (each line exactly once, in order):
  *   LANE START, LANE APPARMOR <code>, LANE SETUP NOT RUN <precheck code>, LANE END
  *   LANE START, LANE APPARMOR APPARMOR_DOCKER_DEFAULT_ENFORCE, LANE SETUP PASS|FAIL, LANE E1 RAN|NOT RUN,
- *     [only after E1 RAN] LANE E1 APPARMOR PRE <worker> <browser> POST <worker> <browser> | LANE E1 APPARMOR MISSING|INVALID,
+ *     [only after E1 RAN, in this order]
+ *       LANE E1 RESULT CLOSE_WITH_CODE|REAP_UNCONFIRMED|NO_CODE,
+ *       LANE E1 APPARMOR PRE <worker> <browser> POST <worker> <browser> | LANE E1 APPARMOR MISSING|INVALID,
+ *       LANE E1 REPORT MISSING|INVALID|PARSED,
+ *       LANE E1 REPORTED_ERROR <one REPORTED_ERROR_CODES code>|MULTIPLE|UNKNOWN,
  *     LANE CLEANUP PASS|FAIL, LANE END
  * The E1 APPARMOR line is the WORKER-side evidence (egress-test.ts laneAppArmorGate), copied from the report annotation.
+ * RESULT, REPORT and REPORTED_ERROR are DIAGNOSTIC ONLY (E1 diagnostics r1): no acceptance, teardown or upload decision reads
+ * them. RESULT classifies the runChild result shape (e1ResultClass); it never says why a child had no code. REPORTED_ERROR is
+ * a lead from defined report error fields, never a proven subsystem or root cause. Consistency: REPORT MISSING needs APPARMOR
+ * MISSING, REPORT INVALID needs APPARMOR INVALID, and either needs REPORTED_ERROR UNKNOWN.
  * A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
  */
 export function parseLaneOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, workerAppArmor: null, cleanup: null };
+  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, cleanup: null };
   const want = (i) => ls[i];
   let i = 0;
   if (ls.length === 0) return r;
@@ -263,9 +301,23 @@ export function parseLaneOut(text) {
     if (e === 'LANE E1 RAN') { if (r.setup !== 'PASS') return { ok: false }; r.e1 = 'RAN'; } else if (e === 'LANE E1 NOT RUN') r.e1 = 'NOT_RUN'; else return { ok: false };
     if (i >= ls.length) return r;
     if (r.e1 === 'RAN') {
+      const x = /^LANE E1 RESULT ([A-Z_]+)$/.exec(want(i++));
+      if (!x || !E1_RESULT_CLASSES.includes(x[1])) return { ok: false };
+      r.e1Result = x[1];
+      if (i >= ls.length) return r;
       const w = workerAppArmorLine(want(i++));
       if (!w) return { ok: false };
       r.workerAppArmor = w;
+      if (i >= ls.length) return r;
+      const rs = /^LANE E1 REPORT ([A-Z_]+)$/.exec(want(i++));
+      if (!rs || !REPORT_STATES.includes(rs[1])) return { ok: false };
+      if (rs[1] !== 'PARSED' && w.state !== rs[1]) return { ok: false };
+      r.report = rs[1];
+      if (i >= ls.length) return r;
+      const re = /^LANE E1 REPORTED_ERROR ([A-Z_]+)$/.exec(want(i++));
+      if (!re || !REPORTED_ERROR_VALUES.includes(re[1])) return { ok: false };
+      if (r.report !== 'PARSED' && re[1] !== 'UNKNOWN') return { ok: false };
+      r.reportedError = re[1];
       if (i >= ls.length) return r;
     }
     const c = want(i++);
@@ -440,4 +492,20 @@ export function planSummary({ verdict, laneText, pwExit }) {
 export function pwExitContent(text) {
   const m = typeof text === 'string' ? /^(\d{1,3})\n?$/.exec(text) : null;
   return m && Number(m[1]) <= 255 ? { state: 'ok', digits: m[1] } : { state: 'bad' };
+}
+
+/**
+ * E1 diagnostics r1: one fixed detail line for the LE_SUM_E_WORKER_APPARMOR refusal ONLY, from the same validated inputs
+ * planSummary used (it re-runs planSummary and changes nothing it decides). Any other plan is `LE-E1 DETAIL NONE`.
+ * exit = the existing pw-exit content (255 stays ambiguous: a code of 255, or no code at all; read with result=).
+ * aa = the closed worker class (MISSING, INVALID or the four LANE_APPARMOR codes), never proc text.
+ * error = a lead only, never a proven subsystem or root cause.
+ */
+export function refusalDetail({ verdict, laneText, pwExit }) {
+  const p = planSummary({ verdict, laneText, pwExit });
+  if (p.kind !== 'refused' || p.code !== 'LE_SUM_E_WORKER_APPARMOR') return 'LE-E1 DETAIL NONE';
+  const o = parseLaneOut(laneText);
+  const w = o.workerAppArmor;
+  const aa = w.state === 'EVIDENCE' ? `PRE:${w.codes[0]},${w.codes[1]};POST:${w.codes[2]},${w.codes[3]}` : w.state;
+  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} cleanup=${o.cleanup}`;
 }

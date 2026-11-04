@@ -4,6 +4,8 @@
 //
 //   gates.mjs verify <ctl dir> <private parent> <repo>   -> LANE_GATE lines; exit 0 only if lane absence and bridge reap are established
 //   gates.mjs plan   <ctl dir> <private parent> <repo>   -> exactly one PLAN line (SKIP | NOTRUN <at> <code> | REFUSED <code> | SUMMARY <pw> <setup> <cleanup>)
+//   gates.mjs detail <ctl dir> <private parent> <repo>   -> exactly one fixed `LE-E1 DETAIL ...` line (diagnostic only; exit 0);
+//                    a detail for LE_SUM_E_WORKER_APPARMOR, otherwise `LE-E1 DETAIL NONE` (contract.mjs refusalDetail)
 //   gates.mjs scope  <ctl dir> <private parent> <repo> <preview> <stack> <producers> <private rm 0|1> <start>
 //                    -> LANE_SECRET_SCOPE, SECRET_CONSUMER <name> STOPPED|NEVER_STARTED|UNRESOLVED (x3),
 //                       SECRET_CLEANUP_EFFECTIVE|UNRESOLVED <consumers>, CONTROLS REMOVE|KEEP|NONE; exit 0 only if effective.
@@ -14,7 +16,7 @@
 // ../../../e2e/lesson-editor/step-codes.mjs. No child_process, no network, no dynamic import, no writer.
 import fs from 'node:fs';
 import { readPrivateBounded } from '../le-e1-summary.mjs';
-import { cleanupScope, laneVerdict, lanePaths, planSummary, pwExitContent } from './contract.mjs';
+import { cleanupScope, laneVerdict, lanePaths, planSummary, pwExitContent, refusalDetail } from './contract.mjs';
 
 export function readVerdict(fsx, L) {
   let started;
@@ -31,6 +33,19 @@ export function verifyLines(v) {
 }
 
 export function planLine(fsx, L) {
+  const p = planSummary(planInputs(fsx, L));
+  if (p.kind === 'skip') return 'PLAN SKIP';
+  if (p.kind === 'notrun') return `PLAN NOTRUN ${p.at} ${p.code}`;
+  if (p.kind === 'refused') return `PLAN REFUSED ${p.code}`;
+  return `PLAN SUMMARY ${p.pw} ${p.setup} ${p.cleanup}`;
+}
+
+/** E1 diagnostics r1: the one fixed detail line (contract.mjs refusalDetail) from the same private reads as planLine. */
+export function detailLine(fsx, L) {
+  return refusalDetail(planInputs(fsx, L));
+}
+
+export function planInputs(fsx, L) {
   const verdict = readVerdict(fsx, L);
   const exists = (p) => { try { fsx.lstatSync(p); return true; } catch (e) { return e?.code === 'ENOENT' ? false : null; } };
   const laneExists = exists(L.laneTxt);
@@ -41,11 +56,7 @@ export function planLine(fsx, L) {
   let pwExit = { state: 'absent' };
   if (pwState === null) pwExit = { state: 'bad' };
   else if (pwState) { const r = readPrivateBounded(L.pwExit, { max: 8, fsImpl: fsx }); pwExit = r.ok ? pwExitContent(r.text) : { state: 'bad' }; }
-  const p = planSummary({ verdict, laneText, pwExit });
-  if (p.kind === 'skip') return 'PLAN SKIP';
-  if (p.kind === 'notrun') return `PLAN NOTRUN ${p.at} ${p.code}`;
-  if (p.kind === 'refused') return `PLAN REFUSED ${p.code}`;
-  return `PLAN SUMMARY ${p.pw} ${p.setup} ${p.cleanup}`;
+  return { verdict, laneText, pwExit };
 }
 
 /** The le_private decision from host records only (contract.mjs cleanupScope). */
@@ -64,6 +75,7 @@ if (process.argv[1] && /le-lane\/gates\.mjs$/.test(process.argv[1])) {
     const L = lanePaths(P, C, R);
     if (cmd === 'verify') { const v = readVerdict(fs, L); for (const l of verifyLines(v)) console.log(l); process.exit(v.ok ? 0 : 1); }
     if (cmd === 'plan') { console.log(planLine(fs, L)); process.exit(0); }
+    if (cmd === 'detail') { console.log(detailLine(fs, L)); process.exit(0); }
     if (cmd === 'scope') {
       const r = scopeResult(fs, L, { outcomes: { preview, stack, producers, start }, privateRemoved: priv === '0' });
       for (const l of r.lines) console.log(l);
@@ -72,6 +84,7 @@ if (process.argv[1] && /le-lane\/gates\.mjs$/.test(process.argv[1])) {
     console.log('LANE_GATE USAGE'); process.exit(2);
   } catch {
     if (cmd === 'scope') { console.log('LANE_SECRET_SCOPE UNRESOLVED'); console.log('SECRET_CLEANUP_UNRESOLVED unclassified'); console.log('CONTROLS KEEP'); process.exit(1); }
+    if (cmd === 'detail') { console.log('LE-E1 DETAIL NONE'); process.exit(0); }
     console.log(cmd === 'plan' ? 'PLAN SKIP' : 'LANE_GATE UNRESOLVED'); process.exit(cmd === 'plan' ? 0 : 1);
   }
 }

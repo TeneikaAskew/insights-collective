@@ -7,7 +7,9 @@
 // After E1 the WORKER-side AppArmor evidence (pre-launch and post-run labels of the browser worker and the owned browser,
 // egress-test.ts laneAppArmorGate) is read from the JSON report's `lane-apparmor` annotation (readReportBounded: O_NOFOLLOW,
 // owner/mode/links/size checked on the fd before a bounded read; budgeted walk where exhaustion is INVALID) and written as one
-// closed `LANE E1 APPARMOR ...` line; MISSING, INVALID or any non-ENFORCE code fails the lane. Every Node child (run.sh's bare `node`,
+// closed `LANE E1 APPARMOR ...` line; MISSING, INVALID or any non-ENFORCE code fails the lane. E1 diagnostics r1 adds three
+// DIAGNOSTIC lines from the same result and the same single read (LANE E1 RESULT, REPORT, REPORTED_ERROR; contract.mjs);
+// nothing decides on them, and they add no writer and no capture (runChild is unchanged). Every Node child (run.sh's bare `node`,
 // the Playwright runner and its workers, pgconn) is LANE_NODE, the job's Node copied into the image (closure-checked).
 // Listeners (disclosed, inside the container's own network namespace, which has only loopback): the three forwarders on
 // 127.0.0.1:<api|db|app port>, and Playwright's launchServer endpoint on 127.0.0.1 (egress-test.ts). No other listener.
@@ -21,7 +23,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
-import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence } from './contract.mjs';
+import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode } from './contract.mjs';
 import { PAIRING_COURSE_ID, PAIRING_PREFIX, assertLivePairing, assertPairingProof } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 
 /** A bounded child: SIGTERM at timeout, SIGKILL after grace, resolves within timeout + 2*grace even if never reaped. */
@@ -87,24 +89,47 @@ export function readReportBounded(fsx, p, uid, max = REPORT_MAX) {
  * only an absent report (or one with no record) is MISSING. Both fail the lane.
  */
 export function workerAppArmorFromReport(r) {
-  if (!r || r.status === 'missing') return 'LANE E1 APPARMOR MISSING';
-  if (r.status !== 'ok' || typeof r.text !== 'string' || Buffer.byteLength(r.text, 'utf8') > REPORT_MAX) return 'LANE E1 APPARMOR INVALID';
+  return reportSnapshot(r).aaLine;
+}
+
+/**
+ * E1 diagnostics r1: ONE parse and ONE budgeted walk of ONE bounded read (the readReportBounded result `r`), giving the
+ * AppArmor line (unchanged rules above) plus two diagnostic values for lane.txt:
+ *   report: MISSING (status missing) | INVALID (refused, over-size, unparsable, either budget exhausted) | PARSED.
+ *   reportedError: matched ONLY in defined error fields, by structure: the root `errors[i].message`, and
+ *     `suites[..](.suites)*.specs[].tests[].results[].error.message`. A message counts only when it is exactly `<CODE>` or
+ *     `Error: <CODE>` for a REPORTED_ERROR_CODES code (contract.mjs reportedErrorCode). Annotations, stdout, stderr,
+ *     attachments, steps, stacks, snippets, formatted `errors[]` of a result and any other text are never read for codes.
+ *     One distinct code is that code, two or more are MULTIPLE, none (or a report that is not PARSED) is UNKNOWN.
+ * Exhausting the walk budget is INVALID for all three (fail closed), never a truncated answer.
+ */
+export function reportSnapshot(r) {
+  const none = (aa, report) => ({ aaLine: `LANE E1 APPARMOR ${aa}`, report, reportedError: 'UNKNOWN' });
+  if (!r || r.status === 'missing') return none('MISSING', 'MISSING');
+  if (r.status !== 'ok' || typeof r.text !== 'string' || Buffer.byteLength(r.text, 'utf8') > REPORT_MAX) return none('INVALID', 'INVALID');
   let root;
-  try { root = JSON.parse(r.text); } catch { return 'LANE E1 APPARMOR INVALID'; }
+  try { root = JSON.parse(r.text); } catch { return none('INVALID', 'INVALID'); }
   const found = new Set();
+  const codes = new Set();
   let nodes = 0, exhausted = false;
-  const walk = (v, depth) => {
+  // role: the structural position of `v` (null = not on a defined error path). Node and depth counting are unchanged.
+  const CHILD = { root: { suites: 'suites', errors: 'rootErrors' }, suite: { suites: 'suites', specs: 'specs' }, spec: { tests: 'tests' },
+    test: { results: 'results' }, result: { error: 'error' } };
+  const ITEM = { suites: 'suite', specs: 'spec', tests: 'test', results: 'result', rootErrors: 'error' };
+  const walk = (v, depth, role) => {
     if (exhausted || !v || typeof v !== 'object') return;
     if (++nodes > REPORT_MAX_NODES || depth > REPORT_MAX_DEPTH) { exhausted = true; return; }
-    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1); return; }
+    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1, ITEM[role] ?? null); return; }
+    if (role === 'error') { const c = reportedErrorCode(v.message); if (c) codes.add(c); }
     if (Array.isArray(v.annotations)) for (const a of v.annotations) if (a && a.type === 'lane-apparmor') found.add(typeof a.description === 'string' ? a.description : '');
-    for (const k of Object.keys(v)) if (k !== 'annotations') walk(v[k], depth + 1);
+    for (const k of Object.keys(v)) if (k !== 'annotations') walk(v[k], depth + 1, CHILD[role]?.[k] ?? null);
   };
-  walk(root, 0);
-  if (exhausted) return 'LANE E1 APPARMOR INVALID';
-  if (found.size === 0) return 'LANE E1 APPARMOR MISSING';
+  walk(root, 0, Array.isArray(root) ? null : 'root');
+  if (exhausted) return none('INVALID', 'INVALID');
+  const reportedError = codes.size === 0 ? 'UNKNOWN' : codes.size === 1 ? [...codes][0] : 'MULTIPLE';
+  if (found.size === 0) return { aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError };
   const [only] = found;
-  return found.size === 1 && workerAppArmorEvidence(only) ? `LANE E1 APPARMOR ${only}` : 'LANE E1 APPARMOR INVALID';
+  return { aaLine: found.size === 1 && workerAppArmorEvidence(only) ? `LANE E1 APPARMOR ${only}` : 'LANE E1 APPARMOR INVALID', report: 'PARSED', reportedError };
 }
 
 /** Expected process environment: exactly ENV_KEYS (values recomputed from the validated inputs), PATH, and Docker's HOSTNAME. */
@@ -215,8 +240,12 @@ export async function laneMain(d) {
       d.write(pfd, `${Number.isInteger(e1.code) && e1.code >= 0 && e1.code <= 255 ? e1.code : 255}\n`);
       d.close(pfd);
       say('LANE E1 RAN');
-      aaLine = workerAppArmorFromReport(d.readReport(L.report));
+      say(`LANE E1 RESULT ${e1ResultClass(e1)}`);
+      const snap = reportSnapshot(d.readReport(L.report)); // the ONE bounded read, used for AppArmor and diagnostics
+      aaLine = snap.aaLine;
       say(aaLine);
+      say(`LANE E1 REPORT ${snap.report}`);
+      say(`LANE E1 REPORTED_ERROR ${snap.reportedError}`);
     } else say('LANE E1 NOT RUN');
     const c = await d.run(runsh, ['cleanup', L.work], { timeout: 60000 });
     say(c.code === 0 ? 'LANE CLEANUP PASS' : 'LANE CLEANUP FAIL');

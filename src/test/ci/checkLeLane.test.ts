@@ -13,12 +13,13 @@ import {
   ENV_KEYS, GATE_KEYS, IMAGE_PATH_ENV, LANE_LIMITS, LANE_NODE, PRECHECK_CODES, PSQL_REAL, TOOLS, cleanupScope, consumerState, compareLaneInspect, expectedLaneConfig, imageBuildRecord,
   imageCleanupRecord, imageConfigProblems, IMAGE_CHECK_FIELDS, IMAGE_VALUE_CLASSES, IMAGE_WORKDIR, imageFieldLines, imageValueClass, laneBinds, laneCreateArgs, laneEnv, lanePaths, lanePorts, laneTmpfsSpec, laneVerdict, parseGates, parseImageBuildRecord,
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
+  E1_RESULT_CLASSES, REPORTED_ERROR_CODES, REPORT_STATES, e1ResultClass, refusalDetail, reportedErrorCode,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
 import { inputsOk, runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
 import { buildLaneImage, cleanupLaneImage, sanitizedEnv } from '../../../scripts/e2e/le-lane/image.mjs';
-import { planLine, readVerdict, verifyLines } from '../../../scripts/e2e/le-lane/gates.mjs';
-import { REPORT_MAX, REPORT_MAX_DEPTH, REPORT_MAX_NODES, closureProblems, envProblems, laneMain, readReportBounded, sessionParentOk, workerAppArmorFromReport } from '../../../scripts/e2e/le-lane/lane-entry.mjs';
+import { detailLine, planLine, readVerdict, verifyLines } from '../../../scripts/e2e/le-lane/gates.mjs';
+import { REPORT_MAX, REPORT_MAX_DEPTH, REPORT_MAX_NODES, closureProblems, envProblems, laneMain, readReportBounded, reportSnapshot, runChild, sessionParentOk, workerAppArmorFromReport } from '../../../scripts/e2e/le-lane/lane-entry.mjs';
 import { NOTRUN_CODES, notRunLines } from '../../../scripts/e2e/le-e1-notrun.mjs';
 import {
   FORBIDDEN_FLAGS, LAUNCH_BOUND_MS, RESOLVER_ARG, SandboxLaunchError, attestArgv, defaultsProblem, effectiveOptions, effectiveProblem, incomingProblem, labelCode,
@@ -228,7 +229,7 @@ describe('lane inspect gate (Docker 28 effective config, exact)', () => {
 
 const ENF = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
 const AA_LINE = `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} ${ENF}`;
-const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\n${AA_LINE}\nLANE CLEANUP PASS\nLANE END\n`;
+const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE CLEANUP PASS\nLANE END\n`;
 const OKV = laneVerdict({ runLaneStarted: true, gatesText: 'x\nGATE CONTAINER LANE_ABSENT\nGATE BRIDGE BRIDGE_REAPED\nGATE CLIENTS REAPED\nGATE STARTED YES\nLANE_GATES_END\n' });
 
 describe('lane output grammar and the summary plan (untrusted container data; nothing fabricated)', () => {
@@ -948,7 +949,7 @@ describe('run-lane: one orchestrator owns create, start, bridge seal/terminate/r
 // ---- in-container supervisor ----
 type EO = { label?: string | null; umask?: number; env?: Obj; closure?: boolean; forwardFails?: boolean; apiStatus?: number; appBody?: string; dbOut?: string;
   laneNotEmpty?: boolean; proofThrows?: boolean; liveThrows?: boolean; pairDb?: string; setupCode?: number; e1Code?: number | null; cleanupCode?: number;
-  execPath?: string; nodeMissing?: boolean; report?: string | null };
+  execPath?: string; nodeMissing?: boolean; report?: string | null; e1Res?: unknown };
 /** A Playwright-JSON-shaped report carrying the worker's lane-apparmor annotation (on the test and on its result, as the reporter does). */
 const reportWith = (...descs: string[]) => JSON.stringify({ suites: [{ specs: [{ title: 'E1 save', tests: [{ annotations: descs.map((d) => ({ type: 'lane-apparmor', description: d })),
   results: [{ status: 'passed', annotations: descs.map((d) => ({ type: 'lane-apparmor', description: d })) }] }] }] }] });
@@ -982,7 +983,7 @@ function entryFake(o: EO = {}) {
       runs.push([bin, ...args]);
       if (bin === PSQL_REAL) return { code: 0, out: 'psql (PostgreSQL) 16.10 (Ubuntu 16.10-0ubuntu0.24.04.1)\n' };
       if (args.includes('setup')) return { code: o.setupCode ?? 0 };
-      if (args.includes('test')) return { code: o.e1Code === undefined ? 0 : o.e1Code };
+      if (args.includes('test')) return o.e1Res !== undefined ? o.e1Res : { code: o.e1Code === undefined ? 0 : o.e1Code };
       if (args[0] === 'cleanup') return { code: o.cleanupCode ?? 0 };
       return { code: 1 };
     },
@@ -1049,7 +1050,7 @@ describe('lane-entry supervisor: umask, AppArmor first, closure, forwarders, rea
   });
   it('worker AppArmor evidence: copied from the report only in its closed form; MISSING, INVALID or non-ENFORCE fails the lane', async () => {
     const ok = await enter();
-    expect(ok.lane()).toContain(`LANE E1 RAN\n${AA_LINE}\nLANE CLEANUP PASS`);
+    expect(ok.lane()).toContain(`LANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE CLEANUP PASS`);
     const nonEnf = AA_DESC.replace(/ENFORCE$/, 'ENFORCE').replace(/POST (\S+) (\S+)$/, 'POST $1 APPARMOR_E_UNCONFINED');
     const cases: [string | null, string, number][] = [
       [null, 'LANE E1 APPARMOR MISSING', 1], // no report at all (the worker fixture failed before the test)
@@ -1063,7 +1064,7 @@ describe('lane-entry supervisor: umask, AppArmor first, closure, forwarders, rea
     ];
     for (const [report, line, code] of cases) {
       const r = await enter({ report });
-      expect(r.lane(), line).toContain(`LANE E1 RAN\n${line}\nLANE CLEANUP`);
+      expect(r.lane(), line).toContain(`LANE E1 RESULT CLOSE_WITH_CODE\n${line}\nLANE E1 REPORT `);
       expect(parseLaneOut(r.lane()).ok).toBe(true);
       expect(r.code).toBe(code);
     }
@@ -1159,7 +1160,8 @@ describe('lane-entry supervisor: umask, AppArmor first, closure, forwarders, rea
     expect(over.calls).not.toContain('read');
     // the supervisor reads the report ONLY through the bounded reader, never readText
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
-    expect(src).toContain('aaLine = workerAppArmorFromReport(d.readReport(L.report));');
+    expect(src).toContain('const snap = reportSnapshot(d.readReport(L.report));');
+    expect(src.match(/d\.readReport\(/g)).toHaveLength(1); // E1 diagnostics r1: ONE read, shared by AppArmor and diagnostics
     expect(src).toContain('readReport: (p) => readReportBounded(fs, p, process.getuid(), REPORT_MAX),');
     expect(src).not.toMatch(/readText\(L\.report\)/);
   });
@@ -1513,5 +1515,208 @@ describe('host boundary after export-status (credentials in GITHUB_ENV): closed 
     // a comment that merely mentions an import is not a load
     const g = importGraph('scripts/e2e/le-lane/gates.mjs', (r) => (r === 'scripts/e2e/le-lane/gates.mjs' ? "// import x from 'node:http';\n" : '') + readFileSync(path.join(ROOT, r), 'utf8'));
     expect(policyProblems('scripts/e2e/le-lane/gates.mjs', g)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// E1 diagnostics r1 (fakes only). Diagnostic lines never change acceptance, the refusal code, the exit or any gate.
+describe('E1 diagnostics r1: run-result class, report state, reported-error lead, refusal detail', () => {
+  const errReport = (results: Obj[], rootErrors: Obj[] = [], aa: string[] = [AA_DESC]) => JSON.stringify({
+    errors: rootErrors,
+    suites: [{ suites: [{ specs: [{ title: 'E1 save', tests: [{ annotations: aa.map((d) => ({ type: 'lane-apparmor', description: d })), results }] }] }] }],
+  });
+  const R1 = (message: unknown, extra: Obj = {}) => ({ status: 'failed', error: { message, stack: `Error: ${String(message)}\n    at x (/w/repo/e2e/x.ts:1:1)` }, ...extra });
+  const snap = (text: string) => reportSnapshot({ status: 'ok', text });
+
+  it('the code list is exactly the fixed codes the launcher and the egress fixture throw', () => {
+    const codesIn = (rel: string) => [...readFileSync(path.join(ROOT, rel), 'utf8').matchAll(/'(LANE_E_[A-Z_]+)'/g)].map((m) => m[1]);
+    const thrown = new Set([...codesIn('e2e/lesson-editor/sandbox-launch.mjs'), ...codesIn('e2e/lesson-editor/egress-test.ts')]);
+    expect([...REPORTED_ERROR_CODES].sort()).toEqual([...thrown].sort());
+    expect(E1_RESULT_CLASSES).toEqual(['CLOSE_WITH_CODE', 'REAP_UNCONFIRMED', 'NO_CODE']);
+    expect(REPORT_STATES).toEqual(['MISSING', 'INVALID', 'PARSED']);
+  });
+
+  it('result class: an actual 255 and a missing code differ; unknown or conflicting shapes are NO_CODE', () => {
+    expect(e1ResultClass({ code: 255, out: '' })).toBe('CLOSE_WITH_CODE');
+    expect(e1ResultClass({ code: 0 })).toBe('CLOSE_WITH_CODE');
+    expect(e1ResultClass({ code: null, out: '' })).toBe('NO_CODE');
+    expect(e1ResultClass({ code: null, out: '', unreaped: true })).toBe('REAP_UNCONFIRMED');
+    for (const bad of [null, undefined, 0, 'x', [], {}, { code: '0' }, { code: 1.5 }, { code: -1 }, { code: 256 }, { code: 0, unreaped: true },
+      { code: null, unreaped: 'yes' }, { code: 0, unreaped: false }, { code: 0, signal: 'SIGTERM' }, { code: 0, extra: 1 }])
+      expect(e1ResultClass(bad), JSON.stringify(bad)).toBe('NO_CODE');
+  });
+
+  const fakeChild = () => { const c = new EventEmitter() as EventEmitter & { kill: (s: string) => void; kills: string[]; stdout: null }; c.kills = []; c.kill = (s) => { c.kills.push(s); }; c.stdout = null; return c; };
+  it('runChild (unchanged) through the classifier: close, timeout then close, error, spawn throw, final unreaped fallback, late events', async () => {
+    vi.useFakeTimers();
+    try {
+      const go = async (drive: (c: ReturnType<typeof fakeChild>) => void, spawnThrows = false) => {
+        const c = fakeChild();
+        const p = runChild(() => { if (spawnThrows) throw new Error('ENOENT secret=x'); return c as never; }, '/bin/x', [], { env: {}, cwd: '/', timeout: 100, grace: 10 });
+        drive(c);
+        await vi.advanceTimersByTimeAsync(1000);
+        return { r: await p, c };
+      };
+      expect(e1ResultClass((await go((c) => c.emit('close', 255))).r)).toBe('CLOSE_WITH_CODE');
+      expect(e1ResultClass((await go((c) => c.emit('close', null))).r)).toBe('NO_CODE');
+      expect(e1ResultClass((await go((c) => c.emit('error', new Error('x')))).r)).toBe('NO_CODE');
+      expect(e1ResultClass((await go(() => {}, true)).r)).toBe('NO_CODE');
+      // timeout signalling, then close WITH a code: still CLOSE_WITH_CODE (the class never claims "returned normally")
+      const t = await go((c) => { setTimeout(() => c.emit('close', 143), 105); });
+      expect(t.c.kills).toEqual(['SIGTERM']);
+      expect(e1ResultClass(t.r)).toBe('CLOSE_WITH_CODE');
+      // timeout, then close WITHOUT a code (killed by signal)
+      expect(e1ResultClass((await go((c) => { setTimeout(() => c.emit('close', null), 105); })).r)).toBe('NO_CODE');
+      // never reaped: the final fallback, and a late close or error afterwards changes nothing
+      const u = await go((c) => { setTimeout(() => { c.emit('close', 0); c.emit('error', new Error('late')); }, 500); });
+      expect(u.c.kills).toEqual(['SIGTERM', 'SIGKILL']);
+      expect(u.r).toEqual({ code: null, out: '', unreaped: true });
+      expect(e1ResultClass(u.r)).toBe('REAP_UNCONFIRMED');
+      // a late close after a first close changes nothing either
+      expect(e1ResultClass((await go((c) => { c.emit('close', 1); c.emit('close', null); })).r)).toBe('CLOSE_WITH_CODE');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('supervisor: actual 255 vs no code write the SAME pw-exit (unchanged) and differ only in the RESULT line; acceptance unchanged', async () => {
+    const a = await enter({ e1Code: 255 });
+    const b = await enter({ e1Code: null });
+    const u = await enter({ e1Res: { code: null, out: '', unreaped: true } });
+    for (const r of [a, b, u]) { expect(r.writes.get(3)).toBe('255\n'); expect(r.code).toBe(1); expect(parseLaneOut(r.lane()).ok).toBe(true); }
+    expect(a.lane()).toContain('LANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n');
+    expect(b.lane()).toContain('LANE E1 RAN\nLANE E1 RESULT NO_CODE\n');
+    expect(u.lane()).toContain('LANE E1 RAN\nLANE E1 RESULT REAP_UNCONFIRMED\n');
+    // conflicting shapes are NO_CODE in the diagnostic; the existing acceptance rule (e1.code === 0) is untouched
+    const conflict = await enter({ e1Res: { code: 0, unreaped: true } });
+    expect(conflict.lane()).toContain('LANE E1 RESULT NO_CODE\n');
+    expect(conflict.writes.get(3)).toBe('0\n');
+    const ok = await enter();
+    expect(ok.code).toBe(0);
+    expect(ok.lane()).toBe(LANE_OK);
+  });
+
+  it('report state and the AppArmor line come from ONE read and agree; missing report plus NO_CODE stays unresolved', async () => {
+    const r = await enter({ report: null, e1Code: null });
+    expect(r.lane()).toContain('LANE E1 RESULT NO_CODE\nLANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING\nLANE E1 REPORTED_ERROR UNKNOWN\n');
+    expect(r.code).toBe(1);
+    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+    for (const why of ['open', 'owner', 'mode', 'size', 'grew', 'path', 'read'])
+      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+    expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).report).toBe('INVALID');
+    // budget exhaustion, even with a recognisable code earlier in the walk, is INVALID and UNKNOWN
+    let deep: Obj = {}; for (let i = 0; i < 100; i++) deep = { child: deep };
+    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+    const wide = JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], items: Array.from({ length: REPORT_MAX_NODES }, () => ({})) });
+    expect(snap(wide).report).toBe('INVALID');
+    // parsed with no annotation: AppArmor MISSING, report PARSED
+    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG' });
+    // the old function is the same snapshot's AppArmor line
+    expect(workerAppArmorFromReport({ status: 'ok', text: errReport([R1('Error: LANE_E_CONNECT')]) })).toBe(AA_LINE);
+  });
+
+  it('reported error: only defined error fields, exact message or the `Error: ` wrapper; spoofing elsewhere and near matches are UNKNOWN', () => {
+    expect(snap(errReport([R1('Error: LANE_E_SANDBOX_OFF')])).reportedError).toBe('LANE_E_SANDBOX_OFF');
+    expect(snap(errReport([R1('LANE_E_SANDBOX_OFF')])).reportedError).toBe('LANE_E_SANDBOX_OFF');
+    expect(snap(errReport([], [{ message: 'Error: LANE_E_LAUNCH_REJECTED', stack: 'x' }])).reportedError).toBe('LANE_E_LAUNCH_REJECTED');
+    expect(snap(errReport([{ status: 'passed' }])).reportedError).toBe('UNKNOWN');
+    const spoofs: Obj[] = [
+      { status: 'failed', errors: [{ message: 'Error: LANE_E_CONNECT' }] }, // formatted errors[] of a result: not a defined field
+      { status: 'failed', error: { message: 'x', stack: 'Error: LANE_E_CONNECT', snippet: 'LANE_E_CONNECT', value: 'LANE_E_CONNECT' } },
+      { status: 'failed', error: { message: 'x', cause: { message: 'Error: LANE_E_CONNECT' } } },
+      { status: 'failed', stdout: [{ text: 'Error: LANE_E_CONNECT' }], stderr: [{ text: 'LANE_E_CONNECT' }] },
+      { status: 'failed', attachments: [{ name: 'Error: LANE_E_CONNECT', body: 'LANE_E_CONNECT' }] },
+      { status: 'failed', steps: [{ title: 'x', error: { message: 'Error: LANE_E_CONNECT' } }] },
+      { status: 'failed', annotations: [{ type: 'error', description: 'Error: LANE_E_CONNECT' }], message: 'Error: LANE_E_CONNECT' },
+    ];
+    for (const sp of spoofs) expect(snap(errReport([sp])).reportedError, JSON.stringify(sp)).toBe('UNKNOWN');
+    // an `error` key outside the results path, or a message on an unexpected node, is not a defined field
+    expect(snap(JSON.stringify({ error: { message: 'Error: LANE_E_CONNECT' }, config: { errors: [{ message: 'LANE_E_CONNECT' }] }, suites: [{ error: { message: 'LANE_E_CONNECT' } }] })).reportedError).toBe('UNKNOWN');
+    expect(snap(JSON.stringify([{ errors: [{ message: 'LANE_E_CONNECT' }] }])).reportedError).toBe('UNKNOWN'); // a root array is not the report
+    for (const near of ['Error: LANE_E_CONNECTX', 'Error: LANE_E_CONNEC', ' LANE_E_CONNECT', 'LANE_E_CONNECT ', 'LANE_E_CONNECT\n', 'Error:  LANE_E_CONNECT',
+      'TypeError: LANE_E_CONNECT', 'SandboxLaunchError: LANE_E_CONNECT', 'error: LANE_E_CONNECT', 'lane_e_connect', 'Error: LANE_E_CONNECT\n    at x', '\u001b[31mError: LANE_E_CONNECT\u001b[39m', 'LANE_E_BOGUS', 'LANE_E_TEXT_RENDER'])
+      expect(reportedErrorCode(near), JSON.stringify(near)).toBeNull();
+    for (const v of [null, 1, {}, ['LANE_E_CONNECT']]) expect(reportedErrorCode(v)).toBeNull();
+  });
+
+  it('distinct codes are MULTIPLE; the same code twice is that code; secret-bearing messages never reach lane.txt or the detail', async () => {
+    expect(snap(errReport([R1('Error: LANE_E_CONNECT'), R1('Error: LANE_E_SERVER_KILL')])).reportedError).toBe('MULTIPLE');
+    expect(snap(errReport([R1('Error: LANE_E_CONNECT')], [{ message: 'LANE_E_LAUNCH_HUNG' }])).reportedError).toBe('MULTIPLE');
+    expect(snap(errReport([R1('Error: LANE_E_CONNECT'), R1('LANE_E_CONNECT')])).reportedError).toBe('LANE_E_CONNECT');
+    expect(snap(errReport([R1('Error: LANE_E_CONNECT'), R1('Test timeout of 30000ms exceeded.')])).reportedError).toBe('LANE_E_CONNECT');
+    const secret = 'postgresql://postgres:hunter2@127.0.0.1:54322/postgres eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc';
+    const r = await enter({ report: errReport([R1(`Error: LANE_E_CONNECT ${secret}`), R1(secret)], [{ message: secret }]) });
+    expect(r.lane()).toContain('LANE E1 REPORTED_ERROR UNKNOWN\n');
+    expect(r.lane()).not.toMatch(/hunter2|eyJ|postgresql:|127\.0\.0\.1/);
+    expect(r.lane().split('\n').every((l) => l === '' || /^LANE [A-Z0-9_ ]+$/.test(l))).toBe(true);
+    expect(r.code).toBe(0); // diagnostics decide nothing: E1 exit 0, AppArmor ENFORCE and cleanup PASS still accept exactly as before
+  });
+
+  it('grammar: the three lines are required in order after E1 RAN, closed values only, consistent with the AppArmor line', () => {
+    const base = LANE_OK;
+    const swap = (from: string, to: string) => base.replace(from, to);
+    for (const bad of [
+      swap('LANE E1 RESULT CLOSE_WITH_CODE\n', ''), swap('LANE E1 REPORT PARSED\n', ''), swap('LANE E1 REPORTED_ERROR UNKNOWN\n', ''),
+      swap('LANE E1 RESULT CLOSE_WITH_CODE', 'LANE E1 RESULT SPAWN_FAILED'), swap('LANE E1 RESULT CLOSE_WITH_CODE', 'LANE E1 RESULT TIMED_OUT'),
+      swap('LANE E1 RESULT CLOSE_WITH_CODE', 'LANE E1 RESULT RETURNED_NORMALLY'), swap('LANE E1 RESULT CLOSE_WITH_CODE', 'LANE E1 RESULT CLOSE_WITH_CODE 255'),
+      swap('LANE E1 REPORT PARSED', 'LANE E1 REPORT OK'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_BOGUS'),
+      swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR NONE'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_CONNECT secret'),
+      swap('LANE E1 REPORT PARSED', 'LANE E1 REPORT MISSING'), // AppArmor line is evidence, so the report was not missing
+      swap('LANE E1 REPORT PARSED', 'LANE E1 REPORT INVALID'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT INVALID'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING\nLANE E1 REPORTED_ERROR LANE_E_CONNECT'),
+      swap(`LANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}`, `${AA_LINE}\nLANE E1 RESULT CLOSE_WITH_CODE`), // order
+      swap('LANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 REPORT PARSED'),
+      `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP FAIL\nLANE E1 NOT RUN\nLANE E1 RESULT NO_CODE\nLANE CLEANUP PASS\nLANE END\n`,
+    ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
+    for (const good of [
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID'),
+      swap(AA_LINE, 'LANE E1 APPARMOR MISSING'), swap(AA_LINE, 'LANE E1 APPARMOR INVALID'),
+      swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR MULTIPLE'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_SANDBOX_PID'),
+    ]) expect(parseLaneOut(good).ok, good).toBe(true);
+    // each prefix is a valid interrupted prefix
+    const ls = base.split('\n');
+    for (let n = 4; n < ls.length - 2; n++) expect(parseLaneOut(`${ls.slice(0, n).join('\n')}\n`)).toMatchObject({ ok: true, interrupted: true });
+  });
+
+  it('refusal and exit behaviour unchanged; detail only for LE_SUM_E_WORKER_APPARMOR, closed tokens only, 255 left ambiguous', () => {
+    const okPw = (d: string) => ({ state: 'ok', digits: d });
+    const lane = (result: string, aa: string, report: string, err: string, cleanup = 'PASS') =>
+      `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT ${result}\n${aa}\nLANE E1 REPORT ${report}\nLANE E1 REPORTED_ERROR ${err}\nLANE CLEANUP ${cleanup}\nLANE END\n`;
+    const missing = lane('NO_CODE', 'LANE E1 APPARMOR MISSING', 'MISSING', 'UNKNOWN', 'FAIL');
+    expect(planSummary({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
+    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN cleanup=FAIL');
+    const real255 = lane('CLOSE_WITH_CODE', 'LANE E1 APPARMOR MISSING', 'PARSED', 'LANE_E_LAUNCH_HUNG');
+    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG cleanup=PASS');
+    const nonEnf = lane('CLOSE_WITH_CODE', `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNCONFINED`, 'PARSED', 'MULTIPLE');
+    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE cleanup=PASS`);
+    // every other plan: NONE (summary, not-run, other refusals, skip), and the plan itself is unchanged by the new lines
+    const other: [string | null, Obj, Obj][] = [[LANE_OK, okPw('0'), OKV], [LANE_OK, { state: 'absent' }, OKV], [LANE_OK, { state: 'bad' }, OKV], [null, { state: 'absent' }, OKV],
+      ['LANE START\n', { state: 'absent' }, OKV], [missing, okPw('255'), { ...OKV, ok: false }], ['garbage\n', okPw('0'), OKV]];
+    for (const [t, pw, v] of other) expect(refusalDetail({ verdict: v as never, laneText: t, pwExit: pw as never })).toBe('LE-E1 DETAIL NONE');
+    expect(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: okPw('0') })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
+    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ cleanup=(PASS|FAIL))$/;
+    for (const t of [missing, real255, nonEnf]) expect(refusalDetail({ verdict: OKV, laneText: t, pwExit: okPw('255') })).toMatch(DETAIL);
+  });
+
+  it('gates.mjs detail reads the same private files as plan; the workflow keeps the refusal line first and exits 1', () => {
+    const block = 'LANE_CREATE_OK\nGATE CONTAINER LANE_ABSENT\nGATE BRIDGE BRIDGE_REAPED\nGATE CLIENTS REAPED\nGATE STARTED YES\nLANE_GATES_END\n';
+    const read = new Map<string, number>();
+    const fsFor = (files: Record<string, string>) => ({
+      lstatSync: (p: string) => { if (!(p in files)) throw Object.assign(new Error('x'), { code: 'ENOENT' }); return { isFile: () => true, isSymbolicLink: () => false }; },
+      openSync: (p: string) => { if (!(p in files)) throw Object.assign(new Error('x'), { code: 'ENOENT' }); read.set(p, 0); return p; },
+      fstatSync: (fd: string) => ({ isFile: () => true, uid: process.getuid!(), mode: 0o100600, nlink: 1, size: Buffer.byteLength(files[fd]) }),
+      readSync: (fd: string, buf: Buffer, off: number, len: number) => { const b = Buffer.from(files[fd]); const at = read.get(fd) ?? 0; const n = b.copy(buf, off, at, Math.min(b.length, at + len)); read.set(fd, at + n); return n; },
+      closeSync: () => {},
+    });
+    const lane = LANE_OK.replace(AA_LINE, 'LANE E1 APPARMOR MISSING');
+    const files = { [L.started]: 'x', [L.gates]: block, [L.laneTxt]: lane, [L.pwExit]: '1\n' };
+    expect(planLine(fsFor(files), L)).toBe('PLAN REFUSED LE_SUM_E_WORKER_APPARMOR');
+    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN cleanup=PASS');
+    expect(detailLine(fsFor({ ...files, [L.laneTxt]: LANE_OK, [L.pwExit]: '0\n' }), L)).toBe('LE-E1 DETAIL NONE');
+    const step = (YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj).jobs as Obj;
+    const run = (Object.values(step).flatMap((j) => ((j as Obj).steps as Obj[] | undefined) ?? []).find((s) => s.id === 'le_summary') as Obj).run as string;
+    const refused = run.split('\n').filter((l) => l.includes('LE-E1 REFUSED'));
+    expect(refused.map((l) => l.trim())).toEqual(['{ echo "LE-E1 REFUSED $3"; node scripts/e2e/le-lane/gates.mjs detail "$C" "$LE_PRIV" "$GITHUB_WORKSPACE" || echo "LE-E1 DETAIL NONE"; } | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;']);
+    expect(run).toContain('case "$3" in LE_SUM_E_LANE_OUT|LE_SUM_E_LANE_INTERRUPTED|LE_SUM_E_PW_MISSING|LE_SUM_E_PW|LE_SUM_E_PW_UNEXPECTED|LE_SUM_E_WORKER_APPARMOR) ;; *) set -- x x LE_SUM_E_UNCLASSIFIED ;; esac');
   });
 });

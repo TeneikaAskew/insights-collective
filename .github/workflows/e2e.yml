@@ -1695,7 +1695,8 @@ jobs:
               node scripts/e2e/le-e1-notrun.mjs "$(git rev-parse HEAD)" "$3" "$4" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
             3:PLAN:REFUSED)
               case "$3" in LE_SUM_E_LANE_OUT|LE_SUM_E_LANE_INTERRUPTED|LE_SUM_E_PW_MISSING|LE_SUM_E_PW|LE_SUM_E_PW_UNEXPECTED|LE_SUM_E_WORKER_APPARMOR) ;; *) set -- x x LE_SUM_E_UNCLASSIFIED ;; esac
-              echo "LE-E1 REFUSED $3" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
+              # E1 diagnostics r1: one fixed detail line after the unchanged refusal line; the step still exits 1.
+              { echo "LE-E1 REFUSED $3"; node scripts/e2e/le-lane/gates.mjs detail "$C" "$LE_PRIV" "$GITHUB_WORKSPACE" || echo "LE-E1 DETAIL NONE"; } | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
             *)
               echo "LE-E1 SUMMARY NOT RUN: lane absence or bridge reaping unresolved" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
           esac
