@@ -559,12 +559,17 @@ const CourseBuilder = () => {
     async (id: string) => {
       try {
         await CanvasContentService.deleteModule(id);
+        // The module FK cascades to its lessons: drop their save queues too, so a pending or failed save
+        // of a deleted lesson cannot leave an unsaved banner or leave-page warning that nothing resolves.
+        const childIds = modules.find((m) => m.id === id)?.items.map((i) => i.id) ?? [];
+        childIds.forEach((lessonId) => saveQueue.forget(lessonId));
         setModules((prev) => prev.filter((m) => m.id !== id));
+        if (selectedLessonId && childIds.includes(selectedLessonId)) setSelectedLessonId(null);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [toast],
+    [modules, selectedLessonId, toast, saveQueue],
   );
 
   const reorderSections = useCallback(

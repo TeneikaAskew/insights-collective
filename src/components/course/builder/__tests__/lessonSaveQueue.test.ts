@@ -274,6 +274,20 @@ describe('LessonSaveQueue', () => {
       expect(q.get('A')!.status).toBe('conflict');
     });
 
+    it('does not retry a publish after the owner changed while the first write was in flight', async () => {
+      const first = deferred<PersistedLesson>();
+      let who = 'user-1';
+      const side = vi.fn().mockReturnValueOnce(first.promise).mockResolvedValue(row('A', 'Old', 'Body', 't3'));
+      const q = new LessonSaveQueue({ read: noRead, persist: vi.fn(), ownerId: 'user-1', currentUserId: async () => who });
+      q.track(row('A', 'Old', 'Body', 't1'));
+      const result = q.sideWrite('A', side);
+      await vi.waitFor(() => expect(side).toHaveBeenCalledTimes(1));
+      who = 'user-2';
+      first.reject(conflictWith(row('A', 'Old', 'Body', 't2')));
+      await expect(result).resolves.toMatchObject({ ok: false });
+      expect(side).toHaveBeenCalledTimes(1);
+    });
+
     it('a publish after a reorder retries once on the new version', async () => {
       const persist = vi.fn();
       const side = vi
