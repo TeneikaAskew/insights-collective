@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // ABOUTME: Controls for the public lane's fixed-name screenshots: the pinned #148 capture core (materialized from its git
-// ABOUTME: blobs), every decision branch, the private write, and the evidence export grammar. No browser, no stack.
+// ABOUTME: blobs), every decision branch, the private write, and the evidence export grammar. BROWSER REQUIRED: launches the
+// ABOUTME: preinstalled Chromium on synthetic setContent pages only (real PNGs); no app, no listener, no stack.
 import fs from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';

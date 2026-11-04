@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ABOUTME: Controls for own-root.mjs (used by pairing-cli-controls): fresh 0700 root, exact-root removal on pass and failure,
-// ABOUTME: primary failure kept when cleanup fails, identity guard refuses a swapped root. Synthetic only; never touches pca-cli-*.
+// ABOUTME: primary failure kept when cleanup fails, identity guard refuses a swapped root. NO BROWSER; synthetic only; never touches pca-cli-*.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';

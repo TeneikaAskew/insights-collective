@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ABOUTME: Pure, browserless consistency control for the fixed screenshot names: shot plan, the strict expected mapping,
+// ABOUTME: NO BROWSER (pure file reads). Consistency control for the fixed screenshot names: shot plan, the strict expected mapping,
 // ABOUTME: catalog.spec CATALOG_SHOT, the lane config's viewports and the job NAMES fixture must agree. Reads files only.
 import fs from 'node:fs';
 import path from 'node:path';
