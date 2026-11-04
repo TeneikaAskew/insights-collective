@@ -1,7 +1,7 @@
 // ABOUTME: The assignment grading contract: assignments.points is the denominator, grade outranks the older score
 // ABOUTME: column, 0 is real, and a grade save counts only when exactly one row reads back with the sent grade.
 import { describe, it, expect } from 'vitest';
-import { assignmentPointsPossible, submissionEarnedPoints, assertGradeSaved } from '../assignmentGrading';
+import { assignmentPointsPossible, submissionEarnedPoints, assertGradeSaved, toStoredGrade } from '../assignmentGrading';
 import { buildGradebook, buildGradebookCsvRows } from '@/components/course/gradebook/gradebookData';
 
 describe('assignmentPointsPossible', () => {
@@ -83,5 +83,20 @@ describe('10-point assignment: totals and CSV agree with the per-cell grades', (
     const rows = buildGradebookCsvRows(students, items.map((i) => ({ ...i, type: 'assignment' as const })), model);
     expect(rows[1]).toEqual(['s0', 'Zero', '', 0, 10, 'graded', undefined, 10, 'missing', 0, 10, 0]);
     expect(rows[2]).toEqual(['s7', 'Seven', '', 7, 10, 'graded', 7, 10, 'graded', 14, 20, 70]);
+  });
+});
+
+describe('toStoredGrade (numeric(10,2) column scale)', () => {
+  it('rounds to two decimals the way Postgres stores it, so readback matches', () => {
+    expect(toStoredGrade(7.125)).toBe(7.13);
+    expect(toStoredGrade(7.124)).toBe(7.12);
+    expect(toStoredGrade(1.005)).toBe(1.01);
+    expect(toStoredGrade(10)).toBe(10);
+    expect(toStoredGrade(0)).toBe(0);
+  });
+
+  it('a rounded write passes the readback check against the stored value', () => {
+    const written = { grade: toStoredGrade(7.125), workflow_state: 'graded' };
+    expect(() => assertGradeSaved([{ id: 's1', grade: 7.13, workflow_state: 'graded' }], 's1', written)).not.toThrow();
   });
 });

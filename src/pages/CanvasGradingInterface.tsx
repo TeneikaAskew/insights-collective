@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
-import { assignmentPointsPossible, assertGradeSaved } from '@/lib/assignmentGrading';
+import { assignmentPointsPossible, assertGradeSaved, toStoredGrade } from '@/lib/assignmentGrading';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
@@ -163,7 +163,7 @@ function CanvasGradingInterface() {
   const handleGradeSubmit = useCallback(
     async (advance = true) => {
       if (!selectedSubmission || !contentItem?.assignment) return;
-      const gradeNum = parseFloat(grade);
+      const gradeNum = toStoredGrade(parseFloat(grade));
       if (isNaN(gradeNum) || gradeNum < 0 || gradeNum > pointsPossible) {
         toast({
           title: 'Invalid grade',

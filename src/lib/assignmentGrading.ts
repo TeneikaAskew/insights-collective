@@ -27,6 +27,14 @@ export function submissionEarnedPoints(s: { grade?: unknown; score?: unknown } |
   return finite(s.grade) ?? finite(s.score) ?? null;
 }
 
+/**
+ * assignment_submissions.grade is numeric(10,2): Postgres rounds 7.125 to 7.13 on write and returns the rounded
+ * value. Round to the column scale before writing so the readback compares like with like.
+ */
+export function toStoredGrade(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export interface SavedGradeRow { id: string; grade: number | null; workflow_state?: string | null; [k: string]: unknown }
 
 const sameValue = (key: string, got: unknown, want: unknown): boolean => {
