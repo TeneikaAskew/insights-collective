@@ -12,7 +12,8 @@
 //   4. Fault handlers that forward a request themselves must use forwardApproved(): it re-checks the exact origin BEFORE
 //      sending, sends from this process with redirect 'manual' (never followed) and refuses a 3xx. It does not use
 //      route.fetch(), whose node-side proxy matching is domain-only and would send approved traffic to the refusal proxy.
-// Nothing is written to disk except evidence under QLC_EVIDENCE_DIR. No storage state, no password change, no cleanup.
+// Nothing is written to disk except evidence under QLC_EVIDENCE_DIR (unset: a private per-process mkdtemp directory,
+// never a fixed shared temp path). No storage state, no password change, no cleanup.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
@@ -29,12 +30,14 @@ import {
   captureLoginFailure, createGrantRecorder,
 } from '../../scripts/local-stack/quiz-lifecycle/login-diagnostics.mjs';
 import { captureCaseFailure, createCaseRecorder } from '../../scripts/local-stack/quiz-lifecycle/case-diagnostics.mjs';
+import { evidenceRootResolver } from './evidence-root';
 
 export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
 export const COURSE_ID = '9c000000-0000-4000-8000-000000000001';
 export const MODULE_ID = '9c000000-0000-4000-8000-000000000002';
 const LEARNER_EMAIL = 'qlc-learner@insightscollective.local';
-const OUT = process.env.QLC_EVIDENCE_DIR || path.join(os.tmpdir(), 'qlc-evidence');
+// QLC_EVIDENCE_DIR when set (the job); otherwise one private mkdtemp directory per process, created on first write.
+const evidenceRoot = evidenceRootResolver({ env: process.env, tmpdir: os.tmpdir, mkdtemp: (prefix) => fs.mkdtempSync(prefix) });
 const SHA = (process.env.E2E_EVIDENCE_COMMIT || 'local').slice(0, 12);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const LEDGER_SQL = path.resolve(HERE, '../../scripts/local-stack/quiz-lifecycle/ledger.sql');
@@ -117,8 +120,8 @@ export function readLedger(quizId: string, label: string): Ledger {
     throw new Error(`ledger: psql failed (status ${e?.status ?? 'none'}, stderr withheld: ${String(e?.stderr ?? '').length} bytes)`);
   }
   const lines = out.split('\n').filter((l) => /^[AWPEGC]\t/.test(l));
-  fs.mkdirSync(path.join(OUT, 'ledger'), { recursive: true });
-  fs.writeFileSync(path.join(OUT, 'ledger', `${label}.tsv`), lines.join('\n') + '\n');
+  fs.mkdirSync(path.join(evidenceRoot(), 'ledger'), { recursive: true });
+  fs.writeFileSync(path.join(evidenceRoot(), 'ledger', `${label}.tsv`), lines.join('\n') + '\n');
   const ledger: Ledger = { attempts: [], answers: [], progress: [], raw: lines, course: { enrollments: -1, progressions: -1, certificates: -1 } };
   for (const l of lines) {
     const c = l.split('\t');
@@ -173,8 +176,8 @@ export function attemptHistory(l: Ledger, attempt: number): string[] {
 export function revokeAccess(gg: '20' | '22' | '24') {
   try {
     const out = execFileSync('bash', [REVOKE_SH, gg], { encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
-    fs.mkdirSync(path.join(OUT, 'checks'), { recursive: true });
-    fs.appendFileSync(path.join(OUT, 'checks', 'revoke-access.txt'), out);
+    fs.mkdirSync(path.join(evidenceRoot(), 'checks'), { recursive: true });
+    fs.appendFileSync(path.join(evidenceRoot(), 'checks', 'revoke-access.txt'), out);
   } catch (e: any) {
     throw new Error(`revoke-access ${gg} failed: ${String(e?.stdout ?? '').trim().split('\n').pop()}`);
   }
@@ -298,8 +301,8 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
       context.on('serviceworker', () => egress.violations.push('a service worker started'));
       await use();
       refusalProxy.onHit = null;
-      fs.mkdirSync(OUT, { recursive: true });
-      fs.appendFileSync(path.join(OUT, 'egress.txt'), `${testInfo.title}\t${egress.violations.length}\n`);
+      fs.mkdirSync(evidenceRoot(), { recursive: true });
+      fs.appendFileSync(path.join(evidenceRoot(), 'egress.txt'), `${testInfo.title}\t${egress.violations.length}\n`);
       expect(egress.violations, 'egress violations').toEqual([]);
     },
     { auto: true },
@@ -366,7 +369,7 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
       try {
         await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
       } catch (err) {
-        await captureLoginFailure(page, { out: OUT, sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
+        await captureLoginFailure(page, { out: evidenceRoot(), sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
         throw err;
       } finally {
         recorder.detach();
@@ -377,7 +380,7 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
       // Post-sign-in case failures only (the login capture owns /login). captureCaseFailure never throws; a failure
       // inside it is written as the fixed diagnostic-failed marker, never swallowed.
       if (signedIn && testInfo.status !== testInfo.expectedStatus) {
-        await captureCaseFailure(page, { out: OUT, title: testInfo.title, recorder: caseRecorder });
+        await captureCaseFailure(page, { out: evidenceRoot(), title: testInfo.title, recorder: caseRecorder });
       }
       caseRecorder.detach();
       recorder.detach(); // idempotent; also covers a throw before the sign-in wait (addInitScript, goto, fill)
@@ -390,7 +393,7 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
       for (const [w, h] of [[1440, 900], [768, 1024], [390, 844]] as const) {
         await page.setViewportSize({ width: w, height: h });
         await check();
-        const dir = path.join(OUT, 'screens', 'responsive-snapshot', tier);
+        const dir = path.join(evidenceRoot(), 'screens', 'responsive-snapshot', tier);
         fs.mkdirSync(dir, { recursive: true });
         await page.screenshot({ path: path.join(dir, `${name}-${w}x${h}-${SHA}.png`), fullPage: true });
       }
@@ -403,7 +406,7 @@ export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy:
 /** Screenshot of a state reached by interacting AT this viewport (not a resize of another viewport's state). */
 export async function interactionShot(page: Page, name: string) {
   const vp = page.viewportSize();
-  const dir = path.join(OUT, 'screens', 'viewport-interaction');
+  const dir = path.join(evidenceRoot(), 'screens', 'viewport-interaction');
   fs.mkdirSync(dir, { recursive: true });
   await page.screenshot({ path: path.join(dir, `${name}-${vp?.width}x${vp?.height}-${SHA}.png`), fullPage: true });
 }

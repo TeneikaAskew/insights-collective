@@ -189,7 +189,7 @@ export async function captureGuarded(page, prep, file) {
 export async function captureLoginFailure(page, { out, sha, title, recorder, appOrigin }) {
   const name = slug(title);
   const r = await recorder.settle();
-  let ui = ['none'];
+  let ui;
   try { ui = matchUiMessages(await page.locator('body').innerText({ timeout: 2000 })); } catch { ui = ['unreadable']; }
   const dir = path.join(out, 'login-diagnostics');
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });

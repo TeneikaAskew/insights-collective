@@ -1024,7 +1024,7 @@ jobs:
         run: npm rebuild
 
       # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
-      - name: Evidence directories and static selftests (stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED, D1 FAKE, journey adapter)
+      - name: Evidence directories and static selftests (stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED, D1 FAKE, journey adapter, avatar fixture)
         run: |
           set -o pipefail
           mkdir -p "$GB_EVIDENCE/checks"
@@ -1034,6 +1034,9 @@ jobs:
           npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkGradebookJourneyJob.test.ts 2>&1 | tail -6 | tee "$GB_EVIDENCE/checks/d1-selftest.txt"
           node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs 2>&1 | tail -3 | tee "$GB_EVIDENCE/checks/journey-selftest.txt"
           node scripts/served-app/tests/served-app-check-selftest.mjs | tee "$GB_EVIDENCE/checks/served-app-check-selftest.txt"
+          # Static tiers only (no browser): the pinned avatar fixture's contract and its live-binding check with a FAKE fetch.
+          node scripts/served-app/tests/avatar-fixture-selftest.mjs 2>&1 | tail -3 | tee "$GB_EVIDENCE/checks/avatar-fixture-selftest.txt"
+          node scripts/served-app/tests/avatar-live-check-selftest.mjs | tee "$GB_EVIDENCE/checks/avatar-live-check-selftest.txt"
 
       - name: Prepare workdir (no functions are served in this job)
         id: gb_prep
@@ -1091,14 +1094,25 @@ jobs:
           node scripts/ci/check-local-target.mjs dist dist
           # Hermetic contract selftest on THIS product build (positive derivation plus fixed-code negatives), before it is used.
           scripts/served-app/tests/hermetic-dist-selftest.sh dist | tee "$GB_EVIDENCE/checks/hermetic-selftest.txt"
-      - name: Derive and verify the TEST-SERVED copy (product build minus the editor CDN tag; NOT production bytes)
+      # Run 41474837350 (60eed54) refused at setup with first blocked entry IMAGE PRAVATAR: the home page's CommunityShowcase
+      # hotlinks i.pravatar.cc. The origin guard is NOT relaxed; the separately pinned avatar fixture (#157's, byte-identical)
+      # points those three image URLs at local SVGs on the served copy. Product source and the provider path are unchanged
+      # and the provider integration and the AvatarFallback path stay UNVERIFIED.
+      - name: Derive and verify the TEST-SERVED copy and its avatar-fixture copy (product build minus the editor CDN tag, then the pinned local avatars; NOT production bytes)
         run: |
+          set -o pipefail
+          HERM="$RUNNER_TEMP/gb-hermetic"
           SERVED="$RUNNER_TEMP/gb-served"
-          node scripts/served-app/hermetic-dist.mjs make dist "$SERVED" | tee "$GB_EVIDENCE/checks/hermetic.txt"
-          node scripts/served-app/hermetic-dist.mjs verify dist "$SERVED" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
-          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
-          cp "$SERVED/HERMETIC-PROVENANCE.json" "$GB_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
-          echo "GB_SERVED=$SERVED" >> "$GITHUB_ENV"
+          node scripts/served-app/hermetic-dist.mjs make dist "$HERM" | tee "$GB_EVIDENCE/checks/hermetic.txt"
+          node scripts/served-app/hermetic-dist.mjs verify dist "$HERM" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
+          node scripts/ci/check-local-target.mjs dist "$HERM" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
+          cp "$HERM/HERMETIC-PROVENANCE.json" "$GB_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
+          node scripts/served-app/avatar-fixture.mjs make "$PWD/dist" "$HERM" "$SERVED" | tee "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/served-app/avatar-fixture.mjs verify "$PWD/dist" "$HERM" "$SERVED" | tee -a "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          cp "$SERVED/AVATAR-PROVENANCE.json" "$GB_EVIDENCE/checks/AVATAR-PROVENANCE.json"
+          for d in "$PWD/dist" "$HERM" "$SERVED"; do [ "$(realpath -e -- "$d")" = "$d" ] || { echo "non-canonical served path"; exit 1; }; done
+          { echo "GB_DIST=$PWD/dist"; echo "GB_HERMETIC=$HERM"; echo "GB_SERVED=$SERVED"; } >> "$GITHUB_ENV"
       - name: Serve the TEST-SERVED copy (vite preview --outDir) and wait for it
         run: |
           node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/gb-owned" preview "$RUNNER_TEMP/gb-preview.log" -- npx --no-install vite preview --outDir "$GB_SERVED" --host 127.0.0.1 --port 8080 --strictPort
@@ -1112,13 +1126,18 @@ jobs:
           cmp -s "$RUNNER_TEMP/preview-index.html" "$GB_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
           echo "preview serving the TEST-SERVED copy"
 
-      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs) re-runs hermetic verify on dist and
-      # this copy and compares the live index bytes, on every call. It is given the copy's path, never a verdict.
+      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs, unchanged) re-runs hermetic verify on dist
+      # and the HERMETIC copy and compares the live index bytes, on every call. The avatar fixture never changes index.html, so
+      # that index is also the served copy's; what tells the two copies apart is the live chunk and SVG binding below.
       - name: Served-app gate receipt (hermetic verify plus live index bytes, the same checks the adapter re-runs)
         run: |
           set -o pipefail
-          echo "HERMETIC_SERVED_DIR=$GB_SERVED" >> "$GITHUB_ENV"
-          HERMETIC_SERVED_DIR="$GB_SERVED" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$GB_EVIDENCE/checks/served-app-check.txt"
+          echo "HERMETIC_SERVED_DIR=$GB_HERMETIC" >> "$GITHUB_ENV"
+          HERMETIC_SERVED_DIR="$GB_HERMETIC" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$GB_EVIDENCE/checks/served-app-check.txt"
+      - name: Avatar-fixture live binding (verify again, then the live index, changed chunk and fixture SVGs equal the served copy)
+        run: |
+          set -o pipefail
+          node scripts/served-app/avatar-live-check.mjs "$E2E_BASE_URL" "$GB_DIST" "$GB_HERMETIC" "$GB_SERVED" | tee "$GB_EVIDENCE/checks/avatar-live.txt"
 
       - name: Install Chromium headless shell
         run: npx --no-install playwright install --with-deps --only-shell chromium
@@ -1260,7 +1279,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only)
         if: always() && steps.stage.outcome == 'success'
         uses: actions/upload-artifact@v4

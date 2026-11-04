@@ -13,6 +13,7 @@ import { assertStrictLocalBinding } from '../local-binding.mjs';
 import { newGuardedContext } from '../origin-guard.mjs';
 import { assertPrivateSessionDir, assertPrivateDir, writePrivateFile, JourneyGateError } from './private-dir.mjs';
 import { assertPairingProof, assertLivePairing } from './pairing-proof.mjs';
+import { blockedCode } from './blocked-class.mjs';
 import { randomUUID } from 'node:crypto';
 
 const ROLES = {
@@ -90,9 +91,16 @@ async function run(): Promise<void> {
       const origins = new Set<string>();
       page.on('request', (r) => { try { if (/\/(rest|auth|storage|functions)\/v1\//.test(r.url())) origins.add(new URL(r.url()).origin); } catch { origins.add('unparsable'); } });
       await stage(`JOURNEY_SETUP_E_GOTO_${R}`, () => page.goto(app.origin, { waitUntil: 'domcontentloaded' }));
+      const blockedAfterGoto = blocked.length;
       await stage(`JOURNEY_SETUP_E_SETTLE_${R}`, () => page.waitForTimeout(2_000));
+      const blockedAfterSettle = blocked.length;
       const state = await stage(`JOURNEY_SETUP_E_STORAGE_STATE_${R}`, () => context.storageState());
-      if (blocked.length) throw new JourneyGateError('JOURNEY_SETUP_E_FOREIGN_ORIGIN_BLOCKED');
+      // Same refusal point and rule as before (any blocked entry refuses); only the code is refined, from fixed enums
+      // (role, the phase it first appeared in, the first entry's request kind and origin class, count). See blocked-class.mjs.
+      if (blocked.length) {
+        const phase = blockedAfterGoto > 0 ? 'GOTO' : blockedAfterSettle > 0 ? 'SETTLE' : 'STATE';
+        throw new JourneyGateError(blockedCode({ role: R, phase, blocked: [...blocked], approved: [app.origin, api.origin] }));
+      }
       if ([...origins].some((o) => o !== api.origin)) throw new JourneyGateError('JOURNEY_SETUP_E_FOREIGN_API');
       if (!origins.has(api.origin)) throw new JourneyGateError('JOURNEY_SETUP_E_APP_NEVER_CALLED_API');
       if (!state.origins.some((o) => o.localStorage.some((e) => e.name === 'supabase.auth.token' && e.value.includes('access_token')))) {
@@ -100,7 +108,9 @@ async function run(): Promise<void> {
       }
       const json = await stage(`JOURNEY_SETUP_E_STATE_SERIALIZE_${R}`, () => JSON.stringify(state));
       writePrivateFile(dir, `${role}.json`, json);
-      await stage(`JOURNEY_SETUP_E_STDOUT_${R}`, () => { process.stdout.write(`[journey setup] session saved for ${role}\n`); });
+      // stderr, never stdout: the adapter runs Playwright with --reporter=json on stdout, and a stdout line from this
+      // (runner) process lands in front of the report and makes it unparsable.
+      await stage(`JOURNEY_SETUP_E_PROGRESS_${R}`, () => { process.stderr.write(`[journey setup] session saved for ${role}\n`); });
     } catch (err) {
       primary = err;
     }

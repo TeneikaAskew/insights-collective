@@ -18,7 +18,7 @@ export type CallSpec = {
   /** Exact values for these keys; any other non-passthrough key on the request makes it NOT match (and is reported). */
   query?: Record<string, string>;
 };
-export type Call = { req: Request; url: URL; method: string; seq: number; status: number | null; failed: boolean; done: boolean };
+export type Call = { req: Request; url: URL; method: string; seq: number; status: number | null; failed: boolean; done: boolean; storage?: { err: string; code: string; msg: string; status: string } };
 export type Expect = { spec: CallSpec; count?: number; status?: number[] };
 
 /** Records every request the page/context STARTS from now on, with its terminal state (logic in observe-core.mjs). */

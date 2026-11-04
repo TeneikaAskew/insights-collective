@@ -156,6 +156,15 @@ export function checkJourney(root) {
   if (!/argv: \['-X', '-q', '-At', '-w', '-v', 'ON_ERROR_STOP=1', '-h', host, '-p', port, '-U', user, '-d', db, '-f', '-'\]/.test(ppsql) || !/spawn\(o\.psqlBin \?\? 'psql', plan\.argv,/.test(ppsql)
     || !/assertLocalDsn\(/.test(ppsql) || /console\.(log|error)\([^)]*(passLine|pw|dsn)/.test(ppsql) || !/k !== 'SUPABASE_DB_URL'/.test(ppsql)
     || /passLine !== null|passLine: pw === null \? null/.test(ppsql) || !/\n    plan\.env\.PGPASSFILE = passFile;\n/.test(ppsql) || !/'PGPASSFILE'/.test(ppsql)) v.push('R11_PSQL_NOT_PRIVATE private-psql.mjs');
+  // R13 CodeQL c18dd51 sources: check-then-read through one descriptor; no path re-read after a check.
+  const pdir = stripJsComments(rd(`${jdir}/private-dir.mjs`));
+  const rpj = pdir.slice(pdir.indexOf('export function readPrivateJson('));
+  const rsum = stripJsComments(rd(`${sdir}/run-summary.mjs`));
+  const rraw = rsum.slice(rsum.indexOf('export function readRaw('), rsum.indexOf('if (process.argv[1]'));
+  for (const [f, body] of [['private-dir.mjs', rpj], ['run-summary.mjs', rraw]]) {
+    if (!body || /\blstatSync|\bstatSync\(|readFileSync\((p|file)\b|existsSync/.test(body) || !/fs\.fstatSync\(fd\)/.test(body) || !/O_NOFOLLOW/.test(body) || !/O_NONBLOCK/.test(body)) v.push(`R13_FILE_RACE ${f}`);
+  }
+  if (/err = err \?\? 'SHOT_E_READ'/.test(stripJsComments(rd(`${sdir}/shot-export.mjs`)))) v.push('R13_USELESS_CONDITIONAL shot-export.mjs');
   const lb = stripJsComments(rd('e2e/gradebook-roles/local-binding.mjs'));
   if (/execFileSync|spawn/.test(lb) || !/assertLocalDsn\(/.test(lb)) v.push('R11_BINDING_DSN_ARGV local-binding.mjs');
 
@@ -172,11 +181,13 @@ export function checkJourney(root) {
   const coreW = stripJsComments(rd(`${jdir}/shot-core.mjs`));
   const cap = coreW.slice(coreW.indexOf('export async function captureShot('), coreW.indexOf('const sameSample'));
   const cOrder = ["const unwatch = drv.watchNav(() => { navigations += 1; });", "try {", "await drv.guard('arm', armed);", "before = await drv.sample();",
-    "if (scanPage(before.texts, secrets).length === 0) {", "png = await drv.screenshot();", "after = await drv.sample();", "} else after = before;",
+    "if (scanPage(before.texts, secrets).length === 0) {", "await mark('S');", "png = await drv.screenshot();", "await mark('A');", "after = await drv.sample();", "await mark('F');", "} else after = before;",
     "} catch { failed = true; } finally {", "try { guard = await drv.guard('read', armed); } catch { failed = true; }", "unwatch();",
     "if (failed || !guard) return { png: null, obs: { ...base, incomplete: true } };"];
   const cAt = cOrder.map((x) => cap.indexOf(x));
-  if (cAt.some((i) => i < 0) || cAt.some((i, k) => k > 0 && i <= cAt[k - 1]) || (cap.match(/drv\.(guard|sample|screenshot|watchNav)\(/g) || []).length !== 6) v.push('R12_SHOT_WINDOW shot-core.mjs');
+  if (cAt.some((i) => i < 0) || cAt.some((i, k) => k > 0 && i <= cAt[k - 1]) || (cap.match(/drv\.(guard|sample|screenshot|watchNav)\(/g) || []).length !== 7
+    // the one extra drv.guard( is the diagnostic mark helper: it may only send 'mark:' ops and must swallow its own errors
+    || !cap.includes("const mark = async (p) => { try { const r = await drv.guard(`mark:${p}`, armed); if (r && r.phase > 0) marks += 1; } catch {  } };")) v.push('R12_SHOT_WINDOW shot-core.mjs');
   // The decision: every check present, and the buffer is written only on { write: true }.
   const coreSrc = stripJsComments(rd(`${jdir}/shot-core.mjs`));
   const dec = coreSrc.slice(coreSrc.indexOf('export function decideShot('), coreSrc.indexOf('export function shotSecrets('));
@@ -191,8 +202,8 @@ export function checkJourney(root) {
   const guard = coreSrc.slice(coreSrc.indexOf('export function SHOT_GUARD('), coreSrc.indexOf('const sameSample'));
   const guardRO = guard.replace(/w\.removeEventListener\(ev, st\.bump, true\)/, '');
   if (!guard || /fetch|XMLHttpRequest|sendBeacon|WebSocket|Storage|cookie|setAttribute|innerHTML|textContent|\.value|appendChild|remove|insert|postMessage|location|history|open\(/.test(guardRO)) v.push('R12_SHOT_GUARD_WRITES shot-core.mjs');
-  const gRead = guard.slice(guard.indexOf('const st = w.__gbShotGuard;'));
-  const gOrder = ['st.n += st.obs.takeRecords().length;', 'st.obs.disconnect();', 'for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);', 'delete w.__gbShotGuard;', 'return { token: st.token, n: st.n };'];
+  const gRead = guard.slice(guard.indexOf('if (!st) return { token: null, n: -1 };'));   // the read path (after the diagnostic mark branch)
+  const gOrder = ['if (!st) return { token: null, n: -1 };', 'st.n += st.tally(st.obs.takeRecords());', 'st.obs.disconnect();', 'for (const ev of EVENTS) w.removeEventListener(ev, st.bump, true);', 'delete w.__gbShotGuard;', 'return { token: st.token, n: st.n, phases: st.ph };'];
   const gAt = gOrder.map((x) => gRead.indexOf(x));
   if (gAt.some((i) => i < 0) || gAt.some((i, k) => k > 0 && i <= gAt[k - 1]) || !/const EVENTS = \['input', 'change', 'pagehide', 'beforeunload'\];/.test(guard) || !/for \(const ev of EVENTS\) w\.addEventListener\(ev, st\.bump, true\);/.test(guard)) v.push('R12_SHOT_GUARD_DETACH shot-core.mjs');
   // Route keys used by the plan are exactly the keys observe.ts resolves.

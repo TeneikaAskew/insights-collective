@@ -28,7 +28,7 @@
 // checked against source: E9 only), 'same' (no OLD/NEW difference expected).
 // Not exercised: the score-quiz Edge Function (functions are not served); finalized attempts are written as maintenance and
 // labelled "fixture-finalized (finalizer not exercised)".
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { apiOrigin, readSecretFile, request, RedirectRefused, TargetRefused } from './api-http.mjs';
 
@@ -45,8 +45,12 @@ if (MANIFEST) {
   if (!['127.0.0.1', 'localhost'].includes(db.hostname)) { console.error('api-controls: database must be loopback'); process.exit(2); }
   try { API = apiOrigin(env('T09_API_URL')); ANON = readSecretFile(env('T09_ANON_KEY_FILE'), 'anon key'); } catch (e) { console.error(`api-controls: ${e.message}`); process.exit(2); }
   const personaFile = env('T09_PERSONA_FILE');
-  if ((statSync(personaFile).mode & 0o077) !== 0) { console.error('api-controls: persona file must be mode 600'); process.exit(2); }
-  P = JSON.parse(readFileSync(personaFile, 'utf8'));
+  // Mode check and read on one handle (no check-then-use by path).
+  const pfd = openSync(personaFile, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    if ((fstatSync(pfd).mode & 0o077) !== 0) { console.error('api-controls: persona file must be mode 600'); process.exit(2); }
+    P = JSON.parse(readFileSync(pfd, 'utf8'));
+  } finally { closeSync(pfd); }
   for (const k of PERSONAS) if (!P[k]?.id || !P[k]?.token) { console.error(`api-controls: persona ${k} missing`); process.exit(2); }
 }
 
@@ -80,7 +84,7 @@ for (const [k, base] of [['LA', 0x100], ['LB', 0x200], ['LC', 0x300], ['LD', 0x4
   const h = (o) => id((base + o).toString(16));
   L[k] = { C: h(0), M: h(1), P: h(2), I: h(3), a: h(4), q: h(5), qq: h(6) };
 }
-const { A, B, I, J, ADMIN, HC, HG } = Object.fromEntries(Object.entries(P).map(([k, v]) => [k, v.id]));
+const { A, B, I, J, HC, HG } = Object.fromEntries(Object.entries(P).map(([k, v]) => [k, v.id]));
 
 if (phase === 'seed-legacy') {
   // setup, before the history window: legacy-invalid rows for persona A, as OLD accepted them; then any certificate the

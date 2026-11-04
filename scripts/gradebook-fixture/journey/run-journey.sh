@@ -65,7 +65,12 @@ node "$HERE/private-psql.mjs" run "$RAW" "$HERE/witness-journey.sql" "$RAW/witne
 set +e
 (cd "$ROOT" && GB_LANE=journey npx --no-install playwright test -c playwright.gradebook-roles.config.ts --reporter=json --output="$RAW/test-results") > "$RAW/playwright.json" 2> "$RAW/playwright.err"; PW=$?
 set -e
-node "$HERE/run-summary.mjs" playwright "$RAW/playwright.json" "$PW" > "$RAW/playwright-summary.out" 2> "$RAW/playwright-summary.err" || refuse RUN_E_PLAYWRIGHT_SUMMARY
+# The summary also classifies the first global error (fixed code/place/class lists) and reads only the fixed stage code and
+# class of the first private diag record, so the cause is staged before the trap removes the private parent.
+if ! node "$HERE/run-summary.mjs" playwright "$RAW/playwright.json" "$PW" "$GB_DIAG_DIR" > "$RAW/playwright-summary.out" 2> "$RAW/playwright-summary.err"; then
+  sub="$(sed -n 's/^run-journey refused: \(SUMMARY_E_[A-Z_]*\)$/\1/p' "$RAW/playwright-summary.out" | head -n 1)"
+  refuse "RUN_E_PLAYWRIGHT_SUMMARY${sub:+ $sub}"
+fi
 cp "$RAW/playwright-summary.out" "$OUT/playwright-summary.txt"
 # 9b. Screenshots: only clean, allowlisted captures, re-encoded with critical PNG chunks only; validated manifest staged.
 node "$HERE/shot-export.mjs" "$PARENT/shots" "$PARENT/session" "$GB_JOURNEY_PAIRING_PROOF" "$RAW/shots-export" > "$RAW/shots.out" 2> "$RAW/shots.err" || refuse RUN_E_SHOTS

@@ -23,8 +23,11 @@ export function queryExact(c, spec) {
   return true;
 }
 
-/** Records every request the target STARTS from now on ('request' event), then its terminal state. */
-export function createRecorder(target) {
+/** Records every request the target STARTS from now on ('request' event), then its terminal state.
+ *  opts.storageReadMs: the fixed deadline for the DIAGNOSTIC Storage error-body read (default STORAGE_READ_MS). */
+export function createRecorder(target, opts = {}) {
+  const readMs = Number.isInteger(opts.storageReadMs) && opts.storageReadMs > 0 ? opts.storageReadMs : STORAGE_READ_MS;
+  let stopped = false;
   /** @type {Call[]} */
   const calls = [];
   const byReq = new Map();
@@ -37,15 +40,76 @@ export function createRecorder(target) {
   };
   const onFin = async (req) => {
     const c = byReq.get(req); if (!c) return;
-    try { const r = await req.response(); c.status = r ? r.status() : null; } catch { c.status = null; }
+    let r = null, failedRead = false;
+    try { r = await req.response(); } catch { failedRead = true; }
+    // Frozen after stop(): a response that arrives after the recorder stopped writes nothing (no status, no body read,
+    // not terminal); the call keeps the pending snapshot it had at stop().
+    if (stopped) return;
+    try { c.status = failedRead || !r ? null : r.status(); } catch { c.status = null; }
+    // DIAGNOSTIC ONLY: a Storage error response is reduced to fixed categories before the call is terminal; the body text
+    // is a local value that is never stored, returned or logged. The read is raced against a fixed deadline, so a body that
+    // never arrives gives TIMEOUT (a rejected read gives UNREADABLE) and the call still becomes terminal with its HTTP
+    // status. The category is assigned once: a read that completes after the deadline, or after stop(), changes nothing.
+    if (r && isStorageError(c)) {
+      let timer;
+      const deadline = new Promise((res) => { timer = setTimeout(() => res(STORAGE_TIMEOUT), readMs); });
+      const read = Promise.resolve().then(() => r.text()).then((t) => storageCategory(t), () => STORAGE_UNREADABLE);
+      const cat = await Promise.race([read, deadline]);
+      clearTimeout(timer);
+      if (stopped) return;           // the recorder was stopped while the diagnostic read was pending: leave the call as is
+      c.storage = cat;
+    }
     c.done = true;
   };
   const onFail = (req) => { const c = byReq.get(req); if (c) { c.failed = true; c.done = true; } };
   target.on('request', onReq); target.on('requestfinished', onFin); target.on('requestfailed', onFail);
   return {
     calls,
-    stop() { target.off('request', onReq); target.off('requestfinished', onFin); target.off('requestfailed', onFail); },
+    stop() { stopped = true; target.off('request', onReq); target.off('requestfinished', onFin); target.off('requestfailed', onFail); },
   };
+}
+
+/** Storage error-body fields, reduced to FIXED names (storage-api legacy `error` strings and newer `code` names). */
+const STORAGE_ERR = new Map([
+  ['Unauthorized', 'UNAUTHORIZED'], ['AccessDenied', 'ACCESS_DENIED'], ['Bucket not found', 'BUCKET_NOT_FOUND'], ['NoSuchBucket', 'BUCKET_NOT_FOUND'],
+  ['not_found', 'NOT_FOUND'], ['NoSuchKey', 'NOT_FOUND'], ['Duplicate', 'DUPLICATE'], ['KeyAlreadyExists', 'DUPLICATE'], ['ResourceAlreadyExists', 'DUPLICATE'],
+  ['invalid_mime_type', 'MIME_TYPE'], ['InvalidMimeType', 'MIME_TYPE'], ['Payload too large', 'TOO_LARGE'], ['EntityTooLarge', 'TOO_LARGE'],
+  ['InvalidKey', 'INVALID_KEY'], ['Invalid key', 'INVALID_KEY'], ['InvalidJWT', 'INVALID_JWT'], ['invalid_jwt', 'INVALID_JWT'],
+  ['InvalidRequest', 'INVALID_REQUEST'], ['DatabaseError', 'DATABASE_ERROR'], ['InternalError', 'INTERNAL'], ['Error', 'GENERIC_ERROR'],
+]);
+/** Exact known message strings only (whole-string equality); anything else is OTHER. The message itself never leaves. */
+const STORAGE_MSG = new Map([
+  ['new row violates row-level security policy', 'RLS'], ['jwt expired', 'JWT_EXPIRED'], ['invalid signature', 'JWT_SIGNATURE'],
+  ['jwt malformed', 'JWT_MALFORMED'], ['Bucket not found', 'BUCKET_NOT_FOUND'], ['The resource already exists', 'DUPLICATE'],
+  ['Invalid key', 'INVALID_KEY'], ['mime type not supported', 'MIME_TYPE'],
+]);
+const FIELD_STATES = ['ABSENT', 'OTHER', 'NA'];
+export const STORAGE_ERR_NAMES = Object.freeze([...new Set([...STORAGE_ERR.values(), ...FIELD_STATES, 'UNPARSEABLE', 'SHAPE', 'OVERSIZE', 'UNREADABLE', 'TIMEOUT'])]);
+export const STORAGE_MSG_NAMES = Object.freeze([...new Set([...STORAGE_MSG.values(), ...FIELD_STATES])]);
+/** Parse bound, checked AFTER the full body text has been read: its UTF-8 byte length. It limits what is parsed, not what
+ *  is read from the network (the read itself is bounded only in time, by STORAGE_READ_MS). */
+const STORAGE_MAX_BODY_BYTES = 4096;
+export const STORAGE_READ_MS = 2000;
+const STORAGE_TIMEOUT = Object.freeze({ err: 'TIMEOUT', code: 'NA', msg: 'NA', status: 'NA' });
+const STORAGE_UNREADABLE = Object.freeze({ err: 'UNREADABLE', code: 'NA', msg: 'NA', status: 'NA' });
+const isStorageError = (c) => c.url.pathname.startsWith('/storage/v1/') && Number.isInteger(c.status) && c.status >= 400;
+/**
+ * Fixed categories from a Storage error body: err (`error`), code (`code`), msg (`message`, exact known strings only) and
+ * the body's own `statusCode` when it is exactly three digits. Own keys only; non-string values are OTHER. A text over
+ * 4096 UTF-8 bytes is OVERSIZE and is not parsed. Pure.
+ * @param {unknown} text @returns {{ err: string, code: string, msg: string, status: string }}
+ */
+export function storageCategory(text) {
+  if (typeof text !== 'string') return STORAGE_UNREADABLE;
+  if (new TextEncoder().encode(text).length > STORAGE_MAX_BODY_BYTES) return { err: 'OVERSIZE', code: 'NA', msg: 'NA', status: 'NA' };
+  let b;
+  try { b = JSON.parse(text); } catch { return { err: 'UNPARSEABLE', code: 'NA', msg: 'NA', status: 'NA' }; }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return { err: 'SHAPE', code: 'NA', msg: 'NA', status: 'NA' };
+  const own = (k) => (Object.prototype.hasOwnProperty.call(b, k) ? b[k] : undefined);
+  const pick = (k, map) => { const v = own(k); return v === undefined ? 'ABSENT' : typeof v === 'string' && map.has(v) ? map.get(v) : 'OTHER'; };
+  const sc = own('statusCode');
+  const status = (typeof sc === 'string' || typeof sc === 'number') && /^[1-5][0-9]{2}$/.test(String(sc)) ? String(sc) : 'NA';
+  return { err: pick('error', STORAGE_ERR), code: pick('code', STORAGE_ERR), msg: pick('message', STORAGE_MSG), status };
 }
 
 /** True once every expectation has at least its count of exact matches and all of them are terminal. */
@@ -57,23 +121,31 @@ export function settled(calls, want, origin) {
 }
 
 /**
- * Verdict for one action. Codes: OBS_NEAR_MISS (same origin+method+path, other query), OBS_COUNT (started count differs),
+ * Verdict for one action. Codes: OBS_NEAR_MISS (same origin+method+path, other query, and not an exact match of another
+ * expectation in the same set), OBS_COUNT (started count differs),
  * OBS_PENDING (never reached a terminal event), OBS_FAILED (requestfailed), OBS_STATUS (terminal status not allowed),
- * OBS_ORDER (with ordered: the first exact start of each expectation is not in the declared order).
+ * OBS_ORDER (with ordered: the first exact start of each expectation is not in the declared order). DIAGNOSTIC: an
+ * OBS_STATUS on a Storage call is followed by OBS_STORAGE <err> <code> <msg> <bodyStatus> (fixed names, storageCategory).
  * @param {Call[]} calls @param {Expect[]} want @param {{ origin: string, ordered?: boolean }} opts
  */
 export function evaluate(calls, want, opts) {
   const failures = [];
+  // A call that exactly matches ANOTHER expectation declared in the same set is that expectation's call (counted, status-
+  // checked and pending-checked there), not a near miss of this one. Any other same-origin/method/path call still is.
+  const declaredElsewhere = (c, self) => want.some((o) => o !== self && isCandidate(c, o.spec, opts.origin) && queryExact(c, o.spec));
   const matched = want.map((w) => {
     const label = `${w.spec.method} ${w.spec.path}`;
     const cands = calls.filter((c) => isCandidate(c, w.spec, opts.origin));
     const exact = cands.filter((c) => queryExact(c, w.spec));
-    if (cands.length !== exact.length) failures.push(`OBS_NEAR_MISS ${label}`);
+    if (cands.some((c) => !queryExact(c, w.spec) && !declaredElsewhere(c, w))) failures.push(`OBS_NEAR_MISS ${label}`);
     if (exact.length !== (w.count ?? 1)) failures.push(`OBS_COUNT ${label} ${exact.length}`);
     for (const c of exact) {
       if (!c.done) failures.push(`OBS_PENDING ${label}`);
       else if (c.failed) failures.push(`OBS_FAILED ${label}`);
-      else if (w.status && !w.status.includes(c.status)) failures.push(`OBS_STATUS ${label} ${c.status}`);
+      else if (w.status && !w.status.includes(c.status)) {
+        failures.push(`OBS_STATUS ${label} ${c.status}`);
+        if (c.storage) failures.push(`OBS_STORAGE ${c.storage.err} ${c.storage.code} ${c.storage.msg} ${c.storage.status}`);
+      }
     }
     return exact;
   });

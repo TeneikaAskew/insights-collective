@@ -8,7 +8,7 @@
 //   * each file read on one O_NOFOLLOW|O_NONBLOCK handle: regular, this uid, exact 0600, bounded size, bounded read,
 //     no growth; closed in finally
 //   * scan record: exact keys {name, sha256, verdict, scans, window}; "clean", 2, "same-document-unchanged", sha256 of the
-//     PNG bytes as read. Withheld record: exact keys {name, withheld: true, reason} with a known reason
+//     PNG bytes as read. Withheld record: exact keys {name, withheld: true, reason} with a known reason (MUTATED may add a strictly validated fixed-kind `diag`)
 // WHAT THE PNG STEP IS (reviewed wording): it strips ancillary chunks and keeps IHDR/PLTE/IDAT/IEND byte for byte. It is
 // NOT a pixel decode/re-encode and NOT pixel-secret detection; privacy rests on the capture rules in shot-core.mjs.
 //   * PNG: signature, every chunk CRC checked, IHDR first (sane size/depth/colour type), IDAT contiguous and inflatable,
@@ -16,14 +16,14 @@
 //     chunks refuse
 //   * the re-encoded bytes must not contain this run's nonce or the carrier prefix (belt and braces: text chunks are gone)
 // Output: <export dir>/<name>.png (0600) and, on stdout, one "SHOT <name> sha256=<hex> bytes=<n> width=<w> height=<h>" line
-// per exported shot and "WITHHELD <name> reason=<R>" per withheld shot, in allowlist order, then
+// per exported shot and "WITHHELD <name> reason=<R>" per withheld shot (MUTATED: plus its fixed-kind phase counts), in allowlist order, then
 // "SHOTS <captured> captured <withheld> withheld of 16". Any refusal: "run-journey refused: SHOT_E_*", exit 3.
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { SHOT_NAMES, WITHHELD_REASONS, assertShotDir } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
+import { SHOT_NAMES, WITHHELD_REASONS, assertShotDir, diagSuffix } from '../../../e2e/gradebook-roles/journey/shot-core.mjs';
 import { assertPairingProof, PAIRING_PREFIX } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 
 export class ShotError extends Error {
@@ -59,7 +59,7 @@ export function readHandle(file, max, { uid = typeof process.getuid === 'functio
       if (!err && n !== st.size) err = 'SHOT_E_GROWTH';
       if (!err) buf = Buffer.from(cap.subarray(0, n));
     }
-  } catch { err = err ?? 'SHOT_E_READ'; }
+  } catch { err = 'SHOT_E_READ'; }   // every err assignment above ends the try without a throw
   finally { try { io.closeSync(fd); } catch { err = err ?? 'SHOT_E_CLOSE'; } }
   if (err) throw new ShotError(err);
   return buf;
@@ -118,6 +118,7 @@ export function sanitizePng(buf) {
 
 const SCAN_KEYS = 'name,scans,sha256,verdict,window';
 const WITHHELD_KEYS = 'name,reason,withheld';
+const WITHHELD_DIAG_KEYS = 'diag,name,reason,withheld';
 /**
  * @param {{ shotDir: string, sessionDir: string, proofFile: string, exportDir: string, uid?: number, io?: typeof fs }} o
  * @returns {string[]} the manifest lines
@@ -143,9 +144,13 @@ export function exportShots(o) {
       const wb = readHandle(path.join(shotDir, `${name}.withheld.json`), MAX_SCAN, { uid: o.uid, io: o.io });
       let w;
       try { w = JSON.parse(wb.toString('utf8')); } catch { throw new ShotError('SHOT_E_WITHHELD_RECORD'); }
-      if (!w || typeof w !== 'object' || Array.isArray(w) || Object.keys(w).sort().join(',') !== WITHHELD_KEYS || w.name !== name
-        || w.withheld !== true || !WITHHELD_REASONS.includes(w.reason)) throw new ShotError('SHOT_E_WITHHELD_RECORD');
-      out.push({ name, withheld: w.reason });
+      // A MUTATED record may carry the fixed-kind diagnostic (shot-core mutationDiag); no other record carries any extra key.
+      const keys = w && typeof w === 'object' && !Array.isArray(w) ? Object.keys(w).sort().join(',') : '';
+      const withDiag = keys === WITHHELD_DIAG_KEYS && w.reason === 'MUTATED';
+      if ((keys !== WITHHELD_KEYS && !withDiag) || w.name !== name || w.withheld !== true || !WITHHELD_REASONS.includes(w.reason)) throw new ShotError('SHOT_E_WITHHELD_RECORD');
+      const suffix = withDiag ? diagSuffix(w.diag) : '';
+      if (suffix === null) throw new ShotError('SHOT_E_WITHHELD_RECORD');
+      out.push({ name, withheld: w.reason, suffix });
       continue;
     }
     const raw = readHandle(path.join(shotDir, `${name}.png`), MAX_PNG, { uid: o.uid, io: o.io });
@@ -162,7 +167,7 @@ export function exportShots(o) {
   try { fs.mkdirSync(o.exportDir, { mode: 0o700 }); } catch { throw new ShotError('SHOT_E_EXPORT_DIR'); }
   const lines = [];
   for (const s of out) {
-    if (s.withheld) { lines.push(`WITHHELD ${s.name} reason=${s.withheld}`); continue; }
+    if (s.withheld) { lines.push(`WITHHELD ${s.name} reason=${s.withheld}${s.suffix ? ` ${s.suffix}` : ''}`); continue; }
     const p = path.join(o.exportDir, `${s.name}.png`);
     try { fs.writeFileSync(p, s.png, { mode: 0o600, flag: 'wx' }); } catch { throw new ShotError('SHOT_E_EXPORT_WRITE'); }
     lines.push(`SHOT ${s.name} sha256=${createHash('sha256').update(s.png).digest('hex')} bytes=${s.png.length} width=${s.width} height=${s.height}`);

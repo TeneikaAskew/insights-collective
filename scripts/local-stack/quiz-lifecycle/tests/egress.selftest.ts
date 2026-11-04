@@ -36,7 +36,7 @@ async function provesLoopRedirectConfined(page: Page, context: BrowserContext, r
   expect(served302()).toBeGreaterThan(servedBefore);
   await expect.poll(() => refusalProxy.destinations.includes(loopHost), { timeout: 5000 }).toBe(true);
   expect(loopHits()).toBe(0);
-  await expectViolation(egress, new RegExp(`refusal proxy received a request for ${loopHost.replace(/\./g, '\\.')}`));
+  await expectViolation(egress, new RegExp(`refusal proxy received a request for ${loopHost.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 }
 
 async function expectViolation(egress: { violations: string[] }, pattern: RegExp) {
