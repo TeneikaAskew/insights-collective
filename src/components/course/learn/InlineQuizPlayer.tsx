@@ -447,6 +447,42 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
   );
 
   /**
+   * The session unmounted while its start was in flight, so answers given
+   * before the attempt existed (owner PENDING_START) have no autosave or unmount
+   * flush to carry them. Write them to the attempt the start produced. Runs on
+   * the quiz work queue (inside the start's task), so a remounted session reads
+   * the attempt only after these answers have landed.
+   */
+  /**
+   * Write this session's answers to `attemptId` now, for a session that has
+   * unmounted and so has no autosave timer left. Called only from work already
+   * running on the quiz queue (it must not enqueue, or it would wait on itself).
+   */
+  const writeAnswersNow = useCallback(async (attemptId: string) => {
+    const rev = revRef.current;
+    const records = Object.entries(answersRef.current).map(([questionId, answer]) => ({
+      quiz_submission_id: attemptId,
+      quiz_question_id: questionId,
+      answer_data: { answer },
+    }));
+    if (records.length === 0) return;
+    const { error } = await supabase
+      .from('quiz_submission_answers')
+      .upsert(records, { onConflict: 'quiz_submission_id,quiz_question_id' });
+    if (error) logger.error('Could not save answers given before leaving the quiz', error);
+    else savedRevRef.current = Math.max(savedRevRef.current, rev);
+  }, []);
+
+  const flushOrphanedAnswers = useCallback(
+    async (attemptId: string) => {
+      if (answersOwnerRef.current !== PENDING_START) return;
+      answersOwnerRef.current = attemptId;
+      await writeAnswersNow(attemptId);
+    },
+    [writeAnswersNow],
+  );
+
+  /**
    * After a failed start, read the learner's latest attempt to learn what the
    * server actually did. A new in-progress attempt means the start committed
    * and only the response was lost: adopt it rather than start another.
@@ -469,11 +505,17 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       const isNew = !!latest && (!before || (latest.attempt ?? 0) > (before.attempt ?? 0));
       if (latest && isNew && isAttemptInProgress(latest)) {
         if (aliveRef.current) adoptAttempt(latest);
+        else {
+          // Ref only (no state on an unmounted session): a submit waiting on
+          // this start still gets the attempt it asked for.
+          submissionRef.current = latest;
+          await flushOrphanedAnswers(latest.id);
+        }
         return 'adopted';
       }
       return 'none';
     },
-    [quiz.id, user?.id, adoptAttempt],
+    [quiz.id, user?.id, adoptAttempt, flushOrphanedAnswers],
   );
 
   /**
@@ -499,16 +541,35 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       return null;
     }
 
-    const run = (async (): Promise<Submission | null> => {
+    // The start runs on the learner's quiz work queue, like answer writes and
+    // finalization. A session that remounts while it is in flight waits for it
+    // (loadLatestAttempt reads only after the queue drains), so it resumes the
+    // attempt instead of finding none and starting another; and answers given
+    // before the attempt existed are written to it even if this session is gone.
+    const waitedBehindOtherWork = quizWorkQueues.has(workKey);
+    const startOnQueue = async (): Promise<Submission | null> => {
       setStarting(true);
       try {
+        if (waitedBehindOtherWork) {
+          // Earlier work (perhaps another session's start) may have created the
+          // attempt while this start waited: adopt it rather than use up another.
+          const pre = await reconcileStart(current);
+          if (pre === 'adopted') return submissionRef.current;
+        }
         const { data, error } = await supabase
           .rpc('start_quiz_attempt', { p_quiz_id: quiz.id })
           .single();
         if (error) throw error;
         if (!data) throw new Error('The quiz attempt could not be started.');
-        if (!aliveRef.current) return null;
         const row = data as Submission;
+        if (!aliveRef.current) {
+          // The session is gone, but the attempt exists: save the answers given
+          // before it did, and hand it to a submit that is waiting on this start
+          // (the old session's UI is not touched).
+          submissionRef.current = row;
+          await flushOrphanedAnswers(row.id);
+          return row;
+        }
         adoptAttempt(row);
         return row;
       } catch (error: any) {
@@ -540,10 +601,34 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         startPromiseRef.current = null;
         if (aliveRef.current) setStarting(false);
       }
+    };
+    const run = (async (): Promise<Submission | null> => {
+      let result: Submission | null = null;
+      await enqueueQuizWork(workKey, async () => {
+        result = await startOnQueue();
+      });
+      return result;
     })();
     startPromiseRef.current = run;
     return run;
-  }, [quiz.id, quiz.allowed_attempts, user?.id, toast, startUncertain, adoptAttempt, reconcileStart]);
+  }, [
+    quiz.id,
+    quiz.allowed_attempts,
+    user?.id,
+    toast,
+    startUncertain,
+    adoptAttempt,
+    reconcileStart,
+    flushOrphanedAnswers,
+    workKey,
+  ]);
+
+  // Asks the server to start again after a confirmed refusal. Answers kept in
+  // this tab are still unsaved; they are written only once an attempt exists.
+  const retryRefusedStart = () => {
+    setStartRefused(null);
+    void ensureAttempt();
+  };
 
   // Asks the server to start again after a confirmed refusal. Answers kept in
   // this tab are still unsaved; they are written only once an attempt exists.
@@ -738,6 +823,13 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         .select('*')
         .eq('id', active.id)
         .maybeSingle();
+      if (!readError && row && isAttemptInProgress(row) && !aliveRef.current && revRef.current > savedRevRef.current) {
+        // Not finalized, and the session that holds the answers is gone: write
+        // them before releasing the barrier, so a returning session resumes
+        // them instead of a stale or blank attempt.
+        finalizingAttempts.delete(active.id);
+        await writeAnswersNow(active.id);
+      }
       releaseFinalization();
       if (!readError && row && row.workflow_state === 'complete' && row.finished_at) {
         await acceptFinalized(row);

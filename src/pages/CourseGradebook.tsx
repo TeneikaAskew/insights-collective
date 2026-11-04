@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { assertGradeSaved } from '@/lib/assignmentGrading';
+import { assertGradeSaved, toStoredGrade } from '@/lib/assignmentGrading';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,7 +32,7 @@ interface GradeUpdatePayload {
 // callers can surface the error.
 async function updateSubmissionGrade(submissionId: string, grade: number) {
   const written = {
-    grade,
+    grade: toStoredGrade(grade),
     graded_at: new Date().toISOString(),
     workflow_state: 'graded',
   };

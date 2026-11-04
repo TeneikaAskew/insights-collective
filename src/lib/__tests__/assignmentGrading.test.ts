@@ -1,7 +1,13 @@
 // ABOUTME: The assignment grading contract: assignments.points is the denominator, grade outranks the older score
 // ABOUTME: column, 0 is real, and a grade save counts only when exactly one row reads back with the sent grade.
 import { describe, it, expect } from 'vitest';
-import { assignmentPointsPossible, submissionEarnedPoints, assertGradeSaved } from '../assignmentGrading';
+import {
+  assignmentPointsPossible,
+  submissionEarnedPoints,
+  assertGradeSaved,
+  toStoredGrade,
+  parseGradeInput,
+} from '../assignmentGrading';
 import { buildGradebook, buildGradebookCsvRows } from '@/components/course/gradebook/gradebookData';
 
 describe('assignmentPointsPossible', () => {
@@ -83,5 +89,45 @@ describe('10-point assignment: totals and CSV agree with the per-cell grades', (
     const rows = buildGradebookCsvRows(students, items.map((i) => ({ ...i, type: 'assignment' as const })), model);
     expect(rows[1]).toEqual(['s0', 'Zero', '', 0, 10, 'graded', undefined, 10, 'missing', 0, 10, 0]);
     expect(rows[2]).toEqual(['s7', 'Seven', '', 7, 10, 'graded', 7, 10, 'graded', 14, 20, 70]);
+  });
+});
+
+describe('toStoredGrade (numeric(10,2) column scale)', () => {
+  it('rounds to two decimals the way Postgres stores it, so readback matches', () => {
+    expect(toStoredGrade(7.125)).toBe(7.13);
+    expect(toStoredGrade(7.124)).toBe(7.12);
+    expect(toStoredGrade(1.005)).toBe(1.01);
+    expect(toStoredGrade(10)).toBe(10);
+    expect(toStoredGrade(0)).toBe(0);
+  });
+
+  it('rounds decimal ties away from zero like numeric, not on the binary value (10.075 is 1007.4999... x 100)', () => {
+    expect(toStoredGrade(10.075)).toBe(10.08);
+    expect(toStoredGrade(2.675)).toBe(2.68);
+    expect(toStoredGrade(1.255)).toBe(1.26);
+    expect(toStoredGrade(-10.075)).toBe(-10.08);
+    expect(toStoredGrade(0.0000001)).toBe(0);
+  });
+
+  it('a rounded write passes the readback check against the stored value', () => {
+    const written = { grade: toStoredGrade(7.125), workflow_state: 'graded' };
+    expect(() => assertGradeSaved([{ id: 's1', grade: 7.13, workflow_state: 'graded' }], 's1', written)).not.toThrow();
+  });
+});
+
+describe('parseGradeInput (range checked on the value typed, then normalized to storage scale)', () => {
+  it('rejects values outside 0..points even when rounding would pull them inside', () => {
+    expect(parseGradeInput('-0.004', 10)).toEqual({ ok: false });
+    expect(parseGradeInput('10.004', 10)).toEqual({ ok: false });
+    expect(parseGradeInput('-1', 10)).toEqual({ ok: false });
+  });
+  it('rejects empty, non-numeric and non-finite input', () => {
+    for (const raw of ['', 'abc', 'Infinity', 'NaN']) expect(parseGradeInput(raw, 10), raw).toEqual({ ok: false });
+  });
+  it('accepts the boundaries and returns the stored-scale value', () => {
+    expect(parseGradeInput('0', 10)).toEqual({ ok: true, value: 0 });
+    expect(parseGradeInput('10', 10)).toEqual({ ok: true, value: 10 });
+    expect(parseGradeInput('9.995', 10)).toEqual({ ok: true, value: 10 });
+    expect(parseGradeInput('7.125', 10)).toEqual({ ok: true, value: 7.13 });
   });
 });

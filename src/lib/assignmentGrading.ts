@@ -27,6 +27,35 @@ export function submissionEarnedPoints(s: { grade?: unknown; score?: unknown } |
   return finite(s.grade) ?? finite(s.score) ?? null;
 }
 
+/**
+ * assignment_submissions.grade is numeric(10,2): Postgres rounds the DECIMAL value to two places, ties away from
+ * zero (7.125 -> 7.13, 10.075 -> 10.08), and returns the rounded value. Round the same way before writing so the
+ * readback compares like with like. The scaling is done on the number's shortest decimal form ("10.075e2" is
+ * exactly 1007.5), not on its binary value (10.075 * 100 is 1007.4999999999999, which would round down).
+ */
+export function toStoredGrade(value: number): number {
+  if (!Number.isFinite(value)) return value;
+  const sign = value < 0 ? -1 : 1;
+  const abs = Math.abs(value);
+  if (abs < 0.005) return 0; // also covers exponent forms like 1e-7, which cannot be scaled as text
+  const text = String(abs);
+  if (text.includes('e')) return value; // >= 1e21: far beyond the column and already integral
+  const scaled = Math.round(Number(`${text}e2`));
+  return (sign * Number(`${scaled}e-2`)) || 0;
+}
+
+/**
+ * A grade typed by an instructor. The range is checked on the value as typed, so -0.004 or 10.004 on a 10-point
+ * assignment is refused rather than rounded into range; only an accepted value is normalized to storage scale.
+ */
+export function parseGradeInput(raw: string, pointsPossible: number): { ok: true; value: number } | { ok: false } {
+  const text = raw.trim();
+  if (text === '') return { ok: false };
+  const typed = Number(text);
+  if (!Number.isFinite(typed) || typed < 0 || typed > pointsPossible) return { ok: false };
+  return { ok: true, value: toStoredGrade(typed) };
+}
+
 export interface SavedGradeRow { id: string; grade: number | null; workflow_state?: string | null; [k: string]: unknown }
 
 const sameValue = (key: string, got: unknown, want: unknown): boolean => {

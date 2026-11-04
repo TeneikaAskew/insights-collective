@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import {
   NOT_STARTED_DAYS,
+  averageProgress,
   fetchCourseRoster,
   filterAndSortRoster,
   type RosterSort,
@@ -49,9 +50,7 @@ export function StudentsView({ courseId, courseTitle }: StudentsViewProps) {
     [learners, query, sort, attentionOnly],
   );
   const attentionCount = learners.filter((l) => l.needsAttention).length;
-  const avg = learners.length
-    ? Math.round(learners.reduce((s, l) => s + l.progress, 0) / learners.length)
-    : null;
+  const avg = averageProgress(learners);
 
   return (
     <div className="px-4 sm:px-6 lg:px-10 py-6 lg:py-10 max-w-[1200px] mx-auto">
@@ -98,7 +97,10 @@ export function StudentsView({ courseId, courseTitle }: StudentsViewProps) {
             </div>
             <div className="ss-card bg-card p-4">
               <dt className="text-xs text-muted-foreground">Average progress</dt>
-              <dd className="text-2xl font-semibold">{avg}%</dd>
+              <dd className="text-2xl font-semibold" data-testid="roster-avg-progress">{avg === null ? '—' : `${avg}%`}</dd>
+              {avg === null && (
+                <p className="text-xs text-muted-foreground mt-1">No published lessons to measure yet.</p>
+              )}
             </div>
             <div className="ss-card bg-card p-4">
               <dt className="text-xs text-muted-foreground">Not started after {NOT_STARTED_DAYS} days</dt>
@@ -154,8 +156,13 @@ export function StudentsView({ courseId, courseTitle }: StudentsViewProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 flex-1">
-                    <Progress value={l.progress} className="h-2 flex-1" aria-label={`${l.name} progress`} />
-                    <span className="text-sm tabular-nums w-10 text-right">{l.progress}%</span>
+                    <Progress value={l.progress ?? 0} className="h-2 flex-1" aria-label={`${l.name} progress`} />
+                    <span
+                      className="text-sm tabular-nums w-24 text-right"
+                      title={l.progress === null ? 'No published lessons yet' : `${l.completedItems} of ${l.totalItems} lessons finished`}
+                    >
+                      {l.progress === null ? '—' : `${l.progress}%`}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2 sm:justify-end sm:w-48">
                     {l.needsAttention && (
