@@ -1119,8 +1119,11 @@ const CourseDetail = () => {
           return (
             <div className="space-y-8">
               {/* Dark hero */}
-              <section className="relative rounded-2xl overflow-hidden bg-foreground text-background p-8 md:p-12">
-                <div className="grid md:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
+              {/* The two columns follow the hero's own width, not the viewport: at md the course rail leaves the hero
+                  ~480px, which put the title in a ~184px column. Below 32rem the image stacks under the text instead
+                  of being dropped (it stays hidden below md, as before). */}
+              <section className="relative rounded-2xl overflow-hidden bg-foreground text-background p-8 md:p-12 [container-type:inline-size]">
+                <div className="grid [@container(min-width:32rem)]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-8 items-center">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-background/60 mb-4">
                       {course.category || 'Course'}{course.level ? ` · ${course.level}` : ''}

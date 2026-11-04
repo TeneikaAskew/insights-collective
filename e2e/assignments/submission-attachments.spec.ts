@@ -108,7 +108,9 @@ test.describe('Submission attachments in the grader (instructor)', () => {
     await fileRow(page, IMAGE).getByRole('button', { name: 'Comment' }).click();
 
     const composer = page.getByPlaceholder(/comment|feedback/i).first();
-    await expect(composer).toHaveValue(new RegExp(IMAGE.replace(/\./g, '\\.')));
+    // Contains the filename. Every regex metacharacter is escaped (backslash first), not only '.', so the pattern
+    // stays a literal for any fixture name; toHaveValue still retries until the composer is seeded.
+    await expect(composer).toHaveValue(new RegExp(IMAGE.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')));
     await expect(composer).toBeFocused();
   });
 });

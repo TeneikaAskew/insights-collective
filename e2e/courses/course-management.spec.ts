@@ -37,19 +37,59 @@ test.describe('Course Management (Instructor)', () => {
     ).toBeVisible();
   });
 
-  // Students and Assignments are not sections of this screen. The rail offers
-  // "Students" only as a COMING SOON placeholder, and assignments are reached
-  // through Curriculum — so the two tests named for those tabs were asserting
-  // navigation this page does not have.
-  test('students management is still a placeholder', async ({ page }) => {
+  // Students and Reports are working sections (IC-LMS-04/05). Students WAS a
+  // "Coming soon" placeholder and an older test pinned that; the roster
+  // (StudentsView) and Reports (ReportsView) replaced it.
+  //
+  // Generic contract: holds for ANY course, empty or not. The load must resolve,
+  // the error state must not render, and exactly one of roster / empty state is
+  // shown. When the roster renders, its Enrolled figure equals its row count.
+  test('Students opens a real roster, never the placeholder or the error state', async ({ page }) => {
     await goto(page, mgmtUrl);
-    // Asserted rather than skipped, because the placeholder is the real current
-    // behavior and this fails the day it becomes a working section — which is
-    // when the test above it should grow a Students case.
-    const students = page.getByRole('button', { name: /Students/ });
+    const students = page.getByRole('button', { name: /^Students/ });
     await expect(students).toBeVisible();
-    // Case-insensitive: the DOM says "Coming soon" and CSS uppercases it, so
-    // innerText and textContent disagree. toContainText reads textContent.
-    await expect(students).toContainText(/coming soon/i);
+    await expect(students).not.toContainText(/coming soon/i);
+    await students.click();
+    await expect(page).toHaveURL(/view=students/);
+    await expect(page.getByRole('heading', { name: 'Students', level: 2 })).toBeVisible();
+    await expect(page.getByRole('status', { name: 'Loading students' })).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText("Couldn't load students")).toHaveCount(0);
+    const roster = page.getByRole('list', { name: 'Enrolled students' });
+    const empty = page.getByText('No students yet');
+    await expect(roster.or(empty)).toBeVisible();
+    if (await empty.isVisible()) {
+      await expect(roster).toHaveCount(0);
+      await expect(page.locator('dt', { hasText: /^Enrolled$/ })).toHaveCount(0);
+      return;
+    }
+    const rows = await roster.getByRole('listitem').count();
+    const enrolled = page.locator('dt', { hasText: /^Enrolled$/ }).locator('xpath=following-sibling::dd[1]');
+    await expect(enrolled).toHaveText(String(rows));
+  });
+
+  // Fixture-specific: the reference course (TestIds.courseId) has the e2e member
+  // enrolled by e2e/fixtures/seed.sql step 1, so an empty roster HERE means the
+  // seed precondition failed or the roster query broke. This is not a claim
+  // about empty courses (the generic test covers those), and the count is not an
+  // exact fixture count: other enrollments on this course are not run-owned.
+  test('reference course: roster is non-empty and Reports shows the same Enrolled count', async ({ page }) => {
+    await goto(page, mgmtUrl);
+    await page.getByRole('button', { name: /^Students/ }).click();
+    await expect(page.getByRole('status', { name: 'Loading students' })).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.getByText('No students yet')).toHaveCount(0);
+    const list = page.getByRole('list', { name: 'Enrolled students' });
+    await expect(list).toBeVisible();
+    const rows = await list.getByRole('listitem').count();
+    expect(rows).toBeGreaterThan(0);
+
+    const reports = page.getByRole('button', { name: /^Reports/ });
+    await expect(reports).not.toContainText(/coming soon/i);
+    await reports.click();
+    await expect(page.getByRole('heading', { name: 'Reports', level: 2 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Couldn't load reports")).toHaveCount(0);
+    const kpi = page.locator('dt', { hasText: /^Enrolled$/ }).locator('xpath=following-sibling::dd[1]');
+    await expect(kpi).toHaveText(String(rows));
+    await expect(page.getByRole('heading', { name: 'Module progression' })).toBeVisible();
   });
 });

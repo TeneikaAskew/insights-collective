@@ -122,8 +122,10 @@ const CourseList = () => {
         </div>
 
         {/* Filter bar */}
-        <div data-onboarding="course-filters" className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row gap-3 md:items-center">
-          <div className="relative flex-1">
+        <div data-onboarding="course-filters" className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:flex-wrap lg:flex-nowrap gap-3 md:items-center">
+          {/* The three selects are fixed-width from md; in the narrower md content area the search takes its own
+              row (basis-full) instead of being squeezed to ~60px, and joins the row again from lg. */}
+          <div className="relative flex-1 md:basis-full lg:basis-0">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-11 h-11 rounded-full border-border bg-card focus-visible:ring-ring"
