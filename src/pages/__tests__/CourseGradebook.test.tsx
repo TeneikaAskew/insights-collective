@@ -430,8 +430,8 @@ describe('CourseGradebook', () => {
       (mockSupabaseClient.from as Mock).mockImplementation(() => builder);
 
       const result = await applyBulkSubmissionGrades([
-        { studentId: 's1', itemId: 'a1', itemType: 'assignment', grade: 10, submissionId: 'sub-ok' },
-        { studentId: 's2', itemId: 'a1', itemType: 'assignment', grade: 5, submissionId: 'sub-bad' },
+        { studentId: 's1', itemId: 'a1', itemType: 'assignment', grade: 10, pointsPossible: 100, submissionId: 'sub-ok' },
+        { studentId: 's2', itemId: 'a1', itemType: 'assignment', grade: 5, pointsPossible: 100, submissionId: 'sub-bad' },
         { studentId: 's3', itemId: 'q1', itemType: 'quiz', grade: 7 },
       ]);
 
@@ -485,6 +485,180 @@ describe('CourseGradebook', () => {
       expect(toastMock).not.toHaveBeenCalledWith(
         expect.objectContaining({ title: 'Success' }),
       );
+    });
+  });
+});
+
+// The table writer must follow the same contract as SpeedGrader (parseGradeInput): the range is checked on the
+// value as typed, against the assignment's own points, and only an accepted value is rounded to storage scale.
+// An invalid entry never reaches assignment_submissions and never toasts Success.
+describe('CourseGradebook grade range', () => {
+  beforeEach(() => {
+    toastMock.mockClear();
+    gradebookPropsRef.current = null;
+    vi.mocked(useAuth).mockReturnValue(
+      createMockAuthProvider({
+        user: { id: 'instructor-1', email: 'teach@example.com' },
+        isAuthenticated: true,
+      }) as any,
+    );
+    vi.mocked(useCoursePermissions).mockReturnValue({
+      canEdit: true,
+      isInstructor: true,
+      isAdmin: false,
+      loading: false,
+      error: null,
+    } as any);
+  });
+
+  function tablesWithPoints(points: number, grade = 7) {
+    const tables = successTables();
+    let builders: any;
+    tables.assignments = tableBuilder({ data: [{ ...assignmentRow, points }], error: null });
+    tables.assignment_submissions = tableBuilder(
+      {
+        data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade, workflow_state: 'graded' })],
+        error: null,
+      },
+      echoUpdate(() => builders.assignment_submissions),
+    );
+    builders = wireTables(tables);
+    return builders;
+  }
+
+  async function enterInline(cellText: string, typed: string) {
+    render(<CourseGradebook />);
+    // The summary cards can show the same number; click the gradebook cell itself.
+    const matches = await screen.findAllByText(cellText);
+    fireEvent.click(matches.find((el) => el.closest('.cursor-pointer')) ?? matches[0]);
+    const input = await screen.findByRole('spinbutton');
+    fireEvent.change(input, { target: { value: typed } });
+    fireEvent.click(input.parentElement!.querySelector('button')!);
+    return input;
+  }
+
+  describe('inline cell', () => {
+    for (const [label, points, typed] of [
+      ['-0.004 on a 10-point assignment', 10, '-0.004'],
+      ['10.004 on a 10-point assignment', 10, '10.004'],
+      ['an emptied cell', 10, ''],
+      ['0.01 on a zero-point assignment', 0, '0.01'],
+    ] as const) {
+      it(`refuses ${label} before any write`, async () => {
+        const builders = tablesWithPoints(points, points === 0 ? 0 : 7);
+        const input = await enterInline(points === 0 ? '0' : '7', typed);
+
+        await waitFor(() =>
+          expect(toastMock).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Invalid grade', variant: 'destructive' }),
+          ),
+        );
+        expect(toastMock).toHaveBeenCalledWith(
+          expect.objectContaining({ description: `Enter a value between 0 and ${points}.` }),
+        );
+        expect(builders.assignment_submissions.update).not.toHaveBeenCalled();
+        expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' }));
+        // The cell stays open with what was typed, so the instructor can correct it.
+        expect(input).toBeInTheDocument();
+        expect((input as HTMLInputElement).value).toBe(typed);
+      });
+    }
+
+    for (const [label, points, typed, stored] of [
+      ['10.075 on a 20-point assignment as 10.08', 20, '10.075', 10.08],
+      ['0 on a 10-point assignment', 10, '0', 0],
+      ['10 on a 10-point assignment', 10, '10', 10],
+      // The cell already shows 0, so the instructor's re-entry is typed as 0.00 for the change to register.
+      ['0.00 on a zero-point assignment', 0, '0.00', 0],
+    ] as const) {
+      it(`saves ${label}`, async () => {
+        const builders = tablesWithPoints(points, points === 0 ? 0 : 7);
+        await enterInline(points === 0 ? '0' : '7', typed);
+
+        await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' })));
+        expect(builders.assignment_submissions.update).toHaveBeenCalledTimes(1);
+        expect(builders.assignment_submissions.update.mock.calls[0][0].grade).toBe(stored);
+        expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+      });
+    }
+  });
+
+  describe('bulk', () => {
+    function echoBuilder() {
+      const builder: any = { update: vi.fn(() => builder) };
+      builder.eq = vi.fn((_col: string, id: string) => ({
+        select: vi.fn(() => Promise.resolve({ data: [{ id, ...builder.update.mock.calls.at(-1)[0] }], error: null })),
+      }));
+      (mockSupabaseClient.from as Mock).mockClear();
+      (mockSupabaseClient.from as Mock).mockImplementation(() => builder);
+      return builder;
+    }
+
+    it('writes only in-range values, rounded to storage scale, and fails the rest without a write', async () => {
+      const builder = echoBuilder();
+      const u = (submissionId: string, grade: number, pointsPossible: number) => ({
+        studentId: submissionId, itemId: 'a1', itemType: 'assignment' as const, grade, pointsPossible, submissionId,
+      });
+
+      const result = await applyBulkSubmissionGrades([
+        u('ok-tie', 10.075, 20),
+        u('ok-low', 0, 10),
+        u('ok-high', 10, 10),
+        u('ok-zero', 0, 0),
+        u('bad-neg', -0.004, 10),
+        u('bad-over', 10.004, 10),
+        u('bad-nan', Number.NaN, 10),
+        u('bad-inf', Number.POSITIVE_INFINITY, 10),
+        u('bad-zero', 0.01, 0),
+      ]);
+
+      expect(result.succeeded).toBe(4);
+      expect(result.failed.map((f) => f.update.submissionId)).toEqual([
+        'bad-neg', 'bad-over', 'bad-nan', 'bad-inf', 'bad-zero',
+      ]);
+      for (const f of result.failed) expect(f.reason).toMatch(/^Enter a value between 0 and \d+\.$/);
+
+      const written = builder.eq.mock.calls.map((c: any[]) => c[1]);
+      expect(written.sort()).toEqual(['ok-high', 'ok-low', 'ok-tie', 'ok-zero']);
+      const grades = Object.fromEntries(
+        builder.update.mock.calls.map((c: any[], i: number) => [builder.eq.mock.calls[i][1], c[0].grade]),
+      );
+      expect(grades).toEqual({ 'ok-tie': 10.08, 'ok-low': 0, 'ok-high': 10, 'ok-zero': 0 });
+    });
+
+    it('refuses an update whose points possible are unknown rather than writing it unchecked', async () => {
+      const builder = echoBuilder();
+      const result = await applyBulkSubmissionGrades([
+        { studentId: 's1', itemId: 'a1', itemType: 'assignment', grade: 5, submissionId: 'sub-x' },
+      ]);
+      expect(result.succeeded).toBe(0);
+      expect(result.failed[0].reason).toMatch(/points/i);
+      expect(builder.update).not.toHaveBeenCalled();
+    });
+
+    it('the page checks each bulk entry against the assignment points and reports the partial failure', async () => {
+      const builders = tablesWithPoints(10);
+      render(<CourseGradebook />);
+      await screen.findByText('Ada Lovelace');
+
+      await act(async () => {
+        await gradebookPropsRef.current.onBulkGradeUpdate([
+          { studentId: 'student-1', itemId: 'a1', itemType: 'assignment', grade: 9.5 },
+          // A caller-supplied pointsPossible is not trusted: the assignment's own points (10) decide.
+          { studentId: 'student-1', itemId: 'a1', itemType: 'assignment', grade: 10.004, pointsPossible: 100 },
+        ]);
+      });
+
+      expect(builders.assignment_submissions.update).toHaveBeenCalledTimes(1);
+      expect(builders.assignment_submissions.update.mock.calls[0][0].grade).toBe(9.5);
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Partial failure',
+          variant: 'destructive',
+          description: expect.stringContaining('Saved 1 of 2 grades. 1 failed: Enter a value between 0 and 10.'),
+        }),
+      );
+      expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' }));
     });
   });
 });
