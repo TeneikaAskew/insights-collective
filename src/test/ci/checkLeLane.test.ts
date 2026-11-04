@@ -2434,13 +2434,15 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
     expect(run([`[${STAMP}:ERROR:content/browser/gpu/gpu_process_host.cc(1)] GPU process exited unexpectedly\n`])).toBe('NO_MATCH');
   });
 
-  it('chunk splits at every byte, CRLF and an unterminated final line give the same code', () => {
+  it('chunk splits at every byte and CRLF give the same code for complete records', () => {
     const line = Buffer.from(`noise\n${GPU}\nmore\n`, 'latin1');
     for (let i = 0; i <= line.length; i += 1) expect(run([line.subarray(0, i), line.subarray(i)]), String(i)).toBe('GPU_UNUSABLE_REPORTED');
     expect(run([...Buffer.from(`${GPU}\n`, 'latin1')].map((b) => Buffer.from([b])))).toBe('GPU_UNUSABLE_REPORTED');
     expect(run([`${GPU}\r\n`])).toBe('GPU_UNUSABLE_REPORTED');
-    expect(run([`x\n${GPU}`])).toBe('GPU_UNUSABLE_REPORTED'); // partial EOF judged at the sample
-    expect(run([`x\n${OTHER}`])).toBe('OTHER_FATAL_REPORTED');
+    // r1.1: the sample is a checkpoint, not EOF. An exact GPU or fatal prefix without its newline is not a complete record.
+    expect(run([`x\n${GPU}`])).toBe('NO_MATCH');
+    expect(run([`x\n${OTHER}`])).toBe('NO_MATCH');
+    expect(run([`${GPU}\r`])).toBe('NO_MATCH');
   });
 
   it('near matches of the GPU record are not the GPU record', () => {
@@ -2580,5 +2582,89 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
     expect(decisionsOf(swap('BROWSER_LOG MISSING', 'BROWSER_LOG GPU_UNUSABLE_REPORTED'))).toEqual(decisionsOf(LANE_OK));
     for (const f of ['gates.mjs', 'run-lane.mjs', 'bridge.mjs', 'image.mjs'])
       expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserLog|BROWSER_LOG/);
+  });
+});
+
+describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no post-sample inspection', () => {
+  const STAMP = '1104/180140.123456';
+  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
+  const L = (x: string) => Buffer.from(x, 'latin1');
+  const TINY = { MAX_BYTES: 32, MAX_LINE: 16 };
+
+  it('an exact GPU-prefix chunk is not attributed early; a later suffix decides; a later newline completes it', () => {
+    const a = browserLogClassifier(1);
+    a.push(L(GPU));
+    a.push(L(' and more\n'));
+    expect(a.sample()).toBe('OTHER_FATAL_REPORTED'); // the suffix made it a different fatal record; no premature GPU attribution
+    const b = browserLogClassifier(1);
+    b.push(L(GPU));
+    b.push(L('\n'));
+    expect(b.sample()).toBe('GPU_UNUSABLE_REPORTED');
+    const c = browserLogClassifier(1);
+    c.push(L(`${GPU}\n${GPU}`));
+    expect(c.sample()).toBe('GPU_UNUSABLE_REPORTED'); // the second, unfinished copy is discarded, not MULTIPLE
+  });
+
+  it('caller buffers: later mutation cannot change classification, and pushed bytes are never modified', () => {
+    const head = L(GPU.slice(0, 40));
+    const snapshot = Buffer.from(head);
+    const c = browserLogClassifier(1);
+    c.push(head);
+    expect(head.equals(snapshot)).toBe(true);
+    head.fill(0x7a); // caller reuses its buffer
+    c.push(L(`${GPU.slice(40)}\n`));
+    expect(c.sample()).toBe('GPU_UNUSABLE_REPORTED');
+    // the independently reproduced shape: a one-byte pending fragment from an 8 MiB backing buffer under MAX_BYTES 32 / MAX_LINE 16
+    const big = Buffer.alloc(8 * 1024 * 1024, 0x61);
+    big.write('[1104/1801\nAB', 0, 'latin1');
+    const d = browserLogClassifier(1, TINY);
+    d.push(big.subarray(0, 12)); // pending 'A'
+    big.fill(0x0a, 0, 64); // mutate the backing buffer behind the view
+    d.push(L('C\n'));
+    expect(d.sample()).toBe('NO_MATCH');
+    const e = browserLogClassifier(1, TINY);
+    e.push(big.subarray(0, 32));
+    expect(e.sample()).toBe('NO_MATCH'); // within the byte cap
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    const body = src.slice(src.indexOf('export function browserLogClassifier'), src.indexOf('export function browserLogRecorder'));
+    expect(body).toContain('if (!pend) pend = Buffer.alloc(limits.MAX_LINE); b.copy(pend, lineLen);');
+    expect(body).not.toMatch(/line\.push\(|Buffer\.concat\(/);
+    expect(body.indexOf('lineLen + b.length > limits.MAX_LINE')).toBeLessThan(body.indexOf('b.copy(pend, lineLen)'));
+  });
+
+  it('sample and fail release pending storage; a fragment from before a fail or sample never resurfaces', () => {
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    expect(src).toContain('const release = () => { pend = null; lineLen = 0; skipping = false; };');
+    expect(src).toContain('fail() { broken = true; release(); },');
+    expect(src).toMatch(/if \(frozen !== null\) return frozen;\n\s*\/\/[^\n]*\n\s*release\(\);\n\s*frozen = result/);
+    const f = browserLogClassifier(1);
+    f.push(L(GPU));
+    f.fail();
+    f.push(L('\n'));
+    expect(f.sample()).toBe('UNAVAILABLE');
+  });
+
+  it('post-sample: pushed bytes are not inspected, copied or retained (negative control: the same probe before the sample is inspected)', () => {
+    const probe = (x: string) => {
+      const b = L(x);
+      let touched = 0;
+      for (const k of ['indexOf', 'subarray', 'copy', 'toString'] as const)
+        Object.defineProperty(b, k, { value: (...args: unknown[]) => { touched += 1; return (Buffer.prototype[k] as (...a: unknown[]) => unknown).apply(b, args); } });
+      return { b, touched: () => touched };
+    };
+    const c = browserLogClassifier(1);
+    const before = probe('x\n');
+    c.push(before.b);
+    expect(before.touched()).toBeGreaterThan(0); // the probe sees real inspection
+    expect(c.sample()).toBe('NO_MATCH');
+    const after = probe(`${GPU}\n`);
+    c.push(after.b);
+    expect(after.touched()).toBe(0);
+    expect(c.sample()).toBe('NO_MATCH');
+    const capped = browserLogClassifier(1, TINY);
+    capped.sample();
+    const big = probe('y'.repeat(4096));
+    capped.push(big.b);
+    expect(big.touched()).toBe(0);
   });
 });

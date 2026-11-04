@@ -333,7 +333,7 @@ const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/g
 const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\]]{1,512}\\(\\d{1,6}\\)\\] `);
 /** The pure, bounded classifier: push(Buffer) per chunk, sample() once. Exported for the fake controls. */
 export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
-  let bytes = 0, line = [], lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;
+  let bytes = 0, pend = null, lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;
   const judge = (buf) => {
     let s = buf.toString('latin1');
     if (s.endsWith('\r')) s = s.slice(0, -1);
@@ -345,10 +345,12 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   };
   const piece = (b) => {
     if (skipping) return;
-    if (lineLen + b.length > limits.MAX_LINE) { truncated = true; skipping = true; line = []; lineLen = 0; return; }
-    if (b.length) { line.push(b); lineLen += b.length; }
+    if (lineLen + b.length > limits.MAX_LINE) { truncated = true; skipping = true; lineLen = 0; return; }
+    // Bounds are checked first; only the permitted fragment is copied into owned storage (no view of a caller buffer is kept).
+    if (b.length) { if (!pend) pend = Buffer.alloc(limits.MAX_LINE); b.copy(pend, lineLen); lineLen += b.length; }
   };
-  const endLine = () => { if (!skipping && lineLen) judge(Buffer.concat(line, lineLen)); line = []; lineLen = 0; skipping = false; };
+  const endLine = () => { if (!skipping && lineLen) judge(pend.subarray(0, lineLen)); lineLen = 0; skipping = false; };
+  const release = () => { pend = null; lineLen = 0; skipping = false; };
   const result = (n) => (broken ? 'UNAVAILABLE' : n > 1 ? 'MULTIPLE' : truncated ? 'TRUNCATED' : gpu === 1 ? 'GPU_UNUSABLE_REPORTED' : other === 1 ? 'OTHER_FATAL_REPORTED' : 'NO_MATCH');
   return {
     push(chunk) {
@@ -362,11 +364,11 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
       for (let nl = c.indexOf(0x0a, at); nl !== -1; nl = c.indexOf(0x0a, at)) { piece(c.subarray(at, nl)); endLine(); at = nl + 1; }
       piece(c.subarray(at));
     },
-    fail() { broken = true; },
+    fail() { broken = true; release(); },
     sample() {
       if (frozen !== null) return frozen;
-      // An unterminated final line within the bounds is judged at the sample (partial EOF); it is never echoed.
-      if (!broken && !skipping && lineLen) endLine();
+      // The sample is a checkpoint, not EOF: only newline-complete records count; the unfinished suffix is discarded unread.
+      release();
       frozen = result(gpu + other);
       return frozen;
     },
