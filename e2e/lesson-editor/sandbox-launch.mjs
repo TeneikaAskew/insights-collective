@@ -311,6 +311,94 @@ export function browserExitLine(state, pageTeardown) {
 }
 
 /**
+ * E1 browser-log r1: ONE closed code saying whether the owned browser's stderr carried a Chromium FATAL record, read passively and
+ * bounded. Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads it. Nothing derived from the bytes is
+ * kept or emitted except these counters; no path, line number, PID, message or raw byte leaves this module.
+ *   GPU_UNUSABLE_REPORTED: exactly one fatal record, and it is the pinned Chrome for Testing 147.0.7727.15 record
+ *     `[<stamp>:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`
+ *     (IntentionallyCrashBrowserForUnusableGpuProcess). It names a terminal path, never the upstream reason the GPU fallback ran out.
+ *   OTHER_FATAL_REPORTED: exactly one fatal record of any other form (official-build CHECK failures write none at all).
+ *   NO_MATCH: no fatal record was observed from attachment (after launchServer returned; startup records are not seen) up to the
+ *     first sample, within the byte budget. It is NOT proof that no fatal path ran.
+ *   MULTIPLE: more than one fatal record. TRUNCATED: the byte budget or the per-line bound was exceeded (a record could be
+ *     hidden), and no MULTIPLE was already established. UNAVAILABLE: no stderr stream, not already flowing (attaching would change
+ *     consumption), non-Buffer data, an errored stream, or a throwing classifier.
+ * Records whose prefix carries a process id other than the owned browser's pid are ignored; a record without one counts.
+ * The first sample freezes the result; later bytes are ignored (late records never change an emitted code).
+ */
+export const BROWSER_LOG_CODES = Object.freeze(['GPU_UNUSABLE_REPORTED', 'OTHER_FATAL_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']);
+export const BROWSER_LOG_LIMITS = Object.freeze({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
+const LOG_FATAL_PREFIX = String.raw`^\[(?:(\d{1,10}):\d{1,10}:)?\d{4}/\d{6}\.\d{6}:FATAL:`;
+const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/gpu_data_manager_impl_private\\.cc\\(417\\)\\] GPU process isn't usable\\. Goodbye\\.$`);
+const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\]]{1,512}\\(\\d{1,6}\\)\\] `);
+/** The pure, bounded classifier: push(Buffer) per chunk, sample() once. Exported for the fake controls. */
+export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
+  let bytes = 0, line = [], lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;
+  const judge = (buf) => {
+    let s = buf.toString('latin1');
+    if (s.endsWith('\r')) s = s.slice(0, -1);
+    const g = GPU_UNUSABLE_RECORD.exec(s);
+    const f = g ?? FATAL_RECORD.exec(s);
+    if (!f) return;
+    if (f[1] !== undefined && Number(f[1]) !== browserPid) return;
+    if (g) gpu += 1; else other += 1;
+  };
+  const piece = (b) => {
+    if (skipping) return;
+    if (lineLen + b.length > limits.MAX_LINE) { truncated = true; skipping = true; line = []; lineLen = 0; return; }
+    if (b.length) { line.push(b); lineLen += b.length; }
+  };
+  const endLine = () => { if (!skipping && lineLen) judge(Buffer.concat(line, lineLen)); line = []; lineLen = 0; skipping = false; };
+  const result = (n) => (broken ? 'UNAVAILABLE' : n > 1 ? 'MULTIPLE' : truncated ? 'TRUNCATED' : gpu === 1 ? 'GPU_UNUSABLE_REPORTED' : other === 1 ? 'OTHER_FATAL_REPORTED' : 'NO_MATCH');
+  return {
+    push(chunk) {
+      if (frozen !== null || broken) return;
+      if (!Buffer.isBuffer(chunk)) { broken = true; return; }
+      if (truncated && bytes >= limits.MAX_BYTES) return;
+      let c = chunk;
+      if (bytes + c.length > limits.MAX_BYTES) { c = c.subarray(0, limits.MAX_BYTES - bytes); truncated = true; }
+      bytes += c.length;
+      let at = 0;
+      for (let nl = c.indexOf(0x0a, at); nl !== -1; nl = c.indexOf(0x0a, at)) { piece(c.subarray(at, nl)); endLine(); at = nl + 1; }
+      piece(c.subarray(at));
+    },
+    fail() { broken = true; },
+    sample() {
+      if (frozen !== null) return frozen;
+      // An unterminated final line within the bounds is judged at the sample (partial EOF); it is never echoed.
+      if (!broken && !skipping && lineLen) endLine();
+      frozen = result(gpu + other);
+      return frozen;
+    },
+  };
+}
+/** A passive 'data' listener on the owned ChildProcess's stderr (already flowing: Playwright's readline consumes it). */
+export function browserLogRecorder(child) {
+  const pid = child && typeof child === 'object' ? child.pid : undefined;
+  const c = browserLogClassifier(Number.isInteger(pid) ? pid : -1);
+  let stream = null, attached = false;
+  try {
+    stream = child && typeof child === 'object' ? child.stderr : null;
+    if (stream && typeof stream.on === 'function' && stream.readableFlowing === true) {
+      stream.on('data', (d) => { try { c.push(d); } catch { try { c.fail(); } catch { /* observation only */ } } });
+      attached = true;
+    }
+  } catch { attached = false; }
+  return () => {
+    try {
+      if (!attached) return 'UNAVAILABLE';
+      if (stream.errored) { c.fail(); }
+      const v = c.sample();
+      return BROWSER_LOG_CODES.includes(v) ? v : 'UNAVAILABLE';
+    } catch { return 'UNAVAILABLE'; }
+  };
+}
+/** The test-scoped gate's `lane-browser-log` annotation: one BROWSER_LOG_CODES code; a missing or throwing sampler is UNAVAILABLE. */
+export function browserLogLine(state) {
+  try { const v = typeof state?.browserLog === 'function' ? state.browserLog() : 'UNAVAILABLE'; return BROWSER_LOG_CODES.includes(v) ? v : 'UNAVAILABLE'; } catch { return 'UNAVAILABLE'; }
+}
+
+/**
  * Post-run evidence for the worker and the owned browser; ok only if all four are ENFORCE (pre equal to post).
  * @param {{ pid: number, readLabel: (who: number | 'self', note?: (outcomes: string[]) => void) => string | null, exitObservation?: () => string, pre: { worker: string, browser: string } }} state
  */
@@ -368,11 +456,12 @@ export async function withSandboxedBrowser(chromium, { launchOptions, defaults, 
     const pid = child?.pid;
     const exitObservation = exitObserver(child); // passive, diagnostic only (postrunAppArmorObserved)
     const exitShapeOf = exitRecorder(child); // passive, diagnostic only (browserExitLine, E1 diagnostics r3)
+    const browserLogOf = browserLogRecorder(child); // passive, bounded, diagnostic only (browserLogLine, E1 browser-log r1)
     const a = attestArgv(pid, readCmdline, shell);
     if (a) throw new SandboxLaunchError(a);
     let state = null;
     if (readLabel) {
-      state = { pid, readLabel, exitObservation, exitShape: exitShapeOf, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
+      state = { pid, readLabel, exitObservation, exitShape: exitShapeOf, browserLog: browserLogOf, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
       if (state.pre.browser !== AA_ENFORCE) throw new SandboxLaunchError('LANE_E_APPARMOR_PRE', { apparmor: state.pre.browser });
       onAppArmor?.(state);
     }

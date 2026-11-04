@@ -278,6 +278,8 @@ export const BROWSER_EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE'
 export const BODY_END_PAGE_STATES = Object.freeze(['OPEN', 'CLOSED', 'CRASHED', 'CRASHED_CLOSED', 'UNKNOWN']);
 export const BROWSER_EXIT_CHECKPOINTS = Object.freeze(['PAGE_TEARDOWN_START', 'GATE_POST', 'NOT_SEEN', 'UNKNOWN']);
 const BROWSER_EXIT = new RegExp(`^SHAPE (CODE_(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${BROWSER_EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN) FIRST_SEEN (${BROWSER_EXIT_CHECKPOINTS.join('|')}) BODY_END_PAGE (${BODY_END_PAGE_STATES.join('|')})$`);
+// E1 browser-log r1: the closed codes of sandbox-launch.mjs BROWSER_LOG_CODES (the copy equals its source; a static test pins it).
+export const BROWSER_LOG_CODES = Object.freeze(['GPU_UNUSABLE_REPORTED', 'OTHER_FATAL_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']);
 /** The test-scoped gate's `lane-browser-exit` annotation (sandbox-launch.mjs browserExitLine) to { shape, firstSeen, page } or
  *  null. Consistent pairs only: an exit shape needs a checkpoint or UNKNOWN; NONE needs NOT_SEEN; UNKNOWN needs UNKNOWN. */
 export function browserExitEvidence(text) {
@@ -330,6 +332,7 @@ export function reportedErrorCode(message) {
  *       LANE E1 ATTEMPT_STATUS <ATTEMPT_STATUSES>,
  *       LANE E1 FAILED_STEP <FAILED_STEP_TOKENS>,
  *       LANE E1 BROWSER_EXIT <browserExitEvidence grammar>|MISSING|INVALID,
+ *       LANE E1 BROWSER_LOG <one BROWSER_LOG_CODES code>|MISSING|INVALID,
  *     LANE CLEANUP PASS|FAIL, LANE END
  * The E1 APPARMOR line is the WORKER-side evidence (egress-test.ts laneAppArmorGate), copied from the report annotation.
  * RESULT, REPORT and REPORTED_ERROR are DIAGNOSTIC ONLY (E1 diagnostics r1): no acceptance, teardown or upload decision reads
@@ -341,12 +344,15 @@ export function reportedErrorCode(message) {
  * NONE and only PASSED may have NONE. ATTEMPT_STATUS is Playwright's word for the one selected attempt, never an E1 verdict.
  * BROWSER_EXIT (E1 diagnostics r3) is DIAGNOSTIC ONLY too: the owned browser's closed exit shape and the spec page's state at the
  * page wrapper's teardown-start checkpoint. A report that is not PARSED needs it equal to the report state. It never says why a process exited.
+ * BROWSER_LOG (E1 browser-log r1) is DIAGNOSTIC ONLY too: whether a Chromium FATAL record was seen on the owned browser's stderr,
+ * as one closed code; never a path, line or message, and never the upstream reason. A report that is not PARSED needs it equal to
+ * the report state.
  * A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
  */
 export function parseLaneOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, postObserved: null, attemptStatus: null, failedStep: null, browserExit: null, cleanup: null };
+  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, postObserved: null, attemptStatus: null, failedStep: null, browserExit: null, browserLog: null, cleanup: null };
   const want = (i) => ls[i];
   let i = 0;
   if (ls.length === 0) return r;
@@ -409,6 +415,12 @@ export function parseLaneOut(text) {
       if (!bx) return { ok: false };
       if (bx[1] === 'MISSING' || bx[1] === 'INVALID') { if (r.report !== 'PARSED' && bx[1] !== r.report) return { ok: false }; r.browserExit = { state: bx[1] }; }
       else { const ev = browserExitEvidence(bx[1]); if (!ev || r.report !== 'PARSED') return { ok: false }; r.browserExit = { state: 'EVIDENCE', ...ev }; }
+      if (i >= ls.length) return r;
+      const bl = /^LANE E1 BROWSER_LOG ([A-Z_]+)$/.exec(want(i++));
+      if (!bl) return { ok: false };
+      if (bl[1] === 'MISSING' || bl[1] === 'INVALID') { if (r.report !== 'PARSED' && bl[1] !== r.report) return { ok: false }; }
+      else if (!BROWSER_LOG_CODES.includes(bl[1]) || r.report !== 'PARSED') return { ok: false };
+      r.browserLog = bl[1];
       if (i >= ls.length) return r;
     }
     const c = want(i++);
@@ -602,5 +614,5 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
   const post = po.state === 'EVIDENCE' ? `WR:${po.reads.worker.join(',')};BR:${po.reads.browser.join(',')};EXIT:${po.exit.join(',')}` : po.state;
   const bx = o.browserExit;
   const browserExit = bx.state === 'EVIDENCE' ? `${bx.shape},${bx.firstSeen},${bx.page}` : bx.state;
-  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} browser_exit=${browserExit} cleanup=${o.cleanup}`;
+  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} browser_exit=${browserExit} browser_log=${o.browserLog} cleanup=${o.cleanup}`;
 }

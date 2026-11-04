@@ -6,6 +6,8 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { constants as fsConstants, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { createInterface } from 'node:readline';
+import { PassThrough } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 import YAML from 'yaml';
 import { SECCOMP_PROFILE_REL, createdNeverStarted } from '../../../scripts/e2e/le-iso/expect.mjs';
@@ -16,6 +18,7 @@ import {
   E1_RESULT_CLASSES, REPORTED_ERROR_CODES, REPORT_STATES, e1ResultClass, refusalDetail, reportedErrorCode,
   ATTEMPT_STATUSES, E1_STEP_CODES, FAILED_STEP_TOKENS, POST_EXIT_OBSERVATIONS, POST_READ_OUTCOMES, attemptStatusToken, failedStepToken, postObservedEvidence,
   BODY_END_PAGE_STATES, BROWSER_EXIT_CHECKPOINTS, BROWSER_EXIT_SIGNALS, browserExitEvidence,
+  BROWSER_LOG_CODES,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
 import { inputsOk, runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
@@ -28,6 +31,7 @@ import {
   postrunAppArmor, serverOptions, withSandboxedBrowser,
   EXIT_OBSERVATIONS, READ_OUTCOMES, exitObserver, postrunAppArmorObserved, readErrorOutcome, readLabelAttempts, readTextOutcome,
   BODY_END_PAGES, EXIT_CHECKPOINTS, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState, pageTeardownRecord, sampleExitShape,
+  BROWSER_LOG_CODES as SL_LOG_CODES, BROWSER_LOG_LIMITS, browserLogClassifier, browserLogLine, browserLogRecorder,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
@@ -237,7 +241,7 @@ const ENF = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
 const AA_LINE = `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} ${ENF}`;
 // E1 diagnostics r2: the three diagnostic lines for a report with no observation annotation and no full-identity E1 test;
 // r3 adds the BROWSER_EXIT line (no `lane-browser-exit` annotation: MISSING).
-const DIAG_TAIL = 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n';
+const DIAG_TAIL = 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\n';
 const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`;
 const OKV = laneVerdict({ runLaneStarted: true, gatesText: 'x\nGATE CONTAINER LANE_ABSENT\nGATE BRIDGE BRIDGE_REAPED\nGATE CLIENTS REAPED\nGATE STARTED YES\nLANE_GATES_END\n' });
 
@@ -1641,17 +1645,17 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const r = await enter({ report: null, e1Code: null });
     expect(r.lane()).toContain('LANE E1 RESULT NO_CODE\nLANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING\nLANE E1 REPORTED_ERROR UNKNOWN\n');
     expect(r.code).toBe(1);
-    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
+    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID', browserLog: 'INVALID' });
     for (const why of ['open', 'owner', 'mode', 'size', 'grew', 'path', 'read'])
-      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
+      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID', browserLog: 'INVALID' });
     expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).report).toBe('INVALID');
     // budget exhaustion, even with a recognisable code earlier in the walk, is INVALID and UNKNOWN
     let deep: Obj = {}; for (let i = 0; i < 100; i++) deep = { child: deep };
-    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
+    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID', browserLog: 'INVALID' });
     const wide = JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], items: Array.from({ length: REPORT_MAX_NODES }, () => ({})) });
     expect(snap(wide).report).toBe('INVALID');
     // parsed with no annotation: AppArmor MISSING, report PARSED
-    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING' });
+    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING', browserLog: 'MISSING' });
     // the old function is the same snapshot's AppArmor line
     expect(workerAppArmorFromReport({ status: 'ok', text: errReport([R1('Error: LANE_E_CONNECT')]) })).toBe(AA_LINE);
   });
@@ -1712,7 +1716,7 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     for (const good of [
       swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING'),
-      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED MISSING`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED INVALID').replace('BROWSER_EXIT MISSING', 'BROWSER_EXIT INVALID'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED MISSING`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED INVALID').replace('BROWSER_EXIT MISSING', 'BROWSER_EXIT INVALID').replace('BROWSER_LOG MISSING', 'BROWSER_LOG INVALID'),
       swap(AA_LINE, 'LANE E1 APPARMOR MISSING'), swap(AA_LINE, 'LANE E1 APPARMOR INVALID'),
       swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR MULTIPLE'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_SANDBOX_PID'),
     ]) expect(parseLaneOut(good).ok, good).toBe(true);
@@ -1727,17 +1731,17 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
       `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT ${result}\n${aa}\nLANE E1 REPORT ${report}\nLANE E1 REPORTED_ERROR ${err}\n${DIAG_TAIL}LANE CLEANUP ${cleanup}\nLANE END\n`;
     const missing = lane('NO_CODE', 'LANE E1 APPARMOR MISSING', 'MISSING', 'UNKNOWN', 'FAIL');
     expect(planSummary({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
-    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=FAIL');
+    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING browser_log=MISSING cleanup=FAIL');
     const real255 = lane('CLOSE_WITH_CODE', 'LANE E1 APPARMOR MISSING', 'PARSED', 'LANE_E_LAUNCH_HUNG');
-    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS');
+    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING browser_log=MISSING cleanup=PASS');
     const nonEnf = lane('CLOSE_WITH_CODE', `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNCONFINED`, 'PARSED', 'MULTIPLE');
-    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING browser_log=MISSING cleanup=PASS`);
     // every other plan: NONE (summary, not-run, other refusals, skip), and the plan itself is unchanged by the new lines
     const other: [string | null, Obj, Obj][] = [[LANE_OK, okPw('0'), OKV], [LANE_OK, { state: 'absent' }, OKV], [LANE_OK, { state: 'bad' }, OKV], [null, { state: 'absent' }, OKV],
       ['LANE START\n', { state: 'absent' }, OKV], [missing, okPw('255'), { ...OKV, ok: false }], ['garbage\n', okPw('0'), OKV]];
     for (const [t, pw, v] of other) expect(refusalDetail({ verdict: v as never, laneText: t, pwExit: pw as never })).toBe('LE-E1 DETAIL NONE');
     expect(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: okPw('0') })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
-    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ post=[A-Z_:,;]+ attempt_status=[A-Z_]+ failed_step=[A-Z0-9_]+ browser_exit=[A-Z0-9_,]+ cleanup=(PASS|FAIL))$/;
+    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ post=[A-Z_:,;]+ attempt_status=[A-Z_]+ failed_step=[A-Z0-9_]+ browser_exit=[A-Z0-9_,]+ browser_log=[A-Z_]+ cleanup=(PASS|FAIL))$/;
     for (const t of [missing, real255, nonEnf]) expect(refusalDetail({ verdict: OKV, laneText: t, pwExit: okPw('255') })).toMatch(DETAIL);
   });
 
@@ -1754,7 +1758,7 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const lane = LANE_OK.replace(AA_LINE, 'LANE E1 APPARMOR MISSING');
     const files = { [L.started]: 'x', [L.gates]: block, [L.laneTxt]: lane, [L.pwExit]: '1\n' };
     expect(planLine(fsFor(files), L)).toBe('PLAN REFUSED LE_SUM_E_WORKER_APPARMOR');
-    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS');
+    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING browser_log=MISSING cleanup=PASS');
     expect(detailLine(fsFor({ ...files, [L.laneTxt]: LANE_OK, [L.pwExit]: '0\n' }), L)).toBe('LE-E1 DETAIL NONE');
     const step = (YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj).jobs as Obj;
     const run = (Object.values(step).flatMap((j) => ((j as Obj).steps as Obj[] | undefined) ?? []).find((s) => s.id === 'le_summary') as Obj).run as string;
@@ -2042,7 +2046,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const swapped = snapOf(e1Report({ results: [{ ...withSecondary, error: { message: 'Error: LANE_E_CONNECT' }, errors: [] }], rootErrors: [] }));
     expect(swapped).toMatchObject({ reportedError: 'LANE_E_CONNECT', attemptStatus: 'FAILED', failedStep: 'E1_RELOAD' });
     // two errors in errors[] do not establish an order, and nothing here claims one: no ordering value exists
-    expect(Object.keys(a).sort()).toEqual(['aaLine', 'attemptStatus', 'browserExit', 'failedStep', 'postObserved', 'report', 'reportedError']);
+    expect(Object.keys(a).sort()).toEqual(['aaLine', 'attemptStatus', 'browserExit', 'browserLog', 'failedStep', 'postObserved', 'report', 'reportedError']);
   });
 
   it('observation annotation: one valid description, else MISSING or INVALID; budgets exhausted are INVALID for every value', () => {
@@ -2058,8 +2062,8 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const deepR = JSON.parse(e1Report()); deepR.deep = deep;
     const wideR = JSON.parse(e1Report()); wideR.items = Array.from({ length: REPORT_MAX_NODES }, () => ({}));
     for (const r of [deepR, wideR])
-      expect(snapOf(JSON.stringify(r))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
-    expect(reportSnapshot({ status: 'missing' })).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'MISSING', reportedError: 'UNKNOWN', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING' });
+      expect(snapOf(JSON.stringify(r))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID', browserLog: 'INVALID' });
+    expect(reportSnapshot({ status: 'missing' })).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'MISSING', reportedError: 'UNKNOWN', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING', browserLog: 'MISSING' });
     expect(snapOf(`${e1Report()}x`).report).toBe('INVALID');
     expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).postObserved).toBe('INVALID');
   });
@@ -2068,7 +2072,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const secretRep = JSON.parse(e1Report({ results: [attempt({ steps: [{ title: 'E1_SAVED', error: { message: 'postgresql://postgres:hunter2@127.0.0.1:54322/x' } }],
       stdout: [{ text: 'eyJhbGciOiJIUzI1NiJ9.x.y' }] })], rootErrors: [{ message: 'secret hunter2' }] }));
     const r = await enter({ report: JSON.stringify(secretRep), e1Code: 1 });
-    expect(r.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP E1_SAVED\nLANE E1 BROWSER_EXIT MISSING\nLANE CLEANUP PASS\n`);
+    expect(r.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP E1_SAVED\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\nLANE CLEANUP PASS\n`);
     expect(r.lane()).not.toMatch(SECRET);
     expect(r.lane().split('\n').every((l) => l === '' || /^LANE [A-Z0-9_ ]+$/.test(l))).toBe(true);
     expect(parseLaneOut(r.lane())).toMatchObject({ ok: true, interrupted: false, attemptStatus: 'FAILED', failedStep: 'E1_SAVED', postObserved: { state: 'EVIDENCE' } });
@@ -2082,7 +2086,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const okPw = { state: 'ok', digits: '1' };
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: okPw }));
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
-    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:NO_EXIT_OBSERVED,NO_EXIT_OBSERVED attempt_status=FAILED failed_step=E1_SAVED browser_exit=MISSING cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:NO_EXIT_OBSERVED,NO_EXIT_OBSERVED attempt_status=FAILED failed_step=E1_SAVED browser_exit=MISSING browser_log=MISSING cleanup=PASS`);
     // a passing, enforced run still accepts exactly as before
     const good = await enter({ report: e1Report({ ann: [{ type: 'lane-apparmor', description: AA_DESC }, { type: 'lane-post-observed', description: 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED' }], results: [attempt({ status: 'passed', error: undefined })] }) });
     expect(good.code).toBe(0);
@@ -2110,9 +2114,9 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
       `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP FAIL\nLANE E1 NOT RUN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`,
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     const goods = [
-      swap(DIAG_TAIL, `LANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS TIMED_OUT\nLANE E1 FAILED_STEP E1_SETTLE\nLANE E1 BROWSER_EXIT MISSING\n`),
-      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED INVALID\nLANE E1 ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP NONE\nLANE E1 BROWSER_EXIT MISSING\n'),
-      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS INTERRUPTED\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n'),
+      swap(DIAG_TAIL, `LANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS TIMED_OUT\nLANE E1 FAILED_STEP E1_SETTLE\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\n`),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED INVALID\nLANE E1 ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP NONE\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\n'),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS INTERRUPTED\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\n'),
     ];
     for (const g of goods) {
       expect(parseLaneOut(g).ok, g).toBe(true);
@@ -2356,14 +2360,14 @@ describe('E1 diagnostics r3: owned-browser exit shape, first-seen checkpoint and
   it('supervisor and summary: the line comes from the same single read; decisions, exit content and cleanup are identical', async () => {
     const r = await enter({ report: report([...base, { type: 'lane-browser-exit', description: BX }]), e1Code: 1 });
     const r0 = await enter({ report: report(base), e1Code: 1 });
-    expect(r.lane()).toContain(`LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT ${BX}\nLANE CLEANUP PASS\n`);
-    expect(r0.lane()).toContain('LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT MISSING\nLANE CLEANUP PASS\n');
+    expect(r.lane()).toContain(`LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT ${BX}\nLANE E1 BROWSER_LOG MISSING\nLANE CLEANUP PASS\n`);
+    expect(r0.lane()).toContain('LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\nLANE CLEANUP PASS\n');
     expect(r.code).toBe(r0.code);
     expect(r.writes.get(3)).toBe(r0.writes.get(3));
     expect(r.runs).toEqual(r0.runs);
     const pw = { state: 'ok', digits: '1' };
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: pw }));
-    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,PAGE_TEARDOWN_START,CLOSED cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,PAGE_TEARDOWN_START,CLOSED browser_log=MISSING cleanup=PASS`);
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
     expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
     expect(src).toContain('say(`LANE E1 BROWSER_EXIT ${snap.browserExit}`);');
@@ -2393,5 +2397,188 @@ describe('E1 diagnostics r3: owned-browser exit shape, first-seen checkpoint and
       expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserExit|BROWSER_EXIT|pageTeardown/);
     const contract = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
     expect(contract.split('\n').filter((l) => /o\.browserExit|r\.browserExit/.test(l)).length).toBeLessThanOrEqual(4); // parser sets, detail reads
+  });
+});
+
+describe('E1 browser-log r1: bounded fatal-record classifier on the owned browser stderr (closed codes only)', () => {
+  type Obj = Record<string, unknown>;
+  const PID = 4242;
+  const STAMP = '1104/180140.123456';
+  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
+  const GPU_PID = `[${PID}:${PID + 1}:${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
+  const OTHER = `[${STAMP}:FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc(128)] No usable sandbox! token=eyJhbGciOi.secret /tmp/le-private/keys/anon`;
+  const SMALL = { MAX_BYTES: 4096, MAX_LINE: 256 };
+  const run = (chunks: (Buffer | string)[], limits?: { MAX_BYTES: number; MAX_LINE: number }, pid = PID) => {
+    const c = browserLogClassifier(pid, limits);
+    for (const x of chunks) c.push(typeof x === 'string' ? Buffer.from(x, 'latin1') : x);
+    return c.sample();
+  };
+  const SECRET = /eyJ|secret|le-private|keys|anon|\/tmp|zygote|gpu_data|417|128|4242/;
+
+  it('codes: closed, equal in source and contract; every sample is one of them and carries nothing from the bytes', () => {
+    expect([...SL_LOG_CODES]).toEqual(['GPU_UNUSABLE_REPORTED', 'OTHER_FATAL_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']);
+    expect([...BROWSER_LOG_CODES]).toEqual([...SL_LOG_CODES]);
+    expect(BROWSER_LOG_LIMITS).toEqual({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
+    for (const v of [run([`${GPU}\n`]), run([`${OTHER}\n`]), run([`${GPU}\n${OTHER}\n`]), run(['x\n']), run(['y'.repeat(300)], SMALL)]) {
+      expect(SL_LOG_CODES).toContain(v);
+      expect(v).not.toMatch(SECRET);
+    }
+  });
+
+  it('the pinned GPU record, with or without the owned pid; another pid is ignored; startup-free NO_MATCH', () => {
+    expect(run([`${GPU}\n`])).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([`${GPU_PID}\n`])).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([`${GPU_PID}\n`], undefined, PID + 7)).toBe('NO_MATCH'); // other-process record
+    expect(run([`[7:8:${STAMP}:FATAL:x/y.cc(1)] m\n`])).toBe('NO_MATCH'); // other-process fatal
+    expect(run([])).toBe('NO_MATCH');
+    expect(run([`[${STAMP}:ERROR:content/browser/gpu/gpu_process_host.cc(1)] GPU process exited unexpectedly\n`])).toBe('NO_MATCH');
+  });
+
+  it('chunk splits at every byte, CRLF and an unterminated final line give the same code', () => {
+    const line = Buffer.from(`noise\n${GPU}\nmore\n`, 'latin1');
+    for (let i = 0; i <= line.length; i += 1) expect(run([line.subarray(0, i), line.subarray(i)]), String(i)).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([...Buffer.from(`${GPU}\n`, 'latin1')].map((b) => Buffer.from([b])))).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([`${GPU}\r\n`])).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([`x\n${GPU}`])).toBe('GPU_UNUSABLE_REPORTED'); // partial EOF judged at the sample
+    expect(run([`x\n${OTHER}`])).toBe('OTHER_FATAL_REPORTED');
+  });
+
+  it('near matches of the GPU record are not the GPU record', () => {
+    const near = [
+      GPU.replace('(417)', '(418)'), GPU.replace('gpu_data_manager_impl_private.cc', 'gpu_data_manager_impl.cc'), GPU.replace('Goodbye.', 'Goodbye'),
+      `${GPU} trailing`, GPU.replace(':FATAL:', ':Fatal:'), ` ${GPU}`, GPU.replace('content/browser/gpu/', '../../content/browser/gpu/'),
+      GPU.replace(STAMP, '1104/180140.12345'), GPU.replace(`[${STAMP}`, `[1:${STAMP}`),
+    ];
+    const codes = near.map((l) => run([`${l}\n`]));
+    for (const [i, v] of codes.entries()) expect(v, near[i]).not.toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([`${GPU.replace(':FATAL:', ':ERROR:')}\n`])).toBe('NO_MATCH');
+  });
+
+  it('secret-shaped content is never kept: other fatal records with secret paths and messages are one code only', () => {
+    expect(run([`${OTHER}\n`])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([`[${STAMP}:FATAL:/home/u/eyJsecret/key.cc(9)] Bearer eyJ.secret\n`])).toBe('OTHER_FATAL_REPORTED');
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    const body = src.slice(src.indexOf('export function browserLogClassifier'), src.indexOf('export function browserLogLine'));
+    expect(body).not.toMatch(/console\.|process\.std|writeFile|appendFile|annotations|JSON\.stringify|setEncoding|\.pause\(|\.resume\(|on\('error'|once\('error'/);
+  });
+
+  it('conflicting or repeated fatal records are MULTIPLE (and MULTIPLE wins over TRUNCATED)', () => {
+    expect(run([`${GPU}\n${OTHER}\n`])).toBe('MULTIPLE');
+    expect(run([`${GPU}\n${GPU}\n`])).toBe('MULTIPLE');
+    expect(run([`${OTHER}\n${OTHER}\n`])).toBe('MULTIPLE');
+    expect(run([`${GPU}\n${OTHER}\n`, 'z'.repeat(5000)], SMALL)).toBe('MULTIPLE');
+  });
+
+  it('bounds: oversized unterminated input, a line past MAX_LINE and the total cap are TRUNCATED, including after an early match', () => {
+    expect(run(['a'.repeat(300)], SMALL)).toBe('TRUNCATED');
+    expect(run(['a'.repeat(200), 'b'.repeat(200)], SMALL)).toBe('TRUNCATED'); // per-line bound across chunks, before buffering
+    expect(run([`${'a'.repeat(300)}\n${GPU}\n`], SMALL)).toBe('TRUNCATED'); // a later record does not undo the truncation
+    expect(run([`${GPU}\n`, 'c\n'.repeat(3000)], SMALL)).toBe('TRUNCATED'); // cap after an early match
+    expect(run(['d\n'.repeat(2000)], SMALL)).toBe('NO_MATCH'); // 4000 bytes: within the cap
+    expect(run(['d\n'.repeat(2049)], SMALL)).toBe('TRUNCATED');
+    const c = browserLogClassifier(PID, SMALL);
+    for (let i = 0; i < 1000; i += 1) c.push(Buffer.from('e'.repeat(1000), 'latin1'));
+    expect(c.sample()).toBe('TRUNCATED');
+  });
+
+  it('late records after the first sample never change the code; non-Buffer data is UNAVAILABLE', () => {
+    const c = browserLogClassifier(PID);
+    c.push(Buffer.from('x\n'));
+    expect(c.sample()).toBe('NO_MATCH');
+    c.push(Buffer.from(`${GPU}\n`, 'latin1'));
+    expect(c.sample()).toBe('NO_MATCH');
+    const d = browserLogClassifier(PID);
+    d.push(`${GPU}\n` as unknown as Buffer);
+    expect(d.sample()).toBe('UNAVAILABLE');
+  });
+
+  it('recorder: passive on an already-flowing stream; the existing consumer sees identical lines; no error listener is added', async () => {
+    const stderr = new PassThrough();
+    const seen: string[] = [];
+    createInterface({ input: stderr }).on('line', (l) => seen.push(l));
+    const before = { data: stderr.listenerCount('data'), error: stderr.listenerCount('error'), flowing: stderr.readableFlowing };
+    const sample = browserLogRecorder({ pid: PID, stderr });
+    expect({ data: stderr.listenerCount('data'), error: stderr.listenerCount('error'), flowing: stderr.readableFlowing }).toEqual({ ...before, data: before.data + 1 });
+    stderr.write(`a\n${GPU.slice(0, 20)}`);
+    stderr.write(`${GPU.slice(20)}\nb\n`);
+    await new Promise((r) => setImmediate(r));
+    expect(seen).toEqual(['a', GPU, 'b']);
+    expect(sample()).toBe('GPU_UNUSABLE_REPORTED');
+    stderr.write(`${OTHER}\n`);
+    await new Promise((r) => setImmediate(r));
+    expect(sample()).toBe('GPU_UNUSABLE_REPORTED'); // late
+    expect(seen).toHaveLength(4);
+  });
+
+  it('recorder: missing, paused, throwing or errored streams are UNAVAILABLE and change nothing', () => {
+    expect(browserLogRecorder(null)()).toBe('UNAVAILABLE');
+    expect(browserLogRecorder({ pid: PID })()).toBe('UNAVAILABLE');
+    const paused = new PassThrough();
+    expect(browserLogRecorder({ pid: PID, stderr: paused })()).toBe('UNAVAILABLE');
+    expect([paused.listenerCount('data'), paused.readableFlowing]).toEqual([0, null]);
+    const throwing = Object.defineProperty({ pid: PID }, 'stderr', { get() { throw new Error('secret'); } });
+    expect(browserLogRecorder(throwing)()).toBe('UNAVAILABLE');
+    const errored = new PassThrough();
+    errored.on('data', () => {});
+    errored.on('error', () => {});
+    const s = browserLogRecorder({ pid: PID, stderr: errored });
+    errored.destroy(new Error('boom'));
+    expect(s()).toBe('UNAVAILABLE');
+    expect(browserLogLine({ browserLog: () => { throw new Error('secret'); } })).toBe('UNAVAILABLE');
+    expect(browserLogLine({ browserLog: () => 'GPU process isn\'t usable' })).toBe('UNAVAILABLE');
+    expect(browserLogLine({})).toBe('UNAVAILABLE');
+    expect(browserLogLine({ browserLog: () => 'NO_MATCH' })).toBe('NO_MATCH');
+  });
+
+  it('wiring: one passive recorder on the launchServer handle, one annotation after BROWSER_EXIT and before the throw; gates unchanged', () => {
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    expect(src.match(/browserLogRecorder\(/g)).toHaveLength(2);
+    const iExit = src.indexOf('const exitShapeOf = exitRecorder(child);'), iLog = src.indexOf('const browserLogOf = browserLogRecorder(child);'), iAttest = src.indexOf('const a = attestArgv(pid, readCmdline, shell);');
+    expect(iExit > 0 && iExit < iLog && iLog < iAttest).toBe(true);
+    expect(src).toContain('exitObservation, exitShape: exitShapeOf, browserLog: browserLogOf, pre:');
+    expect(src).toContain("if (state && !postrunAppArmor(state).ok) marks.push('LANE_E_APPARMOR_POST');");
+    const eg = readFileSync(path.join(ROOT, 'e2e/lesson-editor/egress-test.ts'), 'utf8');
+    const iBx = eg.indexOf("type: 'lane-browser-exit'"), iBl = eg.indexOf("type: 'lane-browser-log', description: browserLogLine(state) }"), iThrow = eg.indexOf("if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');");
+    expect(iBx > 0 && iBx < iBl && iBl < iThrow).toBe(true);
+    expect(eg.match(/browserLogLine\(/g)).toHaveLength(1);
+  });
+
+  it('snapshot, supervisor and grammar: one valid code else MISSING/INVALID; decisions, exit content and cleanup identical', async () => {
+    const ENF3 = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
+    const AA_U = `PRE ${ENF3} ${ENF3} POST ${ENF3} APPARMOR_E_UNKNOWN`;
+    const OBS3 = 'WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT EXIT_OBSERVED EXIT_OBSERVED';
+    const BX = 'SHAPE SIGTRAP FIRST_SEEN PAGE_TEARDOWN_START BODY_END_PAGE CLOSED';
+    const report = (ann: Obj[]) => {
+      const file = E1_IDENTITY.file;
+      const results = [{ retry: 0, status: 'failed', error: { message: 'x' }, errors: [], annotations: [], steps: [{ title: 'E1_OPEN', duration: 1, error: { message: 'x' } }] }];
+      return JSON.stringify({ errors: [], suites: [{ title: file, file, specs: [], suites: [{ title: E1_IDENTITY.describe, file, specs: [
+        { title: E1_IDENTITY.title, file, tests: [{ projectName: E1_IDENTITY.project, annotations: ann, results }] }] }] }] });
+    };
+    const base = [{ type: 'lane-apparmor', description: AA_U }, { type: 'lane-post-observed', description: OBS3 }, { type: 'lane-browser-exit', description: BX }];
+    const snap = (ann: Obj[]) => reportSnapshot({ status: 'ok', text: report(ann) });
+    for (const code of SL_LOG_CODES) expect(snap([...base, { type: 'lane-browser-log', description: code }]).browserLog).toBe(code);
+    expect(snap(base).browserLog).toBe('MISSING');
+    for (const ann of [[{ type: 'lane-browser-log', description: 'NO_MATCH' }, { type: 'lane-browser-log', description: 'MULTIPLE' }],
+      [{ type: 'lane-browser-log', description: 'GPU_UNUSABLE_REPORTED gpu_data_manager_impl_private.cc:417' }], [{ type: 'lane-browser-log', description: 7 }], [{ type: 'lane-browser-log' }]])
+      expect(snap([...base, ...ann]).browserLog, JSON.stringify(ann)).toBe('INVALID');
+    const { browserLog: _a, ...w } = snap([...base, { type: 'lane-browser-log', description: 'GPU_UNUSABLE_REPORTED' }]), { browserLog: _b, ...w0 } = snap(base);
+    expect(w).toEqual(w0);
+    const r = await enter({ report: report([...base, { type: 'lane-browser-log', description: 'GPU_UNUSABLE_REPORTED' }]), e1Code: 1 });
+    const r0 = await enter({ report: report(base), e1Code: 1 });
+    expect(r.lane()).toContain(`LANE E1 BROWSER_EXIT ${BX}\nLANE E1 BROWSER_LOG GPU_UNUSABLE_REPORTED\nLANE CLEANUP PASS\n`);
+    expect([r.code, r.writes.get(3), r.runs]).toEqual([r0.code, r0.writes.get(3), r0.runs]);
+    const pw = { state: 'ok', digits: '1' };
+    expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: pw }));
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toContain(' browser_exit=SIGTRAP,PAGE_TEARDOWN_START,CLOSED browser_log=GPU_UNUSABLE_REPORTED cleanup=PASS');
+    const swap = (from: string, to: string) => LANE_OK.replace(from, to);
+    for (const code of SL_LOG_CODES) expect(parseLaneOut(swap('BROWSER_LOG MISSING', `BROWSER_LOG ${code}`)).ok, code).toBe(true);
+    for (const bad of [swap('LANE E1 BROWSER_LOG MISSING\n', ''), swap('BROWSER_LOG MISSING', 'BROWSER_LOG GPU'), swap('BROWSER_LOG MISSING', 'BROWSER_LOG NO_MATCH x'),
+      swap('BROWSER_LOG MISSING', 'BROWSER_LOG gpu_data_manager_impl_private.cc:417'), swap('LANE E1 BROWSER_EXIT MISSING\nLANE E1 BROWSER_LOG MISSING\n', 'LANE E1 BROWSER_LOG MISSING\nLANE E1 BROWSER_EXIT MISSING\n'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING').replace('BROWSER_LOG MISSING', 'BROWSER_LOG NO_MATCH')])
+      expect(parseLaneOut(bad).ok, bad).toBe(false);
+    const decisionsOf = (t: string) => { const { browserLog: _x, ...rest } = parseLaneOut(t) as Obj; return rest; };
+    expect(decisionsOf(swap('BROWSER_LOG MISSING', 'BROWSER_LOG GPU_UNUSABLE_REPORTED'))).toEqual(decisionsOf(LANE_OK));
+    for (const f of ['gates.mjs', 'run-lane.mjs', 'bridge.mjs', 'image.mjs'])
+      expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserLog|BROWSER_LOG/);
   });
 });

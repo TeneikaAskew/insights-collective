@@ -9,7 +9,7 @@ import { test as base, expect } from '@playwright/test';
 import { allowedOrigins, installBoundary, type Boundary } from './egress-boundary';
 import { startEgressProxy, type EgressProxy } from './egress-proxy';
 import { readFileSync } from 'node:fs';
-import { browserExitLine, pageTeardownRecord, postrunAppArmor, postrunAppArmorObserved, readLabelAttempts, withSandboxedBrowser } from './sandbox-launch.mjs';
+import { browserExitLine, browserLogLine, pageTeardownRecord, postrunAppArmor, postrunAppArmorObserved, readLabelAttempts, withSandboxedBrowser } from './sandbox-launch.mjs';
 
 // Controls (self-test only): off = no layer but the resolver; route-only = no proxy; proxy-only = no route/WebSocket layer.
 const CONTROL = process.env.LE_EGRESS_CONTROL ?? '';
@@ -92,6 +92,7 @@ export const test = base.extend<{ boundary: Boundary; laneAppArmorGate: void }, 
       test.info().annotations.push({ type: 'lane-apparmor', description: post.line });
       test.info().annotations.push({ type: 'lane-post-observed', description: post.observed }); // diagnostic only (E1 diagnostics r2)
       test.info().annotations.push({ type: 'lane-browser-exit', description: browserExitLine(state, pageTeardown) }); // diagnostic only (r3)
+      test.info().annotations.push({ type: 'lane-browser-log', description: browserLogLine(state) }); // diagnostic only (browser-log r1)
       if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');
     },
     { auto: true },

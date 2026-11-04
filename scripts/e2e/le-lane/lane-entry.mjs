@@ -10,7 +10,7 @@
 // closed `LANE E1 APPARMOR ...` line; MISSING, INVALID or any non-ENFORCE code fails the lane. E1 diagnostics r1 adds three
 // DIAGNOSTIC lines from the same result and the same single read (LANE E1 RESULT, REPORT, REPORTED_ERROR; contract.mjs);
 // nothing decides on them, and they add no writer and no capture (runChild is unchanged). E1 diagnostics r2 adds three more
-// DIAGNOSTIC lines from that same read (POST_OBSERVED, ATTEMPT_STATUS, FAILED_STEP), and r3 one more (BROWSER_EXIT); nothing decides on them either. Every Node child (run.sh's bare `node`,
+// DIAGNOSTIC lines from that same read (POST_OBSERVED, ATTEMPT_STATUS, FAILED_STEP), r3 one more (BROWSER_EXIT) and browser-log r1 one more (BROWSER_LOG); nothing decides on them either. Every Node child (run.sh's bare `node`,
 // the Playwright runner and its workers, pgconn) is LANE_NODE, the job's Node copied into the image (closure-checked).
 // Listeners (disclosed, inside the container's own network namespace, which has only loopback): the three forwarders on
 // 127.0.0.1:<api|db|app port>, and Playwright's launchServer endpoint on 127.0.0.1 (egress-test.ts). No other listener.
@@ -24,7 +24,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
-import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode, postObservedEvidence, attemptStatusToken, failedStepToken, browserExitEvidence } from './contract.mjs';
+import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode, postObservedEvidence, attemptStatusToken, failedStepToken, browserExitEvidence, BROWSER_LOG_CODES } from './contract.mjs';
 import { E1_IDENTITY } from '../le-e1-summary.mjs';
 import { failedStep } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { PAIRING_COURSE_ID, PAIRING_PREFIX, assertLivePairing, assertPairingProof } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
@@ -117,9 +117,12 @@ export function workerAppArmorFromReport(r) {
  * E1 diagnostics r3 adds one more DIAGNOSTIC value from the same tree:
  *   browserExit: the `lane-browser-exit` annotation (test-scoped gate), exactly one distinct description in the closed grammar
  *     (contract.mjs browserExitEvidence), else MISSING or INVALID. Collected from every annotations array, like the others.
+ * E1 browser-log r1 adds one more, the same way:
+ *   browserLog: the `lane-browser-log` annotation, exactly one distinct description that is one BROWSER_LOG_CODES code, else
+ *     MISSING or INVALID.
  */
 export function reportSnapshot(r) {
-  const none = (aa, report) => ({ aaLine: `LANE E1 APPARMOR ${aa}`, report, reportedError: 'UNKNOWN', postObserved: aa, attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: aa });
+  const none = (aa, report) => ({ aaLine: `LANE E1 APPARMOR ${aa}`, report, reportedError: 'UNKNOWN', postObserved: aa, attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: aa, browserLog: aa });
   if (!r || r.status === 'missing') return none('MISSING', 'MISSING');
   if (r.status !== 'ok' || typeof r.text !== 'string' || Buffer.byteLength(r.text, 'utf8') > REPORT_MAX) return none('INVALID', 'INVALID');
   let root;
@@ -127,6 +130,7 @@ export function reportSnapshot(r) {
   const found = new Set();
   const observed = new Set();
   const exits = new Set();
+  const logs = new Set();
   const codes = new Set();
   let nodes = 0, exhausted = false;
   // role: the structural position of `v` (null = not on a defined error path). Node and depth counting are unchanged.
@@ -142,6 +146,7 @@ export function reportSnapshot(r) {
       if (a && a.type === 'lane-apparmor') found.add(typeof a.description === 'string' ? a.description : '');
       if (a && a.type === 'lane-post-observed') observed.add(typeof a.description === 'string' ? a.description : '');
       if (a && a.type === 'lane-browser-exit') exits.add(typeof a.description === 'string' ? a.description : '');
+      if (a && a.type === 'lane-browser-log') logs.add(typeof a.description === 'string' ? a.description : '');
     }
     for (const k of Object.keys(v)) if (k !== 'annotations') walk(v[k], depth + 1, CHILD[role]?.[k] ?? null);
   };
@@ -153,7 +158,9 @@ export function reportSnapshot(r) {
   const [ex] = exits;
   const browserExit = exits.size === 0 ? 'MISSING' : exits.size === 1 && browserExitEvidence(ex) ? ex : 'INVALID';
   const { attemptStatus, failedStep: step } = e1Attempt(root);
-  const diag = { postObserved, attemptStatus, failedStep: step, browserExit };
+  const [lg] = logs;
+  const browserLog = logs.size === 0 ? 'MISSING' : logs.size === 1 && BROWSER_LOG_CODES.includes(lg) ? lg : 'INVALID';
+  const diag = { postObserved, attemptStatus, failedStep: step, browserExit, browserLog };
   if (found.size === 0) return { aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError, ...diag };
   const [only] = found;
   return { aaLine: found.size === 1 && workerAppArmorEvidence(only) ? `LANE E1 APPARMOR ${only}` : 'LANE E1 APPARMOR INVALID', report: 'PARSED', reportedError, ...diag };
@@ -331,6 +338,7 @@ export async function laneMain(d) {
       say(`LANE E1 ATTEMPT_STATUS ${snap.attemptStatus}`);
       say(`LANE E1 FAILED_STEP ${snap.failedStep}`);
       say(`LANE E1 BROWSER_EXIT ${snap.browserExit}`);
+      say(`LANE E1 BROWSER_LOG ${snap.browserLog}`);
     } else say('LANE E1 NOT RUN');
     const c = await d.run(runsh, ['cleanup', L.work], { timeout: 60000 });
     say(c.code === 0 ? 'LANE CLEANUP PASS' : 'LANE CLEANUP FAIL');
