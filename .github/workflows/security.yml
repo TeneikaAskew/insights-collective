@@ -125,9 +125,11 @@ jobs:
         #                             pid and 16 random hex digits; nothing from the page reaches the path.
         #                             LE_EGRESS_DIR is the lane's private output dir, created empty with mode 0700
         #                             by video-entry.mjs; that confinement depends on the composed lane carrier.
-        #                             Content from the browser is limited to REFUSED origins of non-GET/HEAD
-        #                             requests and WebSockets, reduced to scheme://host[:port] or <opaque>
-        #                             (egress-records.mjs refusalOrigin); such origins can be private. Records
+        #                             Browser-derived content is limited to: event-derived counts (refused,
+        #                             tests) and the closed flag; per REFUSED line, the category (method or
+        #                             websocket), a constrained method token (upper-case A-Z, 1-12 letters, else
+        #                             '-'), and the origin reduced to scheme://host[:port] or <opaque>
+        #                             (egress-records.mjs refusedLine/refusalOrigin); origins can be private. Records
         #                             are detection evidence, not tamper-proof; observation starts after context
         #                             construction, and no event after the ledger is sealed is assumed, not
         #                             proven. No network response bodies are written.

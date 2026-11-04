@@ -50,9 +50,11 @@ query-filters:
   # It also allows one exact local test writer, e2e/stubbed/sandboxed-test.ts (sealed
   # stubbed video lane, review candidate): two exclusive ('wx') mode-0600 records per
   # Playwright worker under the lane's private LE_EGRESS_DIR, at fixed-grammar names
-  # with no page-derived path part. The only browser-derived content is the origin
-  # (scheme://host[:port] or <opaque>) of refused non-GET/HEAD requests and WebSockets,
-  # which can be private; no response body is written. The records are detection
+  # with no page-derived path part. Browser-derived content is limited to event-derived
+  # counts (refused, tests) and a closed flag, and per refused non-GET/HEAD request or
+  # WebSocket: its category, a constrained method token (A-Z, 1-12 letters, else '-')
+  # and its origin reduced to scheme://host[:port] or <opaque>, which can be private;
+  # no response body is written. The records are detection
   # evidence, not tamper-proof, and their confinement depends on the composed lane
   # carrier. It is listed because the gate matches every write call, not because this
   # exclusion was widened for it.
