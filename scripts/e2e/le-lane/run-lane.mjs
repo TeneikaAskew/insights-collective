@@ -4,6 +4,9 @@
 //
 //   run-lane.mjs <ctl dir> <private parent> <repo> <node abs path> <headless shell abs path> <api origin> <password-free db url> <commit>
 //
+// Kinds: with no `kind` this is E1, exactly as before (the CLI below is E1's only). The sealed video lane calls runLane from
+// video-lane.mjs with `kind` = the frozen kinds.mjs KINDS.video table (one bridged port; no API, DB, keys or proof). This file
+// imports nothing new: its host import closure is unchanged, and every E1 expression below is kept literally.
 // Run inside le_run immediately after the single pairing `pair` (same step). Later always() steps only VERIFY the receipts
 // written here (gates.mjs) and never reconstruct a child handle or claim a reap from a PID: if this process is lost abruptly,
 // gates.txt is missing or incomplete and every later verdict is UNRESOLVED.
@@ -54,22 +57,25 @@ export async function runLane(d, o) {
   const out = (c) => say.push(c);
   let ok = true;
   const fail = (c) => { ok = false; out(c); };
+  const K = o.kind;
+  const e1 = K === undefined;
+  if (!e1 && !(K && Object.isFrozen(K) && K.name === 'video')) return { ok: false, say: ['LANE_E_INPUT'] };
   let L;
-  try { L = lanePaths(o.P, o.C, o.R); } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
+  try { L = e1 ? lanePaths(o.P, o.C, o.R) : K.paths(o.P, o.C, o.R); } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
   // Validation needs no docker; nothing below this block may run without the started receipt.
   let imageId = null, env = null, seccompText = null, ports = null;
   try {
     imageId = fsx.readFileSync(L.iid, 'utf8').trim();
     if (!IMAGE_ID.test(imageId)) throw new Error('iid');
-    ports = lanePorts({ apiOrigin: o.apiOrigin, dbUrl: o.dbUrl });
-    env = laneEnv(L, { apiOrigin: o.apiOrigin, dbUrl: o.dbUrl, commit: o.commit, shell: o.shell });
+    ports = e1 ? lanePorts({ apiOrigin: o.apiOrigin, dbUrl: o.dbUrl }) : K.ports(o);
+    env = e1 ? laneEnv(L, { apiOrigin: o.apiOrigin, dbUrl: o.dbUrl, commit: o.commit, shell: o.shell }) : K.env(L, o);
     const raw = fsx.readFileSync(L.seccomp);
     if (crypto.createHash('sha256').update(raw).digest('hex') !== SECCOMP_RAW_SHA256) throw new Error('profile');
     seccompText = raw.toString('utf8');
     if (!BROWSER_PATH_RE.test(o.shell) || sha(fsx, o.shell) !== (d.browserSha256 ?? BROWSER_PIN.SHA256)) throw new Error('browser');
     // The lane's Node (LANE_NODE in the image) must be byte-identical to this job's Node, as recorded by the image build.
     if (!path.isAbsolute(o.node ?? '') || !fsx.readFileSync(L.manifest, 'utf8').split('\n').includes(`${sha(fsx, o.node)}  ${LANE_NODE}`)) throw new Error('node');
-    if (!inputsOk(fsx, L, d.uid())) throw new Error('inputs');
+    if (!(e1 ? inputsOk(fsx, L, d.uid()) : K.inputsOk(fsx, L, d.uid()))) throw new Error('inputs');
   } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
   try { d.files.put(L.started, 'run-lane.started\n'); } catch { return { ok: false, say: ['LANE_E_RECEIPT'] }; }
 
@@ -80,7 +86,7 @@ export async function runLane(d, o) {
     // create (receipt first)
     d.files.put(L.createInvoked, 'create-invoked\n');
     createTried = true;
-    const c = await x('docker', laneCreateArgs(L, { imageId, uid, gid, env }));
+    const c = await x('docker', (e1 ? laneCreateArgs : K.createArgs)(L, { imageId, uid, gid, env }));
     let read = null;
     try { read = fsx.readFileSync(L.cidfile, 'utf8').trim(); } catch { read = null; }
     const said = String(c.stdout ?? '').trim();
@@ -95,25 +101,25 @@ export async function runLane(d, o) {
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
       const bad = !i.ok ? ['INSPECT_EXEC'] : !obj ? ['INSPECT_PARSE'] : obj.Id !== cid ? ['INSPECT_ID']
-        : compareLaneInspect(obj, expectedLaneConfig(L, { imageId, uid, gid, env, seccompText, cid }));
+        : compareLaneInspect(obj, (e1 ? expectedLaneConfig : K.expected)(L, { imageId, uid, gid, env, seccompText, cid }));
       if (bad.length) { fail('LANE_E_CONFIG'); for (const n of [...new Set(bad)]) out(`LANE_CONFIG_FIELD ${FIELD_NAMES.has(n) ? n : 'UNKNOWN'}`); } else out('LANE_CONFIG_OK');
     }
 
     if (ok) {
       let spawnError = false;
       try {
-        child = d.spawnBridge(L.bridge, [L.sock, L.C, String(ports.api), String(ports.db), String(ports.app)]);
+        child = d.spawnBridge(L.bridge, e1 ? [L.sock, L.C, String(ports.api), String(ports.db), String(ports.app)] : K.bridgeArgs(L, ports));
         child.on('error', () => { spawnError = true; });
       } catch { child = null; spawnError = true; }
       let rec = null;
       for (let n = 0; n < 50 && !rec && !spawnError; n++) { try { rec = fsx.readFileSync(L.bridgeReady, 'utf8'); } catch { await d.sleep(200); } }
-      const m = rec?.match(/^(\d+) (\d+) (\d+) (\d+) (\d+)\n$/);
+      const m = rec?.match(e1 ? /^(\d+) (\d+) (\d+) (\d+) (\d+)\n$/ : K.readyRe);
       if (spawnError || !m || !child || !Number.isInteger(child.pid)) fail('LANE_E_BRIDGE_START');
       else {
         bridgeRec = { pid: Number(m[1]), start: m[2] };
         let st = null;
         try { st = starttimeOf(fsx, bridgeRec.pid); } catch { st = null; }
-        if (bridgeRec.pid !== child.pid || st !== bridgeRec.start || Number(m[3]) !== ports.api || Number(m[4]) !== ports.db || Number(m[5]) !== ports.app) fail('LANE_E_BRIDGE_IDENTITY');
+        if (bridgeRec.pid !== child.pid || st !== bridgeRec.start || !(e1 ? Number(m[3]) === ports.api && Number(m[4]) === ports.db && Number(m[5]) === ports.app : K.readyPortsOk(m, ports))) fail('LANE_E_BRIDGE_IDENTITY');
         else out('LANE_BRIDGE_OK');
       }
     }
@@ -182,9 +188,9 @@ export async function runLane(d, o) {
       try { fsx.statSync(`/proc/${child.pid}`); procGone = false; } catch (e) { procGone = e?.code === 'ENOENT'; }
       if (reaped && procGone) { bridge = 'BRIDGE_REAPED'; out('BRIDGE_REAPED'); } else fail('BRIDGE_E_UNREAPED');
       let fin = null;
-      try { fin = parseBridgeFinal(fsx.readFileSync(L.bridgeFinal, 'utf8')); } catch { fin = null; }
+      try { fin = e1 ? parseBridgeFinal(fsx.readFileSync(L.bridgeFinal, 'utf8')) : parseBridgeFinal(fsx.readFileSync(L.bridgeFinal, 'utf8'), K.sockets); } catch { fin = null; }
       if (bridge === 'BRIDGE_REAPED' && code === 0 && fin) {
-        const open = fin.api.open + fin.db.open + fin.app.open;
+        const open = e1 ? fin.api.open + fin.db.open + fin.app.open : K.sockets.reduce((n, k) => n + fin[k].open, 0);
         if (container === 'LANE_ABSENT' && open !== 0) fail('BRIDGE_E_DRAIN');
         else if (fin.listeners !== 'CLOSED') fail('BRIDGE_E_LISTENERS');
         else if (fin.closeBy !== 'OWNER') fail('BRIDGE_E_CEILING');
