@@ -163,6 +163,8 @@ const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], {
 say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
 const orc = execFileSync('node', [path.join(HERE, 'own-root-controls.mjs')], { encoding: 'utf8' });
 say(/^PASS own-root controls /m.test(orc), 'own temp roots: exact-root removal on pass and failure, primary kept, identity guard (see own-root-controls.mjs)');
+const sn = execFileSync('node', [path.join(HERE, 'shot-names-controls.mjs')], { encoding: 'utf8' });
+say(/^PASS shot-names controls$/m.test(sn), 'shot names: plan, strict mapping, CATALOG_SHOT, config viewports and job NAMES fixture agree, browserless (see shot-names-controls.mjs)');
 const ps = execFileSync('node', [path.join(HERE, 'pw-summary-controls.mjs')], { encoding: 'utf8' });
 say(/^PASS pw-summary controls /m.test(ps), 'pw-summary names only an allowlisted failed step, never a message (see pw-summary-controls.mjs)');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);

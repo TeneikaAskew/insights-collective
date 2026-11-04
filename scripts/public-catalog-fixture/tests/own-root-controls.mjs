@@ -31,6 +31,21 @@ await ok('failure AND cleanup failure: the primary is rethrown unchanged; the cl
   } finally { fs.rmSync(seen, { recursive: true, force: true }); }
   gone(seen);
 });
+await ok('failure AND cleanup failure AND a throwing reporter: the primary still wins (custom and default reporter)', async () => {
+  for (const mode of ['custom', 'default']) {
+    let seen, thrown; const e = new Error('PRIMARY'); const c = Object.assign(new Error('rm'), { code: 'EBUSY' });
+    const boom = () => { throw new Error('REPORTER'); };
+    const saved = console.error; if (mode === 'default') console.error = boom;
+    try {
+      await withOwnRoot(P, async (d) => { seen = d; throw e; }, { remove: () => { throw c; }, ...(mode === 'custom' ? { onSecondary: boom } : {}) });
+    } catch (x) { thrown = x; } finally { console.error = saved; }
+    try {
+      assert.equal(thrown, e, `${mode}: the primary is rethrown, not the reporter error`); assert.equal(thrown.message, 'PRIMARY');
+      assert.equal(thrown.cleanupError, c, `${mode}: the cleanup error stays attached`);
+    } finally { fs.rmSync(seen, { recursive: true, force: true }); }
+    gone(seen);
+  }
+});
 await ok('pass but cleanup failure: the cleanup error is thrown, not swallowed', async () => {
   let seen; const c = new Error('rm');
   try { await assert.rejects(withOwnRoot(P, async (d) => { seen = d; }, { remove: () => { throw c; } }), (x) => x === c); }

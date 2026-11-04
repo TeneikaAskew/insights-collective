@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import { SHOT_CORE_PINS, checkHelperPins } from '../helper-pins.mjs';
 import { PUBLIC_SHOT_PLAN, PUBLIC_SHOT_NAMES, CARRIER_ID, loadShotCore, publicShotSecrets, decidePublicShot, writePublicShot, ShotError } from '../shot-plan.mjs';
 import { exportShots, loadExportCore } from '../shot-export.mjs';
+import { PUBLIC_SHOT_EXPECT } from './shot-expect.mjs';
 import { PAIRING_TAG_ID } from '../pairing-producer.mjs';
 
 let bad = 0;
@@ -20,7 +21,7 @@ const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 // Plan.
 ok(JSON.stringify(PUBLIC_SHOT_NAMES) === JSON.stringify(['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-768x1024', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757']), 'S1 exactly the 4 fixed names agreed with the job contract');
-ok(PUBLIC_SHOT_NAMES.every((n) => { const p = PUBLIC_SHOT_PLAN[n]; return n.endsWith(`-${p.project}-${p.width}x${p.height}`) && p.path === '/courses'; }), 'S2 each name carries its project and exact viewport; every route is /courses');
+ok(JSON.stringify(Object.keys(PUBLIC_SHOT_EXPECT)) === JSON.stringify(PUBLIC_SHOT_NAMES) && PUBLIC_SHOT_NAMES.every((n) => { const p = PUBLIC_SHOT_PLAN[n], e = PUBLIC_SHOT_EXPECT[n]; return p.project === e.project && p.width === e.width && p.height === e.height && n.endsWith(`-${e.width}x${e.height}`) && p.path === '/courses'; }), 'S2 each name matches the strict expected {project, width, height} and ends with its exact viewport; every route is /courses');
 ok(PUBLIC_SHOT_PLAN['PC-rail-desktop-1180x757'].project === 'desktop' && PUBLIC_SHOT_PLAN['PC-catalog-tablet-768x1024'].project === 'tablet-768' && !PUBLIC_SHOT_NAMES.some((n) => /834/.test(n) || /rail-tablet|rail-mobile/.test(n)), 'S3 rail is desktop only at 1180x757; the tablet shot is 768x1024 (no 834 name, no tablet rail)');
 ok(CARRIER_ID === PAIRING_TAG_ID, 'S4 the scanned carrier id equals the producer constant');
 

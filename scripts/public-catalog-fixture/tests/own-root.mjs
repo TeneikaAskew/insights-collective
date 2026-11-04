@@ -20,7 +20,7 @@ export function removeExactRoot(d, id) {
 /**
  * Runs `fn(root)` with a fresh private root `<tmpdir>/<prefix>XXXXXX` (0700), then removes exactly that root whatever happens.
  * - fn fails: its error is rethrown as the SAME object; a cleanup failure is only attached as `cleanupError` and reported
- *   through `onSecondary` (default: one CLEANUP_SECONDARY line on stderr).
+ *   through `onSecondary` (default: one CLEANUP_SECONDARY line on stderr). A reporter that throws is ignored.
  * - fn passes and cleanup fails: the cleanup error is thrown, not swallowed.
  * `remove` is injectable for the controls only.
  */
@@ -38,7 +38,8 @@ export async function withOwnRoot(prefix, fn, { remove = removeExactRoot, onSeco
     try { remove(root, id); } catch (c) {
       if (!failed) throw c;
       const line = `CLEANUP_SECONDARY root=${path.basename(root)} code=${(c && c.code) || 'unknown'}`;
-      if (onSecondary) onSecondary(line); else console.error(line);
+      // Reporting is best effort: a throwing reporter (or stderr) must never replace the primary failure.
+      try { if (onSecondary) onSecondary(line); else console.error(line); } catch { /* the primary stays as thrown */ }
       if (primary && typeof primary === 'object') { try { Object.defineProperty(primary, 'cleanupError', { value: c, enumerable: true }); } catch { /* the primary stays as thrown */ } }
     }
   }
