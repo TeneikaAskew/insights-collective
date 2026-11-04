@@ -13,7 +13,9 @@ import { assertLocalDsn } from '../../scripts/local-db/assert-local-dsn.mjs';
  * resets the rows on every seed. What earns these tests is the stored row, read back through psql on the
  * loopback database only; a missing or non-loopback SUPABASE_DB_URL fails rather than skips.
  */
-const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL || 'e2e-member@insightscollective.org';
+// The gradebook row shows the member's profile name, never an email (CourseGradebook builds students with
+// email: ''). The isolated stack names the member in scripts/local-stack/auth-fixtures.sql.
+const MEMBER_NAME = 'E2E Member';
 const CELL = {
   range: { title: 'Gradebook Range Ten (10 pts)', submission: 'acdc3333-0000-0000-0000-000000000001' },
   bounds: { title: 'Gradebook Bounds Ten (10 pts)', submission: 'acdc3333-0000-0000-0000-000000000002' },
@@ -75,7 +77,7 @@ async function cellFor(page: Page, title: string): Promise<Locator> {
   const texts = await headers.allInnerTexts();
   const index = texts.findIndex((t) => t.includes(title));
   expect(index, `gradebook column "${title}"`).toBeGreaterThan(0);
-  const row = page.locator('tbody tr').filter({ hasText: MEMBER_EMAIL });
+  const row = page.locator('tbody tr').filter({ has: page.getByText(MEMBER_NAME, { exact: true }) });
   await expect(row).toHaveCount(1);
   return row.locator('td').nth(index);
 }
