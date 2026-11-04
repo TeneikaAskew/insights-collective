@@ -1,6 +1,7 @@
 
 import { Link } from 'react-router-dom';
 import { ArrowRight, Clock, BookOpen } from 'lucide-react';
+import { formatEstimatedHours } from '@/lib/estimatedTime';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getCategoryDisplayName } from '@/constants/courseCategories';
@@ -136,13 +137,13 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                         catalog shows `level`, so this card does too. */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       {(() => {
-                        const estimatedHours = course.estimated_hours;
+                        const estimatedHours = formatEstimatedHours(course.estimated_hours);
                         if (!estimatedHours) return null;
 
                         return (
                           <Badge variant="outline" className="flex items-center gap-1 border-border bg-ss-teal-chip text-ss-teal">
                             <Clock className="h-3 w-3" />
-                            {estimatedHours.toFixed(1)} hours
+                            <span className="sr-only">Estimated time: </span>{estimatedHours}
                           </Badge>
                         );
                       })()}
@@ -179,7 +180,8 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       {course.modules ? (
                         <div className="flex items-center text-muted-foreground text-sm">
                           <BookOpen className="h-4 w-4 mr-1" />
-                          <span>{course.modules.length} lessons</span>
+                          {/* modules are modules, not lessons (Courses -> Modules -> Lessons). */}
+                          <span>{course.modules.length} {course.modules.length === 1 ? 'module' : 'modules'}</span>
                         </div>
                       ) : (
                         <span />

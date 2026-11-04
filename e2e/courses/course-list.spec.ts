@@ -54,7 +54,8 @@ test.describe('Course List', () => {
     // Filtered by TEXT, not by accessible name: a shadcn Select trigger renders
     // its current value as content but does not expose it as an accessible
     // name, so getByRole('combobox', { name }) finds nothing.
-    for (const label of ['All categories', 'All levels', 'Any schedule']) {
+    // The third filter is Estimated time (estimated_hours buckets); it replaced "Any schedule".
+    for (const label of ['All categories', 'All levels', 'Any estimated time']) {
       await expect(
         page.getByRole('combobox').filter({ hasText: label }),
       ).toBeVisible();
@@ -62,13 +63,13 @@ test.describe('Course List', () => {
   });
 
   test('sort dropdown is present', async ({ page }) => {
-    // There is no Sort control on this page — measured: the only comboboxes are
-    // All categories / All levels / Any schedule, and no button is named Sort.
-    // The "Any schedule" filter is the closest thing and is already covered
-    // above, so this asserts the filter row is complete rather than inventing a
-    // control that does not exist.
+    // There is no Sort control on this page: the only comboboxes are
+    // All categories / All levels / Any estimated time, and no button is named
+    // Sort. This asserts the filter row is complete rather than inventing a
+    // control that does not exist. A web-first assertion, so it waits for the
+    // filters to render instead of counting once (the old count was flaky).
     const combos = page.getByRole('combobox').filter({ visible: true });
-    expect(await combos.count()).toBe(3);
+    await expect(combos).toHaveCount(3);
   });
 
   test('tabs for course categories are clickable', async ({ page }) => {

@@ -7,6 +7,7 @@ import { mockSupabaseClient } from '@/test/mocks/supabase';
 import CanvasContentService from '@/services/canvasContentService';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
 import CourseLearn from '@/pages/CourseLearn';
+import { fakeCourseProgress, type FakeProgressOptions } from '@/test/mocks/courseProgressFake';
 
 const { mockParams, mockNavigate, mockMarkItemComplete } = vi.hoisted(() => ({
   mockParams: { courseId: 'course-1' } as {
@@ -106,16 +107,11 @@ const courseRow = { id: 'course-1', title: 'Advanced Testing', thumbnail: null }
 // to keep the active lesson in view.
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
-function setProgressHook(overrides: Record<string, unknown> = {}) {
-  vi.mocked(useCourseProgress).mockReturnValue({
-    data: { modules: [], totalItems: 2, completedItems: 0, percent: 0 },
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-    markItemComplete: mockMarkItemComplete,
-    getModulePercent: () => 0,
-    ...overrides,
-  } as any);
+// The page reads completion only from the read model (T-10); this fake serves that shape.
+function setProgressHook(overrides: Partial<FakeProgressOptions> = {}) {
+  vi.mocked(useCourseProgress).mockImplementation(
+    fakeCourseProgress({ eligible: ['i1', 'i2'], done: [], mark: mockMarkItemComplete, modules: { m1: ['i1', 'i2'] }, ...overrides }) as any,
+  );
 }
 
 function setCurriculum() {
@@ -174,13 +170,7 @@ describe('CourseLearn', () => {
   // REGRESSION: a failed progress fetch must not blank the checkmarks into a
   // fabricated "0 of N complete" — it surfaces a visible notice with retry.
   it('shows a progress error notice instead of fabricated zero-progress when the progress fetch fails', async () => {
-    mockTables({
-      courses: { data: courseRow, error: null },
-      content_item_progressions: {
-        data: null,
-        error: { message: 'progress fetch failed' },
-      },
-    });
+    setProgressHook({ error: 'progress fetch failed' });
     render(<CourseLearn />);
 
     expect(await screen.findAllByText("Couldn't load your progress")).not.toHaveLength(0);
@@ -196,28 +186,20 @@ describe('CourseLearn', () => {
   });
 
   it('renders the course home with curriculum on success', async () => {
-    setProgressHook({
-      data: { modules: [], totalItems: 2, completedItems: 1, percent: 50 },
-    });
+    setProgressHook({ done: ['i1'] });
     render(<CourseLearn />);
 
     expect(await screen.findAllByText('Advanced Testing')).not.toHaveLength(0);
-    expect(screen.getByText(/2 lessons · 50% complete/)).toBeInTheDocument();
+    expect(screen.getByText(/2 lessons · Course completion 50%/)).toBeInTheDocument();
     expect(screen.getByText('Module One')).toBeInTheDocument();
     expect(screen.getByText('Lesson One')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Start course/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Resume/ })).toBeInTheDocument();
   });
 
   // REGRESSION: the course-home accordion drew a bare filled disc for a done
   // lesson, which reads as "you are here" rather than "completed".
   it('marks completed lessons with a checkmark in the course-home accordion', async () => {
-    mockTables({
-      courses: { data: courseRow, error: null },
-      content_item_progressions: {
-        data: [{ content_item_id: 'i1', workflow_state: 'completed' }],
-        error: null,
-      },
-    });
+    setProgressHook({ done: ['i1'] });
     render(<CourseLearn />);
 
     // The first section with items is expanded on load, so its rows are live.

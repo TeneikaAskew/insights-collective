@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { Grade, AssignmentSubmission, EnhancedAssignment } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
+import { assignmentPointsPossible, parseGradeInput } from '@/lib/assignmentGrading';
 import { buildGradebook, buildGradebookCsvRows, toCsv, type NormalizedCell, type RawQuizSubmission } from './gradebookData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -95,7 +96,8 @@ export const Gradebook: React.FC<GradebookProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState('all');
   const [editingCell, setEditingCell] = useState<string | null>(null);
-  const [tempGrades, setTempGrades] = useState<Record<string, number>>({});
+  // Raw text as typed, so an emptied or out-of-range entry is still there to refuse (and to correct) at save time.
+  const [tempGrades, setTempGrades] = useState<Record<string, string>>({});
   const [showComments, setShowComments] = useState<Record<string, boolean>>({});
 
   // One normalized model feeds the table, totals and the CSV export.
@@ -150,25 +152,43 @@ export const Gradebook: React.FC<GradebookProps> = ({
     });
   }, [students, searchTerm, filterBy, gradeData]);
 
+  // SpeedGrader semantics: the assignment's own points, or 100 when the assignment has none set. A zero-point
+  // assignment accepts only 0.
+  const gradeRangeMax = (itemId: string): number =>
+    assignmentPointsPossible(assignments.find(a => a.id === itemId) as any) ?? 100;
+
   const handleGradeChange = (studentId: string, itemId: string, value: string) => {
     const key = `${studentId}-${itemId}`;
-    setTempGrades({ ...tempGrades, [key]: parseFloat(value) || 0 });
+    setTempGrades(prev => ({ ...prev, [key]: value }));
   };
 
   const handleGradeSave = async (studentId: string, itemId: string, itemType: 'assignment' | 'quiz') => {
     const key = `${studentId}-${itemId}`;
-    const grade = tempGrades[key];
+    const raw = tempGrades[key];
     const cell = gradeData[key];
 
-    if (grade === undefined || !cell) return;
+    if (raw === undefined || !cell) return;
+
+    // Same contract as SpeedGrader: the range is checked on the value as typed, against this assignment's points;
+    // only an accepted value is rounded to storage scale. A refused entry never reaches onGradeUpdate.
+    const pointsPossible = gradeRangeMax(itemId);
+    const parsed = parseGradeInput(raw, pointsPossible);
+    if (!parsed.ok) {
+      toast({
+        title: 'Invalid grade',
+        description: `Enter a value between 0 and ${pointsPossible}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     try {
       await onGradeUpdate({
         studentId,
         itemId,
         itemType,
-        grade,
-        pointsPossible: cell.pointsPossible,
+        grade: parsed.value,
+        pointsPossible,
         submissionId: cell.submissionId,
       });
 
@@ -451,7 +471,8 @@ export const Gradebook: React.FC<GradebookProps> = ({
                               <Input
                                 type="number"
                                 min="0"
-                                max={assignment.points || 100}
+                                max={gradeRangeMax(assignment.id)}
+                                step="any"
                                 value={tempGrade ?? cell?.pointsEarned ?? ''}
                                 onChange={(e) => handleGradeChange(student.id, assignment.id, e.target.value)}
                                 className="w-16 h-8 text-center"

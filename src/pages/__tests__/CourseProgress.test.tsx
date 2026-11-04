@@ -79,10 +79,14 @@ const courseRow = {
 function setProgressHook(overrides: Record<string, unknown> = {}) {
   vi.mocked(useCourseProgress).mockReturnValue({
     data: {
-      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50 }],
+      modules: [{ moduleId: 'm1', totalItems: 2, completedItems: 1, percent: 50, isComplete: false }],
       totalItems: 2,
       completedItems: 1,
       percent: 50,
+      // The full read-model shape (the overview derives every figure from these two sets).
+      isComplete: false,
+      doneItemIds: ['i1'],
+      eligibleItemIds: ['i1', 'i2'],
     },
     isLoading: false,
     error: null,
@@ -143,14 +147,14 @@ describe('CourseProgress', () => {
     // percent comes straight from the hook
     expect(screen.getByText('50%')).toBeInTheDocument();
     // lessons breakdown: 1 of 2 published pages completed
-    expect(screen.getByText('1 of 2 completed')).toBeInTheDocument();
+    expect(screen.getByText('1 of 2 marked done')).toBeInTheDocument();
     // real average grade
     expect(screen.getByText('90.0%')).toBeInTheDocument();
   });
 
   it('renders a distinct empty state when there is no progress yet', async () => {
     setProgressHook({
-      data: { modules: [], totalItems: 0, completedItems: 0, percent: 0 },
+      data: { modules: [], totalItems: 0, completedItems: 0, percent: 0, isComplete: false, doneItemIds: [], eligibleItemIds: [] },
     });
     mockTables({
       courses: { data: { ...courseRow, modules: [] }, error: null },
@@ -165,9 +169,11 @@ describe('CourseProgress', () => {
     expect(await screen.findByText('Overall Progress')).toBeInTheDocument();
     expect(screen.getByText('0%')).toBeInTheDocument();
     expect(screen.getByText('No activity yet')).toBeInTheDocument();
+    // T-10: progress never promises a certificate; issuance follows the course's own requirements.
     expect(
-      screen.getByText('Complete all modules to earn your certificate'),
+      screen.getByText(/A certificate is issued once the course.s requirements are met\./),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Complete all modules to earn your certificate')).not.toBeInTheDocument();
   });
 
   it('does not fabricate progress data when the hook errors', async () => {
