@@ -857,7 +857,11 @@ export class LessonSaveQueue {
             this.fail(id, e, err, send);
             return { ok: false, reason: e.error ?? 'Not changed.' };
           }
-          // Only the version moved (for example a curriculum reorder): retry once on the adopted version.
+          // Only the version moved (for example a curriculum reorder): retry once on the adopted version,
+          // gated like the first write so a signed-out or suspended owner's queue never writes as someone else.
+          if (!(await this.mayAct()) || this.entries.get(id) !== e) {
+            return { ok: false, reason: 'You are no longer signed in as the author of this change.' };
+          }
           const rebased = (e.version as { value: string | null }).value;
           const retrySend: Send = { fields: { ...e.server }, expected: rebased };
           e.outstanding.push(retrySend);
