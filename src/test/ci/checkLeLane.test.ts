@@ -2167,6 +2167,11 @@ describe('E1 diagnostics r2.1: strict exit-field types and strict raw identity f
       ['suite title missing', rep({ inner: [{ file: ID.file, specs: [{ title: ID.title, file: ID.file, tests: [{ projectName: ID.project, results: [okAttempt] }] }] }] })],
     ];
     for (const [name, r] of bad) expect(e1Attempt(r), name).toEqual(U);
+    // a malformed SIBLING beside an otherwise valid E1 test makes the whole selection UNKNOWN (no silent skipping)
+    const valid = rep().suites[0].suites[0];
+    for (const sib of [{ title: 'x', specs: {} }, { title: 'x', suites: 'y' }, { title: 'x', specs: [{ title: 'y', tests: {} }] }, { title: 'x', specs: [{ title: 'y', tests: [{ projectName: 'p', results: 'z' }] }] }])
+      expect(e1Attempt(rep({ inner: [valid, sib] })), JSON.stringify(sib)).toEqual(U);
+    expect(e1Attempt(rep({ inner: [valid, { title: 'x' }] }))).toEqual({ attemptStatus: 'PASSED', failedStep: 'NONE' }); // absent lists are empty
     // the inherited summary extractor is unchanged (it still coerces; it is not the new diagnostic)
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-e1-summary.mjs'), 'utf8');
     expect(src).toContain("projectName: String(t.projectName ?? ''),");
