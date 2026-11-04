@@ -9,20 +9,24 @@
 //   - the outer container (network none, one bridged port) is the third layer (run-lane / video-entry).
 // The video kind has no egress proxy (DESIGN r2 section 3): `forwarded` is always 0 and refusals are observer events.
 // Per-worker record (ADDENDUM r2.1 C2): `<LE_EGRESS_DIR>/w-<workerIndex>-<parallelIndex>-<pid>-<nonce>.start` is written BEFORE
-// the browser launches; the matching `.end` is written at worker teardown (after the observer has stopped counting), also
-// after a launch failure. Both wx 0600, never overwritten. The supervisor aggregates them after Playwright exits.
-// Writers (disclosed; this file is a NEW write site for the security.yml fs-write gate, which needs a specific reviewed
-// exception before publication): exactly those two files per worker, under LE_EGRESS_DIR only.
+// the browser launches; the matching `.end` is written at worker teardown, AFTER the owned browser and its server have closed
+// (the browser fixture depends on the ledger), also after a launch failure. Both wx 0600, never overwritten. The supervisor
+// aggregates them after Playwright exits. The detection logic (observer kept attached through context closure, `closed` only
+// after a clean browser close, layout-only text-render precheck) is pure in scripts/e2e/le-lane/video-observer.mjs; the two
+// writes stay HERE.
+// Writers (disclosed; a NEW write site that the repository's security.yml fs-write gate reports; it is under writer review and
+// the gate is unchanged): exactly those two files per worker, under LE_EGRESS_DIR only.
 import { test as base, expect } from '@playwright/test';
 import { randomBytes } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { postrunAppArmor, withSandboxedBrowser } from '../lesson-editor/sandbox-launch.mjs';
 import { readLabel } from '../lesson-editor/egress-test';
-import { egressEndText, egressStem, refusedLine, START_TEXT } from '../../scripts/e2e/le-lane/egress-records.mjs';
+import { egressEndText, egressStem, START_TEXT } from '../../scripts/e2e/le-lane/egress-records.mjs';
+import { createLedger, finalLedger, observeTest, runWorkerBrowser } from '../../scripts/e2e/le-lane/video-observer.mjs';
 
 type AppArmorState = Parameters<typeof postrunAppArmor>[0];
-type Ledger = { refused: number; tests: number; lines: string[]; note: (reason: 'method' | 'websocket', method: string, url: string) => void };
+type Ledger = ReturnType<typeof createLedger>;
 
 let laneAppArmor: AppArmorState | null = null;
 
@@ -44,14 +48,10 @@ export const test = base.extend<{ laneAppArmorGate: void; observer: void }, { eg
     async ({}, use, workerInfo) => {
       const { egressDir } = laneValues();
       const stem = egressStem({ workerIndex: workerInfo.workerIndex, parallelIndex: workerInfo.parallelIndex, pid: process.pid, nonce: randomBytes(8).toString('hex') });
-      const ledger: Ledger = {
-        refused: 0, tests: 0, lines: [],
-        note(reason, method, url) { this.refused++; if (this.lines.length < 16) this.lines.push(refusedLine(reason, method, url)); },
-      };
+      const ledger: Ledger = createLedger();
       writeFileSync(path.join(egressDir, `${stem}.start`), START_TEXT, { flag: 'wx', mode: 0o600 });
       try { await use(ledger); } finally {
-        writeFileSync(path.join(egressDir, `${stem}.end`),
-          egressEndText({ refused: ledger.refused, forwarded: 0, tests: ledger.tests, closed: true, lines: ledger.lines }), { flag: 'wx', mode: 0o600 });
+        writeFileSync(path.join(egressDir, `${stem}.end`), egressEndText(finalLedger(ledger)), { flag: 'wx', mode: 0o600 });
       }
     },
     { scope: 'worker' },
@@ -61,14 +61,15 @@ export const test = base.extend<{ laneAppArmorGate: void; observer: void }, { eg
   // No proxy (proxyUrl null). No launch()/launchPersistentContext fallback and no retry without the sandbox.
   browser: [
     async ({ playwright, launchOptions, egressLedger }, use) => {
-      void egressLedger; // dependency only: the .start record exists before this launch
+      // egressLedger is a dependency: the .start record exists before this launch, and the .end waits for this teardown.
       const { shell, outputDir } = laneValues();
       const defaults = (playwright as unknown as { _defaultLaunchOptions?: Record<string, unknown> })._defaultLaunchOptions;
-      await withSandboxedBrowser(playwright.chromium, {
+      // The text-render precheck runs first on this browser; `closed` is set only if withSandboxedBrowser returns normally.
+      await runWorkerBrowser((body: (b: unknown) => Promise<unknown>) => withSandboxedBrowser(playwright.chromium, {
         launchOptions: launchOptions as Record<string, unknown>, defaults, shell, outputDir, proxyUrl: null,
         readCmdline: (pid: number) => readFileSync(`/proc/${pid}/cmdline`, 'latin1'),
         readLabel, onAppArmor: (s: AppArmorState) => { laneAppArmor = s; },
-      }, use);
+      }, body), egressLedger, use);
     },
     { scope: 'worker' },
   ],
@@ -86,25 +87,11 @@ export const test = base.extend<{ laneAppArmorGate: void; observer: void }, { eg
     },
     { auto: true },
   ],
-  // Independent detection on the test's context: every page (popups included) is observed from its creation.
+  // Independent detection on the test's context: every page (popups included) is observed from its creation. The listeners are
+  // NOT removed here: they stay attached through Playwright's own context teardown, and later events count in the worker ledger.
   observer: [
     async ({ context, egressLedger }, use) => {
-      egressLedger.tests++;
-      const seen: string[] = [];
-      const onRequest = (r: { method(): string; url(): string }) => {
-        const m = r.method();
-        if (m !== 'GET' && m !== 'HEAD') { egressLedger.note('method', m, r.url()); seen.push(refusedLine('method', m, r.url())); }
-      };
-      const onWs = (ws: { url(): string }) => { egressLedger.note('websocket', '', ws.url()); seen.push(refusedLine('websocket', '', ws.url())); };
-      const watch = (p: { on(e: 'websocket', f: typeof onWs): unknown }) => { p.on('websocket', onWs); };
-      context.on('request', onRequest);
-      context.on('page', watch);
-      for (const p of context.pages()) watch(p);
-      try { await use(); } finally {
-        context.off('request', onRequest);
-        context.off('page', watch);
-        for (const p of context.pages()) p.off('websocket', onWs);
-      }
+      const seen = await observeTest(context, egressLedger, use);
       test.info().annotations.push({ type: 'egress', description: JSON.stringify({ observed: seen }) });
       expect(seen, 'observer: non-GET/HEAD requests or WebSockets').toEqual([]);
     },

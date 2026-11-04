@@ -28,6 +28,7 @@ import { SEALED_VIDEO_TEST_MATCH, sealedVideoSettings, shellProblem, videoLaunch
 import { reportResult, videoClosureProblems, videoEnvProblems, videoMain } from '../../../scripts/e2e/le-lane/video-entry.mjs';
 import { FORBIDDEN, SYNTHETIC_ANON_KEY, buildArgs, buildEnv, buildVideo, scanBundle } from '../../../scripts/e2e/le-lane/video-build.mjs';
 import { videoSummaryLines } from '../../../scripts/e2e/le-lane/video-summary.mjs';
+import { TEXT_RENDER_HTML, attachObserver, createLedger, finalLedger, observeTest, runWorkerBrowser, textRenderCode, textRenderPrecheck } from '../../../scripts/e2e/le-lane/video-observer.mjs';
 import { RESOLVER_ARG, incomingProblem } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { SECCOMP_PROFILE_REL } from '../../../scripts/e2e/le-iso/expect.mjs';
 
@@ -710,20 +711,47 @@ describe('sandboxed-test.ts: only the worker browser is overridden; observer, Ap
     expect(src).toMatch(/export \{ expect \};\s*$/);
   });
   it('the browser goes through withSandboxedBrowser with the bound shell and output dir, no proxy, AppArmor bound; no other launch path', () => {
-    expect(src).toContain('await withSandboxedBrowser(playwright.chromium, {');
+    expect(src).toContain('await runWorkerBrowser((body: (b: unknown) => Promise<unknown>) => withSandboxedBrowser(playwright.chromium, {');
+    expect(src).toContain('}, body), egressLedger, use);');
     expect(src).toContain('proxyUrl: null');
     expect(src).toContain('readLabel, onAppArmor');
     expect(code(src)).not.toMatch(/\.launch\(|launchPersistentContext|launchServer|chromiumSandbox|no-sandbox|ignoreDefaultArgs/);
   });
+  // The guard's own pattern (security.yml) matches the literal text of a write call, so a regex in THIS file that names the
+  // call would be reported as a write site although this file writes nothing. `write[F]ileSync` is the same regular expression
+  // (a one-character class) without that literal text. Only the test's pattern spelling changes: the guard, its allowlist and
+  // the fixture's real writes are untouched, and the control below proves the guard still reports exactly those real writes.
   it('writes exactly two wx 0600 files per worker under LE_EGRESS_DIR: .start before the browser, .end in finally', () => {
-    const writes = [...src.matchAll(/writeFileSync\(path\.join\(egressDir, `\$\{stem\}\.(start|end)`\)/g)].map((m) => m[1]);
+    const writes = [...src.matchAll(/write[F]ileSync\(path\.join\(egressDir, `\$\{stem\}\.(start|end)`\)/g)].map((m) => m[1]);
     expect(writes).toEqual(['start', 'end']);
-    expect(src.match(/writeFileSync\(/g)).toHaveLength(2);
+    expect(src.match(/write[F]ileSync\(/g)).toHaveLength(2);
     expect(src.match(/\{ flag: 'wx', mode: 0o600 \}/g)).toHaveLength(2);
     expect(src.indexOf('.start`')).toBeLessThan(src.indexOf('try { await use(ledger); } finally {'));
+    expect(src).toContain('egressEndText(finalLedger(ledger))');
     expect(src).toMatch(/browser: \[\s*async \(\{ playwright, launchOptions, egressLedger \}/); // the ledger (and its .start) precedes the launch
-    expect(src).toMatch(/if \(m !== 'GET' && m !== 'HEAD'\)/);
-    expect(src).toContain("p.on('websocket', onWs)");
+    expect(src).toContain('const seen = await observeTest(context, egressLedger, use);');
+    expect(code(src)).not.toMatch(/\.off\(|removeListener|removeAllListeners/); // the observer is never detached
+  });
+  it('fs-write guard control: the guard pattern still reports exactly the three real fixture lines and nothing in this file', () => {
+    const wf = YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8'));
+    const run = JSON.stringify(wf);
+    const allowed = new RegExp(/ALLOWED='([^']+)'/.exec(run)![1]);
+    const pattern = new RegExp(/grep -nE '([^']+)'/.exec(run)![1]);
+    const hits = (rel: string) => readFileSync(path.join(ROOT, rel), 'utf8').split('\n').map((l, i) => (pattern.test(l) ? i + 1 : 0)).filter(Boolean);
+    const fixture = 'e2e/stubbed/sandboxed-test.ts';
+    const self = 'src/test/ci/checkSealedVideoLane.test.ts';
+    expect(allowed.test(fixture)).toBe(false); // not allowlisted: the guard keeps reporting it
+    expect(allowed.test(self)).toBe(false);
+    const fx = hits(fixture);
+    expect(fx).toHaveLength(3); // the import line and the two write calls (.start, .end)
+    const lines = readFileSync(path.join(ROOT, fixture), 'utf8').split('\n');
+    expect(fx.map((n) => lines[n - 1]).filter((l) => /\{ flag: 'wx', mode: 0o600 \}/.test(l))).toHaveLength(2);
+    expect(hits(self)).toEqual([]);
+    // The pure observer module writes nothing and is not a hit either.
+    expect(hits('scripts/e2e/le-lane/video-observer.mjs')).toEqual([]);
+    // Discriminating negative: the guard pattern does match a real call and the pre-correction test spelling.
+    expect(pattern.test(['write', 'FileSync(p, t)'].join(''))).toBe(true);
+    expect(pattern.test(String.raw`src.match(/write` + String.raw`FileSync\(/g)`)).toBe(true);
   });
   it('the spec imports test and expect from the fixture, and decide() from the pure module (owner delta d81b1d49)', () => {
     const spec = readFileSync(SPEC_ABS, 'utf8');
@@ -853,6 +881,134 @@ describe('video lane.txt grammar and the host summary', () => {
   });
 });
 
+describe('video observer lifecycle (correction c1): kept through owned context and browser closure, conservative on failure', () => {
+  // Fakes only: a context and pages are EventEmitters with Playwright's method names. No browser, page or network.
+  const fakePage = () => new EventEmitter();
+  const fakeContext = (pages: EventEmitter[] = []) => Object.assign(new EventEmitter(), { pages: () => pages });
+  const req = (method: string, url = 'https://sealed-video.invalid/rest/v1/x') => ({ method: () => method, url: () => url });
+  const STEM = 'w-0-0-1234-0123456789abcdef';
+  const aggOne = (fields: ReturnType<typeof finalLedger>, declared: number) => {
+    const files: Record<string, string> = { [`${STEM}.start`]: START_TEXT, [`${STEM}.end`]: egressEndText(fields) };
+    return aggregateEgress(Object.keys(files), (n: string) => files[n] ?? null, declared);
+  };
+
+  it('counts non-GET/HEAD requests, unreadable requests and every WebSocket on existing and later pages; GET/HEAD pass', () => {
+    const p0 = fakePage();
+    const ctx = fakeContext([p0]);
+    const L = createLedger();
+    const o = attachObserver(ctx, L);
+    ctx.emit('request', req('GET')); ctx.emit('request', req('HEAD'));
+    expect(L.refused).toBe(0);
+    ctx.emit('request', req('POST'));
+    ctx.emit('request', { method: () => { throw new Error('gone'); }, url: () => { throw new Error('gone'); } });
+    p0.emit('websocket', { url: () => 'wss://sealed-video.invalid/realtime' });
+    const popup = fakePage(); ctx.emit('page', popup); popup.emit('websocket', { url: () => 'ws://127.0.0.1:9/x' });
+    expect(L.refused).toBe(4);
+    expect(o.seen).toEqual(['REFUSED method POST https://sealed-video.invalid', 'REFUSED method - <opaque>', 'REFUSED websocket - wss://sealed-video.invalid', 'REFUSED websocket - ws://127.0.0.1:9']);
+    expect(L.lines).toEqual(o.seen);
+  });
+
+  it('ordering: an event during Playwright context teardown (after the observer fixture) lands in the worker record and fails the lane', async () => {
+    const page = fakePage();
+    const ctx = fakeContext([page]);
+    const L = createLedger();
+    const order: string[] = [];
+    const seen = await observeTest(ctx, L, async () => { order.push('test'); ctx.emit('request', req('GET')); });
+    order.push('observer-teardown');
+    expect(seen).toEqual([]); // the per-test assertion passes...
+    expect(ctx.listenerCount('request')).toBe(1); // ...and the observer is still attached
+    expect(page.listenerCount('websocket')).toBe(1);
+    // Playwright's own context fixture tears down after the observer: a late beacon and a late popup WebSocket.
+    ctx.emit('request', req('POST')); order.push('context-close');
+    const late = fakePage(); ctx.emit('page', late); late.emit('websocket', { url: () => 'wss://x.example/s' });
+    // Worker teardown: the owned browser closes cleanly, then the ledger is sealed and written.
+    await runWorkerBrowser(async (body) => { await body({ newContext: async () => okPrecheckContext() }); }, L, async () => { order.push('worker-use'); });
+    order.push('browser-closed');
+    const fields = finalLedger(L);
+    expect(order).toEqual(['test', 'observer-teardown', 'context-close', 'worker-use', 'browser-closed']);
+    expect(fields).toMatchObject({ refused: 2, tests: 1, closed: true });
+    expect(aggOne(fields, 1).code).toBe('LANE_E_EGRESS_REFUSED');
+    // Mutant control: the pre-correction observer detached in its finally, so the same sequence reported a clean worker.
+    const M = createLedger(); const mctx = fakeContext([]);
+    const o = attachObserver(mctx, M); M.tests++;
+    mctx.off('request', o.listeners.onRequest); mctx.off('page', o.listeners.watch); // what lines 103-107 did
+    mctx.emit('request', req('POST'));
+    M.closed = true;
+    expect(aggOne(finalLedger(M), 1).code).toBe('LANE_EGRESS_OK'); // the gap this correction closes
+  });
+
+  it('closed only after a clean browser close: a launch failure, a cleanup mark or a precheck failure leaves the record OPEN', async () => {
+    const L1 = createLedger(); L1.tests = 1;
+    await expect(runWorkerBrowser(async () => { throw new Error('LANE_E_BROWSER_CLOSE'); }, L1, async () => {})).rejects.toThrow('LANE_E_BROWSER_CLOSE');
+    expect(aggOne(finalLedger(L1), 1).code).toBe('LANE_E_EGRESS_OPEN');
+    const L2 = createLedger(); L2.tests = 1;
+    let used = false;
+    await expect(runWorkerBrowser(async (body) => { await body({ newContext: async () => okPrecheckContext({ box: { width: 0, height: 18 } }) }); }, L2, async () => { used = true; })).rejects.toThrow('LANE_E_TEXT_RENDER');
+    expect(used).toBe(false); // no test runs after a failed precheck
+    expect(finalLedger(L2).closed).toBe(false);
+    const L3 = createLedger(); L3.tests = 1;
+    await runWorkerBrowser(async (body) => { await body({ newContext: async () => okPrecheckContext() }); }, L3, async () => {});
+    expect(aggOne(finalLedger(L3), 1).code).toBe('LANE_EGRESS_OK');
+  });
+
+  it('a note after sealing cannot reach the record: it is counted as late only, never as a clean count', () => {
+    const L = createLedger(); L.closed = true;
+    const f = finalLedger(L);
+    L.note('method', 'POST', 'https://x.example/');
+    expect(f.refused).toBe(0);
+    expect(L.refused).toBe(0);
+    expect(L.late).toBe(1);
+  });
+
+  function okPrecheckContext({ box = { width: 120, height: 18 } as unknown, setContent = async () => {}, close = async () => {}, during = (_c: EventEmitter) => {} } = {}) {
+    const ctx = fakeContext([]) as EventEmitter & Record<string, unknown>;
+    const calls: unknown[] = [];
+    Object.assign(ctx, {
+      calls,
+      route: async (pattern: string, h: (r: { abort: () => void }) => void) => { calls.push(['route', pattern]); let aborted = false; h({ abort: () => { aborted = true; } }); calls.push(['aborted', aborted]); },
+      newPage: async () => ({
+        setContent: async (html: string, o: unknown) => { calls.push(['setContent', html, o]); during(ctx); await setContent(); },
+        locator: (sel: string) => ({ boundingBox: async () => { calls.push(['locator', sel]); return box; } }),
+      }),
+      close: async () => { calls.push(['close']); await close(); },
+    });
+    return ctx;
+  }
+
+  it('text-render precheck: layout only, one fixed inline page, every route aborted, observed, closed on every path', async () => {
+    const opts: unknown[] = [];
+    const mk = (o = {}) => { const c = okPrecheckContext(o); return { c, browser: { newContext: async (x: unknown) => { opts.push(x); return c; } } }; };
+    const a = mk();
+    expect(await textRenderPrecheck(a.browser, createLedger())).toBe('LANE_TEXT_RENDER_OK');
+    expect(opts[0]).toEqual({ serviceWorkers: 'block' });
+    expect((a.c as unknown as { calls: unknown[] }).calls).toEqual([['route', '**/*'], ['aborted', true], ['setContent', TEXT_RENDER_HTML, { waitUntil: 'load' }], ['locator', '#sealed-text'], ['close']]);
+    expect(TEXT_RENDER_HTML).not.toMatch(/src=|href=|url\(|@font-face|@import|<link|<script/i); // nothing to fetch
+    for (const box of [null, { width: 0, height: 18 }, { width: 120, height: 0 }, { width: Number.NaN, height: 1 }, { width: Infinity, height: 1 }, {}]) {
+      const b = mk({ box });
+      await expect(textRenderPrecheck(b.browser, createLedger())).rejects.toThrow('LANE_E_TEXT_RENDER');
+      expect((b.c as unknown as { calls: unknown[][] }).calls.at(-1)).toEqual(['close']);
+    }
+    const t = mk({ setContent: async () => { throw new Error('timeout'); } });
+    await expect(textRenderPrecheck(t.browser, createLedger())).rejects.toThrow('LANE_E_TEXT_RENDER');
+    expect((t.c as unknown as { calls: unknown[][] }).calls.at(-1)).toEqual(['close']);
+    const k = mk({ close: async () => { throw new Error('close'); } });
+    await expect(textRenderPrecheck(k.browser, createLedger())).rejects.toThrow('LANE_E_TEXT_RENDER'); // a failed close is a failure
+    await expect(textRenderPrecheck({ newContext: async () => { throw new Error('x'); } }, createLedger())).rejects.toThrow('LANE_E_TEXT_RENDER');
+    // The precheck context is observed by the same worker ledger.
+    const L = createLedger();
+    const w = mk({ during: (c: EventEmitter) => c.emit('request', req('POST', 'https://x.example/p')) });
+    expect(await textRenderPrecheck(w.browser, L)).toBe('LANE_TEXT_RENDER_OK');
+    expect(L.refused).toBe(1);
+    expect(textRenderCode({ width: 1, height: 1 })).toBe('LANE_TEXT_RENDER_OK');
+  });
+
+  it('the module is pure: no fs, no Playwright import, no listener removal', () => {
+    const m = code(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/video-observer.mjs'), 'utf8'));
+    expect([...m.matchAll(/^import .* from '([^']+)';$/gm)].map((x) => x[1])).toEqual(['./egress-records.mjs']);
+    expect(m).not.toMatch(/\.off\(|removeListener|removeAllListeners|node:fs|playwright/);
+  });
+});
+
 describe('video build: exact env, refused env files, no source maps, and the bundle scanner as the effective control', () => {
   const js = `const u="${VIDEO_API_ORIGIN}";`;
   const good = () => [{ rel: 'index.html', text: '<div id="root"></div><script src="/assets/index-x.js"></script>' }, { rel: 'assets/index-x.js', text: js }];
@@ -861,6 +1017,25 @@ describe('video build: exact env, refused env files, no source maps, and the bun
     for (const f of FORBIDDEN) expect(scanBundle([...good(), { rel: 'assets/a.js', text: `x${f}y` }]), f).toBe('VIDEO_BUNDLE_E_FORBIDDEN');
     expect(scanBundle([...good(), { rel: 'assets/index-x.js.map', text: '{}' }])).toBe('VIDEO_BUNDLE_E_SOURCEMAP');
     expect(scanBundle([good()[0], { rel: 'assets/index-x.js', text: 'const u="https://sealed-video.invalid.evil";'.replace('.invalid.evil', '-x.invalid') }])).toBe('VIDEO_BUNDLE_E_ORIGIN');
+  });
+  it('scanBundle: exact origin, not a substring (correction c1): suffix, port, userinfo and scheme variants fail even beside the exact one', () => {
+    const one = (t: string) => scanBundle([good()[0], { rel: 'assets/index-x.js', text: t }]);
+    expect(one('const u="https://sealed-video.invalid";')).toBe('VIDEO_BUNDLE_OK');
+    expect(one("const u='https://sealed-video.invalid/rest/v1';")).toBe('VIDEO_BUNDLE_OK');
+    for (const bad of ['https://sealed-video.invalid.evil', 'https://sealed-video.invalid:8443', 'https://sealed-video.invalid@not-fixture.example',
+      'https://user@sealed-video.invalid', 'http://sealed-video.invalid', 'wss://sealed-video.invalid', 'https://sealed-video.invalid-x', 'https://xsealed-video.invalid']) {
+      expect(one(`const u="${bad}";`), bad).toBe('VIDEO_BUNDLE_E_ORIGIN'); // alone
+      expect(one(`${js}const v="${bad}";`), `${bad} beside exact`).toBe('VIDEO_BUNDLE_E_ORIGIN'); // the exact literal does not excuse it
+    }
+    // A mention outside JS is checked too, and an unquoted mention is not exact.
+    expect(scanBundle([...good(), { rel: 'assets/a.css', text: 'url(https://sealed-video.invalid:8443/x)' }])).toBe('VIDEO_BUNDLE_E_ORIGIN');
+    expect(one('const u=https://sealed-video.invalid;')).toBe('VIDEO_BUNDLE_E_ORIGIN');
+    // Mutant control: the pre-correction substring check accepts the three reviewer inputs, the corrected one refuses them.
+    const substring = (t: string) => t.includes(VIDEO_API_ORIGIN);
+    for (const bad of ['https://sealed-video.invalid.evil', 'https://sealed-video.invalid:8443', 'https://sealed-video.invalid@not-fixture.example']) {
+      expect(substring(`const u="${bad}";`)).toBe(true);
+      expect(one(`const u="${bad}";`)).toBe('VIDEO_BUNDLE_E_ORIGIN');
+    }
     expect(scanBundle([good()[0], { rel: 'notes.txt', text: js }])).toBe('VIDEO_BUNDLE_E_ORIGIN');
     expect(scanBundle([])).toBe('VIDEO_BUNDLE_E_EMPTY');
     expect(scanBundle([good()[1]])).toBe('VIDEO_BUNDLE_E_NO_INDEX');

@@ -38,7 +38,7 @@ export const buildArgs = (repo, outDir) => [path.join(repo, 'node_modules/vite/b
 /**
  * Scan the emitted files. `files` is [{ rel, text }] (text decoded latin1, so every byte is visible). Returns a fixed code:
  * VIDEO_BUNDLE_OK, or the first failure among: no files / too many / too large, a .map file, a forbidden string in any file,
- * or the exact synthetic origin missing from every JS file. It never prints content.
+ * any mention of the synthetic host that is not the exact quoted origin, or no exact origin literal in any JS file. It never prints content.
  */
 export function scanBundle(files) {
   if (!Array.isArray(files) || files.length === 0) return 'VIDEO_BUNDLE_E_EMPTY';
@@ -49,8 +49,38 @@ export function scanBundle(files) {
   if (!files.some((f) => f.rel === 'index.html')) return 'VIDEO_BUNDLE_E_NO_INDEX';
   if (files.some((f) => /\.map$/i.test(f.rel))) return 'VIDEO_BUNDLE_E_SOURCEMAP';
   for (const f of files) for (const s of FORBIDDEN) if (f.text.includes(s)) return 'VIDEO_BUNDLE_E_FORBIDDEN';
-  if (!files.some((f) => /\.m?js$/i.test(f.rel) && f.text.includes(VIDEO_API_ORIGIN))) return 'VIDEO_BUNDLE_E_ORIGIN';
+  // Exact origin, not a substring (correction c1): every mention of the synthetic host in any file must be the whole origin as a
+  // quoted string literal, optionally followed by a path. A longer host (.invalid.evil), a port (:8443), userinfo either side
+  // (...invalid@other, user@sealed-video...) or another scheme makes the bundle fail. At least one exact literal must be in JS.
+  let exact = false;
+  for (const f of files) {
+    const v = originUses(f.text);
+    if (v.bad) return 'VIDEO_BUNDLE_E_ORIGIN';
+    if (v.exact && /\.m?js$/i.test(f.rel)) exact = true;
+  }
+  if (!exact) return 'VIDEO_BUNDLE_E_ORIGIN';
   return 'VIDEO_BUNDLE_OK';
+}
+
+export const ORIGIN_HOST = new URL(VIDEO_API_ORIGIN).host;
+const QUOTES = new Set(['"', "'", '`']);
+/**
+ * Classify every occurrence of ORIGIN_HOST in `text`. An occurrence is EXACT only when it is preceded by exactly
+ * `<quote>https://` and followed by the same quote or by `/`. Anything else (any other preceding or following character, such
+ * as `.`, `:`, `@`, `-` or an alphanumeric) is BAD. Returns { exact, bad }.
+ */
+export function originUses(text) {
+  let exact = false;
+  const pre = 'https://';
+  for (let i = text.indexOf(ORIGIN_HOST); i !== -1; i = text.indexOf(ORIGIN_HOST, i + 1)) {
+    const start = i - pre.length;
+    const q = start > 0 ? text[start - 1] : '';
+    const after = text[i + ORIGIN_HOST.length] ?? '';
+    const ok = start > 0 && text.slice(start, i) === pre && QUOTES.has(q) && (after === q || after === '/');
+    if (!ok) return { exact, bad: true };
+    exact = true;
+  }
+  return { exact, bad: false };
 }
 
 /** Read every regular file under `dir` (no symlinks followed; a symlink or other type refuses). */
