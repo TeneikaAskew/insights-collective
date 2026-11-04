@@ -363,8 +363,9 @@ export function parseImageCleanupRecord(text) {
 /**
  * The cleanup scope decision (le_private). Two separate answers:
  *  - secrets: LANE_SECRET_SCOPE (lane only: lane/bridge/docker-client gates verified and host private paths removed) and
- *    SECRET_CLEANUP_EFFECTIVE, which ALSO needs every other credential consumer proven stopped: the preview server, the
- *    stack, the psql producers. Each consumer counts only on step outcome 'success'; anything else is UNRESOLVED.
+ *    SECRET_CLEANUP_EFFECTIVE, which ALSO needs every other credential consumer resolved: the preview server, the
+ *    stack, the psql producers. Each consumer counts as STOPPED on its step outcome 'success', or, for the stack and the
+ *    psql producers only, as NEVER_STARTED in the exact bounded case of consumerState below; anything else is UNRESOLVED.
  *  - controls: the non-secret control dir C may be removed only when the lane verdict is clean AND both image records are
  *    present, parseable and clean (build clients reaped, image removed or never built, cleanup clients reaped).
  */
