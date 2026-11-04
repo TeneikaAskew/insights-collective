@@ -312,14 +312,15 @@ export function browserExitLine(state, pageTeardown) {
 
 /**
  * E1 browser-log r1: ONE closed code saying whether the owned browser's stderr carried a Chromium FATAL record, read passively and
- * bounded. Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads it. Nothing derived from the bytes is
- * kept or emitted except these counters; no path, line number, PID, message or raw byte leaves this module.
+ * bounded. Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads it. The bytes of the current unfinished
+ * line are held transiently in one owned buffer of at most MAX_LINE bytes until the sample or a failure releases it; besides that,
+ * only record counters are kept. Only the fixed codes are emitted; no path, line number, PID, message or raw byte leaves this module.
  *   GPU_UNUSABLE_REPORTED: exactly one fatal record, and it is the pinned Chrome for Testing 147.0.7727.15 record
  *     `[<stamp>:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`
  *     (IntentionallyCrashBrowserForUnusableGpuProcess). It names a terminal path, never the upstream reason the GPU fallback ran out.
  *   OTHER_FATAL_REPORTED: exactly one fatal record of any other form (official-build CHECK failures write none at all).
- *   NO_MATCH: no fatal record was observed from attachment (after launchServer returned; startup records are not seen) up to the
- *     first sample, within the byte budget. It is NOT proof that no fatal path ran.
+ *   NO_MATCH: no complete, newline-terminated fatal record was observed from attachment (after launchServer returned; startup
+ *     records are not seen) up to the first sample, within the byte budget. It is NOT proof that no fatal path ran.
  *   MULTIPLE: more than one fatal record. TRUNCATED: the byte budget or the per-line bound was exceeded (a record could be
  *     hidden), and no MULTIPLE was already established. UNAVAILABLE: no stderr stream, not already flowing (attaching would change
  *     consumption), non-Buffer data, an errored stream, or a throwing classifier.
@@ -355,7 +356,7 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   return {
     push(chunk) {
       if (frozen !== null || broken) return;
-      if (!Buffer.isBuffer(chunk)) { broken = true; return; }
+      if (!Buffer.isBuffer(chunk)) { broken = true; release(); return; }
       if (truncated && bytes >= limits.MAX_BYTES) return;
       let c = chunk;
       if (bytes + c.length > limits.MAX_BYTES) { c = c.subarray(0, limits.MAX_BYTES - bytes); truncated = true; }

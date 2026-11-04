@@ -2642,6 +2642,17 @@ describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no
     f.fail();
     f.push(L('\n'));
     expect(f.sample()).toBe('UNAVAILABLE');
+    // r1.2: the non-Buffer branch releases too, then nothing later is inspected
+    expect(src).toContain('if (!Buffer.isBuffer(chunk)) { broken = true; release(); return; }');
+    const g = browserLogClassifier(1);
+    g.push(L(GPU));
+    g.push('x' as unknown as Buffer);
+    const later = L('\n');
+    let touched = 0;
+    for (const k of ['indexOf', 'subarray', 'copy', 'toString'] as const)
+      Object.defineProperty(later, k, { value: (...args: unknown[]) => { touched += 1; return (Buffer.prototype[k] as (...a: unknown[]) => unknown).apply(later, args); } });
+    g.push(later);
+    expect([g.sample(), touched]).toEqual(['UNAVAILABLE', 0]);
   });
 
   it('post-sample: pushed bytes are not inspected, copied or retained (negative control: the same probe before the sample is inspected)', () => {
