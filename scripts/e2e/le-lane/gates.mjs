@@ -4,9 +4,11 @@
 //
 //   gates.mjs verify <ctl dir> <private parent> <repo>   -> LANE_GATE lines; exit 0 only if lane absence and bridge reap are established
 //   gates.mjs plan   <ctl dir> <private parent> <repo>   -> exactly one PLAN line (SKIP | NOTRUN <at> <code> | REFUSED <code> | SUMMARY <pw> <setup> <cleanup>)
-//   gates.mjs scope  <ctl dir> <private parent> <repo> <preview> <stack> <producers> <private rm 0|1>
-//                    -> LANE_SECRET_SCOPE, SECRET_CLEANUP_EFFECTIVE|UNRESOLVED <consumers>, CONTROLS REMOVE|KEEP|NONE; exit 0 only
-//                       if effective. The three middle arguments are GitHub step outcomes; only 'success' counts.
+//   gates.mjs scope  <ctl dir> <private parent> <repo> <preview> <stack> <producers> <private rm 0|1> <start>
+//                    -> LANE_SECRET_SCOPE, SECRET_CONSUMER <name> STOPPED|NEVER_STARTED|UNRESOLVED (x3),
+//                       SECRET_CLEANUP_EFFECTIVE|UNRESOLVED <consumers>, CONTROLS REMOVE|KEEP|NONE; exit 0 only if effective.
+//                       preview/stack/producers/start are GitHub step outcomes. 'success' = stopped; 'skipped' counts only as
+//                       NEVER_STARTED for stack/producers when start is also exactly 'skipped' (contract.mjs consumerState).
 //
 // Import closure (checked by test): node:fs, node:path, ./contract.mjs, ../le-iso/expect.mjs, ../le-e1-summary.mjs,
 // ../../../e2e/lesson-editor/step-codes.mjs. No child_process, no network, no dynamic import, no writer.
@@ -57,13 +59,13 @@ export function scopeResult(fsx, L, { outcomes, privateRemoved }) {
 }
 
 if (process.argv[1] && /le-lane\/gates\.mjs$/.test(process.argv[1])) {
-  const [cmd, C, P, R, preview, stack, producers, priv] = process.argv.slice(2);
+  const [cmd, C, P, R, preview, stack, producers, priv, start] = process.argv.slice(2);
   try {
     const L = lanePaths(P, C, R);
     if (cmd === 'verify') { const v = readVerdict(fs, L); for (const l of verifyLines(v)) console.log(l); process.exit(v.ok ? 0 : 1); }
     if (cmd === 'plan') { console.log(planLine(fs, L)); process.exit(0); }
     if (cmd === 'scope') {
-      const r = scopeResult(fs, L, { outcomes: { preview, stack, producers }, privateRemoved: priv === '0' });
+      const r = scopeResult(fs, L, { outcomes: { preview, stack, producers, start }, privateRemoved: priv === '0' });
       for (const l of r.lines) console.log(l);
       process.exit(r.effective ? 0 : 1);
     }

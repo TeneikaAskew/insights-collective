@@ -1481,6 +1481,7 @@ jobs:
       - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
         run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lej" | tee "$LE_EVIDENCE/checks/net-create.txt"
       - name: supabase start (local; no studio; edge runtime EXCLUDED; output kept private, shown only redacted on failure)
+        id: le_start
         run: |
           umask 077
           LOG="$RUNNER_TEMP/le-start.log"
@@ -1742,6 +1743,7 @@ jobs:
           O_PREVIEW: ${{ steps.le_owned_stop.outcome }}
           O_STACK: ${{ steps.le_stop.outcome }}
           O_PRODUCERS: ${{ steps.le_producers.outcome }}
+          O_START: ${{ steps.le_start.outcome }}
         run: |
           rc=0
           for p in "$RUNNER_TEMP/le-private" "$RUNNER_TEMP/le-priv" "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/le-shell-receipt.txt" \
@@ -1758,12 +1760,13 @@ jobs:
           # a secret. Two separate decisions from host records (gates.mjs scope):
           #  - secrets: LANE_SECRET_SCOPE covers the lane only (container absent, bridge reaped, docker clients reaped, host paths
           #    removed). SECRET_CLEANUP_EFFECTIVE additionally needs every other credential consumer proven stopped (preview,
-          #    stack, psql producers: step outcome 'success' only); otherwise SECRET_CLEANUP_UNRESOLVED <consumers>, rc 1.
+          #    stack, psql producers: step outcome 'success') or, for the stack and psql producers only, proven never started
+          #    (le_start AND their own stop step both exactly 'skipped'); otherwise SECRET_CLEANUP_UNRESOLVED <consumers>, rc 1.
           #  - controls: the NON-secret control dir (receipts, image id, image records) is removed only when the lane verdict
           #    and both image records are clean; any unresolved image or client state keeps it (CONTROLS KEEP) and fails.
           C="$RUNNER_TEMP/le-lane-ctl"
           set +e
-          SCOPE=$(node scripts/e2e/le-lane/gates.mjs scope "$C" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" "$O_PREVIEW" "$O_STACK" "$O_PRODUCERS" "$rc")
+          SCOPE=$(node scripts/e2e/le-lane/gates.mjs scope "$C" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" "$O_PREVIEW" "$O_STACK" "$O_PRODUCERS" "$rc" "$O_START")
           st=$?
           set -e
           printf '%s\n' "$SCOPE" | tee -a "$LE_EVIDENCE/checks/private-removed.txt"

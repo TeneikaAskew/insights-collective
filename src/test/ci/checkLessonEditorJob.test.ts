@@ -98,6 +98,28 @@ describe('lesson-editor job (proposal; sealed lane container candidate)', () => 
     for (const x of ['stage', ...TEARDOWN.filter((t) => t !== 'le_summary')]) expect(up.if).toContain(`steps.${x}.outcome == 'success'`);
     expect(S.indexOf(up)).toBe(id('stage') + 1);
   });
+  it('never-started evidence: le_start is the only stack start; every credential producer runs after it, unconditioned', () => {
+    // consumerState may report the stack and psql producers NEVER_STARTED only from le_start == 'skipped'. That inference holds
+    // only while (a) le_start is the one `supabase start`, (b) no stack credential or credential producer appears before it,
+    // and (c) every producer after it has NO `if:` (default success(), so a skipped start skips them all).
+    const start = id('le_start');
+    expect(S.filter((x) => /supabase start/.test(runOf(x))).map((x) => x.id)).toEqual(['le_start']);
+    expect(S[start].if).toBeUndefined();
+    const PRODUCER = /gb-job-psql\.mjs|supabase start|supabase status|vite preview|owned-proc\.mjs start|run-lane\.mjs|export-status\.mjs|stack-ownership\.mjs|pairing-producer\.mjs|SUPABASE_DB_URL|LE_DB_URL|SUPABASE_URL|SUPABASE_ANON|SERVICE_ROLE/;
+    const users = S.map((x, i) => [i, x] as const).filter(([, x]) => PRODUCER.test(runOf(x)) || PRODUCER.test(JSON.stringify((x as { env?: unknown }).env ?? {})));
+    expect(users.length).toBeGreaterThan(5);
+    for (const [i, x] of users) {
+      expect(i, String(x.name)).toBeGreaterThanOrEqual(start);
+      expect(x.if, String(x.name)).toBeUndefined();
+    }
+    // every conditioned step after le_start is a known teardown/evidence step that starts no producer
+    const conditioned = S.map((x, i) => [i, x] as const).filter(([i, x]) => i > start && x.if !== undefined);
+    for (const [, x] of conditioned) expect(PRODUCER.test(runOf(x)), String(x.name)).toBe(false);
+    expect(S[id('le_stop')].if).toBe("always() && steps.le_prep.outcome == 'success'");
+    expect(S[id('le_producers')].if).toBe("always() && steps.le_prep.outcome == 'success'");
+    expect(id('le_prep')).toBeLessThan(start);
+    expect((S[id('le_private')] as { env?: Record<string, string> }).env?.O_START).toBe('${{ steps.le_start.outcome }}');
+  });
   it('binds the lane config to the pinned shell (exactly one project)', () => {
     expect(LE_PROJECTS).toEqual(['lesson-editor-chromium']);
     expect(laneProblems('lesson-editor', [{ name: 'lesson-editor-chromium' }])).toEqual([]);

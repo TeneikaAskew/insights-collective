@@ -10,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 import YAML from 'yaml';
 import { SECCOMP_PROFILE_REL, createdNeverStarted } from '../../../scripts/e2e/le-iso/expect.mjs';
 import {
-  ENV_KEYS, GATE_KEYS, IMAGE_PATH_ENV, LANE_LIMITS, LANE_NODE, PRECHECK_CODES, PSQL_REAL, TOOLS, cleanupScope, compareLaneInspect, expectedLaneConfig, imageBuildRecord,
+  ENV_KEYS, GATE_KEYS, IMAGE_PATH_ENV, LANE_LIMITS, LANE_NODE, PRECHECK_CODES, PSQL_REAL, TOOLS, cleanupScope, consumerState, compareLaneInspect, expectedLaneConfig, imageBuildRecord,
   imageCleanupRecord, imageConfigProblems, IMAGE_CHECK_FIELDS, IMAGE_VALUE_CLASSES, IMAGE_WORKDIR, imageFieldLines, imageValueClass, laneBinds, laneCreateArgs, laneEnv, lanePaths, lanePorts, laneTmpfsSpec, laneVerdict, parseGates, parseImageBuildRecord,
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
@@ -504,16 +504,20 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     const ok3 = { preview: 'success', stack: 'success', producers: 'success' };
     const cleanRec = imageCleanupRecord({ code: 'LANE_IMAGE_REMOVED', clientsReaped: true });
     const base = { verdict: okV, privateRemoved: true, outcomes: ok3, buildRec: BUILT_REC, cleanupRec: cleanRec, controlsPresent: true };
-    expect(cleanupScope(base)).toEqual({ effective: true, controls: 'REMOVE', lines: ['LANE_SECRET_SCOPE CLEAN', 'SECRET_CLEANUP_EFFECTIVE', 'CONTROLS REMOVE'] });
-    for (const k of ['preview', 'stack', 'producers'])
-      for (const v of ['failure', 'cancelled', 'skipped', '', undefined]) {
-        const r = cleanupScope({ ...base, outcomes: { ...ok3, [k]: v } });
-        expect(r.effective, `${k}=${v}`).toBe(false);
-        expect(r.lines).toEqual(['LANE_SECRET_SCOPE CLEAN', `SECRET_CLEANUP_UNRESOLVED ${k}`, 'CONTROLS REMOVE']);
-      }
-    expect(cleanupScope({ ...base, verdict: badV }).lines).toEqual(['LANE_SECRET_SCOPE UNRESOLVED', 'SECRET_CLEANUP_UNRESOLVED lane', 'CONTROLS KEEP']);
-    expect(cleanupScope({ ...base, privateRemoved: false }).lines).toEqual(['LANE_SECRET_SCOPE UNRESOLVED', 'SECRET_CLEANUP_UNRESOLVED private', 'CONTROLS REMOVE']);
-    expect(cleanupScope({ ...base, outcomes: {}, verdict: badV, privateRemoved: false }).lines[1]).toBe('SECRET_CLEANUP_UNRESOLVED preview,stack,producers,lane,private');
+    const CS = (o: Obj = {}) => ['preview', 'stack', 'producers'].map((k) => `SECRET_CONSUMER ${k} ${o[k] ?? 'STOPPED'}`);
+    expect(cleanupScope(base)).toEqual({ effective: true, controls: 'REMOVE', lines: ['LANE_SECRET_SCOPE CLEAN', ...CS(), 'SECRET_CLEANUP_EFFECTIVE', 'CONTROLS REMOVE'] });
+    for (const start of [undefined, 'success', 'skipped'])
+      for (const k of ['preview', 'stack', 'producers'])
+        for (const v of ['failure', 'cancelled', 'skipped', '', undefined]) {
+          // a skipped stop with a reported start of 'skipped' is the only never-started case, and only for stack/producers
+          if (start === 'skipped' && v === 'skipped' && k !== 'preview') continue;
+          const r = cleanupScope({ ...base, outcomes: { ...ok3, start, [k]: v } });
+          expect(r.effective, `${k}=${v} start=${start}`).toBe(false);
+          expect(r.lines).toEqual(['LANE_SECRET_SCOPE CLEAN', ...CS({ [k]: 'UNRESOLVED' }), `SECRET_CLEANUP_UNRESOLVED ${k}`, 'CONTROLS REMOVE']);
+        }
+    expect(cleanupScope({ ...base, verdict: badV }).lines).toEqual(['LANE_SECRET_SCOPE UNRESOLVED', ...CS(), 'SECRET_CLEANUP_UNRESOLVED lane', 'CONTROLS KEEP']);
+    expect(cleanupScope({ ...base, privateRemoved: false }).lines).toEqual(['LANE_SECRET_SCOPE UNRESOLVED', ...CS(), 'SECRET_CLEANUP_UNRESOLVED private', 'CONTROLS REMOVE']);
+    expect(cleanupScope({ ...base, outcomes: {}, verdict: badV, privateRemoved: false }).lines[4]).toBe('SECRET_CLEANUP_UNRESOLVED preview,stack,producers,lane,private');
     for (const over of [{ buildRec: null }, { cleanupRec: null }, { cleanupRec: imageCleanupRecord({ code: 'LANE_E_IMAGE_REMOVE', clientsReaped: true }) },
       { cleanupRec: imageCleanupRecord({ code: 'LANE_IMAGE_REMOVED', clientsReaped: false }) }, { buildRec: imageBuildRecord({ invoked: true, id: IMG, clientsReaped: false, result: 'LANE_IMAGE_OK' }) }]) {
       const r = cleanupScope({ ...base, ...over });
@@ -522,12 +526,51 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     }
     expect(cleanupScope({ ...base, controlsPresent: false, buildRec: null, cleanupRec: null }).controls).toBe('NONE');
   });
+  it('never-started consumers: only an exact skipped start AND an exact skipped own stop count, and only for stack and psql producers', () => {
+    const okV = laneVerdict({ runLaneStarted: false, gatesText: null });
+    const cleanRec = imageCleanupRecord({ code: 'LANE_IMAGE_REMOVED', clientsReaped: true });
+    const base = { verdict: okV, privateRemoved: true, buildRec: BUILT_REC, cleanupRec: cleanRec, controlsPresent: true };
+    // Run 41792791076 shape: image refused before le_prep, so le_start, le_stop and le_producers were skipped; preview stop ran.
+    const r1 = cleanupScope({ ...base, outcomes: { preview: 'success', stack: 'skipped', producers: 'skipped', start: 'skipped' } });
+    expect(r1).toEqual({ effective: true, controls: 'REMOVE', lines: ['LANE_SECRET_SCOPE CLEAN', 'SECRET_CONSUMER preview STOPPED',
+      'SECRET_CONSUMER stack NEVER_STARTED', 'SECRET_CONSUMER producers NEVER_STARTED', 'SECRET_CLEANUP_EFFECTIVE', 'CONTROLS REMOVE'] });
+    // the same run before this change (no start outcome passed): unchanged UNRESOLVED
+    expect(cleanupScope({ ...base, outcomes: { preview: 'success', stack: 'skipped', producers: 'skipped' } }).lines)
+      .toContain('SECRET_CLEANUP_UNRESOLVED stack,producers');
+    const VALS = ['success', 'skipped', 'failure', 'cancelled', '', undefined, null, 'Skipped', 'skipped ', ' skipped', 'SKIPPED', 'skipped\n', 0, true, ['skipped'], { v: 'skipped' }];
+    for (const name of ['preview', 'stack', 'producers'])
+      for (const own of VALS)
+        for (const start of VALS) {
+          const got = consumerState(name, { [name]: own, start } as never);
+          const want = own === 'success' ? 'STOPPED' : name !== 'preview' && own === 'skipped' && start === 'skipped' ? 'NEVER_STARTED' : 'UNRESOLVED';
+          expect(got, `${name} own=${JSON.stringify(own)} start=${JSON.stringify(start)}`).toBe(want);
+        }
+    // missing or malformed outcome containers never yield NEVER_STARTED
+    for (const o of [undefined, null, {}, 'skipped', ['skipped'], { start: 'skipped' }]) for (const n of ['stack', 'producers']) expect(consumerState(n, o as never)).toBe('UNRESOLVED');
+    // an inherited (prototype) value is not an outcome the runner reported
+    const proto = Object.create({ stack: 'skipped', start: 'skipped' });
+    expect(consumerState('stack', proto)).toBe('UNRESOLVED');
+    expect(consumerState('stack', Object.assign(Object.create({ start: 'skipped' }), { stack: 'skipped' }))).toBe('UNRESOLVED');
+    expect(consumerState('stack', { stack: 'skipped', start: 'skipped' })).toBe('NEVER_STARTED');
+    expect(consumerState('lane', { lane: 'skipped', start: 'skipped' })).toBe('UNRESOLVED');
+    // partially-started or interrupted stacks: start failed, cancelled or succeeded while the stop was skipped
+    for (const start of ['failure', 'cancelled', 'success']) {
+      const r = cleanupScope({ ...base, outcomes: { preview: 'success', stack: 'skipped', producers: 'skipped', start } });
+      expect(r.effective).toBe(false);
+      expect(r.lines).toContain('SECRET_CLEANUP_UNRESOLVED stack,producers');
+    }
+    // a started-and-stopped stack is still STOPPED, never NEVER_STARTED
+    expect(cleanupScope({ ...base, outcomes: { preview: 'success', stack: 'success', producers: 'success', start: 'success' } }).lines.filter((l) => /NEVER_STARTED/.test(l))).toEqual([]);
+    // a skipped preview stop is never excused, whatever the start outcome
+    expect(cleanupScope({ ...base, outcomes: { preview: 'skipped', stack: 'skipped', producers: 'skipped', start: 'skipped' } }).lines).toContain('SECRET_CLEANUP_UNRESOLVED preview');
+  });
   it('le_private: secrets and controls are separate decisions; the control dir is removed ONLY on CONTROLS REMOVE', () => {
     const job = (YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj).jobs['lesson-editor'];
     const st = job.steps.find((x: Obj) => x.id === 'le_private');
-    expect(st.env).toEqual({ O_PREVIEW: '${{ steps.le_owned_stop.outcome }}', O_STACK: '${{ steps.le_stop.outcome }}', O_PRODUCERS: '${{ steps.le_producers.outcome }}' });
+    expect(st.env).toEqual({ O_PREVIEW: '${{ steps.le_owned_stop.outcome }}', O_STACK: '${{ steps.le_stop.outcome }}', O_PRODUCERS: '${{ steps.le_producers.outcome }}',
+      O_START: '${{ steps.le_start.outcome }}' });
     const run: string = st.run;
-    expect(run).toContain('gates.mjs scope "$C" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" "$O_PREVIEW" "$O_STACK" "$O_PRODUCERS" "$rc"');
+    expect(run).toContain('gates.mjs scope "$C" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" "$O_PREVIEW" "$O_STACK" "$O_PRODUCERS" "$rc" "$O_START")');
     expect(run.match(/rm -rf -- "\$C"/g)).toHaveLength(1);
     const rmAt = run.indexOf('rm -rf -- "$C"');
     expect(run.lastIndexOf('*"CONTROLS REMOVE"*)', rmAt)).toBeGreaterThan(run.indexOf('SCOPE=$('));

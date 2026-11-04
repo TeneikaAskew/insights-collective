@@ -368,11 +368,31 @@ export function parseImageCleanupRecord(text) {
  *  - controls: the non-secret control dir C may be removed only when the lane verdict is clean AND both image records are
  *    present, parseable and clean (build clients reaped, image removed or never built, cleanup clients reaped).
  */
+/**
+ * One credential consumer's state from GitHub step outcomes (runner-reported, exact strings only).
+ *  STOPPED       its stop/absence step reported 'success'.
+ *  NEVER_STARTED only for the stack and the psql producers, and only when `supabase start` (steps.le_start) AND that consumer's
+ *                own stop step were both 'skipped'. Nothing before le_start holds a credential: the stack keys and DSN first
+ *                exist in le_start's output and reach GITHUB_ENV in the next step, and every psql producer runs after it under
+ *                the default success() condition (pinned by checkLessonEditorJob). A skipped start therefore means no
+ *                credential consumer of either kind ever ran.
+ *  UNRESOLVED    anything else: failure, cancelled, a missing or malformed value, a started or interrupted start, or a skipped
+ *                stop after a start that did not report 'skipped'. 'skipped' is never success on its own.
+ */
+export function consumerState(name, outcomes) {
+  const own = (k) => (outcomes && typeof outcomes === 'object' && Object.prototype.hasOwnProperty.call(outcomes, k) ? outcomes[k] : undefined);
+  const o = own(name);
+  if (o === 'success') return 'STOPPED';
+  if ((name === 'stack' || name === 'producers') && o === 'skipped' && own('start') === 'skipped') return 'NEVER_STARTED';
+  return 'UNRESOLVED';
+}
+
 export function cleanupScope({ verdict, privateRemoved, outcomes, buildRec, cleanupRec, controlsPresent }) {
   const laneClean = !!verdict?.ok;
   const laneScope = laneClean && privateRemoved === true;
   const bad = [];
-  for (const k of ['preview', 'stack', 'producers']) if (outcomes?.[k] !== 'success') bad.push(k);
+  const states = ['preview', 'stack', 'producers'].map((k) => [k, consumerState(k, outcomes)]);
+  for (const [k, st] of states) if (st === 'UNRESOLVED') bad.push(k);
   if (!laneClean) bad.push('lane');
   if (privateRemoved !== true) bad.push('private');
   const b = parseImageBuildRecord(buildRec), c = parseImageCleanupRecord(cleanupRec);
@@ -380,6 +400,7 @@ export function cleanupScope({ verdict, privateRemoved, outcomes, buildRec, clea
   return {
     effective: bad.length === 0,
     lines: [`LANE_SECRET_SCOPE ${laneScope ? 'CLEAN' : 'UNRESOLVED'}`,
+      ...states.map(([k, st]) => `SECRET_CONSUMER ${k} ${st}`),
       bad.length === 0 ? 'SECRET_CLEANUP_EFFECTIVE' : `SECRET_CLEANUP_UNRESOLVED ${bad.join(',')}`,
       `CONTROLS ${controls}`],
     controls,
