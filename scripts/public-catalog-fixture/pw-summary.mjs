@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ABOUTME: Sanitized Playwright summary for the evidence directory: project, file:line, test title and status, plus, for a test
-// ABOUTME: that did not pass, the FIXED title of its deepest failed step when that title is on the allowlist. Never a message.
+// ABOUTME: that did not pass, the FIXED title of its failed step or teardown check when on the allowlist. Never a message.
 // No error messages, attachments, stdout or page text are copied out of the private JSON report. A failed step whose title is
 // not on the allowlist is reported as UNLISTED; a failure outside every step as UNSTEPPED.
 import { readFileSync, realpathSync } from 'node:fs';
@@ -17,6 +17,13 @@ export function failedStep(steps) {
   }
   return null;
 }
+/** A failed net fixture teardown check (failed-check.mjs): the annotation's fixed title when allowlisted, else UNLISTED; only
+ *  consulted when no body step failed. The first such annotation counts (the first failed check throws). */
+export function failedCheck(annotations) {
+  const a = (annotations ?? []).find((x) => x && x.type === 'pc_failed_check');
+  if (!a) return null;
+  return STEP_RE.test(String(a.description)) && /^net_/.test(String(a.description)) ? a.description : 'UNLISTED';
+}
 export function summarize(r) {
   const out = [];
   const walk = (s) => {
@@ -24,7 +31,7 @@ export function summarize(r) {
       const last = t.results?.at(-1);
       const status = last?.status ?? 'none';
       let line = `${t.projectName}|${c.file}:${c.line}|${c.title}|${status}`;
-      if (last && status !== 'passed' && status !== 'skipped') line += `|step=${failedStep(last.steps) ?? 'UNSTEPPED'}`;
+      if (last && status !== 'passed' && status !== 'skipped') line += `|step=${failedStep(last.steps) ?? failedCheck(last.annotations) ?? 'UNSTEPPED'}`;
       out.push(line);
     }
     for (const x of s.suites ?? []) walk(x);
