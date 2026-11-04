@@ -76,6 +76,9 @@ export function createQuizServer(opts: { userId?: string; quizzes: FakeQuiz[] })
     loseStartResponse?: boolean;
     // Score and finalize, then lose the response (transport failure after commit).
     loseScoreResponse?: boolean;
+    // Delay score-quiz, or refuse it before anything is finalized.
+    beforeScore?: () => Promise<void> | void;
+    failScore?: boolean;
     beforeAnswerWrite?: (n: number) => Promise<void> | void;
     failLatest?: boolean;
   } = {};
@@ -293,7 +296,9 @@ export function createQuizServer(opts: { userId?: string; quizzes: FakeQuiz[] })
     });
     (mockSupabaseClient.functions.invoke as any).mockImplementation(async (name: string, { body }: any) => {
       if (name !== 'score-quiz') return { data: null, error: { message: 'unexpected function' } };
+      await hooks.beforeScore?.();
       calls.score.push({ submissionId: body.submissionId, answers: body.answers });
+      if (hooks.failScore) return { data: null, error: { message: 'scoring unavailable' } };
       calls.events.push(`score:${body.submissionId}`);
       const res = score(body.submissionId, body.answers, body.timeSpent ?? null);
       if (!res.error && !(res.data as any)?.error) calls.events.push(`finalized:${body.submissionId}`);

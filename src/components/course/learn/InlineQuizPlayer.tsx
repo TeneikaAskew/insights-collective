@@ -453,9 +453,13 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
    * the quiz work queue (inside the start's task), so a remounted session reads
    * the attempt only after these answers have landed.
    */
-  const flushOrphanedAnswers = useCallback(async (attemptId: string) => {
-    if (answersOwnerRef.current !== PENDING_START) return;
-    answersOwnerRef.current = attemptId;
+  /**
+   * Write this session's answers to `attemptId` now, for a session that has
+   * unmounted and so has no autosave timer left. Called only from work already
+   * running on the quiz queue (it must not enqueue, or it would wait on itself).
+   */
+  const writeAnswersNow = useCallback(async (attemptId: string) => {
+    const rev = revRef.current;
     const records = Object.entries(answersRef.current).map(([questionId, answer]) => ({
       quiz_submission_id: attemptId,
       quiz_question_id: questionId,
@@ -466,8 +470,17 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       .from('quiz_submission_answers')
       .upsert(records, { onConflict: 'quiz_submission_id,quiz_question_id' });
     if (error) logger.error('Could not save answers given before leaving the quiz', error);
-    else savedRevRef.current = revRef.current;
+    else savedRevRef.current = Math.max(savedRevRef.current, rev);
   }, []);
+
+  const flushOrphanedAnswers = useCallback(
+    async (attemptId: string) => {
+      if (answersOwnerRef.current !== PENDING_START) return;
+      answersOwnerRef.current = attemptId;
+      await writeAnswersNow(attemptId);
+    },
+    [writeAnswersNow],
+  );
 
   /**
    * After a failed start, read the learner's latest attempt to learn what the
@@ -492,7 +505,12 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       const isNew = !!latest && (!before || (latest.attempt ?? 0) > (before.attempt ?? 0));
       if (latest && isNew && isAttemptInProgress(latest)) {
         if (aliveRef.current) adoptAttempt(latest);
-        else await flushOrphanedAnswers(latest.id);
+        else {
+          // Ref only (no state on an unmounted session): a submit waiting on
+          // this start still gets the attempt it asked for.
+          submissionRef.current = latest;
+          await flushOrphanedAnswers(latest.id);
+        }
         return 'adopted';
       }
       return 'none';
@@ -536,7 +554,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
           // Earlier work (perhaps another session's start) may have created the
           // attempt while this start waited: adopt it rather than use up another.
           const pre = await reconcileStart(current);
-          if (pre === 'adopted') return aliveRef.current ? submissionRef.current : null;
+          if (pre === 'adopted') return submissionRef.current;
         }
         const { data, error } = await supabase
           .rpc('start_quiz_attempt', { p_quiz_id: quiz.id })
@@ -545,8 +563,12 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         if (!data) throw new Error('The quiz attempt could not be started.');
         const row = data as Submission;
         if (!aliveRef.current) {
+          // The session is gone, but the attempt exists: save the answers given
+          // before it did, and hand it to a submit that is waiting on this start
+          // (the old session's UI is not touched).
+          submissionRef.current = row;
           await flushOrphanedAnswers(row.id);
-          return null;
+          return row;
         }
         adoptAttempt(row);
         return row;
@@ -794,6 +816,13 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         .select('*')
         .eq('id', active.id)
         .maybeSingle();
+      if (!readError && row && isAttemptInProgress(row) && !aliveRef.current && revRef.current > savedRevRef.current) {
+        // Not finalized, and the session that holds the answers is gone: write
+        // them before releasing the barrier, so a returning session resumes
+        // them instead of a stale or blank attempt.
+        finalizingAttempts.delete(active.id);
+        await writeAnswersNow(active.id);
+      }
       releaseFinalization();
       if (!readError && row && row.workflow_state === 'complete' && row.finished_at) {
         await acceptFinalized(row);
