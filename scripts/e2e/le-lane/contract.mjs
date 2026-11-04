@@ -339,8 +339,8 @@ export function reportedErrorCode(message) {
  * POST_OBSERVED, ATTEMPT_STATUS and FAILED_STEP (E1 diagnostics r2) are DIAGNOSTIC ONLY as well. A report that is not PARSED
  * needs POST_OBSERVED equal to the report state and UNKNOWN status and step; UNKNOWN status needs UNKNOWN step; PASSED needs
  * NONE and only PASSED may have NONE. ATTEMPT_STATUS is Playwright's word for the one selected attempt, never an E1 verdict.
- * BROWSER_EXIT (E1 diagnostics r3) is DIAGNOSTIC ONLY too: the owned browser's closed exit shape and the spec page's state when
- * the test body ended. A report that is not PARSED needs it equal to the report state. It never says why a process exited.
+ * BROWSER_EXIT (E1 diagnostics r3) is DIAGNOSTIC ONLY too: the owned browser's closed exit shape and the spec page's state at the
+ * page wrapper's teardown-start checkpoint. A report that is not PARSED needs it equal to the report state. It never says why a process exited.
  * A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
  */
 export function parseLaneOut(text) {

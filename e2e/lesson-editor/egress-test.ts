@@ -96,9 +96,10 @@ export const test = base.extend<{ boundary: Boundary; laneAppArmorGate: void }, 
     },
     { auto: true },
   ],
-  // E1 diagnostics r3, authentic lane only: a passive wrapper around the spec's page. Its teardown starts first after the test
-  // body (checkpoint PAGE_TEARDOWN_START): it samples the owned browser's exit recorder, then whether the page was already
-  // closed or had crashed (closed tokens only). It changes nothing the page does, reads no page content and decides nothing.
+  // E1 diagnostics r3, authentic lane only: a passive wrapper around the spec's page. At its teardown-start checkpoint
+  // (PAGE_TEARDOWN_START: after finish callbacks and afterEach hooks and, in the current E1 fixture graph, before its underlying
+  // page and context are released) it samples the owned browser's exit recorder, then whether the page was already closed or
+  // had crashed (closed tokens only). It changes nothing the page does, reads no page content and decides nothing.
   page: [
     async ({ page }, use) => {
       if (!authenticLane()) return use(page);

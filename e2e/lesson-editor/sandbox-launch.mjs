@@ -237,13 +237,14 @@ export function exitObserver(child) {
  * E1 diagnostics r3: HOW the owned browser exited, as one closed token, the first CHECKPOINT at which Node had observed it, and
  * the page's state at the first checkpoint. Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads them.
  * Checkpoints are sampling points in Node observation order, never OS exit times (an exit event or field can lag the exit):
- *   PAGE_TEARDOWN_START: the spec page's fixture teardown begins (the first test-fixture teardown after the test body);
+ *   PAGE_TEARDOWN_START: this page wrapper's teardown-start checkpoint, after finish callbacks and afterEach hooks and, in the
+ *     current E1 fixture graph, before its underlying page and context are released;
  *   GATE_POST: the test-scoped gate's post-run sample, after the page, boundary and context teardowns. The gate's `await use()`
  *     spans test setup, the body AND those teardowns, so GATE_POST alone never places an exit inside the body.
  *   shape: CODE_<0..255> (Node's exit code) | a signal name from EXIT_SIGNALS | SIG_OTHER (any other SIG* name) | NONE (the
  *     listener is registered and neither field is set yet; NOT a liveness claim) | UNKNOWN (anything else). Node sets a code
  *     or a signal, never both.
- *   page (BODY_END_PAGES): the spec's page when its fixture teardown began, which is the first teardown after the test body;
+ *   page (BODY_END_PAGES): the spec's page state at this page wrapper's teardown-start checkpoint (PAGE_TEARDOWN_START above);
  *     CLOSED means the page was already closed (the spec never closes it), CRASHED that it emitted 'crash' (renderer).
  */
 export const EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGHUP', 'SIGILL', 'SIGINT', 'SIGKILL', 'SIGPIPE', 'SIGSEGV', 'SIGSYS', 'SIGTERM', 'SIGTRAP']);
