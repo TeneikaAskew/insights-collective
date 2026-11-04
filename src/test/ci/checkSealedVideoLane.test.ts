@@ -1,5 +1,5 @@
 // ABOUTME: Pure, fake and static controls for the sealed stubbed video lane source candidate (DESIGN r2 + ADDENDUM r2.1): the
-// ABOUTME: one-port bridge with E1 differential equivalence, kinds, run-lane/image dispatch, egress records, configs, fixture, supervisor, build, job.
+// ABOUTME: one-port bridge with E1 differential equivalence, kinds, run-lane/image dispatch, egress records, configs, fixture, supervisor, build; no job wiring (P4(a)).
 //
 // Read-only on purpose: nothing here writes a file, starts docker, a listener, a browser, a preview or a real child. The E1
 // differential tests materialize the 0a075a77 modules from their pinned git blobs (git cat-file, read-only; test.yml checks out
@@ -1172,35 +1172,16 @@ describe('video build: exact env, refused env files, no source maps, and the bun
   });
 });
 
-describe('e2e.yml sealed-video job: dispatch-only, read-only, no secrets or stack, ordered, released only after teardown', () => {
-  const wf = YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj;
-  const job = wf.jobs['sealed-video'] as Obj;
-  const steps: Obj[] = job.steps;
-  const text = JSON.stringify(job);
-  const ix = (re: RegExp) => steps.findIndex((s) => re.test(String(s.run ?? '')));
-  it('is selected only by its own input, with contents: read and no secrets, services, containers or Supabase use', () => {
-    expect(wf.on.workflow_dispatch.inputs.specs.options).toContain('sealed-video');
-    expect(Object.keys(wf.on)).toEqual(['workflow_dispatch']);
-    expect(job.if).toBe("inputs.specs == 'sealed-video'");
-    expect(job.permissions).toEqual({ contents: 'read' });
-    expect(job.services).toBeUndefined();
-    expect(job.container).toBeUndefined();
-    expect(text).not.toMatch(/secrets\.|supabase (start|status|stop)|SUPABASE_DB_URL|SERVICE_ROLE|--no-sandbox|apply_migration|db push|export-status/);
-    expect(steps[0]).toMatchObject({ uses: 'actions/checkout@v4', with: { 'fetch-depth': 0, 'persist-credentials': false } });
-  });
-  it('orders: overrides refused, static controls and the 24-test collection, preflight, pin, build+scan, image, preview, lane; then gates and cleanup', () => {
-    const order = [/Refuse|for v in LE_ALLOW_SHIM/, /VIDEO_SEALED_LIST_ONLY=1 npx --no-install playwright test -c playwright\.sealed-video\.config\.ts --list/, /le-iso\/preflight\.mjs/,
-      /le-iso\/browser-pin\.mjs/, /video-build\.mjs build/, /video-lane\.mjs image/, /owned-proc\.mjs start/, /video-lane\.mjs run/, /gates\.mjs verify/, /image\.mjs cleanup/,
-      /video-summary\.mjs/, /owned-proc\.mjs stop/, /rm -rf/, /stage-evidence/].map(ix);
-    expect(order.every((i) => i >= 0)).toBe(true);
-    expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(String(steps[ix(/--list/)].run)).toContain('[ "$(tail -1 "$RUNNER_TEMP/sv-list.txt")" = "Total: 24 tests in 1 file" ]');
-    for (const re of [/gates\.mjs verify/, /image\.mjs cleanup/, /owned-proc\.mjs stop/, /rm -rf/]) expect(String(steps[ix(re)].if ?? ''), String(re)).toMatch(/^always\(\)/);
-  });
-  it('the upload is gated on every teardown step and the staged manifest; the private parent is fresh and removed', () => {
-    const up = steps.find((s) => s.uses === 'actions/upload-artifact@v4')!;
-    for (const id of ['stage', 'sv_lane_gates', 'sv_image_cleanup', 'sv_owned_stop', 'sv_private']) expect(String(up.if)).toContain(`steps.${id}.outcome == 'success'`);
-    expect(String(steps[ix(/video-lane\.mjs run/)].run)).toContain('[ ! -e "$P" ] && [ ! -L "$P" ]');
-    expect(String(steps[ix(/rm -rf/)].run)).toContain('"$RUNNER_TEMP/sv-private"');
+// P4(a) split: this source-only commit carries NO workflow wiring. The sealed-video dispatch choice and job (and their
+// job-shape controls) are a separate later change. Portable evidence: the workflow is byte-identical to the reviewed #172
+// blob b74f5314 (also f58fca5a's), checked by content hash, not by history.
+describe('P4(a): no sealed-video dispatch route in this tree', () => {
+  it('e2e.yml has no sealed-video choice or job and equals the reviewed #172 blob', () => {
+    const text = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
+    const wf = YAML.parse(text) as Obj;
+    expect(wf.on.workflow_dispatch.inputs.specs.options).not.toContain('sealed-video');
+    expect(Object.keys(wf.jobs)).not.toContain('sealed-video');
+    expect(text).not.toMatch(/sealed-video|video-lane\.mjs|video-build\.mjs|playwright\.sealed-video/);
+    expect(git('hash-object', path.join(ROOT, '.github/workflows/e2e.yml')).trim()).toBe('b74f5314ba7eed1688bea3f49994aa06cd7fc79c');
   });
 });
