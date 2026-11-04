@@ -14,7 +14,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { makeExec } from '../le-iso/run-probe.mjs';
 import { parseLdd, BROWSER_PATH_RE } from '../le-iso/expect.mjs';
-import { IMAGE_ID, IMAGE_PATH_ENV, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, lanePaths, laneVerdict,
+import { IMAGE_ID, IMAGE_PATH_ENV, IMAGE_WORKDIR, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, imageFieldLines, lanePaths, laneVerdict,
   parseImageBuildRecord, parseImageCleanupRecord } from './contract.mjs';
 
 const NSS_DLOPEN = ['libsoftokn3.so', 'libfreeblpriv3.so', 'libnssckbi.so', 'libnssdbm3.so'];
@@ -49,7 +49,7 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
   if (!BROWSER_PATH_RE.test(shell ?? '') || !path.isAbsolute(node ?? '') || node === LANE_NODE) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false };
   try { if (fsx.existsSync(ctl)) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false }; fsx.mkdirSync(ctl, { mode: 0o700 }); }
   catch { return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false }; }
-  let invoked = false, id = null, clientsReaped = true, code, bad = [];
+  let invoked = false, id = null, clientsReaped = true, code, bad = [], fieldLines = [];
   const x = async (...a) => { const r = await d.exec(...a); if (!r || r.unreaped) clientsReaped = false; return r ?? { ok: false, stdout: '' }; };
   try {
     code = await (async () => {
@@ -84,7 +84,7 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
         d.files.put(path.join(root, 'etc/passwd'), `lane:x:${uid}:${gid}::/tmp:/nonexistent\n`, 0o644);
         d.files.put(path.join(root, 'etc/group'), `lane:x:${gid}:\n`, 0o644);
         d.files.put(L.manifest, `${manifest.join('\n')}\n`, 0o600);
-        d.files.put(path.join(L.ctx, 'Dockerfile'), `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nUSER ${uid}:${gid}\n`, 0o600);
+        d.files.put(path.join(L.ctx, 'Dockerfile'), `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nWORKDIR ${IMAGE_WORKDIR}\nUSER ${uid}:${gid}\n`, 0o600);
         d.files.put(path.join(ctl, 'build-invoked'), 'build-invoked\n', 0o600);
       } catch { return 'LANE_E_IMAGE_BUILD'; }
       invoked = true;
@@ -95,13 +95,14 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
       let img = null;
       try { img = JSON.parse(i.stdout)[0]; } catch { img = null; }
       bad = i.ok ? imageConfigProblems(img, { id, uid, gid }) : ['INSPECT'];
+      fieldLines = imageFieldLines(i.ok ? img : null, bad);
       return bad.length ? 'LANE_E_IMAGE_CONFIG' : 'LANE_IMAGE_OK';
     })();
   } catch { code = 'LANE_E_IMAGE_UNCLASSIFIED'; }
   let record = true;
   try { d.files.put(L.imageBuildRec, imageBuildRecord({ invoked, id, clientsReaped, result: code }), 0o600); } catch { record = false; }
   const ok = code === 'LANE_IMAGE_OK' && clientsReaped && record;
-  return { code: ok ? code : code === 'LANE_IMAGE_OK' ? 'LANE_E_IMAGE_UNRESOLVED' : code, id, invoked, clientsReaped, record, bad };
+  return { code: ok ? code : code === 'LANE_IMAGE_OK' ? 'LANE_E_IMAGE_UNRESOLVED' : code, id, invoked, clientsReaped, record, bad, fieldLines };
 }
 
 /**
@@ -153,7 +154,7 @@ if (process.argv[1] && /le-lane\/image\.mjs$/.test(process.argv[1])) {
   (async () => {
     if (cmd === 'build') {
       const r = await buildLaneImage(realDeps, { ctl, repo, node, shell });
-      done(r.code === 'LANE_IMAGE_OK', [r.code, ...(r.bad ?? []).map((b) => `LANE_IMAGE_FIELD ${/^[A-Za-z]+$/.test(b) ? b : 'UNKNOWN'}`),
+      done(r.code === 'LANE_IMAGE_OK', [r.code, ...(Array.isArray(r.fieldLines) ? r.fieldLines : []),
         `LANE_IMAGE_CLIENTS ${r.clientsReaped ? 'REAPED' : 'UNRESOLVED'}`, r.record ? 'LANE_IMAGE_RECORD_OK' : 'LANE_E_IMAGE_RECORD']);
     } else if (cmd === 'cleanup') {
       const r = await cleanupLaneImage(realDeps, { ctl, repo });

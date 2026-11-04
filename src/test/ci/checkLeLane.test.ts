@@ -11,7 +11,7 @@ import YAML from 'yaml';
 import { SECCOMP_PROFILE_REL, createdNeverStarted } from '../../../scripts/e2e/le-iso/expect.mjs';
 import {
   ENV_KEYS, GATE_KEYS, IMAGE_PATH_ENV, LANE_LIMITS, LANE_NODE, PRECHECK_CODES, PSQL_REAL, TOOLS, cleanupScope, compareLaneInspect, expectedLaneConfig, imageBuildRecord,
-  imageCleanupRecord, imageConfigProblems, laneBinds, laneCreateArgs, laneEnv, lanePaths, lanePorts, laneTmpfsSpec, laneVerdict, parseGates, parseImageBuildRecord,
+  imageCleanupRecord, imageConfigProblems, IMAGE_CHECK_FIELDS, IMAGE_VALUE_CLASSES, IMAGE_WORKDIR, imageFieldLines, imageValueClass, laneBinds, laneCreateArgs, laneEnv, lanePaths, lanePorts, laneTmpfsSpec, laneVerdict, parseGates, parseImageBuildRecord,
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
@@ -149,8 +149,8 @@ describe('lane inspect gate (Docker 28 effective config, exact)', () => {
     for (const [field, f] of cases) expect(mut(f), field).toContain(field);
     expect(compareLaneInspect({ ...goodInspect(), Config: undefined }, EXP())).toEqual(expect.arrayContaining(['Env', 'Cmd']));
   });
-  it('checks the built image exactly (PATH-only Env, no Entrypoint/Cmd/WorkingDir, one layer, amd64)', () => {
-    const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], Entrypoint: null, Cmd: null, WorkingDir: '', Labels: null, OnBuild: null } };
+  it('checks the built image exactly (PATH-only Env, WorkingDir exactly /, no Entrypoint/Cmd, one layer, amd64)', () => {
+    const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], Entrypoint: null, Cmd: null, WorkingDir: '/', Labels: null, OnBuild: null } };
     expect(imageConfigProblems(img, { id: IMG, uid: UID, gid: GID })).toEqual([]);
     const m = (f: (o: Obj) => void) => { const o = JSON.parse(JSON.stringify(img)); f(o); return imageConfigProblems(o, { id: IMG, uid: UID, gid: GID }); };
     expect(m((o) => o.Config.Env.push('X=1'))).toEqual(['Env']);
@@ -160,6 +160,69 @@ describe('lane inspect gate (Docker 28 effective config, exact)', () => {
     expect(m((o) => { o.Architecture = 'arm64'; })).toEqual(['Architecture']);
     expect(m((o) => { o.RootFS.Layers.push('y'); })).toEqual(['Layers']);
     expect(m((o) => { o.Config.Labels = { a: 'b' }; })).toEqual(['Labels']);
+  });
+  it('WorkingDir must be exactly / (no default accepted): empty, absent, null, other path, relative, padded or non-string all fail', () => {
+    expect(IMAGE_WORKDIR).toBe('/');
+    const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], Entrypoint: null, Cmd: null, WorkingDir: '/', Labels: null, OnBuild: null } };
+    const m = (f: (o: Obj) => void) => { const o = JSON.parse(JSON.stringify(img)); f(o); return imageConfigProblems(o, { id: IMG, uid: UID, gid: GID }); };
+    expect(m(() => {})).toEqual([]);
+    for (const v of ['', null, '/w', '//', '/ ', ' /', '.', 'w', 0, false, [], ['/'], {}]) expect(m((o) => { o.Config.WorkingDir = v; })).toEqual(['WorkingDir']);
+    expect(m((o) => { delete o.Config.WorkingDir; })).toEqual(['WorkingDir']);
+  });
+  it('field lines use closed sets only: known field or UNKNOWN, value class from a fixed list, never the raw value', () => {
+    const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], WorkingDir: '/', Labels: null } };
+    const at = (wd: unknown, present = true) => { const o = JSON.parse(JSON.stringify(img)); if (present) o.Config.WorkingDir = wd; else delete o.Config.WorkingDir; return imageFieldLines(o, ['WorkingDir'])[0]; };
+    expect(at('')).toBe('LANE_IMAGE_FIELD WorkingDir EMPTY_STRING');
+    expect(at(undefined, false)).toBe('LANE_IMAGE_FIELD WorkingDir ABSENT');
+    expect(at(null)).toBe('LANE_IMAGE_FIELD WorkingDir NULL');
+    expect(at('/')).toBe('LANE_IMAGE_FIELD WorkingDir ROOT');
+    expect(at('/secret-host-path')).toBe('LANE_IMAGE_FIELD WorkingDir ABS_PATH');
+    expect(at('sentinel-db-url')).toBe('LANE_IMAGE_FIELD WorkingDir OTHER_STRING');
+    expect(at([])).toBe('LANE_IMAGE_FIELD WorkingDir EMPTY_ARRAY');
+    expect(at(['x'])).toBe('LANE_IMAGE_FIELD WorkingDir ARRAY');
+    expect(at({})).toBe('LANE_IMAGE_FIELD WorkingDir EMPTY_OBJECT');
+    expect(at({ a: 1 })).toBe('LANE_IMAGE_FIELD WorkingDir OBJECT');
+    expect(at(7)).toBe('LANE_IMAGE_FIELD WorkingDir NUMBER');
+    expect(at(true)).toBe('LANE_IMAGE_FIELD WorkingDir BOOLEAN');
+    expect(imageFieldLines({ ...img, Config: undefined }, ['WorkingDir'])).toEqual(['LANE_IMAGE_FIELD WorkingDir ABSENT']);
+    expect(imageFieldLines({ ...img, Config: 'x' }, ['User'])).toEqual(['LANE_IMAGE_FIELD User ABSENT']);
+    expect(imageFieldLines(img, ['Layers', 'Id', 'Os'])).toEqual(['LANE_IMAGE_FIELD Layers ARRAY', 'LANE_IMAGE_FIELD Id OTHER_STRING', 'LANE_IMAGE_FIELD Os OTHER_STRING']);
+    expect(imageFieldLines(null, ['INSPECT'])).toEqual(['LANE_IMAGE_FIELD INSPECT NOT_APPLICABLE']);
+    expect(imageFieldLines(img, ['Evil Field\nLANE_IMAGE_OK', '__proto__', 'constructor'])).toEqual(Array(3).fill('LANE_IMAGE_FIELD UNKNOWN NOT_APPLICABLE'));
+    expect(imageFieldLines(img, 'WorkingDir' as never)).toEqual([]);
+    const bigBad = JSON.parse(JSON.stringify(img));
+    Object.assign(bigBad.Config, { WorkingDir: '/leak-a', User: 'leak-b', Env: ['LEAK=c'], Entrypoint: ['leak-d'], Cmd: ['leak-e'], Labels: { leak: 'f' } });
+    bigBad.Id = 'leak-g'; bigBad.Os = 'leak-h'; bigBad.Architecture = 'leak-i'; bigBad.RootFS.Layers = ['leak-j', 'leak-k'];
+    const bad = imageConfigProblems(bigBad, { id: IMG, uid: UID, gid: GID });
+    const lines = imageFieldLines(bigBad, bad);
+    expect(lines).toHaveLength(bad.length);
+    for (const l of lines) {
+      expect(l).not.toMatch(/leak/i);
+      const [tag, f, cls, ...rest] = l.split(' ');
+      expect([tag, rest.length]).toEqual(['LANE_IMAGE_FIELD', 0]);
+      expect(IMAGE_CHECK_FIELDS).toContain(f);
+      expect(IMAGE_VALUE_CLASSES).toContain(cls);
+    }
+    expect(Object.isFrozen(IMAGE_CHECK_FIELDS) && Object.isFrozen(IMAGE_VALUE_CLASSES)).toBe(true);
+    expect(imageValueClass(undefined, 'x')).toBe('ABSENT');
+  });
+  it('causal control (MODEL, not a daemon run): scratch WorkingDir default differs by builder; only an explicit WORKDIR / is builder-independent', () => {
+    // Model of the two builders' scratch defaults, per moby v28.0.4 vendored BuildKit v0.20.2 dockerfile2llb/image.go emptyImage
+    // (WorkingDir "/") and the classic builder (empty). WORKDIR / sets "/" in both and, in BuildKit, adds no layer (convert.go dispatchWorkdir).
+    const model = (dockerfile: string, builder: 'buildkit' | 'classic') => {
+      let wd = builder === 'buildkit' ? '/' : '';
+      for (const line of dockerfile.split('\n')) { const mm = /^WORKDIR (.+)$/.exec(line); if (mm) wd = mm[1]; }
+      return wd;
+    };
+    const cfg = (wd: string) => ({ Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], WorkingDir: wd } });
+    const check = (wd: string) => imageConfigProblems(cfg(wd), { id: IMG, uid: UID, gid: GID });
+    const OLD = `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nUSER ${UID}:${GID}\n`;
+    const NEW = `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nWORKDIR /\nUSER ${UID}:${GID}\n`;
+    expect(model(OLD, 'buildkit')).not.toBe(model(OLD, 'classic'));
+    expect(model(NEW, 'buildkit')).toBe(model(NEW, 'classic'));
+    for (const b of ['buildkit', 'classic'] as const) expect(check(model(NEW, b))).toEqual([]);
+    expect(check(model(OLD, 'classic'))).toEqual(['WorkingDir']);
+    expect(check(model(OLD, 'buildkit'))).toEqual([]);
   });
 });
 
@@ -339,7 +402,7 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     expect(parseImageCleanupRecord(imageCleanupRecord({ code: 'LANE_IMAGE_REMOVED', clientsReaped: false }))?.result).toBe('UNRESOLVED');
   });
   // ---- image build: the job's Node becomes LANE_NODE; every client's state reaches the record ----
-  type BF = { lddUnreaped?: string; lddFails?: string; buildOk?: boolean; buildUnreaped?: boolean; iid?: string | null; inspectUnreaped?: boolean; inspectBad?: boolean; ctlExists?: boolean; putFails?: boolean };
+  type BF = { lddUnreaped?: string; lddFails?: string; buildOk?: boolean; buildUnreaped?: boolean; iid?: string | null; inspectUnreaped?: boolean; inspectBad?: boolean; inspectWorkdir?: unknown; ctlExists?: boolean; putFails?: boolean };
   const TOOLCACHE_NODE = '/opt/hostedtoolcache/node/22.11.0/x64/bin/node';
   const buildFake = (o: BF = {}) => {
     const files = new Map<string, Buffer>([[TOOLCACHE_NODE, Buffer.from('node-bytes')], [PSQL_REAL, Buffer.from('psql')], [SHELL, Buffer.from('shell')],
@@ -365,8 +428,9 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
       if (bin === 'ldd') return o.lddFails === args[0] ? { ok: false, stdout: '' } : { ok: true, stdout: '\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x0)\n', unreaped: o.lddUnreaped === args[0] };
       if (args[0] === 'build') return { ok: o.buildOk ?? true, stdout: '', unreaped: o.buildUnreaped };
       if (args[0] === 'image') {
-        const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], Entrypoint: null, Cmd: null, WorkingDir: '', Labels: null, OnBuild: null } };
+        const img = { Id: IMG, Os: 'linux', Architecture: 'amd64', RootFS: { Layers: ['x'] }, Config: { User: `${UID}:${GID}`, Env: [IMAGE_PATH_ENV], Entrypoint: null, Cmd: null, WorkingDir: '/', Labels: null, OnBuild: null } };
         if (o.inspectBad) img.Config.Env.push('X=1');
+        if ('inspectWorkdir' in o) (img.Config as Obj).WorkingDir = o.inspectWorkdir;
         return { ok: true, stdout: JSON.stringify([img]), unreaped: o.inspectUnreaped };
       }
       return { ok: false, stdout: '' };
@@ -384,7 +448,8 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     const manifest = r.puts.get(L.manifest)!;
     expect(manifest.split('\n')).toContain(`${createHash('sha256').update('node-bytes').digest('hex')}  ${LANE_NODE}`);
     expect(IMAGE_PATH_ENV.slice(5).split(':')).toContain(path.dirname(LANE_NODE));
-    expect(r.puts.get(`${C}/ctx/Dockerfile`)).toContain(`ENV ${IMAGE_PATH_ENV}\n`);
+    expect(r.puts.get(`${C}/ctx/Dockerfile`)).toBe(`FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nWORKDIR /\nUSER ${UID}:${GID}\n`);
+    expect(r.fieldLines).toEqual([]);
     expect(r.rec).toEqual({ invoked: true, id: IMG, clients: 'REAPED', result: 'LANE_IMAGE_OK' });
     expect((await build({ ctlExists: true })).code).toBe('LANE_E_IMAGE_INPUT');
     const f = buildFake();
@@ -405,6 +470,11 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     expect(iU.code).toBe('LANE_E_IMAGE_UNRESOLVED');
     expect(iU.rec).toEqual({ invoked: true, id: IMG, clients: 'UNRESOLVED', result: 'LANE_IMAGE_OK' });
     expect((await build({ inspectBad: true })).rec?.result).toBe('LANE_E_IMAGE_CONFIG');
+    for (const [wd, cls] of [['', 'EMPTY_STRING'], [null, 'NULL'], ['/home/runner/secret', 'ABS_PATH']] as const) {
+      const w = await build({ inspectWorkdir: wd });
+      expect([w.code, w.rec?.result, w.bad, w.fieldLines]).toEqual(['LANE_E_IMAGE_CONFIG', 'LANE_E_IMAGE_CONFIG', ['WorkingDir'], [`LANE_IMAGE_FIELD WorkingDir ${cls}`]]);
+      expect(JSON.stringify(w.fieldLines)).not.toContain('secret');
+    }
     const noRec = await build({ putFails: true });
     expect(noRec).toMatchObject({ code: 'LANE_E_IMAGE_UNRESOLVED', record: false });
   });

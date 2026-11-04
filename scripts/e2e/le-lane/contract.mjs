@@ -20,6 +20,8 @@ export const PSQL_REAL = `/usr/lib/postgresql/${PG_MAJOR}/bin/psql`;
 export const LANE_NODE = '/usr/bin/node';
 /** The image's only Config.Env entry. No /bin: the image has /usr/bin only. */
 export const IMAGE_PATH_ENV = `PATH=/usr/lib/postgresql/${PG_MAJOR}/bin:/usr/bin`;
+/** The image's working directory, set by an explicit `WORKDIR /` and required exactly by imageConfigProblems. */
+export const IMAGE_WORKDIR = '/';
 /** Closed tool list (besides node at LANE_NODE, psql and the browser directory). run.sh, stack-checks.sh redact (sed) and pin_harness (git). */
 export const TOOLS = Object.freeze(['bash', 'env', 'mktemp', 'rm', 'mkdir', 'wc', 'basename', 'dirname', 'cat', 'find', 'grep', 'sed', 'head', 'git']);
 export const TOOL_PATHS = Object.freeze(TOOLS.map((t) => `/usr/bin/${t}`));
@@ -167,7 +169,8 @@ export function compareLaneInspect(inspect, exp) {
   return bad;
 }
 
-/** Image check after build (exact): one layer, linux/amd64, user, Env exactly the PATH entry, no Entrypoint/Cmd/WorkingDir etc. */
+/** Image check after build (exact): one layer, linux/amd64, user, Env exactly the PATH entry, WorkingDir exactly '/', no Entrypoint/Cmd etc.
+ * The Dockerfile sets `WORKDIR /` explicitly so the expectation does not depend on which builder supplies the scratch default. */
 export function imageConfigProblems(img, { id, uid, gid }) {
   if (!img || typeof img !== 'object') return ['INSPECT'];
   const bad = [];
@@ -179,10 +182,41 @@ export function imageConfigProblems(img, { id, uid, gid }) {
   if (c.User !== `${uid}:${gid}`) bad.push('User');
   if (!same(c.Env, [IMAGE_PATH_ENV])) bad.push('Env');
   for (const k of ['Entrypoint', 'Cmd']) if (c[k] != null) bad.push(k);
-  if ((c.WorkingDir ?? '') !== '') bad.push('WorkingDir');
+  if (c.WorkingDir !== IMAGE_WORKDIR) bad.push('WorkingDir');
   for (const k of ['Volumes', 'ExposedPorts', 'Labels']) if (c[k] != null && Object.keys(c[k]).length) bad.push(k);
   for (const k of ['OnBuild', 'Healthcheck', 'StopSignal']) if (c[k] != null && !(Array.isArray(c[k]) && c[k].length === 0)) bad.push(k);
   return bad;
+}
+
+/** The only field names an image-check line may carry; anything else prints as UNKNOWN. */
+export const IMAGE_CHECK_FIELDS = Object.freeze(['INSPECT', 'Id', 'Os', 'Architecture', 'Layers', 'User', 'Env', 'Entrypoint', 'Cmd', 'WorkingDir',
+  'Volumes', 'ExposedPorts', 'Labels', 'OnBuild', 'Healthcheck', 'StopSignal']);
+/** Closed set of value shapes. A class never carries the value itself, so an unexpected field is diagnosable without printing it. */
+export const IMAGE_VALUE_CLASSES = Object.freeze(['NOT_APPLICABLE', 'ABSENT', 'NULL', 'EMPTY_STRING', 'ROOT', 'ABS_PATH', 'OTHER_STRING', 'EMPTY_ARRAY',
+  'ARRAY', 'EMPTY_OBJECT', 'OBJECT', 'NUMBER', 'BOOLEAN', 'OTHER']);
+export function imageValueClass(holder, key) {
+  if (!holder || typeof holder !== 'object' || !Object.prototype.hasOwnProperty.call(holder, key)) return 'ABSENT';
+  const v = holder[key];
+  if (v === null) return 'NULL';
+  if (typeof v === 'string') return v === '' ? 'EMPTY_STRING' : v === '/' ? 'ROOT' : v.startsWith('/') ? 'ABS_PATH' : 'OTHER_STRING';
+  if (Array.isArray(v)) return v.length ? 'ARRAY' : 'EMPTY_ARRAY';
+  if (typeof v === 'number') return 'NUMBER';
+  if (typeof v === 'boolean') return 'BOOLEAN';
+  if (typeof v === 'object') return Object.keys(v).length ? 'OBJECT' : 'EMPTY_OBJECT';
+  return 'OTHER';
+}
+/** Fixed diagnostic lines for imageConfigProblems output: `LANE_IMAGE_FIELD <known field|UNKNOWN> <value class>`. Never raw data. */
+export function imageFieldLines(img, bad) {
+  const ok = img && typeof img === 'object';
+  return (Array.isArray(bad) ? bad : []).map((f) => {
+    if (!IMAGE_CHECK_FIELDS.includes(f)) return 'LANE_IMAGE_FIELD UNKNOWN NOT_APPLICABLE';
+    let cls;
+    if (f === 'INSPECT' || !ok) cls = 'NOT_APPLICABLE';
+    else if (f === 'Layers') cls = imageValueClass(img.RootFS, 'Layers');
+    else if (['Id', 'Os', 'Architecture'].includes(f)) cls = imageValueClass(img, f);
+    else cls = imageValueClass(img.Config, f);
+    return `LANE_IMAGE_FIELD ${f} ${cls}`;
+  });
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
