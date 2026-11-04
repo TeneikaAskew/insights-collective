@@ -3,7 +3,7 @@
 **What it is.** A real public-UI acceptance on an owned, disposable, loopback Supabase stack.
 - **Scope:** anonymous visitors only. No login and no Edge functions.
 - **Covers:** the public catalog, `?category=`, Estimated time, course detail, the home page's featured courses, and the T-42 collapsed-rail names.
-- **Viewports:** desktop 1440×900, tablet 834×1112 and mobile 390×844, plus a keyboard path.
+- **Viewports:** desktop 1440×900, tablet 834×1112, tablet-768 768×1024 and mobile 390×844, plus a keyboard path. The 768×1024 project is lane-only and has no shot name (the job's NAMES list is shared); it stays an explicit acceptance gap until a run passes it.
 
 **Status.** Nothing here has run against GoTrue, PostgREST or a real `supabase start` database. Nothing was dispatched. This file is published only as part of a draft PR. The tiers that did run, all local, are listed in the evidence matrix.
 

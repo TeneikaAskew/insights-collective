@@ -130,6 +130,9 @@ say(cfg.indexOf('checkHelperPins(ROOT)') < cfg.indexOf("await import('./e2e/supp
 say(/process\.argv\.includes\('--list'\)/.test(cfg) && /LE_ALLOWED_ORIGINS', 'LE_EGRESS_CONTROL'/.test(cfg), 'config: LIST_ONLY only with --list; egress self-test overrides refused');
 say(!/proxy:\s*\{/.test(cfg) && /EXCLUDE 127\.0\.0\.1/.test(cfg), 'config: no own proxy bypassing loopback; the shared resolver rule is used');
 say(/'desktop'/.test(cfg) && /'tablet'/.test(cfg) && /'mobile'/.test(cfg), 'config: desktop, tablet and mobile projects');
+say(/name: 'tablet-768', use: \{[^}]*viewport: \{ width: 768, height: 1024 \}, hasTouch: true \}/.test(cfg) && /viewport: \{ width: 834, height: 1112 \}/.test(cfg), 'config: lane-only tablet-768 project at exactly 768x1024 with touch; the 834x1112 tablet is unchanged');
+const cat = readFileSync(path.join(ROOT, 'e2e/public-catalog/catalog.spec.ts'), 'utf8');
+say(/NO_SHOT_PROJECTS = new Set\(\['tablet-768'\]\)/.test(cat) && /type: 'pc_no_shot'/.test(cat) && /throw new Error\(`PUBLIC_CATALOG_E_SHOT_PROJECT/.test(cat) && !/CATALOG_SHOT\[info\.project\.name\]\)/.test(cat), 'catalog: 768 records pc_no_shot (no shot name), any other unmapped project is refused');
 const cls = execFileSync('node', [path.join(HERE, 'probe-classifier-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(cls), 'probe classifier fake controls pass (see probe-classifier-controls.mjs)');
 const sup = readFileSync(path.join(ROOT, 'e2e/public-catalog/support.ts'), 'utf8');
@@ -156,6 +159,8 @@ const pc = execFileSync('node', [path.join(HERE, 'pairing-controls.mjs')], { enc
 say(/^ALL PASS$/m.test(pc), 'pairing producer fake controls pass (see pairing-controls.mjs)');
 const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
+const orc = execFileSync('node', [path.join(HERE, 'own-root-controls.mjs')], { encoding: 'utf8' });
+say(/^PASS own-root controls /m.test(orc), 'own temp roots: exact-root removal on pass and failure, primary kept, identity guard (see own-root-controls.mjs)');
 const ps = execFileSync('node', [path.join(HERE, 'pw-summary-controls.mjs')], { encoding: 'utf8' });
 say(/^PASS pw-summary controls /m.test(ps), 'pw-summary names only an allowlisted failed step, never a message (see pw-summary-controls.mjs)');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);
