@@ -74,10 +74,13 @@ export const test = base.extend<{ laneAppArmorGate: void; observer: void }, { eg
     { scope: 'worker' },
   ],
   // After each test the worker and owned-browser AppArmor labels must still equal the pre-launch ENFORCE codes; the fixed line
-  // goes to the `lane-apparmor` annotation, which video-entry copies from the JSON report.
+  // goes to the `lane-apparmor` annotation, which video-entry copies from the JSON report. The worker's text-render precheck
+  // code (fixed: LANE_TEXT_RENDER_OK, set only after it passed) goes to the `lane-text-render` annotation; video-entry reduces it
+  // to a fixed lane line (textRenderFromReport). A failed precheck throws LANE_E_TEXT_RENDER before any test runs.
   laneAppArmorGate: [
-    async ({ browser }, use) => {
+    async ({ browser, egressLedger }, use) => {
       void browser;
+      test.info().annotations.push({ type: 'lane-text-render', description: egressLedger.textRender === 'LANE_TEXT_RENDER_OK' ? 'LANE_TEXT_RENDER_OK' : 'TEXT_RENDER_E_MISSING' });
       const state = laneAppArmor;
       if (!state) throw new Error('LANE_E_APPARMOR_PRE');
       await use();

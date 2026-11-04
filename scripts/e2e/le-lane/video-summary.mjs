@@ -22,6 +22,7 @@ export function videoSummaryLines(verdict, laneText) {
       `VIDEO_LANE PRECHECK ${p.precheck ?? 'NONE'}`,
       `VIDEO_LANE RAN ${p.ran ? 'YES' : 'NO'}`,
       `VIDEO_LANE WORKER_APPARMOR ${p.workerAppArmor ?? 'NONE'}`,
+      `VIDEO_LANE TEXT_RENDER ${p.textRender ?? 'NONE'}`,
       `VIDEO_LANE RESULT ${p.result ?? 'NONE'}`,
       `VIDEO_LANE EGRESS ${p.egress ?? 'NONE'}`,
       `VIDEO_LANE ${p.interrupted ? 'UNRESOLVED' : v}`,

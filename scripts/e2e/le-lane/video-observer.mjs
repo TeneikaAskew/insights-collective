@@ -24,7 +24,7 @@ export const OBSERVED_METHODS = Object.freeze(['GET', 'HEAD']);
 /** A fresh worker ledger. `note` keeps the exact count and at most MAX_REFUSED_LINES closed lines. */
 export function createLedger() {
   return {
-    refused: 0, tests: 0, lines: [], closed: false, sealed: false, late: 0,
+    refused: 0, tests: 0, lines: [], closed: false, sealed: false, late: 0, textRender: null,
     note(reason, method, url) {
       if (this.sealed) { this.late++; return; }
       this.refused++;
@@ -73,7 +73,7 @@ export async function observeTest(context, ledger, use) {
  */
 export async function runWorkerBrowser(run, ledger, use) {
   await run(async (browser) => {
-    await textRenderPrecheck(browser, ledger);
+    ledger.textRender = await textRenderPrecheck(browser, ledger);
     await use(browser);
   });
   ledger.closed = true;

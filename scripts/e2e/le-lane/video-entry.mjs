@@ -18,7 +18,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
 import { APP_ORIGIN, IMAGE_PATH_ENV, LANE_APPARMOR, LANE_NODE, workerAppArmorEvidence } from './contract.mjs';
-import { REPORT_MAX, forwarder, readReportBounded, runChild, workerAppArmorFromReport } from './lane-entry.mjs';
+import { REPORT_MAX, REPORT_MAX_DEPTH, REPORT_MAX_NODES, forwarder, readReportBounded, runChild, workerAppArmorFromReport } from './lane-entry.mjs';
 import { VIDEO_CONFIG_REL, VIDEO_DECLARED_TESTS, VIDEO_ENV_KEYS, VIDEO_TOOLS, videoEnv, videoPaths } from './kinds.mjs';
 import { RECORD_MAX_BYTES, aggregateEgress } from './egress-records.mjs';
 import { VIDEO_APP_PORT } from './bridge.mjs';
@@ -51,6 +51,36 @@ export function reportResult(r, declared = VIDEO_DECLARED_TESTS) {
   return s && s.expected === declared && s.unexpected === 0 && s.flaky === 0 && s.skipped === 0 ? 'PASS' : 'FAIL';
 }
 
+/**
+ * The text-render precheck's fixed code from the bounded JSON report. Never returns or prints report content.
+ *   LANE_E_TEXT_RENDER    the exact token appears in any error `message` or `value` string (the worker fixture threw it);
+ *                         this wins over everything else.
+ *   LANE_TEXT_RENDER_OK   otherwise, every `lane-text-render` annotation is exactly LANE_TEXT_RENDER_OK, and there is one
+ *                         per test result.
+ *   TEXT_RENDER_E_MISSING no annotation, a different description, or fewer annotations than test results.
+ *   TEXT_RENDER_E_REPORT  missing, unreadable, oversized, unparsable or over-deep/over-large report.
+ */
+export function textRenderFromReport(r) {
+  if (!r || r.status !== 'ok' || typeof r.text !== 'string' || Buffer.byteLength(r.text, 'utf8') > REPORT_MAX) return 'TEXT_RENDER_E_REPORT';
+  let root;
+  try { root = JSON.parse(r.text); } catch { return 'TEXT_RENDER_E_REPORT'; }
+  const TOKEN = /(^|[^A-Z_])LANE_E_TEXT_RENDER([^A-Z_]|$)/;
+  let nodes = 0, exhausted = false, failed = false, okCount = 0, other = 0, results = 0;
+  const walk = (v, depth, key) => {
+    if (exhausted) return;
+    if (typeof v === 'string') { if ((key === 'message' || key === 'value') && TOKEN.test(v)) failed = true; return; }
+    if (!v || typeof v !== 'object') return;
+    if (++nodes > REPORT_MAX_NODES || depth > REPORT_MAX_DEPTH) { exhausted = true; return; }
+    if (Array.isArray(v)) { for (const x of v) walk(x, depth + 1, key); return; }
+    if (key === 'results') results++;
+    if (Array.isArray(v.annotations)) for (const a of v.annotations) if (a && a.type === 'lane-text-render') { if (a.description === 'LANE_TEXT_RENDER_OK') okCount++; else other++; }
+    for (const k of Object.keys(v)) walk(v[k], depth + 1, k);
+  };
+  walk(root, 0, '');
+  if (exhausted) return 'TEXT_RENDER_E_REPORT';
+  if (failed) return 'LANE_E_TEXT_RENDER';
+  return okCount > 0 && other === 0 && okCount >= results ? 'LANE_TEXT_RENDER_OK' : 'TEXT_RENDER_E_MISSING';
+}
 
 export async function videoMain(d) {
   const env = d.env, R = d.repo;
@@ -90,6 +120,8 @@ export async function videoMain(d) {
     const report = d.readReport(V.report);
     const aaLine = `LANE VIDEO APPARMOR ${workerAppArmorFromReport(report).slice('LANE E1 APPARMOR '.length)}`;
     say(aaLine);
+    const textRender = textRenderFromReport(report);
+    say(`LANE VIDEO TEXT_RENDER ${textRender}`);
     const result = pw.code === 0 ? reportResult(report) : 'FAIL';
     say(`LANE VIDEO RESULT ${result}`);
     let eg;
@@ -100,7 +132,7 @@ export async function videoMain(d) {
     } catch { eg = { ok: false, code: 'LANE_E_EGRESS_READ' }; }
     say(`LANE EGRESS ${eg.code}`);
     const aaOk = workerAppArmorEvidence(aaLine.slice('LANE VIDEO APPARMOR '.length))?.enforced === true;
-    return end(pw.code === 0 && result === 'PASS' && aaOk && eg.ok ? 0 : 1);
+    return end(pw.code === 0 && result === 'PASS' && aaOk && textRender === 'LANE_TEXT_RENDER_OK' && eg.ok ? 0 : 1);
   } finally {
     try { fwd?.close(); } catch { /* the namespace ends with the container */ }
   }

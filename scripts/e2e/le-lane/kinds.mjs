@@ -153,14 +153,16 @@ export function laneKind(name) {
 // closed grammar. Shapes (each line exactly once, in order):
 //   LANE START, LANE APPARMOR <code>, LANE SETUP NOT RUN <precheck code>, LANE END
 //   LANE START, LANE APPARMOR APPARMOR_DOCKER_DEFAULT_ENFORCE, LANE VIDEO RAN,
-//     LANE VIDEO APPARMOR PRE <w> <b> POST <w> <b> | LANE VIDEO APPARMOR MISSING|INVALID, LANE VIDEO RESULT PASS|FAIL,
-//     LANE EGRESS <code>, LANE END
+//     LANE VIDEO APPARMOR PRE <w> <b> POST <w> <b> | LANE VIDEO APPARMOR MISSING|INVALID, LANE VIDEO TEXT_RENDER <code>,
+//     LANE VIDEO RESULT PASS|FAIL, LANE EGRESS <code>, LANE END
+// TEXT_RENDER codes are fixed (VIDEO_TEXT_RENDER_CODES); no report or error content ever reaches lane.txt.
 // A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
 export const VIDEO_PRECHECKS = Object.freeze(['LANE_E_UMASK', 'LANE_E_ENV', 'LANE_E_APPARMOR', 'LANE_E_CLOSURE', 'LANE_E_EGRESS_DIR',
   'LANE_E_FORWARD', 'LANE_E_BRIDGE_REACH']);
 export const VIDEO_EGRESS_CODES = Object.freeze(['LANE_EGRESS_OK', 'LANE_E_EGRESS_INPUT', 'LANE_E_EGRESS_TOO_MANY', 'LANE_E_EGRESS_UNKNOWN_FILE',
   'LANE_E_EGRESS_UNMATCHED', 'LANE_E_EGRESS_DUPLICATE', 'LANE_E_EGRESS_MALFORMED', 'LANE_E_EGRESS_OPEN', 'LANE_E_EGRESS_REFUSED',
   'LANE_E_EGRESS_COVERAGE', 'LANE_E_EGRESS_READ']);
+export const VIDEO_TEXT_RENDER_CODES = Object.freeze(['LANE_TEXT_RENDER_OK', 'LANE_E_TEXT_RENDER', 'TEXT_RENDER_E_MISSING', 'TEXT_RENDER_E_REPORT']);
 const VIDEO_AA = ['APPARMOR_DOCKER_DEFAULT_ENFORCE', 'APPARMOR_E_UNKNOWN', 'APPARMOR_E_UNCONFINED', 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE', 'APPARMOR_E_OTHER_PROFILE'];
 const VAA = `(${VIDEO_AA.join('|')})`;
 const VIDEO_AA_LINE = new RegExp(`^LANE VIDEO APPARMOR (?:PRE ${VAA} ${VAA} POST ${VAA} ${VAA}|MISSING|INVALID)$`);
@@ -168,7 +170,7 @@ const VIDEO_AA_LINE = new RegExp(`^LANE VIDEO APPARMOR (?:PRE ${VAA} ${VAA} POST
 export function parseVideoLaneOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, precheck: null, ran: false, workerAppArmor: null, result: null, egress: null };
+  const r = { ok: true, interrupted: true, apparmor: null, precheck: null, ran: false, workerAppArmor: null, textRender: null, result: null, egress: null };
   let i = 0;
   const more = () => i < ls.length;
   if (!more()) return r;
@@ -191,6 +193,10 @@ export function parseVideoLaneOut(text) {
     if (!VIDEO_AA_LINE.test(a)) return { ok: false };
     r.workerAppArmor = a.slice('LANE VIDEO APPARMOR '.length);
     if (!more()) return r;
+    const tr = /^LANE VIDEO TEXT_RENDER ([A-Z_]+)$/.exec(ls[i++]);
+    if (!tr || !VIDEO_TEXT_RENDER_CODES.includes(tr[1])) return { ok: false };
+    r.textRender = tr[1];
+    if (!more()) return r;
     const res = /^LANE VIDEO RESULT (PASS|FAIL)$/.exec(ls[i++]);
     if (!res) return { ok: false };
     r.result = res[1];
@@ -209,5 +215,5 @@ export function parseVideoLaneOut(text) {
 export function videoLaneVerdict(p) {
   if (!p?.ok || p.interrupted) return 'UNRESOLVED';
   const enforced = /^PRE (APPARMOR_DOCKER_DEFAULT_ENFORCE ){2}POST APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE$/.test(p.workerAppArmor ?? '');
-  return p.ran && enforced && p.result === 'PASS' && p.egress === 'LANE_EGRESS_OK' ? 'PASS' : 'FAIL';
+  return p.ran && enforced && p.textRender === 'LANE_TEXT_RENDER_OK' && p.result === 'PASS' && p.egress === 'LANE_EGRESS_OK' ? 'PASS' : 'FAIL';
 }

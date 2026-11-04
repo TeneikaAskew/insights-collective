@@ -19,13 +19,13 @@ import {
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import {
   KINDS, KIND_NAMES, VIDEO_API_ORIGIN, VIDEO_DECLARED_TESTS, VIDEO_ENV_KEYS, VIDEO_TOOLS, VIDEO_TOOL_PATHS, expectedVideoConfig, laneKind, parseVideoLaneOut,
-  videoBinds, videoCreateArgs, videoEnv, videoInputsOk, videoLaneVerdict, videoPaths,
+  VIDEO_TEXT_RENDER_CODES, videoBinds, videoCreateArgs, videoEnv, videoInputsOk, videoLaneVerdict, videoPaths,
 } from '../../../scripts/e2e/le-lane/kinds.mjs';
 import { runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
 import { buildLaneImage } from '../../../scripts/e2e/le-lane/image.mjs';
 import { MAX_RECORDS, START_TEXT, aggregateEgress, egressEndText, egressStem, parseEndText, refusalOrigin, refusedLine } from '../../../scripts/e2e/le-lane/egress-records.mjs';
 import { SEALED_VIDEO_TEST_MATCH, sealedVideoSettings, shellProblem, videoLaunchOptions } from '../../../scripts/e2e/le-lane/video-config.mjs';
-import { reportResult, videoClosureProblems, videoEnvProblems, videoMain } from '../../../scripts/e2e/le-lane/video-entry.mjs';
+import { reportResult, textRenderFromReport, videoClosureProblems, videoEnvProblems, videoMain } from '../../../scripts/e2e/le-lane/video-entry.mjs';
 import { FORBIDDEN, SYNTHETIC_ANON_KEY, buildArgs, buildEnv, buildVideo, scanBundle } from '../../../scripts/e2e/le-lane/video-build.mjs';
 import { videoSummaryLines } from '../../../scripts/e2e/le-lane/video-summary.mjs';
 import { TEXT_RENDER_HTML, attachObserver, createLedger, finalLedger, observeTest, runWorkerBrowser, textRenderCode, textRenderPrecheck } from '../../../scripts/e2e/le-lane/video-observer.mjs';
@@ -715,6 +715,9 @@ describe('sandboxed-test.ts: only the worker browser is overridden; observer, Ap
     expect(src).toContain('}, body), egressLedger, use);');
     expect(src).toContain('proxyUrl: null');
     expect(src).toContain('readLabel, onAppArmor');
+    // The per-test text-render annotation carries one of two fixed values, never error text (correction c2).
+    expect(src).toContain("test.info().annotations.push({ type: 'lane-text-render', description: egressLedger.textRender === 'LANE_TEXT_RENDER_OK' ? 'LANE_TEXT_RENDER_OK' : 'TEXT_RENDER_E_MISSING' });");
+    expect(src.match(/type: 'lane-text-render'/g)).toHaveLength(1);
     expect(code(src)).not.toMatch(/\.launch\(|launchPersistentContext|launchServer|chromiumSandbox|no-sandbox|ignoreDefaultArgs/);
   });
   // The guard's own pattern (security.yml) matches the literal text of a write call, so a regex in THIS file that names the
@@ -769,7 +772,8 @@ describe('video-entry supervisor (fakes): order, prechecks, one forwarder, the r
   const VV = videoPaths(P, '/nonexistent-ctl', R2);
   const goodEnv = () => ({ ...Object.fromEntries(videoEnv(VV, { commit: COMMIT, shell: SHELL }).map((e) => [e.slice(0, e.indexOf('=')), e.slice(e.indexOf('=') + 1)])), PATH: IMAGE_PATH_ENV.slice(5), HOSTNAME: 'x' });
   const aa = 'PRE APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE POST APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE';
-  const report = (stats: Obj = { expected: 24, unexpected: 0, flaky: 0, skipped: 0 }) => JSON.stringify({ stats, suites: [{ specs: [{ tests: [{ annotations: [{ type: 'lane-apparmor', description: aa }] }] }] }] });
+  const TR = { type: 'lane-text-render', description: 'LANE_TEXT_RENDER_OK' };
+  const report = (stats: Obj = { expected: 24, unexpected: 0, flaky: 0, skipped: 0 }) => JSON.stringify({ stats, suites: [{ specs: [{ tests: [{ annotations: [{ type: 'lane-apparmor', description: aa }, TR], results: [{ status: 'passed' }] }] }] }] });
   const s0 = egressStem({ workerIndex: 0, parallelIndex: 0, pid: 7, nonce: 'b'.repeat(16) });
   type VO = Partial<{ label: string; env: Obj; tools: Record<string, string | null>; egressPre: string[]; fwdFail: boolean; app: string; pw: number; report: string; egress: Record<string, string>; umask: number }>;
   const mk = (o: VO = {}) => {
@@ -801,7 +805,7 @@ describe('video-entry supervisor (fakes): order, prechecks, one forwarder, the r
   it('happy path: START, AppArmor, then egress dir, ONE forwarder on 8080 -> app.sock, reach, the sealed config run, report and egress gates', async () => {
     const r = await lane();
     expect(r.code).toBe(0);
-    expect(r.text).toBe(['LANE START', 'LANE APPARMOR APPARMOR_DOCKER_DEFAULT_ENFORCE', 'LANE VIDEO RAN', `LANE VIDEO APPARMOR ${aa}`, 'LANE VIDEO RESULT PASS', 'LANE EGRESS LANE_EGRESS_OK', 'LANE END', ''].join('\n'));
+    expect(r.text).toBe(['LANE START', 'LANE APPARMOR APPARMOR_DOCKER_DEFAULT_ENFORCE', 'LANE VIDEO RAN', `LANE VIDEO APPARMOR ${aa}`, 'LANE VIDEO TEXT_RENDER LANE_TEXT_RENDER_OK', 'LANE VIDEO RESULT PASS', 'LANE EGRESS LANE_EGRESS_OK', 'LANE END', ''].join('\n'));
     expect(videoLaneVerdict(parseVideoLaneOut(r.text))).toBe('PASS');
     expect(r.calls.filter((c) => c[0] === 'forward')).toEqual([['forward', '8080', `${P}/sock/app.sock`]]);
     expect(r.calls.find((c) => c[0] === 'run')).toEqual(['run', LANE_NODE, `${R2}/node_modules/@playwright/test/cli.js`, 'test', '-c', `${R2}/playwright.sealed-video.config.ts`]);
@@ -846,6 +850,38 @@ describe('video-entry supervisor (fakes): order, prechecks, one forwarder, the r
     expect(short.text).toContain('LANE EGRESS LANE_E_EGRESS_COVERAGE');
     expect(videoLaneVerdict(parseVideoLaneOut(short.text))).toBe('FAIL');
   });
+  it('text-render diagnostic (correction c2): a fixed lane line from the report, never its content; anything but OK fails the lane', async () => {
+    const secret = 'https://private.example/token=abc';
+    const failRep = JSON.stringify({ stats: { expected: 0, unexpected: 24, flaky: 0, skipped: 0 }, suites: [{ specs: [{ tests: [{ annotations: [{ type: 'lane-apparmor', description: aa }], results: [{ status: 'failed', error: { message: `Error: LANE_E_TEXT_RENDER\n at ${secret}` } }] }] }] }] });
+    const r = await lane({ report: failRep, pw: 1 });
+    expect(r.text).toContain('LANE VIDEO TEXT_RENDER LANE_E_TEXT_RENDER\n');
+    expect(r.text).not.toContain('private.example');
+    expect(r.code).toBe(1);
+    expect(videoSummaryLines({ ok: true }, r.text).lines).toContain('VIDEO_LANE TEXT_RENDER LANE_E_TEXT_RENDER');
+    // A report that passed every test but lacks the precheck annotation still fails the lane.
+    const noTr = await lane({ report: JSON.stringify({ stats: { expected: 24, unexpected: 0, flaky: 0, skipped: 0 }, suites: [{ specs: [{ tests: [{ annotations: [{ type: 'lane-apparmor', description: aa }], results: [{}] }] }] }] }) });
+    expect(noTr.text).toContain('LANE VIDEO TEXT_RENDER TEXT_RENDER_E_MISSING');
+    expect(noTr.code).toBe(1);
+    expect(videoLaneVerdict(parseVideoLaneOut(noTr.text))).toBe('FAIL');
+  });
+  it('textRenderFromReport: pure, bounded, fixed codes; failure wins; one OK per result; exact token only', () => {
+    const rep = (o: unknown) => ({ status: 'ok', text: JSON.stringify(o) });
+    const test = (annotations: unknown[], results: unknown[] = [{}]) => ({ annotations, results });
+    const root = (tests: unknown[], extra: Obj = {}) => rep({ suites: [{ specs: [{ tests }] }], ...extra });
+    expect(textRenderFromReport(root([test([TR]), test([TR])]))).toBe('LANE_TEXT_RENDER_OK');
+    expect(textRenderFromReport(root([test([TR]), test([])]))).toBe('TEXT_RENDER_E_MISSING'); // fewer annotations than results
+    expect(textRenderFromReport(root([test([{ type: 'lane-text-render', description: 'TEXT_RENDER_E_MISSING' }])]))).toBe('TEXT_RENDER_E_MISSING');
+    expect(textRenderFromReport(root([test([TR, { type: 'lane-text-render', description: 'LANE_TEXT_RENDER_OK ' }])]))).toBe('TEXT_RENDER_E_MISSING');
+    expect(textRenderFromReport(root([]))).toBe('TEXT_RENDER_E_MISSING');
+    expect(textRenderFromReport(root([test([TR])], { errors: [{ message: 'Error: LANE_E_TEXT_RENDER' }] }))).toBe('LANE_E_TEXT_RENDER'); // failure wins
+    expect(textRenderFromReport(root([test([TR], [{ error: { value: 'LANE_E_TEXT_RENDER' } }])]))).toBe('LANE_E_TEXT_RENDER');
+    for (const near of ['LANE_E_TEXT_RENDERX', 'XLANE_E_TEXT_RENDER', 'lane_e_text_render']) expect(textRenderFromReport(root([test([TR])], { errors: [{ message: near }] })), near).toBe('LANE_TEXT_RENDER_OK');
+    expect(textRenderFromReport(root([test([TR])], { title: 'LANE_E_TEXT_RENDER' }))).toBe('LANE_TEXT_RENDER_OK'); // only message/value strings count
+    for (const bad of [null, { status: 'missing' }, { status: 'ok', text: '{' }, { status: 'ok', text: 'x'.repeat(8 * 1024 * 1024 + 1) }]) expect(textRenderFromReport(bad as never)).toBe('TEXT_RENDER_E_REPORT');
+    let deep: unknown = {}; for (let i = 0; i < 80; i++) deep = { a: deep };
+    expect(textRenderFromReport(rep(deep))).toBe('TEXT_RENDER_E_REPORT');
+    for (const c of ['LANE_TEXT_RENDER_OK', 'LANE_E_TEXT_RENDER', 'TEXT_RENDER_E_MISSING', 'TEXT_RENDER_E_REPORT']) expect(VIDEO_TEXT_RENDER_CODES).toContain(c);
+  });
   it('reportResult and the env/closure helpers are closed', () => {
     expect(reportResult({ status: 'missing' })).toBe('FAIL');
     expect(reportResult({ status: 'ok', text: '{' })).toBe('FAIL');
@@ -858,7 +894,7 @@ describe('video-entry supervisor (fakes): order, prechecks, one forwarder, the r
 describe('video lane.txt grammar and the host summary', () => {
   const ok = ['LANE START', 'LANE APPARMOR APPARMOR_DOCKER_DEFAULT_ENFORCE', 'LANE VIDEO RAN',
     'LANE VIDEO APPARMOR PRE APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE POST APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE',
-    'LANE VIDEO RESULT PASS', 'LANE EGRESS LANE_EGRESS_OK', 'LANE END'];
+    'LANE VIDEO TEXT_RENDER LANE_TEXT_RENDER_OK', 'LANE VIDEO RESULT PASS', 'LANE EGRESS LANE_EGRESS_OK', 'LANE END'];
   const t = (ls: string[]) => `${ls.join('\n')}\n`;
   it('accepts the two closed shapes and prefixes; refuses reordering, unknown codes, extra lines and E1 lines', () => {
     expect(videoLaneVerdict(parseVideoLaneOut(t(ok)))).toBe('PASS');
@@ -871,6 +907,16 @@ describe('video lane.txt grammar and the host summary', () => {
     expect(parseVideoLaneOut(ok.join('\n')).ok).toBe(false); // no trailing newline
     const weak = [...ok]; weak[3] = 'LANE VIDEO APPARMOR PRE APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_E_UNCONFINED POST APPARMOR_DOCKER_DEFAULT_ENFORCE APPARMOR_DOCKER_DEFAULT_ENFORCE';
     expect(videoLaneVerdict(parseVideoLaneOut(t(weak)))).toBe('FAIL');
+    // Text render (correction c2): every fixed non-OK code parses and fails; unknown codes, a missing line or a moved line refuse.
+    for (const c of ['LANE_E_TEXT_RENDER', 'TEXT_RENDER_E_MISSING', 'TEXT_RENDER_E_REPORT']) {
+      const x = [...ok]; x[4] = `LANE VIDEO TEXT_RENDER ${c}`;
+      expect(parseVideoLaneOut(t(x))).toMatchObject({ ok: true, textRender: c });
+      expect(videoLaneVerdict(parseVideoLaneOut(t(x))), c).toBe('FAIL');
+      expect(videoSummaryLines({ ok: true }, t(x)).lines, c).toContain(`VIDEO_LANE TEXT_RENDER ${c}`);
+    }
+    for (const bad of [[...ok.slice(0, 4), 'LANE VIDEO TEXT_RENDER LANE_E_OTHER', ...ok.slice(5)], [...ok.slice(0, 4), 'LANE VIDEO TEXT_RENDER Error: boom', ...ok.slice(5)],
+      [...ok.slice(0, 4), ...ok.slice(5)], [...ok.slice(0, 4), ok[5], ok[4], ...ok.slice(6)]])
+      expect(parseVideoLaneOut(t(bad)).ok, bad.join('|')).toBe(false);
   });
   it('the summary runs only when the host gates are OK and prints closed fields only', () => {
     expect(videoSummaryLines({ ok: false }, t(ok))).toEqual({ pass: false, lines: ['VIDEO_LANE SUMMARY NOT RUN: lane absence or bridge reaping unresolved'] });
@@ -949,6 +995,8 @@ describe('video observer lifecycle (correction c1): kept through owned context a
     const L3 = createLedger(); L3.tests = 1;
     await runWorkerBrowser(async (body) => { await body({ newContext: async () => okPrecheckContext() }); }, L3, async () => {});
     expect(aggOne(finalLedger(L3), 1).code).toBe('LANE_EGRESS_OK');
+    expect(L3.textRender).toBe('LANE_TEXT_RENDER_OK'); // set only after the precheck passed
+    expect(L2.textRender).toBe(null);
   });
 
   it('a note after sealing cannot reach the record: it is counted as late only, never as a clean count', () => {
