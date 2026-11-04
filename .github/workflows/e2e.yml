@@ -6,9 +6,11 @@
 #
 # Everything runs on the runner's loopback: PostgreSQL 15 and the Supabase services from
 # `supabase start`, the sanitized schema-only snapshot from scripts/local-stack/, synthetic fixtures,
-# the built app, and Chromium. No hosted project, no repository secret, no production connection.
+# the built app, and Chromium. No hosted project, no repository secret, no production connection. One environment
+# secret exists: the private Storage metadata input of the gradebook-journey job (environment insights-isolated-storage,
+# exact test branch, manual approval by the user), bound as the whole value of one env key of its S0 step and nowhere else.
 #
-# Deliberately absent: `secrets.*`, `vars.*`, push/schedule/pull_request_target triggers, write
+# Deliberately absent: every other `secrets.*`, `vars.*`, push/schedule/pull_request_target triggers, write
 # permissions, `supabase link`, `--linked`, `db push`, `functions deploy`, any commit or `git push`.
 # scripts/ci/check-isolated-workflow.mjs enforces that list on the workflow file GitHub is actually executing
 # (GITHUB_WORKFLOW_REF, at GITHUB_WORKFLOW_SHA == the checked-out HEAD). It runs before any dependency install
@@ -30,7 +32,10 @@ on:
         description: Playwright spec scope. Starts with the read-only course specs (evidence gate 1).
         type: choice
         default: readonly-courses
-        options: [readonly-courses]
+        # t09-runtime: the T-09 SQL runtime job below. LOCAL stack only; it runs no browser and serves no Edge Function.
+        # learner-quiz: the learner quiz lifecycle job at the end. LOCAL stack, NEW schema, score-quiz on the local Edge runtime.
+        # gradebook-journey: LOCAL-ONLY PROPOSAL (unrun). The gradebook no-quiz UI journey on the no-Edge stack below.
+        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey]
 
 permissions: {}
 
@@ -41,6 +46,8 @@ concurrency:
 jobs:
   isolated:
     name: Isolated stack (PG15, loopback)
+    # Narrowed, not broadened: this job runs only for its own scope, so a t09-runtime dispatch never starts it.
+    if: inputs.specs == 'readonly-courses'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -229,3 +236,1129 @@ jobs:
         if: always()
         continue-on-error: true
         run: npx --no-install supabase stop --workdir "$IC_WORKDIR" --no-backup
+
+  # T-09 SQL runtime on authentic local stacks: OLD (pre-T-09 control: 000000 + 000100) then NEW (all seven), each on its
+  # own fresh `supabase start` in its own job-scoped workdir, stopped with --no-backup and checked empty. Order per mode:
+  #   start -> ports + mail -> STAGE PRE (guard installed BEFORE any bootstrap write; queue-only verify; installed net.*
+  #   sentinels) -> bootstrap (its localize.sql writes each vault placeholder once) + identities -> STAGE APP (verifies,
+  #   never rewrites, the vault; app sentinels incl. fanout inventory and the SYNTHETIC scratch-relation unit; reviewed
+  #   migrations with the guard re-verified; sentinels again; SQL tier; teardown verify) -> stop -> leftovers.
+  # Credentials: CLI output is kept in 0600 files and printed only through the redactor; every generated local credential
+  # is registered with ::add-mask:: before it reaches GITHUB_ENV; evidence is scanned and staged as an exact manifest.
+  # No allow_shim anywhere: authentic pg_net is required, and a missing capability stops the job with an exact BLOCKER
+  # (nothing is granted, re-owned or reconfigured to get past it). External delivery is INTERCEPTED, NOT VERIFIED.
+  # API tier: personas via the local GoTrue admin API, persona JWTs through Kong -> PostgREST, witness reads; keys and
+  # tokens live only in 0600 files under RUNNER_TEMP and are deleted at stop. Protected history is hashed across the
+  # migrations and certificates are re-checked after every trigger-firing control.
+  t09-runtime:
+    name: T-09 runtime (OLD then NEW, local stacks)
+    if: inputs.specs == 't09-runtime'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      T09_EVIDENCE: t09-evidence
+      # The API tier is REQUIRED here: stage-app.sh fails before any work if T09_API_URL or a key/persona path is missing.
+      # The labelled local `sql-only` tier exists for local runs only and is never selected by this job.
+      T09_TIER: full
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no database.
+      - name: Fanout source inventory (snapshot + seven pinned migrations attach it nowhere)
+        run: |
+          mkdir -p "$T09_EVIDENCE"
+          scripts/local-stack/t09/fanout-inventory.sh | tee "$T09_EVIDENCE/fanout-inventory.txt"
+      - name: SQL-tier classifier selftest
+        run: scripts/local-stack/t09/sql-tier.sh --selftest | tee "$T09_EVIDENCE/sql-tier-selftest.txt"
+      - name: Stack-check selftest (MOCKED docker/ss; proves the refuse paths before they guard a real stack)
+        run: scripts/local-stack/t09/tests/stack-checks-selftest.sh | tee "$T09_EVIDENCE/stack-checks-selftest.txt"
+      - name: Export-status selftest (MOCKED status file; masks before export, private file, loopback only)
+        run: scripts/local-stack/t09/tests/export-status-selftest.sh | tee "$T09_EVIDENCE/export-status-selftest.txt"
+      - name: Stack-net selftest (FAKE docker/ss; proves every refuse path of the owned loopback network before it is used)
+        run: scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$T09_EVIDENCE/stack-net-selftest.txt"
+
+      # ---------------- OLD ----------------
+      - name: OLD - prepare workdir (job-scoped path, never reused)
+        id: old_prep
+        run: |
+          W="$RUNNER_TEMP/ic-t09-old"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_OLD=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: OLD - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-create.txt"
+      - name: OLD - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-old-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_OLD" --network-id "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (OLD); its key summary is not printed"
+      - name: OLD - export loopback endpoints (masks registered before any value reaches the env or the log)
+        run: |
+          umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_OLD" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-old"
+      - name: OLD - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: OLD - published ports loopback-only, mail to the local catcher only
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/old-net-verify.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/old-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/old-mail.txt"
+      - name: OLD - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-pre.txt"
+      - name: OLD - bootstrap schema snapshot (includes localize.sql, which writes the vault placeholders once)
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-bootstrap.txt"
+      - name: OLD - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-identities.txt"
+      - name: OLD - STAGE APP (personas + legacy API fixtures, history seed and hash window, 2 migrations, app sentinels, SQL tier expecting OLD assertion failures, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-old-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" OLD 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/old-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: OLD - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-old" "$RUNNER_TEMP/t09-old-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-old" ] || [ -e "$RUNNER_TEMP/t09-old-personas.json" ]; then echo "OLD: a private key or persona file is still present"; exit 1; fi
+          echo "OLD: local keys and persona tokens absent"
+      # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
+      - name: OLD - stop (no backup)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-old-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_OLD" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (OLD)"
+      - name: OLD - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-old-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-old" | tee "$T09_EVIDENCE/old-net-remove.txt"
+      - name: OLD - nothing left behind (runs after any failure once the stack was prepared)
+        if: always() && steps.old_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/old-leftovers.txt"
+      - name: OLD - record not started
+        if: always() && steps.old_prep.outcome != 'success'
+        run: |
+          echo "OLD: NOT STARTED (workdir step outcome '${{ steps.old_prep.outcome }}'); no stack, so no cleanup or leftover check applies" | tee "$T09_EVIDENCE/old-not-started.txt"
+
+      # ---------------- NEW ----------------
+      - name: NEW - prepare workdir (job-scoped path, never reused)
+        id: new_prep
+        run: |
+          W="$RUNNER_TEMP/ic-t09-new"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_NEW=$W" >> "$GITHUB_ENV"
+      # The Supabase CLI has no bind-address setting; its documented method is a Docker network whose default host binding
+      # is loopback, passed with --network-id. This job creates its OWN network per mode (refused on Docker < 28 or if the
+      # name exists), and removes only that network. No daemon, default, firewall or privilege change.
+      - name: NEW - create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-create.txt"
+      - name: NEW - supabase start (local; no studio, no edge runtime; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-new-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_NEW" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (NEW); its key summary is not printed"
+      - name: NEW - export loopback endpoints (masks registered before any value reaches the env or the log)
+        run: |
+          umask 077
+          # The private status file and its stderr are removed on EVERY exit path (trap set before any command that can
+          # fail); the step's own exit status is preserved, and absence is checked by the trap itself.
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_NEW" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV" "$RUNNER_TEMP/t09-keys-new"
+      - name: NEW - target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: NEW - published ports loopback-only, mail to the local catcher only
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-verify.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$T09_EVIDENCE/new-net-verify.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$T09_EVIDENCE/new-ports.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$T09_EVIDENCE/new-mail.txt"
+      - name: NEW - STAGE PRE (guard before any bootstrap write; queue-only verify; installed net.* sentinels)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-pre.txt"
+      - name: NEW - bootstrap schema snapshot (includes localize.sql, which writes the vault placeholders once)
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-bootstrap.txt"
+      - name: NEW - verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-identities.txt"
+      - name: NEW - STAGE APP (personas + legacy API fixtures, history seed and hash window, 7 migrations, app sentinels, SQL tier requiring exit 0, API controls)
+        run: |
+          export T09_PERSONA_FILE="$RUNNER_TEMP/t09-new-personas.json"
+          scripts/local-stack/t09/stage-app.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$T09_EVIDENCE/new-stage-app.txt"
+      # Private files are deleted by their OWN always() step, before and independent of the stack stop: a failed stop can no
+      # longer leave keys or persona tokens behind, and each step's failure is reported separately (neither masks the other).
+      - name: NEW - delete local keys and persona tokens (independent of stop; absence verified)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/t09-keys-new" "$RUNNER_TEMP/t09-new-personas.json"
+          if [ -e "$RUNNER_TEMP/t09-keys-new" ] || [ -e "$RUNNER_TEMP/t09-new-personas.json" ]; then echo "NEW: a private key or persona file is still present"; exit 1; fi
+          echo "NEW: local keys and persona tokens absent"
+      # Cleanup runs for a PREPARED stack whatever failed before it; the earlier failure still fails the job.
+      - name: NEW - stop (no backup)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/t09-new-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_NEW" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (NEW)"
+      - name: NEW - remove owned network (only the one this job created; absence verified)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-new" | tee "$T09_EVIDENCE/new-net-remove.txt"
+      - name: NEW - nothing left behind (runs after any failure once the stack was prepared)
+        if: always() && steps.new_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$T09_EVIDENCE/new-leftovers.txt"
+      - name: NEW - record not started
+        if: always() && steps.new_prep.outcome != 'success'
+        run: |
+          echo "NEW: NOT STARTED (workdir step outcome '${{ steps.new_prep.outcome }}'); no stack, so no cleanup or leftover check applies" | tee "$T09_EVIDENCE/new-not-started.txt"
+
+      # Evidence: every expected receipt is listed (all required after a successful job), every file under the roots is
+      # scanned (I/O errors fail), and only the scanned copy in t09-upload/ with its MANIFEST.sha256 is uploaded.
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ t09-upload "$T09_EVIDENCE/old-net-create.txt" "$T09_EVIDENCE/old-net-verify.txt" "$T09_EVIDENCE/old-ports.txt" "$T09_EVIDENCE/old-mail.txt" "$T09_EVIDENCE/old-stage-pre.txt" "$T09_EVIDENCE/old-bootstrap.txt" "$T09_EVIDENCE/old-identities.txt" "$T09_EVIDENCE/old-stage-app.txt" "$T09_EVIDENCE/old-net-remove.txt" "$T09_EVIDENCE/old-leftovers.txt" "$T09_EVIDENCE/new-net-create.txt" "$T09_EVIDENCE/new-net-verify.txt" "$T09_EVIDENCE/new-ports.txt" "$T09_EVIDENCE/new-mail.txt" "$T09_EVIDENCE/new-stage-pre.txt" "$T09_EVIDENCE/new-bootstrap.txt" "$T09_EVIDENCE/new-identities.txt" "$T09_EVIDENCE/new-stage-app.txt" "$T09_EVIDENCE/new-net-remove.txt" "$T09_EVIDENCE/new-leftovers.txt" -- tested-ids.txt "$T09_EVIDENCE"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: t09-runtime-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: t09-upload/
+
+  # Learner quiz lifecycle mode (#141 player + qualified fixture 3a6ffaa) on ONE authentic local stack at the NEW schema, with the
+  # local Edge runtime serving score-quiz only. Shared-runner owner delta over the t09-runtime shape; every guard below is the
+  # t09 one, unchanged, plus three owner additions, each labelled:
+  #   (1) TEST-SERVED FUNCTION SUBSET: the disposable workdir serves only score-quiz (byte-identical); edge-runtime-check.sh
+  #       proves exactly one extra container, on the owned network only, with no published host port.
+  #   (2) PINNED DEPENDENCY CLOSURE (decision E1 revised 18:03Z): closure-install.sh verifies a reviewed, integrity-pinned, closed
+  #       module graph for score-quiz and points the workdir config at its import map BEFORE any stack starts; a missing, tampered
+  #       or unclosed closure fails the job before boot. BLOCKED today: no reviewed closure exists (LQ_CLOSURE_PINS_SHA256 is empty,
+  #       so the prep step refuses). That the pinned Edge runtime honours the map and fetches nothing is UNVERIFIED (gate E1-R).
+  #   (3) TEST-SERVED MODIFICATION of the app (scripts/served-app/hermetic-dist.mjs): the product build minus the Lovable editor
+  #       CDN script tag, verified byte for byte; the browser guard is NOT relaxed.
+  # Not proven by a green run of this job: production behaviour, the served Lovable preview, or the T-62 failed-start journey
+  # (not yet in the fixture). No secrets, no hosted project, no write permission.
+  learner-quiz:
+    name: Learner quiz lifecycle (NEW schema, local Edge runtime, hermetic served app)
+    if: inputs.specs == 'learner-quiz'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      LQ_EVIDENCE: lq-evidence
+      # Reviewed score-quiz dependency closure. EMPTY until a closure acquired where egress is allowed has been reviewed and committed;
+      # an empty or wrong value makes closure-install.sh refuse before any stack starts. Never filled in from a run.
+      LQ_CLOSURE_DIR: supabase/functions-closure/score-quiz
+      LQ_CLOSURE_PINS_SHA256: ''
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
+      - name: Evidence directories and static selftests (edge check MOCKED, functions subset, timer oracle, stack-net FAKE)
+        run: |
+          mkdir -p "$LQ_EVIDENCE/checks" "$LQ_EVIDENCE/qlc/ledger" "$LQ_EVIDENCE/qlc/screens" "$LQ_EVIDENCE/qlc/playwright"
+          scripts/local-stack/learner-quiz/tests/functions-subset-selftest.sh | tee "$LQ_EVIDENCE/checks/functions-subset-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/edge-runtime-check-selftest.sh | tee "$LQ_EVIDENCE/checks/edge-check-selftest.txt"
+          node scripts/local-stack/quiz-lifecycle/tests/timer-oracle-selftest.mjs | tee "$LQ_EVIDENCE/checks/timer-oracle-selftest.txt"
+          scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$LQ_EVIDENCE/checks/stack-net-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/edge-deps-selftest.sh | tee "$LQ_EVIDENCE/checks/edge-deps-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/closure-install-selftest.sh | tee "$LQ_EVIDENCE/checks/closure-install-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$LQ_EVIDENCE/checks/owned-proc-selftest.txt"
+
+      - name: Prepare workdir, reduce served functions to score-quiz, install the pinned closure (fails before any stack starts)
+        id: lq_prep
+        run: |
+          W="$RUNNER_TEMP/ic-lq"
+          scripts/local-stack/workdir.sh "$W"
+          scripts/local-stack/learner-quiz/functions-subset.sh "$W" | tee "$LQ_EVIDENCE/checks/functions-subset.txt"
+          scripts/local-stack/learner-quiz/closure-install.sh "$W" "$LQ_CLOSURE_DIR" "$LQ_CLOSURE_PINS_SHA256" | tee "$LQ_EVIDENCE/checks/closure-install.txt"
+          echo "IC_WORKDIR_LQ=$W" >> "$GITHUB_ENV"
+      - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq" | tee "$LQ_EVIDENCE/checks/net-create.txt"
+      # The only start-line difference from t09-runtime: edge-runtime is NOT excluded.
+      - name: supabase start (local; no studio; edge runtime INCLUDED; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/lq-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_LQ" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (learner-quiz); its key summary is not printed"
+      - name: Export loopback endpoints (masks registered before any value reaches the env or the log; no key files)
+        run: |
+          umask 077
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_LQ" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+      - name: Target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: Published ports loopback-only, mail to the local catcher only (before any write)
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq" | tee "$LQ_EVIDENCE/checks/net-verify-start.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$LQ_EVIDENCE/checks/net-verify-start.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$LQ_EVIDENCE/checks/ports-start.txt"
+          # stack-checks.sh mail ends with fixed T09 text "edge functions are not served in this job"; that clause is FALSE in this
+          # mode and the T09 file is not edited. The note line below is written first so the receipt is never read without it.
+          echo "NOTE (learner-quiz): the trailing clause 'edge functions are not served in this job' is T09 fixed text and does not apply here; see edge-runtime.txt" > "$LQ_EVIDENCE/checks/mail.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee -a "$LQ_EVIDENCE/checks/mail.txt"
+      - name: Edge membership at initial start (one runtime, owned network only, no published port, local gateway; before bootstrap)
+        run: |
+          mkdir -p "$RUNNER_TEMP/lq-edge-id"
+          scripts/local-stack/learner-quiz/edge-runtime-check.sh "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --record-id "$RUNNER_TEMP/lq-edge-id/start.id" | tee "$LQ_EVIDENCE/checks/edge-runtime-start.txt"
+      - name: STAGE PRE (guard before any bootstrap write)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/stage-pre.txt"
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/bootstrap.txt"
+      - name: Verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/identities.txt"
+      - name: Seven reviewed migrations, pinned (NEW), guard re-verified
+        run: scripts/local-stack/t09/apply-reviewed.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/migrations-new.txt"
+
+      - name: Serve Edge Functions (score-quiz only; owned process group recorded at launch; log private)
+        run: |
+          umask 077
+          node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/lq-owned" functions "$RUNNER_TEMP/lq-functions.log" -- npx --no-install supabase functions serve --workdir "$IC_WORKDIR_LQ"
+      # functions serve may recreate the edge container. Re-check membership, ports and gateway on whatever container now exists,
+      # by docker inspection only: nothing here sends a request to a function, so no worker boots before this passes.
+      - name: Edge membership after functions-serve recreation (before readiness invokes any worker; bounded)
+        run: |
+          # Accept only a container DIFFERENT from the start generation (the one serve created), seen as the same id on two
+          # consecutive polls; the original container may still be visible during the first polls. If serve never replaces it,
+          # this fails closed: that is a finding, not something to relax.
+          deadline=$((SECONDS + 90))
+          read -r FP _ < "$RUNNER_TEMP/lq-owned/functions.own"
+          D="$RUNNER_TEMP/lq-edge-id"; seen=""
+          while :; do
+            kill -0 "$FP" 2>/dev/null || { echo "functions serve exited before the edge check passed"; exit 1; }
+            if scripts/local-stack/learner-quiz/edge-runtime-check.sh "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --exclude-id "$D/start.id" --record-id "$D/poll.id" > "$LQ_EVIDENCE/checks/edge-runtime-serve.txt"; then
+              cur=$(cat "$D/poll.id"); if [ -n "$seen" ] && [ "$cur" = "$seen" ]; then mv "$D/poll.id" "$D/serve.id"; break; fi; seen="$cur"
+            else seen=""; fi
+            [ "$SECONDS" -lt "$deadline" ] || { echo "no stable serve-generation edge container within 90s; last result:"; cat "$LQ_EVIDENCE/checks/edge-runtime-serve.txt"; exit 1; }
+            sleep 3
+          done
+          cat "$LQ_EVIDENCE/checks/edge-runtime-serve.txt"
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq" | tee -a "$LQ_EVIDENCE/checks/edge-runtime-serve.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee -a "$LQ_EVIDENCE/checks/edge-runtime-serve.txt"
+      - name: Edge Functions readiness (score-quiz OPTIONS -> 200 "ok", bounded)
+        run: |
+          deadline=$((SECONDS + 120))
+          read -r FP _ < "$RUNNER_TEMP/lq-owned/functions.own"
+          probe() {
+            local left=$((deadline - SECONDS)); [ "$left" -ge 1 ] || left=1; [ "$left" -le 10 ] || left=10
+            rm -f "$RUNNER_TEMP/fn-probe.txt"
+            [ "$(curl -sS --connect-timeout 5 --max-time "$left" -X OPTIONS -o "$RUNNER_TEMP/fn-probe.txt" -w '%{http_code}' "$VITE_SUPABASE_URL/functions/v1/score-quiz" 2>/dev/null)" = 200 ] \
+              && [ "$(cat "$RUNNER_TEMP/fn-probe.txt" 2>/dev/null)" = ok ]
+          }
+          until probe; do
+            kill -0 "$FP" 2>/dev/null || { echo "functions serve exited; redacted tail:"; tail -50 "$RUNNER_TEMP/lq-functions.log" | scripts/local-stack/t09/stack-checks.sh redact; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "functions not ready after 120s; redacted tail:"; tail -50 "$RUNNER_TEMP/lq-functions.log" | scripts/local-stack/t09/stack-checks.sh redact; exit 1; }
+            sleep 3
+          done
+          echo "edge functions ready (score-quiz)"
+      - name: Edge-runtime delta and the shared network guards, re-run with the runtime up
+        run: |
+          scripts/local-stack/learner-quiz/edge-runtime-check.sh "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" --expect-id "$RUNNER_TEMP/lq-edge-id/serve.id" | tee "$LQ_EVIDENCE/checks/edge-runtime.txt"
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq" | tee "$LQ_EVIDENCE/checks/net-verify-edge.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$LQ_EVIDENCE/checks/net-verify-edge.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$LQ_EVIDENCE/checks/ports-edge.txt"
+          # Detector only, not proof of no-fetch (gate E1-R): a remote module download announced in the runtime log fails the job.
+          if grep -qiE 'download.*https?://' "$RUNNER_TEMP/lq-functions.log"; then echo "edge runtime log reports a remote module download; closure not honoured"; exit 1; fi
+          echo "no remote module download reported in the runtime log (detector only)" | tee -a "$LQ_EVIDENCE/checks/edge-runtime.txt"
+
+      - name: Build app (production build, local target) and check it
+        run: |
+          npm run build
+          node scripts/ci/check-local-target.mjs dist dist
+          # Hermetic contract selftest on THIS product build (positive derivation plus fixed-code negatives), before it is used.
+          scripts/served-app/tests/hermetic-dist-selftest.sh dist | tee "$LQ_EVIDENCE/checks/hermetic-selftest.txt"
+      - name: Derive and verify the TEST-SERVED copy (product build minus the editor CDN tag; NOT production bytes)
+        run: |
+          SERVED="$RUNNER_TEMP/lq-served"
+          node scripts/served-app/hermetic-dist.mjs make dist "$SERVED" | tee "$LQ_EVIDENCE/checks/hermetic.txt"
+          node scripts/served-app/hermetic-dist.mjs verify dist "$SERVED" | tee -a "$LQ_EVIDENCE/checks/hermetic.txt"
+          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$LQ_EVIDENCE/checks/hermetic.txt"
+          cp "$SERVED/HERMETIC-PROVENANCE.json" "$LQ_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
+          echo "LQ_SERVED=$SERVED" >> "$GITHUB_ENV"
+      - name: Serve the TEST-SERVED copy (vite preview --outDir) and wait for it
+        run: |
+          node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/lq-owned" preview "$RUNNER_TEMP/lq-preview.log" -- npx --no-install vite preview --outDir "$LQ_SERVED" --host 127.0.0.1 --port 8080 --strictPort
+          read -r PREVIEW_PID _ < "$RUNNER_TEMP/lq-owned/preview.own"
+          deadline=$((SECONDS + 60))
+          until curl -fsS --connect-timeout 5 --max-time 10 "$E2E_BASE_URL/" -o "$RUNNER_TEMP/preview-index.html" 2>/dev/null && grep -q 'id="root"' "$RUNNER_TEMP/preview-index.html"; do
+            kill -0 "$PREVIEW_PID" 2>/dev/null || { echo "vite preview exited"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "preview not ready after 60s"; exit 1; }
+            sleep 2
+          done
+          cmp -s "$RUNNER_TEMP/preview-index.html" "$LQ_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
+          echo "preview serving the TEST-SERVED copy"
+
+      # Fixture-owned steps (3a6ffaa), unchanged: preflight before any fixture write, then the fixture, then the spec.
+      - name: Quiz preflight (against the TEST-SERVED copy; fails closed)
+        run: |
+          set -o pipefail
+          node scripts/local-stack/quiz-lifecycle/preflight.mjs --dist "$LQ_SERVED" --expect-ports 54321,54322,8080 --deadline 120 | tee "$LQ_EVIDENCE/qlc/checks-preflight.txt"
+      - name: Quiz fixture (synthetic learner, 4 unpublished courses (main + T62 20/22/24), 23 quizzes, 0 attempts)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Playwright (learner quiz lifecycle; own config, no globalSetup)
+        env:
+          QLC_EVIDENCE_DIR: ${{ runner.temp }}/qlc
+          E2E_EVIDENCE_COMMIT: ${{ github.sha }}
+        run: |
+          mkdir -p "$QLC_EVIDENCE_DIR"
+          rc=0; npx --no-install playwright test -c playwright.quiz-lifecycle.config.ts || rc=$?
+          # Only the inventoried evidence leaves the private dir; playwright-output/ is never copied.
+          for d in ledger screens playwright; do [ -d "$QLC_EVIDENCE_DIR/$d" ] && cp -R "$QLC_EVIDENCE_DIR/$d/." "$LQ_EVIDENCE/qlc/$d/"; done
+          [ -f "$QLC_EVIDENCE_DIR/egress.txt" ] && cp "$QLC_EVIDENCE_DIR/egress.txt" "$LQ_EVIDENCE/qlc/egress.txt"
+          exit $rc
+
+      - name: Stop background servers (functions serve, preview)
+        if: always()
+        run: |
+          # Only the process groups recorded at launch are signalled (pid plus kernel start time); 8080 must then have no listener.
+          if [ -d "$RUNNER_TEMP/lq-owned" ]; then
+            node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/lq-owned" 8080 | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
+          else
+            echo "no owned background server was launched" | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
+            out=$(ss -Hltn 'sport = :8080') || { echo "ss failed"; exit 1; }
+            [ -z "$out" ] || { echo "a listener is on 8080 that this job did not launch"; exit 1; }
+          fi
+          rm -rf "$RUNNER_TEMP/qlc/playwright-output"
+          if [ -e "$RUNNER_TEMP/qlc/playwright-output" ]; then echo "private playwright output still present"; exit 1; fi
+          echo "background servers stopped; private playwright output absent"
+      - name: Stop stack (no backup)
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/lq-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_LQ" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (learner-quiz)"
+      - name: Remove owned network (only the one this job created; absence verified)
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lq" | tee "$LQ_EVIDENCE/checks/net-remove.txt"
+      - name: Nothing left behind
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$LQ_EVIDENCE/checks/leftovers.txt"
+
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          E="$LQ_EVIDENCE"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lq-upload "$E/checks/functions-subset.txt" "$E/checks/closure-install.txt" "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/edge-runtime-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/edge-runtime-serve.txt" "$E/checks/edge-runtime.txt" "$E/checks/net-verify-edge.txt" "$E/checks/ports-edge.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: learner-quiz-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: lq-upload/
+
+  # No-Edge learner quiz subset: the same isolated stack as t09-runtime (edge runtime EXCLUDED, exactly the T09 start line) at the
+  # NEW schema, the hermetic served app, and ONLY the quiz cases that never call an Edge Function: F2, F5, R3 (3a6ffaa) and the four
+  # T-62 cases (407f944), selected by exact title. QLC_NO_EDGE=1 makes any /functions/v1 request or direct quiz_submissions INSERT a
+  # violation. NOT proven by this job: submit, scoring, finalize, review, retake, progress writes, certificates, the 11 other cases,
+  # the Lovable preview or production. A pass here is a partial subset, never full acceptance. No secrets, no hosted project.
+  learner-quiz-noedge:
+    name: Learner quiz no-Edge subset (NEW schema, NO Edge runtime, hermetic served app; 7 exact cases)
+    if: inputs.specs == 'learner-quiz-noedge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      LQ_EVIDENCE: lq-evidence
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
+      - name: Evidence directories and static selftests (timer oracle, stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED)
+        run: |
+          mkdir -p "$LQ_EVIDENCE/checks" "$LQ_EVIDENCE/qlc/ledger" "$LQ_EVIDENCE/qlc/screens" "$LQ_EVIDENCE/qlc/playwright"
+          node scripts/local-stack/quiz-lifecycle/tests/timer-oracle-selftest.mjs | tee "$LQ_EVIDENCE/checks/timer-oracle-selftest.txt"
+          scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$LQ_EVIDENCE/checks/stack-net-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$LQ_EVIDENCE/checks/owned-proc-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$LQ_EVIDENCE/checks/noedge-probes-selftest.txt"
+
+      - name: Prepare workdir (no functions are served in this job)
+        id: lq_prep
+        run: |
+          W="$RUNNER_TEMP/ic-lq"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_LQ=$W" >> "$GITHUB_ENV"
+      - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lqn" | tee "$LQ_EVIDENCE/checks/net-create.txt"
+      # Exactly the t09-runtime start line: edge-runtime is EXCLUDED, so no Edge service boots at all.
+      - name: supabase start (local; no studio; edge runtime EXCLUDED; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/lq-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_LQ" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (learner-quiz-noedge); its key summary is not printed"
+      - name: Export loopback endpoints (masks registered before any value reaches the env or the log; no key files)
+        run: |
+          umask 077
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_LQ" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+      - name: Target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: Published ports loopback-only, mail to the local catcher only (before any write)
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lqn" | tee "$LQ_EVIDENCE/checks/net-verify-start.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$LQ_EVIDENCE/checks/net-verify-start.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$LQ_EVIDENCE/checks/ports-start.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$LQ_EVIDENCE/checks/mail.txt"
+      - name: No Edge runtime container exists (read-only; before any write)
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent before "$LQ_EVIDENCE/checks/no-edge-start.txt"
+      - name: STAGE PRE (guard before any bootstrap write)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/stage-pre.txt"
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/bootstrap.txt"
+      - name: Verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/identities.txt"
+      - name: Seven reviewed migrations, pinned (NEW), guard re-verified
+        run: scripts/local-stack/t09/apply-reviewed.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$LQ_EVIDENCE/checks/migrations-new.txt"
+
+      - name: Build app (production build, local target) and check it
+        run: |
+          npm run build
+          node scripts/ci/check-local-target.mjs dist dist
+          # Hermetic contract selftest on THIS product build (positive derivation plus fixed-code negatives), before it is used.
+          scripts/served-app/tests/hermetic-dist-selftest.sh dist | tee "$LQ_EVIDENCE/checks/hermetic-selftest.txt"
+      - name: Derive and verify the TEST-SERVED copy (product build minus the editor CDN tag; NOT production bytes)
+        run: |
+          SERVED="$RUNNER_TEMP/lq-served"
+          node scripts/served-app/hermetic-dist.mjs make dist "$SERVED" | tee "$LQ_EVIDENCE/checks/hermetic.txt"
+          node scripts/served-app/hermetic-dist.mjs verify dist "$SERVED" | tee -a "$LQ_EVIDENCE/checks/hermetic.txt"
+          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$LQ_EVIDENCE/checks/hermetic.txt"
+          cp "$SERVED/HERMETIC-PROVENANCE.json" "$LQ_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
+          echo "LQ_SERVED=$SERVED" >> "$GITHUB_ENV"
+      - name: Serve the TEST-SERVED copy (vite preview --outDir) and wait for it
+        run: |
+          node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/lq-owned" preview "$RUNNER_TEMP/lq-preview.log" -- npx --no-install vite preview --outDir "$LQ_SERVED" --host 127.0.0.1 --port 8080 --strictPort
+          read -r PREVIEW_PID _ < "$RUNNER_TEMP/lq-owned/preview.own"
+          deadline=$((SECONDS + 60))
+          until curl -fsS --connect-timeout 5 --max-time 10 "$E2E_BASE_URL/" -o "$RUNNER_TEMP/preview-index.html" 2>/dev/null && grep -q 'id="root"' "$RUNNER_TEMP/preview-index.html"; do
+            kill -0 "$PREVIEW_PID" 2>/dev/null || { echo "vite preview exited"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "preview not ready after 60s"; exit 1; }
+            sleep 2
+          done
+          cmp -s "$RUNNER_TEMP/preview-index.html" "$LQ_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
+          echo "preview serving the TEST-SERVED copy"
+
+      # Fixture-owned steps (3a6ffaa), unchanged: preflight before any fixture write, then the fixture, then the spec.
+      - name: Quiz preflight (against the TEST-SERVED copy; fails closed)
+        run: |
+          set -o pipefail
+          node scripts/local-stack/quiz-lifecycle/preflight.mjs --dist "$LQ_SERVED" --expect-ports 54321,54322,8080 --deadline 120 --no-edge | tee "$LQ_EVIDENCE/qlc/checks-preflight.txt"
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Pin the headless shell (package-declared revision; refuses before any fixture write or browser launch)
+        run: node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt | tee "$LQ_EVIDENCE/checks/headless-shell.txt"
+      - name: Quiz fixture (synthetic learner, 4 unpublished courses (main + T62 20/22/24), 23 quizzes, 0 attempts)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/fixture.sh | tee "$LQ_EVIDENCE/qlc/checks-fixture.txt"
+      # Causal auth gate (run 41353483766 failed all 7 cases still on /login; cause NOT established). After the UNCHANGED
+      # original fixture: read-only null-state booleans + one password-grant probe for the exact learner (phase=old-seed).
+      # Only if that fails: the candidate alignment (shared auth-fixtures rule set), then state + probe again
+      # (phase=candidate). The browser cases run only when a probe passed. Fixed lines only; no body, token, id or secret.
+      - name: Learner auth gate (OLD seed probe, then candidate only on failure; booleans and allowlisted codes only)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/auth-gate.sh | tee "$LQ_EVIDENCE/qlc/checks-auth-gate.txt"
+      - name: No-Edge guard self-test (MOCKED; owned loopback API sink; refusal before forwarding; before the subset)
+        run: |
+          set -o pipefail
+          scripts/local-stack/quiz-lifecycle/tests/noedge-selftest.sh | tee "$LQ_EVIDENCE/checks/noedge-guard-selftest.txt"
+      # Exactly these 7 cases (full titles checked by checkLearnerQuizNoEdgeJob.test.ts against the spec): F2, F5, R3, T62 x3, T62 allowed.
+      - name: Playwright (no-Edge subset; own config, no globalSetup; exact case selection)
+        env:
+          QLC_NO_EDGE: '1'
+          QLC_EVIDENCE_DIR: ${{ runner.temp }}/qlc
+          E2E_EVIDENCE_COMMIT: ${{ github.sha }}
+          QLC_NOEDGE_GREP: '(F2 resume: same attempt|F5 A to B to A: no state|R3 slow start, repeated actions|T62 (1440|768|390): denied first start|T62 allowed control: an authorized first answer)'
+        run: |
+          mkdir -p "$QLC_EVIDENCE_DIR"
+          rc=0; npx --no-install playwright test -c playwright.quiz-lifecycle.config.ts --grep "$QLC_NOEDGE_GREP" || rc=$?
+          n=$(node -e 'const r=require(process.argv[1]);let c=0;const w=s=>{for(const x of s.suites||[])w(x);for(const sp of s.specs||[])c+=sp.tests.length};w(r);console.log(c)' "$QLC_EVIDENCE_DIR/playwright/results.json" 2>/dev/null || echo 0)
+          [ "$n" = 7 ] || { echo "expected exactly 7 selected cases, got $n"; rc=1; }
+          # Only the inventoried evidence leaves the private dir; playwright-output/ is never copied.
+          for d in ledger screens playwright login-diagnostics case-diagnostics; do [ -d "$QLC_EVIDENCE_DIR/$d" ] && cp -R "$QLC_EVIDENCE_DIR/$d/." "$LQ_EVIDENCE/qlc/$d/"; done
+          # Allowlisted one-line case diagnostics (fixed tokens, integers, booleans only) are also echoed to the job log.
+          if [ -d "$QLC_EVIDENCE_DIR/case-diagnostics" ]; then cat "$QLC_EVIDENCE_DIR"/case-diagnostics/*.txt; fi
+          [ -f "$QLC_EVIDENCE_DIR/egress.txt" ] && cp "$QLC_EVIDENCE_DIR/egress.txt" "$LQ_EVIDENCE/qlc/egress.txt"
+          mkdir -p "$LQ_EVIDENCE/qlc/checks"; [ -f "$QLC_EVIDENCE_DIR/checks/revoke-access.txt" ] && cp "$QLC_EVIDENCE_DIR/checks/revoke-access.txt" "$LQ_EVIDENCE/qlc/checks/revoke-access.txt"
+          exit $rc
+
+      - name: No Edge runtime container exists (read-only; after the spec)
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$LQ_EVIDENCE/checks/no-edge-end.txt"
+      - name: Stop background servers (preview)
+        if: always()
+        run: |
+          # Only the process groups recorded at launch are signalled (pid plus kernel start time); 8080 must then have no listener.
+          if [ -d "$RUNNER_TEMP/lq-owned" ]; then
+            node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/lq-owned" 8080 | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
+          else
+            echo "no owned background server was launched" | tee "$LQ_EVIDENCE/checks/owned-stop.txt"
+            scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
+          fi
+          rm -rf "$RUNNER_TEMP/qlc/playwright-output"
+          if [ -e "$RUNNER_TEMP/qlc/playwright-output" ]; then echo "private playwright output still present"; exit 1; fi
+          echo "background servers stopped; private playwright output absent"
+      - name: Stop stack (no backup)
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/lq-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_LQ" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (learner-quiz)"
+      - name: Remove owned network (only the one this job created; absence verified)
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-lqn" | tee "$LQ_EVIDENCE/checks/net-remove.txt"
+      - name: Nothing left behind
+        if: always() && steps.lq_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$LQ_EVIDENCE/checks/leftovers.txt"
+
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          E="$LQ_EVIDENCE"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ lqn-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/qlc/checks-preflight.txt" "$E/checks/headless-shell.txt" "$E/qlc/checks-fixture.txt" "$E/qlc/checks-auth-gate.txt" "$E/qlc/playwright/results.json" "$E/qlc/egress.txt" "$E/qlc/checks/revoke-access.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: learner-quiz-noedge-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: lqn-upload/
+
+  # LOCAL-ONLY PROPOSAL (unrun, not dispatchable from main until reviewed and merged). The gradebook-owned journey adapter
+  # (scripts/gradebook-fixture/journey/run-journey.sh) on a fresh no-Edge stack. Every stack, PRE and hermetic step is the
+  # learner-quiz-noedge job's reviewed step, unchanged; only the quiz-specific steps are absent. The shared runner writes
+  # the D1 stack-ownership record ONLY after all of them passed and BEFORE any fixture or carrier write; the adapter then
+  # verifies it against this run, a live system-identifier read and the reviewed bootstrap digest pinned in its own source.
+  gradebook-journey:
+    name: Gradebook UI journey (NEW schema composed-r5, NO Edge runtime, hermetic served app; D1 record before any fixture write)
+    if: inputs.specs == 'gradebook-journey'
+    # Deployment protection for the private Storage input: the environment admits only the exact reviewed branch and
+    # waits for the user's manual approval of each run. Nothing in this workflow approves, waits out or bypasses it.
+    environment: insights-isolated-storage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_INSTRUCTOR_PASSWORD: local-only-e2e-password
+      E2E_MEMBER_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      GB_EVIDENCE: gb-evidence
+      # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29) as reviewed. The writer refuses
+      # unless the checked-out file has exactly this digest. Never read back from the record.
+      GB_D1_BOOTSTRAP_SHA256: b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715
+      # Reviewed constants for the Storage composition: sha256 of the LIVE pins and of the mirror SQL that S0 derives on the
+      # runner from the private input (never committed; input sha256 pinned in storage/live-pins.mjs). S0 writes both only
+      # into the private dir and only when they equal these digests; S1 to S4 re-verify them before use.
+      GB_STORAGE_PINS_SHA256: 02ce9f854d091ee634cbbffbddabf8d94bec3c66f0d0ac91c8da2e42c7ae1124
+      GB_STORAGE_MIRROR_SHA256: 2d519c9db99cabdaeeffc59c2cda6a05fda4a4f302dfbc963e4eb257e2a98c53
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
+      - name: Evidence directories and static selftests (stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED, D1 FAKE, journey adapter, avatar fixture)
+        run: |
+          set -o pipefail
+          mkdir -p "$GB_EVIDENCE/checks"
+          scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$GB_EVIDENCE/checks/stack-net-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$GB_EVIDENCE/checks/owned-proc-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$GB_EVIDENCE/checks/noedge-probes-selftest.txt"
+          npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkGradebookJourneyJob.test.ts 2>&1 | tail -6 | tee "$GB_EVIDENCE/checks/d1-selftest.txt"
+          node scripts/gradebook-fixture/journey/tests/journey-selftest.mjs 2>&1 | tail -3 | tee "$GB_EVIDENCE/checks/journey-selftest.txt"
+          node scripts/served-app/tests/served-app-check-selftest.mjs | tee "$GB_EVIDENCE/checks/served-app-check-selftest.txt"
+          # Static tiers only (no browser): the pinned avatar fixture's contract and its live-binding check with a FAKE fetch.
+          node scripts/served-app/tests/avatar-fixture-selftest.mjs 2>&1 | tail -3 | tee "$GB_EVIDENCE/checks/avatar-fixture-selftest.txt"
+          node scripts/served-app/tests/avatar-live-check-selftest.mjs | tee "$GB_EVIDENCE/checks/avatar-live-check-selftest.txt"
+
+      - name: Prepare workdir (no functions are served in this job)
+        id: gb_prep
+        run: |
+          W="$RUNNER_TEMP/ic-gb"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_GB=$W" >> "$GITHUB_ENV"
+          echo "STACK_OWNERSHIP_FILE=$RUNNER_TEMP/stack-ownership.json" >> "$GITHUB_ENV"
+      - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-gbj" | tee "$GB_EVIDENCE/checks/net-create.txt"
+      - name: supabase start (local; no studio; edge runtime EXCLUDED; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/gb-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_GB" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (gradebook-journey); its key summary is not printed"
+      - name: Export loopback endpoints (masks registered before any value reaches the env or the log; no key files)
+        run: |
+          umask 077
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_GB" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+      - name: Target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: Published ports loopback-only, mail to the local catcher only (before any write)
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-gbj" | tee "$GB_EVIDENCE/checks/net-verify-start.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$GB_EVIDENCE/checks/net-verify-start.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$GB_EVIDENCE/checks/ports-start.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$GB_EVIDENCE/checks/mail.txt"
+      - name: No Edge runtime container exists (read-only; before any write)
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent before "$GB_EVIDENCE/checks/no-edge-start.txt"
+      - name: STAGE PRE (guard before any bootstrap write)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/stage-pre.txt"
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/bootstrap.txt"
+      - name: Verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/identities.txt"
+      - name: Seven reviewed migrations, pinned (NEW), guard re-verified
+        run: scripts/local-stack/t09/apply-reviewed.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/migrations-new.txt"
+
+      # Storage composition (scripts/local-stack/storage/). The journey stack had NO app policy on storage.objects
+      # (workdir.sh leaves the CLI migrations dir empty; the snapshot is public-only; localize.sql creates buckets only).
+      # S0 derives the LIVE pins and mirror privately; S1 to S3 then mirror the LIVE storage policy inventory and the three
+      # course bucket limits exactly, before D1; S4 runs rolled-back SQL policy probes after the actors. Private 0700 dir,
+      # removed in the always-run step. No policy text, limit or count reaches a public line. This does NOT establish what
+      # caused the HTTP 400 in run 41493619385.
+      - name: Storage S0 private input (digests verified; private 0600 outputs only; nothing derived printed)
+        id: gb_s0
+        env:
+          STORAGE_METADATA_JSON: ${{ secrets.STORAGE_METADATA_JSON }}
+        run: |
+          set -o pipefail
+          mkdir -m 700 "$RUNNER_TEMP/gb-st-priv"
+          node scripts/local-stack/storage/storage-job.mjs s0 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s0.txt"
+      - name: Storage S1 preflight (read-only; stock policies zero, RLS as live, course buckets private, live helper and grant dependencies present)
+        run: |
+          set -o pipefail
+          echo "$GB_STORAGE_PINS_SHA256  $RUNNER_TEMP/gb-st-priv/pins.tsv" | sha256sum -c --quiet || { echo "S1 refused: private pins are not the reviewed digest"; exit 1; }
+          echo "$GB_STORAGE_MIRROR_SHA256  $RUNNER_TEMP/gb-st-priv/mirror.sql" | sha256sum -c --quiet || { echo "S1 refused: private mirror is not the reviewed digest"; exit 1; }
+          node scripts/local-stack/storage/storage-job.mjs s1 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s1.txt"
+      - name: Storage S2 mirror (one transaction; exact live policy inventory and course bucket limits from the private mirror; public never written; PRE guard re-verified)
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          echo "$GB_STORAGE_MIRROR_SHA256  $RUNNER_TEMP/gb-st-priv/mirror.sql" | sha256sum -c --quiet || { echo "S2 refused: private mirror is not the reviewed digest"; exit 1; }
+          node scripts/local-stack/storage/storage-job.mjs s2 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s2.txt"
+      - name: Storage S3 verify (read-only; final storage catalog equals live policies plus limits, everything else equals S1; public identities unchanged)
+        run: |
+          set -o pipefail
+          node scripts/local-stack/storage/storage-job.mjs s3 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s3.txt"
+
+      - name: Build app (production build, local target) and check it
+        run: |
+          npm run build
+          node scripts/ci/check-local-target.mjs dist dist
+          # Hermetic contract selftest on THIS product build (positive derivation plus fixed-code negatives), before it is used.
+          scripts/served-app/tests/hermetic-dist-selftest.sh dist | tee "$GB_EVIDENCE/checks/hermetic-selftest.txt"
+      # Run 41474837350 (60eed54) refused at setup with first blocked entry IMAGE PRAVATAR: the home page's CommunityShowcase
+      # hotlinks i.pravatar.cc. The origin guard is NOT relaxed; the separately pinned avatar fixture (#157's, byte-identical)
+      # points those three image URLs at local SVGs on the served copy. Product source and the provider path are unchanged
+      # and the provider integration and the AvatarFallback path stay UNVERIFIED.
+      - name: Derive and verify the TEST-SERVED copy and its avatar-fixture copy (product build minus the editor CDN tag, then the pinned local avatars; NOT production bytes)
+        run: |
+          set -o pipefail
+          HERM="$RUNNER_TEMP/gb-hermetic"
+          SERVED="$RUNNER_TEMP/gb-served"
+          node scripts/served-app/hermetic-dist.mjs make dist "$HERM" | tee "$GB_EVIDENCE/checks/hermetic.txt"
+          node scripts/served-app/hermetic-dist.mjs verify dist "$HERM" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
+          node scripts/ci/check-local-target.mjs dist "$HERM" | tee -a "$GB_EVIDENCE/checks/hermetic.txt"
+          cp "$HERM/HERMETIC-PROVENANCE.json" "$GB_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
+          node scripts/served-app/avatar-fixture.mjs make "$PWD/dist" "$HERM" "$SERVED" | tee "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/served-app/avatar-fixture.mjs verify "$PWD/dist" "$HERM" "$SERVED" | tee -a "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$GB_EVIDENCE/checks/avatar-fixture.txt"
+          cp "$SERVED/AVATAR-PROVENANCE.json" "$GB_EVIDENCE/checks/AVATAR-PROVENANCE.json"
+          for d in "$PWD/dist" "$HERM" "$SERVED"; do [ "$(realpath -e -- "$d")" = "$d" ] || { echo "non-canonical served path"; exit 1; }; done
+          { echo "GB_DIST=$PWD/dist"; echo "GB_HERMETIC=$HERM"; echo "GB_SERVED=$SERVED"; } >> "$GITHUB_ENV"
+      - name: Serve the TEST-SERVED copy (vite preview --outDir) and wait for it
+        run: |
+          node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/gb-owned" preview "$RUNNER_TEMP/gb-preview.log" -- npx --no-install vite preview --outDir "$GB_SERVED" --host 127.0.0.1 --port 8080 --strictPort
+          read -r PREVIEW_PID _ < "$RUNNER_TEMP/gb-owned/preview.own"
+          deadline=$((SECONDS + 60))
+          until curl -fsS --connect-timeout 5 --max-time 10 "$E2E_BASE_URL/" -o "$RUNNER_TEMP/preview-index.html" 2>/dev/null && grep -q 'id="root"' "$RUNNER_TEMP/preview-index.html"; do
+            kill -0 "$PREVIEW_PID" 2>/dev/null || { echo "vite preview exited"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "preview not ready after 60s"; exit 1; }
+            sleep 2
+          done
+          cmp -s "$RUNNER_TEMP/preview-index.html" "$GB_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
+          echo "preview serving the TEST-SERVED copy"
+
+      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs, unchanged) re-runs hermetic verify on dist
+      # and the HERMETIC copy and compares the live index bytes, on every call. The avatar fixture never changes index.html, so
+      # that index is also the served copy's; what tells the two copies apart is the live chunk and SVG binding below.
+      - name: Served-app gate receipt (hermetic verify plus live index bytes, the same checks the adapter re-runs)
+        run: |
+          set -o pipefail
+          echo "HERMETIC_SERVED_DIR=$GB_HERMETIC" >> "$GITHUB_ENV"
+          HERMETIC_SERVED_DIR="$GB_HERMETIC" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$GB_EVIDENCE/checks/served-app-check.txt"
+      - name: Avatar-fixture live binding (verify again, then the live index, changed chunk and fixture SVGs equal the served copy)
+        run: |
+          set -o pipefail
+          node scripts/served-app/avatar-live-check.mjs "$E2E_BASE_URL" "$GB_DIST" "$GB_HERMETIC" "$GB_SERVED" | tee "$GB_EVIDENCE/checks/avatar-live.txt"
+
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      # The ONE browser every gradebook launch may use, pinned and exported BEFORE any D1, actor, fixture or carrier write.
+      # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
+      # fallback), and the pin module itself refuses if that variable names anything else.
+      - name: Pin the headless shell and export it for every launch (refuses before any write)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/gb-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          tee "$GB_EVIDENCE/checks/headless-shell.txt" < "$R"
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+          echo "GB_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      - name: Launch binding receipt (every config project and the setup launch resolve to the pinned shell; before any write)
+        run: |
+          set -o pipefail
+          GB_LANE=journey GB_SESSION_DIR="$RUNNER_TEMP/gb-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$GB_EVIDENCE/checks/launch-binding.txt"
+
+      # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
+      # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
+      # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
+      - name: D1 stack-ownership record (snapshot + seven migrations + Storage composition pins 02ce9f85; after every check above; before any fixture, actor or carrier write)
+        id: gb_d1
+        run: |
+          set -o pipefail
+          umask 077
+          have=$(sha256sum scripts/local-stack/bootstrap.sh | cut -d' ' -f1)
+          [ "$have" = "$GB_D1_BOOTSTRAP_SHA256" ] || { echo "D1 refused: scripts/local-stack/bootstrap.sh is not the reviewed file"; exit 1; }
+          # Private 0700 dir for psql passfiles and raw psql streams (removed by the always-run private-output step).
+          mkdir -m 700 "$RUNNER_TEMP/gb-priv"
+          echo "D1 stack composition: snapshot + seven migrations + Storage composition private pins sha256 $GB_STORAGE_PINS_SHA256 (private mirror sha256 $GB_STORAGE_MIRROR_SHA256); D1 record schema v1 and its bootstrap digest field unchanged" | tee "$GB_EVIDENCE/checks/d1-composition.txt"
+          API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
+          APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
+          # DSN from the environment only, checked in-process; psql -w with an explicit 0600 passfile; nothing raw printed.
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/gb-priv" \
+            | node scripts/e2e/stack-ownership.mjs write "$API" "$APP" scripts/local-stack/bootstrap.sh | tee "$GB_EVIDENCE/checks/d1-write.txt"
+          # Self-check through the consumer's own entry point (same reviewed constant, fresh live read).
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/gb-priv" \
+            | node scripts/e2e/stack-ownership.mjs verify "$API" "$APP" "$GB_D1_BOOTSTRAP_SHA256" | tee -a "$GB_EVIDENCE/checks/d1-write.txt"
+
+      # Runner-owned rows from the two frozen SQL files, byte-unchanged: local-preseed.sql writes 3 synthetic users (admin,
+      # instructor, member) with profiles and roles, 5 reference courses (660e8400-...0001..0005) and 4 modules; then
+      # auth-fixtures.sql makes those 3 users sign-in-able with the run's synthetic password. No legacy e2e seed.
+      - name: Local actors and reference rows (3 synthetic users with profiles and roles, 5 reference courses, 4 modules; then auth fixtures)
+        run: |
+          set -o pipefail
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "actors refused: the pinned headless shell is not bound"; exit 1; }
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          # Same psql route as D1: no DSN or password on any argv; the password reaches psql on stdin only.
+          node scripts/e2e/gb-job-psql.mjs preseed "$RUNNER_TEMP/gb-priv" | tee "$GB_EVIDENCE/checks/actors.txt"
+          node scripts/e2e/gb-job-psql.mjs seed-auth "$RUNNER_TEMP/gb-priv" | tee -a "$GB_EVIDENCE/checks/actors.txt"
+
+      # S4: 8 rolled-back SQL cases on storage.objects rows only (no HTTP, no upload). NEW: learner own INSERT, read-back,
+      # instructor SELECT, owner DELETE; negatives from the pinned semantics; O1 is an EMULATION (mirrored policies dropped
+      # inside its own rolled-back transaction). After each: run-owned residue 0 and the S3 catalog again.
+      - name: Storage S4 SQL policy probes (after the actors, before the adapter; every case rolls back)
+        id: gb_s4
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/local-stack/storage/storage-job.mjs s4 "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4.txt"
+
+      # S4d: one N1 owner-DELETE exception-origin diagnostic, whatever S4 concluded (S4 and its verdict are unchanged).
+      # Same N1 body, expectation and rolled-back transaction; only a fixed category word leaves the session; residue and
+      # the catalog are re-checked; a producer failure or an invalid diagnostic fails this step. Not a fix, not a cause proof.
+      - name: Storage S4d N1 exception-origin diagnostic (fixed category only; rolls back; after S4 whatever its result)
+        id: gb_s4d
+        if: always() && (steps.gb_s4.outcome == 'success' || steps.gb_s4.outcome == 'failure')
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/local-stack/storage/storage-job.mjs s4d "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4d.txt"
+
+      # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), served-app gate,
+      # composed-r5, private dirs, pairing carrier, seed, witness, the five journey projects, witness, compare, 5-file inventory.
+      - name: Gradebook journey adapter (gradebook-owned run-journey.sh)
+        run: |
+          set -o pipefail
+          # The exported shell is re-checked immediately before the adapter's first carrier write and launch.
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
+          GB_LANE=journey GB_SESSION_DIR="$RUNNER_TEMP/gb-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/gb-launch-recheck.txt" || { cat "$RUNNER_TEMP/gb-launch-recheck.txt"; exit 1; }
+          scripts/gradebook-fixture/journey/run-journey.sh "$RUNNER_TEMP/gb-journey-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$GB_EVIDENCE/checks/journey.txt"
+      - name: Copy the adapter's inventoried evidence (exactly its seven entries; screenshots only as its manifest names)
+        if: always() && steps.gb_d1.outcome == 'success'
+        run: |
+          O="$RUNNER_TEMP/gb-journey-out"
+          [ -d "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
+          mkdir -p "$GB_EVIDENCE/journey"
+          for f in compare.txt composition.txt pairing.txt playwright-summary.txt screenshots.txt seed.txt; do [ -f "$O/$f" ] && [ ! -L "$O/$f" ] && cp "$O/$f" "$GB_EVIDENCE/journey/$f"; done
+          # screenshots/ is copied as-is only when it is a real dir whose entries are exactly the regular, non-link 0600
+          # PNGs that screenshots.txt names (possibly none); anything else copies no PNG and fails this step.
+          if [ -e "$O/screenshots" ] || [ -L "$O/screenshots" ]; then
+            S="$O/screenshots"
+            [ -d "$S" ] && [ ! -L "$S" ] && [ -f "$O/screenshots.txt" ] || { echo "screenshots refused: not a real dir with a manifest"; exit 1; }
+            want=$(sed -n 's/^SHOT \([A-Za-z0-9-]*\) .*/\1.png/p' "$O/screenshots.txt" | LC_ALL=C sort | tr '\n' ' ')
+            have=$(ls -A "$S" | LC_ALL=C sort | tr '\n' ' ')
+            [ "$want" = "$have" ] || { echo "screenshots refused: the dir does not equal its manifest"; exit 1; }
+            for p in $have; do
+              [ -f "$S/$p" ] && [ ! -L "$S/$p" ] && [ "$(stat -c %a "$S/$p")" = 600 ] || { echo "screenshots refused: $p is not a regular 0600 file"; exit 1; }
+            done
+            mkdir -m 700 "$GB_EVIDENCE/journey/screenshots"
+            for p in $have; do cp -p -- "$S/$p" "$GB_EVIDENCE/journey/screenshots/$p"; done
+            echo "screenshots copied: $(wc -w <<<"$have") PNG(s), equal to the manifest"
+          fi
+          ls -A "$GB_EVIDENCE/journey"
+
+      - name: No Edge runtime container exists (read-only; after the journey)
+        if: always() && steps.gb_prep.outcome == 'success'
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$GB_EVIDENCE/checks/no-edge-end.txt"
+      # Secondary tripwire only (the primary controls are the one-step input binding, private raw streams and fixed public
+      # lines). Runs whenever S0 started, after the journey evidence and before the private dir is removed; upload
+      # below requires its PASS in that case. Later receipts (owned-stop, private-removed, net-remove, leftovers) come from
+      # unchanged stack scripts that never read the private dir.
+      - name: Storage leak tripwire (secondary, field-aware; scans the evidence dir for private pins fields; fixed lines only)
+        id: gb_leak
+        if: always() && steps.gb_s0.outcome != 'skipped'
+        run: |
+          set -o pipefail
+          git ls-files -z > "$RUNNER_TEMP/gb-st-priv/public-refs.lst"
+          node scripts/local-stack/storage/leak-scan.mjs "$RUNNER_TEMP/gb-st-priv" "$RUNNER_TEMP/gb-st-priv/public-refs.lst" "$GB_EVIDENCE" | tee "$GB_EVIDENCE/checks/storage-leakscan.txt"
+      - name: Stop background servers (preview)
+        if: always()
+        run: |
+          # Only the process groups recorded at launch are signalled (pid plus kernel start time); 8080 must then have no listener.
+          # An uncertain group is never signalled (owned-proc refuses it). Private outputs are removed by the NEXT step, which
+          # runs even when this one fails.
+          if [ -d "$RUNNER_TEMP/gb-owned" ]; then
+            node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/gb-owned" 8080 | tee "$GB_EVIDENCE/checks/owned-stop.txt"
+          else
+            echo "no owned background server was launched" | tee "$GB_EVIDENCE/checks/owned-stop.txt"
+            scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
+          fi
+      - name: Remove private outputs (Playwright output, adapter dir, private psql dir, shell receipts, D1 record; verified)
+        if: always()
+        run: |
+          # Every path is attempted and checked; any removal failure or survivor makes this step fail after all were tried.
+          rc=0
+          for p in playwright-report-gradebook-journey test-results "$RUNNER_TEMP/gb-journey-out" "$RUNNER_TEMP/gb-priv" "$RUNNER_TEMP/gb-st-priv" \
+                   "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/gb-shell-receipt.txt" "$RUNNER_TEMP/gb-shell-receipt.txt.bound" "$RUNNER_TEMP/gb-launch-recheck.txt"; do
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
+          done
+          if [ "$rc" -eq 0 ]; then echo "private Playwright output, adapter dir, private psql dir, shell receipts and D1 record absent" | tee "$GB_EVIDENCE/checks/private-removed.txt"; fi
+          exit "$rc"
+      - name: Stop stack (no backup)
+        if: always() && steps.gb_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/gb-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_GB" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (gradebook-journey)"
+      - name: Remove owned network (only the one this job created; absence verified)
+        if: always() && steps.gb_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-gbj" | tee "$GB_EVIDENCE/checks/net-remove.txt"
+      - name: Nothing left behind
+        if: always() && steps.gb_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$GB_EVIDENCE/checks/leftovers.txt"
+
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          E="$GB_EVIDENCE"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/storage-s0.txt" "$E/checks/storage-s1.txt" "$E/checks/storage-s2.txt" "$E/checks/storage-s3.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/d1-composition.txt" "$E/checks/actors.txt" "$E/checks/storage-s4.txt" "$E/checks/storage-s4d.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/storage-leakscan.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+      - name: Upload evidence (the staged manifest only; after a leak tripwire PASS whenever S0 started)
+        if: always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradebook-journey-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: gbj-upload/
