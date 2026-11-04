@@ -231,7 +231,15 @@ jobs:
             e2e/courses/course-learn.spec.ts e2e/courses/course-progress.spec.ts e2e/courses/course-certificate.spec.ts \
             e2e/evidence/frontend-evidence.spec.ts \
             --project=chromium-instructor e2e/courses/course-builder.spec.ts e2e/courses/course-gradebook.spec.ts \
-            e2e/instructor/grade-entry-precision.spec.ts
+            e2e/instructor/grade-entry-precision.spec.ts e2e/instructor/gradebook-table-range.spec.ts
+
+      # Bulk grading has no UI: the page's own bulk handler, driven against this same seeded loopback stack. The test
+      # refuses any non-loopback VITE_SUPABASE_URL or SUPABASE_DB_URL itself, and skips without E2E_GRADEBOOK_DB=1.
+      - name: Gradebook bulk handler against the isolated stack
+        if: inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'
+        env:
+          E2E_GRADEBOOK_DB: '1'
+        run: npx --no-install vitest run src/pages/__tests__/CourseGradebook.bulk.integration.test.tsx
 
       - name: Upload evidence
         if: always()
