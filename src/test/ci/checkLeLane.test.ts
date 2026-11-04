@@ -2461,7 +2461,7 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
     expect(run([`[${STAMP}:FATAL:/home/u/eyJsecret/key.cc(9)] Bearer eyJ.secret\n`])).toBe('OTHER_FATAL_REPORTED');
     const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
     const body = src.slice(src.indexOf('export function browserLogClassifier'), src.indexOf('export function browserLogLine'));
-    expect(body).not.toMatch(/console\.|process\.std|writeFile|appendFile|annotations|JSON\.stringify|setEncoding|\.pause\(|\.resume\(|on\('error'|once\('error'/);
+    expect(body).not.toMatch(/console\.|process\.std|annotations|JSON\.stringify|setEncoding|\.pause\(|\.resume\(|on\('error'|once\('error'/);
   });
 
   it('conflicting or repeated fatal records are MULTIPLE (and MULTIPLE wins over TRUNCATED)', () => {
@@ -2677,5 +2677,35 @@ describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no
     const big = probe('y'.repeat(4096));
     capped.push(big.b);
     expect(big.touched()).toBe(0);
+  });
+});
+
+describe('E1 browser-log r1.3: reviewed-source regression pin for sandbox-launch.mjs', () => {
+  // REVIEWED-SOURCE REGRESSION PIN. sha256 of the whole e2e/lesson-editor/sandbox-launch.mjs as independently reviewed at
+  // 8a473229. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
+  // digest only after that review. It is not a semantic purity proof and not a runtime sandbox, and it does not replace the
+  // repository's filesystem-write gate in security.yml, which is unchanged.
+  const REVIEWED_SANDBOX_LAUNCH_SHA256 = 'af66b7eb36472e381200b33eb83f05cf679cd0bb13b9deac6f0fff5d6adbe8a3';
+  const FILE = path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs');
+  const isReviewed = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex') === REVIEWED_SANDBOX_LAUNCH_SHA256;
+
+  it('the module on disk is exactly the reviewed bytes', () => {
+    expect(isReviewed(readFileSync(FILE))).toBe(true);
+  });
+
+  it('negative controls: one-byte in-memory mutations inside and outside the classifier are refused (never executed)', () => {
+    const src = readFileSync(FILE);
+    const at = (needle: string) => { const i = src.indexOf(needle); expect(i, needle).toBeGreaterThan(-1); return i; };
+    const flip = (i: number) => { const m = Buffer.from(src); m[i] ^= 0x01; return m; };
+    const inside = at('if (lineLen + b.length > limits.MAX_LINE)');
+    expect(inside).toBeGreaterThan(at('export function browserLogClassifier'));
+    expect(inside).toBeLessThan(at('export function browserLogRecorder'));
+    const outside = at('import ');
+    expect(outside).toBeLessThan(at('export function browserLogClassifier'));
+    for (const m of [flip(inside), flip(outside), flip(src.length - 1), Buffer.concat([src, Buffer.from('\n')]), src.subarray(0, src.length - 1)]) {
+      expect(m.equals(src)).toBe(false);
+      expect(isReviewed(m)).toBe(false);
+    }
+    expect(isReviewed(Buffer.from(src))).toBe(true);
   });
 });
