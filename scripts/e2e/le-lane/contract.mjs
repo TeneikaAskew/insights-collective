@@ -240,6 +240,38 @@ export const REPORTED_ERROR_CODES = Object.freeze(['LANE_E_APPARMOR_POST', 'LANE
   'LANE_E_SANDBOX_PID', 'LANE_E_SANDBOX_UNREAD', 'LANE_E_SERVER_CLOSE', 'LANE_E_SERVER_KILL']);
 export const REPORTED_ERROR_VALUES = Object.freeze([...REPORTED_ERROR_CODES, 'MULTIPLE', 'UNKNOWN']);
 
+// E1 diagnostics r2 (closed values only; DIAGNOSTIC, never acceptance). Copies of the sandbox-launch.mjs and step-codes.mjs
+// lists (this module may not import e2e/ code); a test checks each copy equals its source.
+export const POST_READ_OUTCOMES = Object.freeze(['OK', 'BLANK', 'ENOENT', 'EACCES', 'EPERM', 'ESRCH', 'OTHER', 'NOT_TRIED', 'UNKNOWN']);
+export const POST_EXIT_OBSERVATIONS = Object.freeze(['EXIT_OBSERVED', 'NO_EXIT_OBSERVED', 'UNKNOWN']);
+export const E1_STEP_CODES = Object.freeze(['E1_OPEN', 'E1_BASELINE', 'E1_EDIT_TITLE', 'E1_EDIT_BODY', 'E1_SAVED', 'E1_SETTLE',
+  'E1_ROW', 'E1_BODY', 'E1_RELOAD', 'E1_RELOAD_BODY', 'E1_EVIDENCE']);
+/** Playwright's attempt status words, as closed upper-case tokens (lane.txt lines are upper-case only). */
+const ATTEMPT_STATUS_MAP = Object.freeze({ passed: 'PASSED', failed: 'FAILED', timedOut: 'TIMED_OUT', interrupted: 'INTERRUPTED', skipped: 'SKIPPED' });
+export const ATTEMPT_STATUSES = Object.freeze([...Object.values(ATTEMPT_STATUS_MAP), 'UNKNOWN']);
+export const FAILED_STEP_TOKENS = Object.freeze([...E1_STEP_CODES, 'NONE', 'UNKNOWN']);
+/** A status word to its token; anything else (inherited keys included) is UNKNOWN. Never a success verdict for E1. */
+export function attemptStatusToken(status) {
+  return typeof status === 'string' && Object.prototype.hasOwnProperty.call(ATTEMPT_STATUS_MAP, status) ? ATTEMPT_STATUS_MAP[status] : 'UNKNOWN';
+}
+/** failedStep()'s result (a listed code, 'none' or 'unknown') to its token; anything else is UNKNOWN. */
+export function failedStepToken(step) {
+  if (step === 'none') return 'NONE';
+  return typeof step === 'string' && E1_STEP_CODES.includes(step) ? step : 'UNKNOWN';
+}
+const RO = `(${POST_READ_OUTCOMES.join('|')})`, EO = `(${POST_EXIT_OBSERVATIONS.join('|')})`;
+const POST_OBSERVED = new RegExp(`^WORKER_READ ${RO} ${RO} BROWSER_READ ${RO} ${RO} EXIT ${EO} ${EO}$`);
+/** The test-scoped gate's observation (annotation description) to { reads: {worker, browser}, exit: [before, after] } or null.
+ *  A first attempt that returned (OK or BLANK) must have a NOT_TRIED fallback; a failed primary must have a tried fallback;
+ *  a NOT_TRIED primary is impossible; UNKNOWN (no outcome noted) comes in pairs. */
+export function postObservedEvidence(text) {
+  const m = typeof text === 'string' ? POST_OBSERVED.exec(text) : null;
+  if (!m) return null;
+  const pairOk = (p, f) => p === 'UNKNOWN' ? f === 'UNKNOWN' : p === 'NOT_TRIED' ? false : (p === 'OK' || p === 'BLANK') ? f === 'NOT_TRIED' : f !== 'UNKNOWN' && f !== 'NOT_TRIED';
+  if (!pairOk(m[1], m[2]) || !pairOk(m[3], m[4])) return null;
+  return { reads: { worker: [m[1], m[2]], browser: [m[3], m[4]] }, exit: [m[5], m[6]] };
+}
+
 /** Classify a runChild result object. Only the two exact known shapes get a specific class; everything else is NO_CODE. */
 export function e1ResultClass(res) {
   try {
@@ -278,18 +310,24 @@ export function reportedErrorCode(message) {
  *       LANE E1 APPARMOR PRE <worker> <browser> POST <worker> <browser> | LANE E1 APPARMOR MISSING|INVALID,
  *       LANE E1 REPORT MISSING|INVALID|PARSED,
  *       LANE E1 REPORTED_ERROR <one REPORTED_ERROR_CODES code>|MULTIPLE|UNKNOWN,
+ *       LANE E1 POST_OBSERVED <postObservedEvidence grammar>|MISSING|INVALID,
+ *       LANE E1 ATTEMPT_STATUS <ATTEMPT_STATUSES>,
+ *       LANE E1 FAILED_STEP <FAILED_STEP_TOKENS>,
  *     LANE CLEANUP PASS|FAIL, LANE END
  * The E1 APPARMOR line is the WORKER-side evidence (egress-test.ts laneAppArmorGate), copied from the report annotation.
  * RESULT, REPORT and REPORTED_ERROR are DIAGNOSTIC ONLY (E1 diagnostics r1): no acceptance, teardown or upload decision reads
  * them. RESULT classifies the runChild result shape (e1ResultClass); it never says why a child had no code. REPORTED_ERROR is
  * a lead from defined report error fields, never a proven subsystem or root cause. Consistency: REPORT MISSING needs APPARMOR
  * MISSING, REPORT INVALID needs APPARMOR INVALID, and either needs REPORTED_ERROR UNKNOWN.
+ * POST_OBSERVED, ATTEMPT_STATUS and FAILED_STEP (E1 diagnostics r2) are DIAGNOSTIC ONLY as well. A report that is not PARSED
+ * needs POST_OBSERVED equal to the report state and UNKNOWN status and step; UNKNOWN status needs UNKNOWN step; PASSED needs
+ * NONE and only PASSED may have NONE. ATTEMPT_STATUS is Playwright's word for the one selected attempt, never an E1 verdict.
  * A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
  */
 export function parseLaneOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, cleanup: null };
+  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, postObserved: null, attemptStatus: null, failedStep: null, cleanup: null };
   const want = (i) => ls[i];
   let i = 0;
   if (ls.length === 0) return r;
@@ -330,6 +368,23 @@ export function parseLaneOut(text) {
       if (!re || !REPORTED_ERROR_VALUES.includes(re[1])) return { ok: false };
       if (r.report !== 'PARSED' && re[1] !== 'UNKNOWN') return { ok: false };
       r.reportedError = re[1];
+      if (i >= ls.length) return r;
+      const po = /^LANE E1 POST_OBSERVED (.+)$/.exec(want(i++));
+      if (!po) return { ok: false };
+      if (po[1] === 'MISSING' || po[1] === 'INVALID') { if (r.report !== 'PARSED' && po[1] !== r.report) return { ok: false }; r.postObserved = { state: po[1] }; }
+      else { const ev = postObservedEvidence(po[1]); if (!ev || r.report !== 'PARSED') return { ok: false }; r.postObserved = { state: 'EVIDENCE', ...ev }; }
+      if (i >= ls.length) return r;
+      const as = /^LANE E1 ATTEMPT_STATUS ([A-Z_]+)$/.exec(want(i++));
+      if (!as || !ATTEMPT_STATUSES.includes(as[1]) || (r.report !== 'PARSED' && as[1] !== 'UNKNOWN')) return { ok: false };
+      r.attemptStatus = as[1];
+      if (i >= ls.length) return r;
+      const fs1 = /^LANE E1 FAILED_STEP ([A-Z0-9_]+)$/.exec(want(i++));
+      if (!fs1 || !FAILED_STEP_TOKENS.includes(fs1[1])) return { ok: false };
+      // UNKNOWN status forces UNKNOWN step; PASSED is only ever NONE; a non-passed attempt is never NONE.
+      if (as[1] === 'UNKNOWN' && fs1[1] !== 'UNKNOWN') return { ok: false };
+      if (as[1] === 'PASSED' && fs1[1] !== 'NONE') return { ok: false };
+      if (as[1] !== 'PASSED' && fs1[1] === 'NONE') return { ok: false };
+      r.failedStep = fs1[1];
       if (i >= ls.length) return r;
     }
     const c = want(i++);
@@ -519,5 +574,7 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
   const o = parseLaneOut(laneText);
   const w = o.workerAppArmor;
   const aa = w.state === 'EVIDENCE' ? `PRE:${w.codes[0]},${w.codes[1]};POST:${w.codes[2]},${w.codes[3]}` : w.state;
-  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} cleanup=${o.cleanup}`;
+  const po = o.postObserved;
+  const post = po.state === 'EVIDENCE' ? `WR:${po.reads.worker.join(',')};BR:${po.reads.browser.join(',')};EXIT:${po.exit.join(',')}` : po.state;
+  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} cleanup=${o.cleanup}`;
 }

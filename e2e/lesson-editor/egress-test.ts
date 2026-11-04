@@ -9,7 +9,7 @@ import { test as base, expect } from '@playwright/test';
 import { allowedOrigins, installBoundary, type Boundary } from './egress-boundary';
 import { startEgressProxy, type EgressProxy } from './egress-proxy';
 import { readFileSync } from 'node:fs';
-import { postrunAppArmor, withSandboxedBrowser } from './sandbox-launch.mjs';
+import { postrunAppArmor, postrunAppArmorObserved, readLabelAttempts, withSandboxedBrowser } from './sandbox-launch.mjs';
 
 // Controls (self-test only): off = no layer but the resolver; route-only = no proxy; proxy-only = no route/WebSocket layer.
 const CONTROL = process.env.LE_EGRESS_CONTROL ?? '';
@@ -29,10 +29,12 @@ export function configuredOrigins(): string[] {
 }
 
 type AppArmorState = Parameters<typeof postrunAppArmor>[0];
-/** AppArmor label of this worker ('self') or of a process, as text; null when unreadable (fails closed in the gate). */
-export function readLabel(who: number | 'self'): string | null {
-  for (const f of ['attr/apparmor/current', 'attr/current']) { try { return readFileSync(`/proc/${who}/${f}`, 'utf8'); } catch { /* next */ } }
-  return null;
+/** AppArmor label of this worker ('self') or of a process, as text; null when unreadable (fails closed in the gate).
+ *  The first successful read is returned, even blank; the fallback file is tried only after the primary throws. E1
+ *  diagnostics r2: `note`, when given, receives the closed outcome of each of THESE attempts ([primary, fallback]); it adds
+ *  no read and its own failure changes nothing. */
+export function readLabel(who: number | 'self', note?: (outcomes: string[]) => void): string | null {
+  return readLabelAttempts((p: string) => readFileSync(p, 'utf8'), who, note);
 }
 // The authentic lane's worker-side AppArmor state, set by the browser fixture once the owned browser is attested and gated.
 let laneAppArmor: AppArmorState | null = null;
@@ -83,8 +85,9 @@ export const test = base.extend<{ boundary: Boundary; laneAppArmorGate: void }, 
       const state = laneAppArmor;
       if (!state) throw new Error('LANE_E_APPARMOR_PRE');
       await use();
-      const post = postrunAppArmor(state);
+      const post = postrunAppArmorObserved(state); // same reads and decision as postrunAppArmor, plus the closed observation
       test.info().annotations.push({ type: 'lane-apparmor', description: post.line });
+      test.info().annotations.push({ type: 'lane-post-observed', description: post.observed }); // diagnostic only (E1 diagnostics r2)
       if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');
     },
     { auto: true },

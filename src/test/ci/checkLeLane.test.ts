@@ -14,17 +14,21 @@ import {
   imageCleanupRecord, imageConfigProblems, IMAGE_CHECK_FIELDS, IMAGE_VALUE_CLASSES, IMAGE_WORKDIR, imageFieldLines, imageValueClass, laneBinds, laneCreateArgs, laneEnv, lanePaths, lanePorts, laneTmpfsSpec, laneVerdict, parseGates, parseImageBuildRecord,
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
   E1_RESULT_CLASSES, REPORTED_ERROR_CODES, REPORT_STATES, e1ResultClass, refusalDetail, reportedErrorCode,
+  ATTEMPT_STATUSES, E1_STEP_CODES, FAILED_STEP_TOKENS, POST_EXIT_OBSERVATIONS, POST_READ_OUTCOMES, attemptStatusToken, failedStepToken, postObservedEvidence,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
 import { inputsOk, runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
 import { buildLaneImage, cleanupLaneImage, sanitizedEnv } from '../../../scripts/e2e/le-lane/image.mjs';
 import { detailLine, planLine, readVerdict, verifyLines } from '../../../scripts/e2e/le-lane/gates.mjs';
-import { REPORT_MAX, REPORT_MAX_DEPTH, REPORT_MAX_NODES, closureProblems, envProblems, laneMain, readReportBounded, reportSnapshot, runChild, sessionParentOk, workerAppArmorFromReport } from '../../../scripts/e2e/le-lane/lane-entry.mjs';
+import { REPORT_MAX, REPORT_MAX_DEPTH, REPORT_MAX_NODES, closureProblems, e1Attempt, envProblems, laneMain, readReportBounded, reportSnapshot, runChild, sessionParentOk, workerAppArmorFromReport } from '../../../scripts/e2e/le-lane/lane-entry.mjs';
 import { NOTRUN_CODES, notRunLines } from '../../../scripts/e2e/le-e1-notrun.mjs';
 import {
   FORBIDDEN_FLAGS, LAUNCH_BOUND_MS, RESOLVER_ARG, SandboxLaunchError, attestArgv, defaultsProblem, effectiveOptions, effectiveProblem, incomingProblem, labelCode,
   postrunAppArmor, serverOptions, withSandboxedBrowser,
+  EXIT_OBSERVATIONS, READ_OUTCOMES, exitObserver, postrunAppArmorObserved, readErrorOutcome, readLabelAttempts, readTextOutcome,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
+import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
+import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const P = '/rt/le-private', C = '/rt/le-lane-ctl', R = '/w/repo';
@@ -229,7 +233,9 @@ describe('lane inspect gate (Docker 28 effective config, exact)', () => {
 
 const ENF = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
 const AA_LINE = `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} ${ENF}`;
-const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE CLEANUP PASS\nLANE END\n`;
+// E1 diagnostics r2: the three diagnostic lines for a report with no observation annotation and no full-identity E1 test.
+const DIAG_TAIL = 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN\n';
+const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`;
 const OKV = laneVerdict({ runLaneStarted: true, gatesText: 'x\nGATE CONTAINER LANE_ABSENT\nGATE BRIDGE BRIDGE_REAPED\nGATE CLIENTS REAPED\nGATE STARTED YES\nLANE_GATES_END\n' });
 
 describe('lane output grammar and the summary plan (untrusted container data; nothing fabricated)', () => {
@@ -1050,7 +1056,7 @@ describe('lane-entry supervisor: umask, AppArmor first, closure, forwarders, rea
   });
   it('worker AppArmor evidence: copied from the report only in its closed form; MISSING, INVALID or non-ENFORCE fails the lane', async () => {
     const ok = await enter();
-    expect(ok.lane()).toContain(`LANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE CLEANUP PASS`);
+    expect(ok.lane()).toContain(`LANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\n${DIAG_TAIL}LANE CLEANUP PASS`);
     const nonEnf = AA_DESC.replace(/ENFORCE$/, 'ENFORCE').replace(/POST (\S+) (\S+)$/, 'POST $1 APPARMOR_E_UNCONFINED');
     const cases: [string | null, string, number][] = [
       [null, 'LANE E1 APPARMOR MISSING', 1], // no report at all (the worker fixture failed before the test)
@@ -1384,10 +1390,14 @@ describe('sandbox launch: closed incoming and EFFECTIVE options, sandbox true la
     const eg = readFileSync(path.join(ROOT, 'e2e/lesson-editor/egress-test.ts'), 'utf8');
     expect(eg).toContain("...(authentic ? { readLabel, onAppArmor: (s: AppArmorState) => { laneAppArmor = s; } } : {}),");
     const gate = eg.slice(eg.indexOf('laneAppArmorGate: ['), eg.indexOf('boundary: ['));
-    for (const t of ["if (!state) throw new Error('LANE_E_APPARMOR_PRE');", 'await use();', 'const post = postrunAppArmor(state);',
-      "test.info().annotations.push({ type: 'lane-apparmor', description: post.line });", "if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');", '{ auto: true }'])
+    for (const t of ["if (!state) throw new Error('LANE_E_APPARMOR_PRE');", 'await use();', 'const post = postrunAppArmorObserved(state);',
+      "test.info().annotations.push({ type: 'lane-apparmor', description: post.line });", "if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');", '{ auto: true }',
+      "test.info().annotations.push({ type: 'lane-post-observed', description: post.observed });"])
       expect(gate).toContain(t);
     expect(gate.indexOf('annotations.push')).toBeLessThan(gate.indexOf("throw new Error('LANE_E_APPARMOR_POST')"));
+    // E1 diagnostics r2: the observation is pushed AFTER the lane-apparmor annotation and BEFORE the unchanged throw
+    expect(gate.indexOf("type: 'lane-apparmor'")).toBeLessThan(gate.indexOf("type: 'lane-post-observed'"));
+    expect(gate.indexOf("type: 'lane-post-observed'")).toBeLessThan(gate.indexOf("throw new Error('LANE_E_APPARMOR_POST')"));
   });
   it('source pins: the installed Playwright 1.59.1 merge, fixture defaults and sandbox switch are the ones this contract assumes', () => {
     const nm = (p: string) => readFileSync(path.join(ROOT, 'node_modules', p), 'utf8');
@@ -1628,17 +1638,17 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const r = await enter({ report: null, e1Code: null });
     expect(r.lane()).toContain('LANE E1 RESULT NO_CODE\nLANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING\nLANE E1 REPORTED_ERROR UNKNOWN\n');
     expect(r.code).toBe(1);
-    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
     for (const why of ['open', 'owner', 'mode', 'size', 'grew', 'path', 'read'])
-      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
     expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).report).toBe('INVALID');
     // budget exhaustion, even with a recognisable code earlier in the walk, is INVALID and UNKNOWN
     let deep: Obj = {}; for (let i = 0; i < 100; i++) deep = { child: deep };
-    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN' });
+    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
     const wide = JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], items: Array.from({ length: REPORT_MAX_NODES }, () => ({})) });
     expect(snap(wide).report).toBe('INVALID');
     // parsed with no annotation: AppArmor MISSING, report PARSED
-    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG' });
+    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
     // the old function is the same snapshot's AppArmor line
     expect(workerAppArmorFromReport({ status: 'ok', text: errReport([R1('Error: LANE_E_CONNECT')]) })).toBe(AA_LINE);
   });
@@ -1699,7 +1709,7 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     for (const good of [
       swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING'),
-      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED MISSING`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED INVALID'),
       swap(AA_LINE, 'LANE E1 APPARMOR MISSING'), swap(AA_LINE, 'LANE E1 APPARMOR INVALID'),
       swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR MULTIPLE'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_SANDBOX_PID'),
     ]) expect(parseLaneOut(good).ok, good).toBe(true);
@@ -1711,20 +1721,20 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
   it('refusal and exit behaviour unchanged; detail only for LE_SUM_E_WORKER_APPARMOR, closed tokens only, 255 left ambiguous', () => {
     const okPw = (d: string) => ({ state: 'ok', digits: d });
     const lane = (result: string, aa: string, report: string, err: string, cleanup = 'PASS') =>
-      `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT ${result}\n${aa}\nLANE E1 REPORT ${report}\nLANE E1 REPORTED_ERROR ${err}\nLANE CLEANUP ${cleanup}\nLANE END\n`;
+      `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT ${result}\n${aa}\nLANE E1 REPORT ${report}\nLANE E1 REPORTED_ERROR ${err}\n${DIAG_TAIL}LANE CLEANUP ${cleanup}\nLANE END\n`;
     const missing = lane('NO_CODE', 'LANE E1 APPARMOR MISSING', 'MISSING', 'UNKNOWN', 'FAIL');
     expect(planSummary({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
-    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN cleanup=FAIL');
+    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=FAIL');
     const real255 = lane('CLOSE_WITH_CODE', 'LANE E1 APPARMOR MISSING', 'PARSED', 'LANE_E_LAUNCH_HUNG');
-    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG cleanup=PASS');
+    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS');
     const nonEnf = lane('CLOSE_WITH_CODE', `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNCONFINED`, 'PARSED', 'MULTIPLE');
-    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS`);
     // every other plan: NONE (summary, not-run, other refusals, skip), and the plan itself is unchanged by the new lines
     const other: [string | null, Obj, Obj][] = [[LANE_OK, okPw('0'), OKV], [LANE_OK, { state: 'absent' }, OKV], [LANE_OK, { state: 'bad' }, OKV], [null, { state: 'absent' }, OKV],
       ['LANE START\n', { state: 'absent' }, OKV], [missing, okPw('255'), { ...OKV, ok: false }], ['garbage\n', okPw('0'), OKV]];
     for (const [t, pw, v] of other) expect(refusalDetail({ verdict: v as never, laneText: t, pwExit: pw as never })).toBe('LE-E1 DETAIL NONE');
     expect(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: okPw('0') })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
-    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ cleanup=(PASS|FAIL))$/;
+    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ post=[A-Z_:,;]+ attempt_status=[A-Z_]+ failed_step=[A-Z0-9_]+ cleanup=(PASS|FAIL))$/;
     for (const t of [missing, real255, nonEnf]) expect(refusalDetail({ verdict: OKV, laneText: t, pwExit: okPw('255') })).toMatch(DETAIL);
   });
 
@@ -1741,12 +1751,380 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const lane = LANE_OK.replace(AA_LINE, 'LANE E1 APPARMOR MISSING');
     const files = { [L.started]: 'x', [L.gates]: block, [L.laneTxt]: lane, [L.pwExit]: '1\n' };
     expect(planLine(fsFor(files), L)).toBe('PLAN REFUSED LE_SUM_E_WORKER_APPARMOR');
-    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN cleanup=PASS');
+    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS');
     expect(detailLine(fsFor({ ...files, [L.laneTxt]: LANE_OK, [L.pwExit]: '0\n' }), L)).toBe('LE-E1 DETAIL NONE');
     const step = (YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj).jobs as Obj;
     const run = (Object.values(step).flatMap((j) => ((j as Obj).steps as Obj[] | undefined) ?? []).find((s) => s.id === 'le_summary') as Obj).run as string;
     const refused = run.split('\n').filter((l) => l.includes('LE-E1 REFUSED'));
     expect(refused.map((l) => l.trim())).toEqual(['{ echo "LE-E1 REFUSED $3"; node scripts/e2e/le-lane/gates.mjs detail "$C" "$LE_PRIV" "$GITHUB_WORKSPACE" || echo "LE-E1 DETAIL NONE"; } | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;']);
     expect(run).toContain('case "$3" in LE_SUM_E_LANE_OUT|LE_SUM_E_LANE_INTERRUPTED|LE_SUM_E_PW_MISSING|LE_SUM_E_PW|LE_SUM_E_PW_UNEXPECTED|LE_SUM_E_WORKER_APPARMOR) ;; *) set -- x x LE_SUM_E_UNCLASSIFIED ;; esac');
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// E1 diagnostics r2 (fakes only; no browser, DB, Docker, process or file). Diagnostic values never change a gate, the
+// refusal code, the exit, cleanup or upload. Read outcomes come from the SAME attempts; exit is observed, never ALIVE.
+describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, attempt status and failed step', () => {
+  const PRIMARY = (who: string | number) => `/proc/${who}/attr/apparmor/current`;
+  const FALLBACK = (who: string | number) => `/proc/${who}/attr/current`;
+  const errno = (code: unknown, message = 'secret hunter2 /proc/10/attr') => Object.assign(new Error(message), { code });
+  /** A readFile fake: per path either text or a thrown error; records every attempted path. */
+  const files = (m: Record<string, string | Error>) => { const calls: string[] = []; return { calls, read: (p: string) => { calls.push(p); const v = m[p]; if (v === undefined) throw errno('ENOENT'); if (v instanceof Error) throw v; return v; } }; };
+  const SECRET = /hunter2|eyJ|postgresql:|127\.0\.0\.1|\/proc\/|secret/;
+
+  it('closed-list copies in contract.mjs equal their sources; no ALIVE token exists anywhere', () => {
+    expect([...POST_READ_OUTCOMES]).toEqual([...READ_OUTCOMES]);
+    expect([...POST_EXIT_OBSERVATIONS]).toEqual([...EXIT_OBSERVATIONS]);
+    expect([...E1_STEP_CODES]).toEqual([...E1_STEPS]);
+    expect([...FAILED_STEP_TOKENS]).toEqual([...E1_STEPS, 'NONE', 'UNKNOWN']);
+    expect([...ATTEMPT_STATUSES]).toEqual(['PASSED', 'FAILED', 'TIMED_OUT', 'INTERRUPTED', 'SKIPPED', 'UNKNOWN']);
+    for (const list of [READ_OUTCOMES, EXIT_OBSERVATIONS, ATTEMPT_STATUSES, FAILED_STEP_TOKENS]) expect(list.join(' ')).not.toMatch(/ALIVE|RUNNING|LIVE\b/);
+    for (const rel of ['e2e/lesson-editor/sandbox-launch.mjs', 'scripts/e2e/le-lane/contract.mjs', 'scripts/e2e/le-lane/lane-entry.mjs', 'e2e/lesson-editor/egress-test.ts'])
+      expect(readFileSync(path.join(ROOT, rel), 'utf8'), rel).not.toMatch(/'ALIVE'|"ALIVE"|\bALIVE\b(?! \(no| claim)/);
+  });
+
+  it('label read: same attempts, first successful read returned (even blank), fallback only after a primary throw', () => {
+    // primary success: one attempt, fallback NOT_TRIED
+    let n: unknown = null;
+    const a = files({ [PRIMARY(10)]: 'docker-default (enforce)\n' });
+    expect(readLabelAttempts(a.read, 10, (o: unknown) => { n = o; })).toBe('docker-default (enforce)\n');
+    expect(a.calls).toEqual([PRIMARY(10)]);
+    expect(n).toEqual(['OK', 'NOT_TRIED']);
+    // primary failure, fallback success
+    const b = files({ [PRIMARY(10)]: errno('EACCES'), [FALLBACK(10)]: 'docker-default (enforce)\n' });
+    expect(readLabelAttempts(b.read, 10, (o: unknown) => { n = o; })).toBe('docker-default (enforce)\n');
+    expect(b.calls).toEqual([PRIMARY(10), FALLBACK(10)]);
+    expect(n).toEqual(['EACCES', 'OK']);
+    // blank primary: returned as is, NO fallback attempt, and the gate code is UNKNOWN (unchanged fail-closed)
+    for (const blank of ['', '\n', '  \0\n', '\0']) {
+      const c = files({ [PRIMARY('self')]: blank, [FALLBACK('self')]: 'docker-default (enforce)\n' });
+      expect(readLabelAttempts(c.read, 'self', (o: unknown) => { n = o; })).toBe(blank);
+      expect(c.calls).toEqual([PRIMARY('self')]);
+      expect(n).toEqual(['BLANK', 'NOT_TRIED']);
+      expect(labelCode((who: number | 'self') => readLabelAttempts(c.read, who, undefined), 'self')).toBe('APPARMOR_E_UNKNOWN');
+    }
+    // mixed errno outcomes, both failing: null, two attempts
+    const mixed: [unknown, unknown, string[]][] = [['ENOENT', 'ENOENT', ['ENOENT', 'ENOENT']], ['EACCES', 'EPERM', ['EACCES', 'EPERM']], ['ESRCH', 'EINVAL', ['ESRCH', 'OTHER']],
+      [undefined, 'ENOENT', ['OTHER', 'ENOENT']], [2, 'enoent', ['OTHER', 'OTHER']], ['EPERM', null, ['EPERM', 'OTHER']]];
+    for (const [p, f, want] of mixed) {
+      const d = files({ [PRIMARY(10)]: errno(p), [FALLBACK(10)]: errno(f) });
+      expect(readLabelAttempts(d.read, 10, (o: unknown) => { n = o; })).toBeNull();
+      expect(d.calls).toEqual([PRIMARY(10), FALLBACK(10)]);
+      expect(n, String(p)).toEqual(want);
+    }
+    // a primary error followed by a BLANK fallback
+    const e = files({ [PRIMARY(10)]: errno('ENOENT'), [FALLBACK(10)]: '\n' });
+    expect(readLabelAttempts(e.read, 10, (o: unknown) => { n = o; })).toBe('\n');
+    expect(n).toEqual(['ENOENT', 'BLANK']);
+  });
+
+  it('label read: the note changes nothing (with or without it, a throwing note, odd error objects); messages are never read', () => {
+    const cases: Record<string, string | Error>[] = [
+      { [PRIMARY(10)]: 'docker-default (enforce)\n' }, { [PRIMARY(10)]: '' }, { [PRIMARY(10)]: errno('EACCES'), [FALLBACK(10)]: 'unconfined\n' },
+      { [PRIMARY(10)]: errno('ENOENT'), [FALLBACK(10)]: errno('ENOENT') }, {},
+    ];
+    for (const m of cases) {
+      const x = files(m), y = files(m), z = files(m);
+      const plain = readLabelAttempts(x.read, 10, undefined);
+      expect(readLabelAttempts(y.read, 10, () => {})).toBe(plain);
+      expect(readLabelAttempts(z.read, 10, () => { throw new Error('note failed'); })).toBe(plain);
+      expect(y.calls).toEqual(x.calls);
+      expect(z.calls).toEqual(x.calls);
+    }
+    // the code must be an OWN string data property; a getter is never invoked; a message naming an errno is not a code
+    let invoked = false;
+    const getter = Object.defineProperty(new Error('ENOENT'), 'code', { get: () => { invoked = true; return 'ENOENT'; }, enumerable: true });
+    expect(readErrorOutcome(getter)).toBe('OTHER');
+    expect(invoked).toBe(false);
+    expect(readErrorOutcome(new Error('ENOENT: no such file'))).toBe('OTHER');
+    expect(readErrorOutcome(Object.create({ code: 'ENOENT' }))).toBe('OTHER');
+    expect(readErrorOutcome(new Proxy({}, { getOwnPropertyDescriptor: () => { throw new Error('trap'); } }))).toBe('OTHER');
+    for (const v of [null, undefined, 'ENOENT', 7]) expect(readErrorOutcome(v)).toBe('OTHER');
+    expect(readTextOutcome('docker-default (enforce)')).toBe('OK');
+    expect(readTextOutcome('x')).toBe('OK');
+    for (const v of ['', ' ', '\0\0', null, undefined, 5]) expect(readTextOutcome(v)).toBe('BLANK');
+  });
+
+  /** A ChildProcess-like handle: EventEmitter with exitCode/signalCode fields. */
+  const child = (exitCode: number | null = null, signalCode: string | null = null) => Object.assign(new EventEmitter(), { pid: 10, exitCode, signalCode });
+
+  it('exit observation: before registration, after a later exit event, unusable handles; never a liveness claim', () => {
+    expect(exitObserver(child(0))()).toBe('EXIT_OBSERVED'); // exited before the listener was registered
+    expect(exitObserver(child(null, 'SIGKILL'))()).toBe('EXIT_OBSERVED');
+    const c = child();
+    const obs = exitObserver(c);
+    expect(obs()).toBe('NO_EXIT_OBSERVED');
+    c.emit('exit', null, 'SIGTRAP');
+    expect(obs()).toBe('EXIT_OBSERVED'); // the listener fired even though the fields were not updated
+    const d = child();
+    const od = exitObserver(d);
+    d.exitCode = 1 as never;
+    expect(od()).toBe('EXIT_OBSERVED'); // fields set without an event
+    expect(exitObserver(undefined)()).toBe('UNKNOWN');
+    expect(exitObserver(null)()).toBe('UNKNOWN');
+    expect(exitObserver({ pid: 10 })()).toBe('UNKNOWN'); // no once(): no registration, so no-exit is not claimed
+    expect(exitObserver({ pid: 10, exitCode: null, signalCode: null })()).toBe('UNKNOWN');
+    expect(exitObserver({ pid: 10, once: () => { throw new Error('x'); }, exitCode: null, signalCode: null })()).toBe('UNKNOWN');
+    expect(exitObserver(Object.assign(new EventEmitter(), { pid: 10 }))()).toBe('UNKNOWN'); // fields absent (undefined)
+    const thrower = Object.defineProperty(Object.assign(new EventEmitter(), { signalCode: null }), 'exitCode', { get: () => { throw new Error('x'); } });
+    expect(exitObserver(thrower)()).toBe('UNKNOWN');
+    for (const v of EXIT_OBSERVATIONS) expect(v).not.toMatch(/ALIVE/);
+  });
+
+  /** Gate state as withSandboxedBrowser builds it, with a file-level label fake (readLabel = readLabelAttempts over `m`). */
+  const gateState = (m: Record<string, string | Error>, handle: unknown = child()) => {
+    const f = files(m);
+    const readLabel = (who: number | 'self', note?: (o: string[]) => void) => readLabelAttempts(f.read, who, note);
+    return { f, state: { pid: 10, readLabel, exitObservation: exitObserver(handle), pre: { worker: ENF, browser: ENF } } };
+  };
+  const ENFORCE = 'docker-default (enforce)\n';
+
+  it('observed POST equals postrunAppArmor exactly (same reads, same order, same decision) and adds only the closed line', () => {
+    const matrix: Record<string, string | Error>[] = [
+      { [PRIMARY('self')]: ENFORCE, [PRIMARY(10)]: ENFORCE },
+      { [PRIMARY('self')]: ENFORCE, [PRIMARY(10)]: '' },
+      { [PRIMARY('self')]: ENFORCE },
+      { [PRIMARY('self')]: ENFORCE, [PRIMARY(10)]: errno('EACCES'), [FALLBACK(10)]: errno('EPERM') },
+      { [PRIMARY('self')]: errno('ENOENT'), [FALLBACK('self')]: ENFORCE, [PRIMARY(10)]: 'unconfined\n' },
+      { [PRIMARY('self')]: 'docker-default (complain)\n', [PRIMARY(10)]: ENFORCE },
+      {},
+    ];
+    for (const m of matrix) {
+      const a = gateState(m), b = gateState(m);
+      const plain = postrunAppArmor(a.state as never);
+      const obs = postrunAppArmorObserved(b.state as never);
+      const { observed, ...rest } = obs;
+      expect(rest).toEqual(plain);
+      expect(b.f.calls).toEqual(a.f.calls); // no extra read, no retry, same order (worker then owned browser)
+      expect(postObservedEvidence(observed), observed).not.toBeNull();
+      expect(observed).not.toMatch(SECRET);
+    }
+    const { state } = gateState({ [PRIMARY('self')]: ENFORCE, [PRIMARY(10)]: errno('ENOENT'), [FALLBACK(10)]: errno('ENOENT') });
+    const r = postrunAppArmorObserved(state as never);
+    expect(r.ok).toBe(false);
+    expect(r.line).toBe(`PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNKNOWN`);
+    // missing proc entry while NO exit was observed: reported as such, never as ALIVE or as an exit
+    expect(r.observed).toBe('WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED');
+  });
+
+  it('exit sampled before and after the reads: an exit during sampling and an exit before registration are told apart', () => {
+    const h = child();
+    const f = files({ [PRIMARY('self')]: ENFORCE });
+    const readLabel = (who: number | 'self', note?: (o: string[]) => void) => { if (who === 10) h.exitCode = 0 as never; return readLabelAttempts(f.read, who, note); };
+    const during = postrunAppArmorObserved({ pid: 10, readLabel, exitObservation: exitObserver(h), pre: { worker: ENF, browser: ENF } } as never);
+    expect(during.observed).toBe('WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT NO_EXIT_OBSERVED EXIT_OBSERVED');
+    const before = postrunAppArmorObserved(gateState({ [PRIMARY('self')]: ENFORCE }, child(null, 'SIGSEGV')).state as never);
+    expect(before.observed).toBe('WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT EXIT_OBSERVED EXIT_OBSERVED');
+    // a state without an observer (or a throwing / out-of-list one) is UNKNOWN, and the decision is unchanged
+    const base = gateState({ [PRIMARY('self')]: ENFORCE, [PRIMARY(10)]: ENFORCE }).state;
+    for (const exitObservation of [undefined, () => { throw new Error('x'); }, () => 'ALIVE', () => 'EXIT_OBSERVED secret']) {
+      const r = postrunAppArmorObserved({ ...base, exitObservation } as never);
+      expect(r.ok).toBe(true);
+      expect(r.observed).toBe('WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN');
+    }
+    // a readLabel that ignores the note (or throws) gives UNKNOWN pairs, never a guessed outcome
+    const deaf = postrunAppArmorObserved({ ...base, readLabel: () => ENFORCE } as never);
+    expect(deaf.observed).toBe('WORKER_READ UNKNOWN UNKNOWN BROWSER_READ UNKNOWN UNKNOWN EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED');
+    expect(deaf.ok).toBe(true);
+    const noisy = postrunAppArmorObserved({ ...base, readLabel: (_w: unknown, note?: (o: unknown) => void) => { note?.(['OK', 'secret hunter2']); return ENFORCE; } } as never);
+    expect(noisy.observed).toBe('WORKER_READ UNKNOWN UNKNOWN BROWSER_READ UNKNOWN UNKNOWN EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED');
+  });
+
+  it('launcher: the observer rides on the owned handle only; enforcement, refusal and cleanup sequences are identical', async () => {
+    const run = async (handle: unknown, labelsAfter: Record<string, string | null> | null) => {
+      const ev: string[] = [];
+      let used = false;
+      const server = { process: () => handle, wsEndpoint: () => 'ws://127.0.0.1:1/x', close: () => { ev.push('server.close'); return Promise.resolve(); }, kill: () => Promise.resolve() };
+      const chromium = { launchServer: async () => { ev.push('launchServer'); return server; }, connect: async () => { ev.push('connect'); return { close: () => { ev.push('browser.close'); return Promise.resolve(); } }; } };
+      const states: Obj[] = [];
+      const readLabel = (who: number | 'self') => { const k = String(who); if (used && labelsAfter && k in labelsAfter) { const v = labelsAfter[k]; if (v === null) throw errno('ENOENT'); return v; } return ENFORCE; };
+      const opts = { launchOptions: { executablePath: SHELL, args: [RESOLVER_ARG] }, defaults: DEFAULTS(), shell: SHELL, outputDir: L.output, proxyUrl: PROXY,
+        readCmdline: () => `${SHELL}\0--headless\0`, readLabel, onAppArmor: (st: Obj) => { states.push(st); } };
+      let code = 'ok';
+      try { await withSandboxedBrowser(chromium, opts, async () => { used = true; ev.push('use'); }); } catch (e) { code = (e as SandboxLaunchError).code ?? 'other'; }
+      return { ev, states, code };
+    };
+    for (const after of [null, { 10: null }, { self: 'unconfined\n' }, { 10: '' }]) {
+      const withEmitter = await run(child(), after);
+      const plainPid = await run({ pid: 10 }, after);
+      expect(withEmitter.code).toBe(plainPid.code);
+      expect(withEmitter.ev).toEqual(plainPid.ev);
+      expect(withEmitter.code).toBe(after === null ? 'ok' : 'LANE_E_APPARMOR_POST');
+      expect(withEmitter.states[0].pid).toBe(10);
+      expect(typeof withEmitter.states[0].exitObservation).toBe('function');
+      expect(withEmitter.states[0].exitObservation()).toBe('NO_EXIT_OBSERVED');
+      expect(plainPid.states[0].exitObservation()).toBe('UNKNOWN');
+    }
+    // the worker-teardown POST keeps the unchanged postrunAppArmor; only the test-scoped gate uses the observed variant
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    expect(src).toContain("if (state && !postrunAppArmor(state).ok) marks.push('LANE_E_APPARMOR_POST');");
+    expect(src.match(/postrunAppArmorObserved\(/g)).toHaveLength(1); // its definition only
+    const eg = readFileSync(path.join(ROOT, 'e2e/lesson-editor/egress-test.ts'), 'utf8');
+    expect(eg.match(/postrunAppArmorObserved\(/g)).toHaveLength(1); // the gate
+    expect(eg).toContain("return readLabelAttempts((p: string) => readFileSync(p, 'utf8'), who, note);");
+    expect(eg.match(/readFileSync\(/g)).toHaveLength(2); // unchanged from a134131d: the label read and readCmdline; no other /proc read was added
+  });
+
+  it('observation grammar: closed tokens and attempt-consistent pairs only', () => {
+    const good = ['WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED',
+      'WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT NO_EXIT_OBSERVED EXIT_OBSERVED',
+      'WORKER_READ EACCES BLANK BROWSER_READ BLANK NOT_TRIED EXIT UNKNOWN UNKNOWN',
+      'WORKER_READ UNKNOWN UNKNOWN BROWSER_READ OTHER OK EXIT EXIT_OBSERVED EXIT_OBSERVED'];
+    for (const g of good) expect(postObservedEvidence(g), g).not.toBeNull();
+    const bad = ['WORKER_READ OK OK BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN', 'WORKER_READ NOT_TRIED NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN',
+      'WORKER_READ ENOENT NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN', 'WORKER_READ UNKNOWN OK BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN',
+      'WORKER_READ ENOENT UNKNOWN BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN', 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT ALIVE ALIVE',
+      'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN', 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN extra',
+      'WORKER_READ ok NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN', 'WORKER_READ OK NOT_TRIED  BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN',
+      'WORKER_READ EINVAL ENOENT BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN', '', null, 'docker-default (enforce)'];
+    for (const b of bad) expect(postObservedEvidence(b), String(b)).toBeNull();
+    expect(attemptStatusToken('timedOut')).toBe('TIMED_OUT');
+    for (const v of ['constructor', 'toString', '__proto__', 'PASSED', 'Passed', '', null, 1]) expect(attemptStatusToken(v), String(v)).toBe('UNKNOWN');
+    expect(failedStepToken('none')).toBe('NONE');
+    expect(failedStepToken('unknown')).toBe('UNKNOWN');
+    for (const v of ['E1_BOGUS', 'NONE', 'e1_open', null]) expect(failedStepToken(v), String(v)).toBe('UNKNOWN');
+  });
+
+  // A report with the FULL E1 identity, shaped as Playwright 1.59.1's JSON reporter writes it (file suite > describe suite > spec).
+  const OBS = 'WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED';
+  const AA_POST_UNKNOWN = `PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNKNOWN`;
+  type TO = { title?: string; file?: string; describe?: string; project?: string; results?: unknown; extraTests?: Obj[]; extraSpecs?: Obj[]; ann?: Obj[]; rootErrors?: Obj[] };
+  const e1Report = (o: TO = {}) => {
+    const file = o.file ?? E1_IDENTITY.file;
+    const ann = o.ann ?? [{ type: 'lane-apparmor', description: AA_POST_UNKNOWN }, { type: 'lane-post-observed', description: OBS }];
+    return JSON.stringify({ errors: o.rootErrors ?? [], suites: [{ title: file, file, specs: [], suites: [{ title: o.describe ?? E1_IDENTITY.describe, file, specs: [
+      { title: o.title ?? E1_IDENTITY.title, file, tests: [{ projectName: o.project ?? E1_IDENTITY.project, annotations: ann, results: o.results ?? [attempt()] }, ...(o.extraTests ?? [])] },
+      ...(o.extraSpecs ?? [])] }] }] });
+  };
+  const attempt = (x: Obj = {}) => ({ retry: 0, status: 'failed', error: { message: 'Test timeout of 120000ms exceeded.', stack: 'x' }, errors: [], annotations: [], steps: [], ...x });
+  const snapOf = (text: string) => reportSnapshot({ status: 'ok', text });
+
+  it('selection: exactly one test with the full E1 identity, one attempt, retry 0; anything else is UNKNOWN for both values', () => {
+    expect(snapOf(e1Report({ results: [attempt({ status: 'passed', error: undefined })] }))).toMatchObject({ attemptStatus: 'PASSED', failedStep: 'NONE' });
+    expect(snapOf(e1Report())).toMatchObject({ attemptStatus: 'FAILED', failedStep: 'UNKNOWN', postObserved: OBS, aaLine: `LANE E1 APPARMOR ${AA_POST_UNKNOWN}` });
+    const U = { attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' };
+    const wrong: [string, TO][] = [
+      ['short title (the summary refuses substrings too)', { title: 'E1 save' }], ['title with suffix', { title: `${E1_IDENTITY.title} ` }],
+      ['other file', { file: 'other.spec.ts' }], ['other describe', { describe: 'owner' }], ['other project', { project: 'chromium-member' }],
+      ['duplicate identity', { extraTests: [{ projectName: E1_IDENTITY.project, results: [attempt()] }] }],
+      ['extra other test', { extraSpecs: [{ title: 'E2 other', file: E1_IDENTITY.file, tests: [{ projectName: E1_IDENTITY.project, results: [] }] }] }],
+      ['two attempts', { results: [attempt(), attempt({ retry: 1 })] }], ['no attempt', { results: [] }], ['retry 1 only', { results: [attempt({ retry: 1 })] }],
+      ['retry missing', { results: [attempt({ retry: undefined })] }], ['retry string', { results: [attempt({ retry: '0' })] }],
+      ['status unknown word', { results: [attempt({ status: 'flaky' })] }], ['status proto key', { results: [attempt({ status: 'constructor' })] }],
+      ['status missing', { results: [attempt({ status: undefined })] }], ['results not an array', { results: { 0: attempt() } }],
+      ['attempt is an array', { results: [[attempt()]] }], ['attempt is null', { results: [null] }],
+    ];
+    for (const [name, o] of wrong) expect(snapOf(e1Report(o)), name).toMatchObject(U);
+    expect(e1Attempt([])).toEqual(U);
+    expect(e1Attempt(null)).toEqual(U);
+    expect(e1Attempt({ suites: 'x' })).toEqual(U);
+  });
+
+  it('failed step: the existing titles-only classifier; timeout means last RECORDED phase; secondary or wrapped errors change nothing', () => {
+    const st = (title: string, x: Obj = {}) => ({ title, duration: 1, ...x });
+    // deepest listed step with an error
+    expect(snapOf(e1Report({ results: [attempt({ steps: [st('E1_OPEN'), st('E1_SAVED', { error: { message: 'x' } })] })] }))).toMatchObject({ attemptStatus: 'FAILED', failedStep: 'E1_SAVED' });
+    // timedOut with no step error: the last listed top-level phase recorded (not necessarily the failing operation)
+    expect(snapOf(e1Report({ results: [attempt({ status: 'timedOut', steps: [st('E1_OPEN'), st('E1_BASELINE'), st('E1_SETTLE')] })] }))).toMatchObject({ attemptStatus: 'TIMED_OUT', failedStep: 'E1_SETTLE' });
+    // a failure outside every listed step (e.g. fixture teardown) is UNKNOWN, as in the summary
+    expect(snapOf(e1Report({ results: [attempt({ steps: [st('E1_OPEN'), st('fixture: context')] })] }))).toMatchObject({ attemptStatus: 'FAILED', failedStep: 'UNKNOWN' });
+    // unlisted titles are never echoed
+    expect(snapOf(e1Report({ results: [attempt({ steps: [st('secret hunter2', { error: { message: 'x' } })] })] })).failedStep).toBe('UNKNOWN');
+    // secondary gate error in errors[], wrapped root teardown error: reportedError stays UNKNOWN (unchanged r1 rule), and the
+    // attempt values do not depend on any message
+    const withSecondary = attempt({ errors: [{ message: 'Test timeout of 120000ms exceeded.' }, { message: 'Error: LANE_E_APPARMOR_POST\n    at x' }], steps: [st('E1_RELOAD', { error: { message: 'y' } })] });
+    const wrappedRoot = [{ message: 'Error: LANE_E_APPARMOR_POST\n\nFailed worker ran 1 test:\n  [lesson-editor-chromium] > x', stack: 'x' }];
+    const a = snapOf(e1Report({ results: [withSecondary], rootErrors: wrappedRoot }));
+    expect(a).toMatchObject({ reportedError: 'UNKNOWN', attemptStatus: 'FAILED', failedStep: 'E1_RELOAD' });
+    const swapped = snapOf(e1Report({ results: [{ ...withSecondary, error: { message: 'Error: LANE_E_CONNECT' }, errors: [] }], rootErrors: [] }));
+    expect(swapped).toMatchObject({ reportedError: 'LANE_E_CONNECT', attemptStatus: 'FAILED', failedStep: 'E1_RELOAD' });
+    // two errors in errors[] do not establish an order, and nothing here claims one: no ordering value exists
+    expect(Object.keys(a).sort()).toEqual(['aaLine', 'attemptStatus', 'failedStep', 'postObserved', 'report', 'reportedError']);
+  });
+
+  it('observation annotation: one valid description, else MISSING or INVALID; budgets exhausted are INVALID for every value', () => {
+    expect(snapOf(e1Report({ ann: [{ type: 'lane-apparmor', description: AA_POST_UNKNOWN }] })).postObserved).toBe('MISSING');
+    const two = 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED';
+    for (const ann of [[{ type: 'lane-post-observed', description: OBS }, { type: 'lane-post-observed', description: two }], [{ type: 'lane-post-observed', description: `${OBS} secret hunter2` }],
+      [{ type: 'lane-post-observed', description: 7 }], [{ type: 'lane-post-observed' }], [{ type: 'lane-post-observed', description: OBS.replace('NO_EXIT_OBSERVED NO_EXIT_OBSERVED', 'ALIVE ALIVE') }]])
+      expect(snapOf(e1Report({ ann: [{ type: 'lane-apparmor', description: AA_POST_UNKNOWN }, ...ann] })).postObserved, JSON.stringify(ann)).toBe('INVALID');
+    // the same description on the test and on its result (as the reporter writes it) is ONE distinct value
+    expect(snapOf(e1Report({ results: [attempt({ annotations: [{ type: 'lane-post-observed', description: OBS }] })] })).postObserved).toBe(OBS);
+    // budgets: a full-identity report that exhausts depth or nodes is INVALID / UNKNOWN for everything
+    let deep: Obj = {}; for (let i = 0; i < 100; i++) deep = { child: deep };
+    const deepR = JSON.parse(e1Report()); deepR.deep = deep;
+    const wideR = JSON.parse(e1Report()); wideR.items = Array.from({ length: REPORT_MAX_NODES }, () => ({}));
+    for (const r of [deepR, wideR])
+      expect(snapOf(JSON.stringify(r))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+    expect(reportSnapshot({ status: 'missing' })).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'MISSING', reportedError: 'UNKNOWN', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+    expect(snapOf(`${e1Report()}x`).report).toBe('INVALID');
+    expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).postObserved).toBe('INVALID');
+  });
+
+  it('supervisor: the three lines come from the SAME single read; acceptance, exit content and cleanup are identical; nothing private leaks', async () => {
+    const secretRep = JSON.parse(e1Report({ results: [attempt({ steps: [{ title: 'E1_SAVED', error: { message: 'postgresql://postgres:hunter2@127.0.0.1:54322/x' } }],
+      stdout: [{ text: 'eyJhbGciOiJIUzI1NiJ9.x.y' }] })], rootErrors: [{ message: 'secret hunter2' }] }));
+    const r = await enter({ report: JSON.stringify(secretRep), e1Code: 1 });
+    expect(r.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP E1_SAVED\nLANE CLEANUP PASS\n`);
+    expect(r.lane()).not.toMatch(SECRET);
+    expect(r.lane().split('\n').every((l) => l === '' || /^LANE [A-Z0-9_ ]+$/.test(l))).toBe(true);
+    expect(parseLaneOut(r.lane())).toMatchObject({ ok: true, interrupted: false, attemptStatus: 'FAILED', failedStep: 'E1_SAVED', postObserved: { state: 'EVIDENCE' } });
+    // identical decisions: the same run with and without the r2 data has the same exit, pw-exit content, cleanup call and plan
+    const bare = JSON.parse(e1Report({ ann: [{ type: 'lane-apparmor', description: AA_POST_UNKNOWN }], title: 'E1 save', results: [attempt()] }));
+    const r0 = await enter({ report: JSON.stringify(bare), e1Code: 1 });
+    expect(r0.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\n${DIAG_TAIL}LANE CLEANUP PASS\n`);
+    for (const k of ['code'] as const) expect(r[k]).toBe(r0[k]);
+    expect(r.writes.get(3)).toBe(r0.writes.get(3));
+    expect(r.runs).toEqual(r0.runs);
+    const okPw = { state: 'ok', digits: '1' };
+    expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: okPw }));
+    expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:NO_EXIT_OBSERVED,NO_EXIT_OBSERVED attempt_status=FAILED failed_step=E1_SAVED cleanup=PASS`);
+    // a passing, enforced run still accepts exactly as before
+    const good = await enter({ report: e1Report({ ann: [{ type: 'lane-apparmor', description: AA_DESC }, { type: 'lane-post-observed', description: 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED' }], results: [attempt({ status: 'passed', error: undefined })] }) });
+    expect(good.code).toBe(0);
+    expect(planSummary({ verdict: OKV, laneText: good.lane(), pwExit: { state: 'ok', digits: '0' } })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
+    // the supervisor still reads the report exactly once and writes the three lines from that snapshot
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
+    expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
+    for (const t of ['say(`LANE E1 POST_OBSERVED ${snap.postObserved}`);', 'say(`LANE E1 ATTEMPT_STATUS ${snap.attemptStatus}`);', 'say(`LANE E1 FAILED_STEP ${snap.failedStep}`);']) expect(src).toContain(t);
+  });
+
+  it('grammar: the three r2 lines are required in order with closed, consistent values; decisions ignore them', () => {
+    const swap = (from: string, to: string) => LANE_OK.replace(from, to);
+    for (const bad of [
+      swap('LANE E1 POST_OBSERVED MISSING\n', ''), swap('LANE E1 ATTEMPT_STATUS UNKNOWN\n', ''), swap('LANE E1 FAILED_STEP UNKNOWN\n', ''),
+      swap(DIAG_TAIL, 'LANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 POST_OBSERVED MISSING\nLANE E1 FAILED_STEP UNKNOWN\n'),
+      swap('ATTEMPT_STATUS UNKNOWN', 'ATTEMPT_STATUS failed'), swap('ATTEMPT_STATUS UNKNOWN', 'ATTEMPT_STATUS SUCCESS'), swap('ATTEMPT_STATUS UNKNOWN', 'ATTEMPT_STATUS PASSED'),
+      swap('FAILED_STEP UNKNOWN', 'FAILED_STEP E1_OPEN'), swap('FAILED_STEP UNKNOWN', 'FAILED_STEP E1_BOGUS'),
+      swap('ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN', 'ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP NONE'),
+      swap('ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN', 'ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP E1_OPEN'),
+      swap('POST_OBSERVED MISSING', 'POST_OBSERVED ALIVE'), swap('POST_OBSERVED MISSING', `POST_OBSERVED ${OBS} secret`),
+      swap('POST_OBSERVED MISSING', 'POST_OBSERVED WORKER_READ OK OK BROWSER_READ OK NOT_TRIED EXIT UNKNOWN UNKNOWN'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING').replace('POST_OBSERVED MISSING', `POST_OBSERVED ${OBS}`),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID'), // report INVALID needs POST_OBSERVED INVALID
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING').replace('ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN', 'ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP UNKNOWN'),
+      `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP FAIL\nLANE E1 NOT RUN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`,
+    ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
+    const goods = [
+      swap(DIAG_TAIL, `LANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS TIMED_OUT\nLANE E1 FAILED_STEP E1_SETTLE\n`),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED INVALID\nLANE E1 ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP NONE\n'),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS INTERRUPTED\nLANE E1 FAILED_STEP UNKNOWN\n'),
+    ];
+    for (const g of goods) {
+      expect(parseLaneOut(g).ok, g).toBe(true);
+      // the plan and the cleanup-relevant fields are exactly those of LANE_OK: the r2 lines decide nothing
+      for (const pw of [{ state: 'ok', digits: '0' }, { state: 'ok', digits: '1' }, { state: 'absent' }, { state: 'bad' }])
+        expect(planSummary({ verdict: OKV, laneText: g, pwExit: pw as never })).toEqual(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: pw as never }));
+      const { postObserved: _p, attemptStatus: _a, failedStep: _f, ...rest } = parseLaneOut(g) as Obj;
+      const { postObserved: _p0, attemptStatus: _a0, failedStep: _f0, ...rest0 } = parseLaneOut(LANE_OK) as Obj;
+      expect(rest).toEqual(rest0);
+    }
+    // no gate, scope, verify or upload code reads the r2 fields
+    const contract = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
+    const uses = (k: string) => contract.split('\n').filter((l) => l.includes(`o.${k}`) || l.includes(`.${k}.`) || l.includes(`r.${k} =`)).length;
+    for (const k of ['attemptStatus', 'failedStep']) expect(uses(k), k).toBeLessThanOrEqual(2);
+    for (const f of ['gates.mjs', 'run-lane.mjs', 'image.mjs', 'bridge.mjs'])
+      expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/postObserved|attemptStatus|failedStep|POST_OBSERVED|ATTEMPT_STATUS|FAILED_STEP/);
   });
 });

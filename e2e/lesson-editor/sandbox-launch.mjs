@@ -158,16 +158,80 @@ export async function boundedLaunch(chromium, ours, sleep = defaultSleep) {
   return { code: 'LANE_E_LAUNCH_HUNG', browserState: 'UNKNOWN', marks: [] };
 }
 
-/** One AppArmor label read to a closed code; an unreadable label is APPARMOR_E_UNKNOWN. */
-export function labelCode(readLabel, who) {
+/** One AppArmor label read to a closed code; an unreadable label is APPARMOR_E_UNKNOWN. `note` (diagnostic only) is passed to
+ *  readLabel only when given, so the call without it is exactly the original one. */
+export function labelCode(readLabel, who, note) {
   let t = null;
-  try { t = readLabel(who); } catch { t = null; }
+  try { t = note ? readLabel(who, note) : readLabel(who); } catch { t = null; }
   return apparmorGate(t);
+}
+
+// E1 diagnostics r2 (closed tokens only; DIAGNOSTIC, never acceptance). Nothing here reads /proc, retries a read or changes a
+// gate: the read outcomes are noted from the SAME attempts readLabel already makes, and the exit observation reads only the
+// ChildProcess handle launchServer returned.
+/** One label-file attempt: OK (text read, non-blank after apparmorLabel's own normalisation), BLANK (read, blank), a closed
+ *  errno class, OTHER (any other throw), NOT_TRIED (an earlier attempt already returned). UNKNOWN = no outcome was noted. */
+export const READ_OUTCOMES = Object.freeze(['OK', 'BLANK', 'ENOENT', 'EACCES', 'EPERM', 'ESRCH', 'OTHER', 'NOT_TRIED', 'UNKNOWN']);
+/** Exit of the OWNED launch process, as observed by this worker: never ALIVE (no exit seen is not liveness). */
+export const EXIT_OBSERVATIONS = Object.freeze(['EXIT_OBSERVED', 'NO_EXIT_OBSERVED', 'UNKNOWN']);
+const ERRNO_CLASSES = new Set(['ENOENT', 'EACCES', 'EPERM', 'ESRCH']);
+/** A successful read's text to OK or BLANK (the same normalisation as expect.mjs apparmorLabel: NULs removed, trimmed). */
+export function readTextOutcome(text) {
+  return typeof text === 'string' && text.replace(/\0/g, '').trim() !== '' ? 'OK' : 'BLANK';
+}
+/** A thrown read to its closed class. Only an own string `code` is consulted; the message is never read. */
+export function readErrorOutcome(e) {
+  try {
+    const d = e && typeof e === 'object' ? Object.getOwnPropertyDescriptor(e, 'code') : undefined;
+    return d && 'value' in d && typeof d.value === 'string' && ERRNO_CLASSES.has(d.value) ? d.value : 'OTHER';
+  } catch { return 'OTHER'; }
+}
+/**
+ * The label read itself (egress-test.ts readLabel binds readFile to readFileSync(p, 'utf8')): /proc/<who>/attr/apparmor/current,
+ * then /proc/<who>/attr/current ONLY if the first threw. The first successful read is returned as is, even blank; null if both
+ * threw. `note`, when given, receives [primary, fallback] outcomes of THESE attempts (NOT_TRIED for an attempt not made); it
+ * adds no read and a throwing note changes nothing.
+ * @param {(p: string) => string} readFile
+ * @param {number | 'self'} who
+ * @param {((outcomes: string[]) => void) | undefined} note
+ * @returns {string | null}
+ */
+export function readLabelAttempts(readFile, who, note) {
+  const outcomes = ['NOT_TRIED', 'NOT_TRIED'];
+  let text = null;
+  const files = ['attr/apparmor/current', 'attr/current'];
+  for (let i = 0; i < files.length; i++) {
+    try { text = readFile(`/proc/${who}/${files[i]}`); outcomes[i] = readTextOutcome(text); break; } catch (e) { text = null; outcomes[i] = readErrorOutcome(e); /* next */ }
+  }
+  if (note) { try { note(outcomes); } catch { /* diagnostic only */ } }
+  return text;
+}
+const outcomePair = (v) => (Array.isArray(v) && v.length === 2 && v.every((x) => typeof x === 'string' && READ_OUTCOMES.includes(x)) ? [v[0], v[1]] : ['UNKNOWN', 'UNKNOWN']);
+
+/**
+ * Passive exit observer for the owned launch process (BrowserServer.process()). Registers one `exit` listener and, at each
+ * sample, also reads the handle's exitCode/signalCode, so an exit that happened BEFORE the listener was registered is still
+ * observed. EXIT_OBSERVED: the listener fired or a code/signal is set. NO_EXIT_OBSERVED: a registered listener has not fired
+ * and both fields are exactly null; this is NOT a liveness claim (an exit not yet delivered to Node reads the same).
+ * UNKNOWN: no usable handle, registration failed, unexpected field types, or any throw.
+ */
+export function exitObserver(child) {
+  let seen = false, registered = false;
+  try { if (child && typeof child === 'object' && typeof child.once === 'function') { child.once('exit', () => { seen = true; }); registered = true; } } catch { registered = false; }
+  return () => {
+    try {
+      if (seen) return 'EXIT_OBSERVED';
+      if (!child || typeof child !== 'object') return 'UNKNOWN';
+      const code = child.exitCode, signal = child.signalCode;
+      if ((code !== null && code !== undefined) || (signal !== null && signal !== undefined)) return 'EXIT_OBSERVED';
+      return registered && code === null && signal === null ? 'NO_EXIT_OBSERVED' : 'UNKNOWN';
+    } catch { return 'UNKNOWN'; }
+  };
 }
 
 /**
  * Post-run evidence for the worker and the owned browser; ok only if all four are ENFORCE (pre equal to post).
- * @param {{ pid: number, readLabel: (who: number | 'self') => string | null, pre: { worker: string, browser: string } }} state
+ * @param {{ pid: number, readLabel: (who: number | 'self', note?: (outcomes: string[]) => void) => string | null, exitObservation?: () => string, pre: { worker: string, browser: string } }} state
  */
 export function postrunAppArmor(state) {
   const worker = labelCode(state.readLabel, 'self'), browser = labelCode(state.readLabel, state.pid);
@@ -176,12 +240,33 @@ export function postrunAppArmor(state) {
 }
 
 /**
+ * E1 diagnostics r2: the SAME post-run evaluation as postrunAppArmor (same two reads, same order, same worker/browser/ok/line),
+ * plus `observed`, a closed line for the test-scoped gate's annotation ONLY (the worker-teardown POST keeps postrunAppArmor):
+ *   WORKER_READ <primary> <fallback> BROWSER_READ <primary> <fallback> EXIT <before reads> <after reads>
+ * Read outcomes are noted by readLabel from its own attempts (no extra read); EXIT is sampled from the owned handle only.
+ * `observed` decides nothing.
+ * @param {Parameters<typeof postrunAppArmor>[0]} state
+ */
+export function postrunAppArmorObserved(state) {
+  const exitOf = typeof state.exitObservation === 'function' ? state.exitObservation : () => 'UNKNOWN';
+  const sample = () => { try { const v = exitOf(); return EXIT_OBSERVATIONS.includes(v) ? v : 'UNKNOWN'; } catch { return 'UNKNOWN'; } };
+  let wr = null, br = null;
+  const before = sample();
+  const worker = labelCode(state.readLabel, 'self', (o) => { wr = o; }), browser = labelCode(state.readLabel, state.pid, (o) => { br = o; });
+  const after = sample();
+  const ok = [state.pre.worker, state.pre.browser, worker, browser].every((c) => c === AA_ENFORCE) && worker === state.pre.worker && browser === state.pre.browser;
+  const [w1, w2] = outcomePair(wr), [b1, b2] = outcomePair(br);
+  return { worker, browser, ok, line: `PRE ${state.pre.worker} ${state.pre.browser} POST ${worker} ${browser}`,
+    observed: `WORKER_READ ${w1} ${w2} BROWSER_READ ${b1} ${b2} EXIT ${before} ${after}` };
+}
+
+/**
  * Launch (bounded), attest, gate AppArmor (when readLabel is bound), connect, use, and clean up on EVERY path. A failed close
  * is recorded (marks) and followed by an AWAITED, bounded server.kill(); nothing is fire-and-forget. The first error (or a
  * cleanup failure) is rethrown as a fixed code.
  * @param {any} chromium
  * @param {{ launchOptions: any, defaults: any, shell?: string, outputDir?: string, proxyUrl?: string | null, readCmdline: (pid: number) => string,
- *   readLabel?: (who: number | 'self') => string | null, onAppArmor?: (state: any) => void, sleep?: (ms: number) => Promise<unknown> }} o
+ *   readLabel?: (who: number | 'self', note?: (outcomes: string[]) => void) => string | null, onAppArmor?: (state: any) => void, sleep?: (ms: number) => Promise<unknown> }} o
  * @param {(browser: any) => Promise<unknown>} use
  */
 export async function withSandboxedBrowser(chromium, { launchOptions, defaults, shell, outputDir, proxyUrl, readCmdline, readLabel, onAppArmor, sleep }, use) {
@@ -198,12 +283,14 @@ export async function withSandboxedBrowser(chromium, { launchOptions, defaults, 
   const server = l.server;
   let primary = null;
   try {
-    const pid = server.process()?.pid;
+    const child = server.process();
+    const pid = child?.pid;
+    const exitObservation = exitObserver(child); // passive, diagnostic only (postrunAppArmorObserved)
     const a = attestArgv(pid, readCmdline, shell);
     if (a) throw new SandboxLaunchError(a);
     let state = null;
     if (readLabel) {
-      state = { pid, readLabel, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
+      state = { pid, readLabel, exitObservation, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
       if (state.pre.browser !== AA_ENFORCE) throw new SandboxLaunchError('LANE_E_APPARMOR_PRE', { apparmor: state.pre.browser });
       onAppArmor?.(state);
     }
