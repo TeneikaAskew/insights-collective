@@ -1,13 +1,15 @@
 // ABOUTME: Student-facing course catalog page.
 // ABOUTME: Teachable/Podia-style light card grid with serif titles and yellow CTAs.
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CourseImage } from '@/components/common/CourseImage';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Clock, BookOpen, ArrowRight } from 'lucide-react';
+import { ESTIMATED_TIME_BUCKETS, formatEstimatedHours, matchesEstimatedTime, type EstimatedTimeBucket } from '@/lib/estimatedTime';
+import { ALL_CATEGORIES, categorySlug, disambiguateCategoryMenu, resolveCategoryParam } from '@/lib/catalogCategory';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLISHED_COLUMN } from '@/utils/coursePublish';
 import { Course } from '@/types';
@@ -22,15 +24,40 @@ const CourseList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
-  const [scheduleFilter, setScheduleFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState<EstimatedTimeBucket>('all');
   const { toast } = useToast();
   const navigate = useNavigate();
 
   const categories = [...new Set(courses.map(c => c.category).filter(Boolean))];
+
+  // Category lives in the URL (?category=<slug>) so homepage/footer links, direct loads and Back/Forward all agree.
+  // It is derived on every render from the location, never copied into state. Selector options carry slugs; two
+  // stored names with the same slug share one option. An unknown slug filters nothing and is announced below.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get('category');
+  const categoryResolution = resolveCategoryParam(categoryParam, categories);
+  const categoryOptions: [string, string][] = [];
+  for (const c of categories) {
+    const slug = categorySlug(c);
+    if (slug && !categoryOptions.some(([s]) => s === slug)) categoryOptions.push([slug, c]); // first name labels the option
+  }
+  const categoryValue = categoryResolution.kind === 'match' ? categoryResolution.optionValue : ALL_CATEGORIES;
+  // One menu, three kinds of entry (the All sentinel, each stored category, and a group entry while one is active).
+  // Every visible text, and so every accessible name, is unique even when a stored name equals another caption.
+  const categoryMenu = disambiguateCategoryMenu([
+    { value: ALL_CATEGORIES, label: 'All categories', kind: 'all' },
+    ...categoryOptions.map(([slug, name]) => ({ value: slug, label: name, kind: 'category' as const })),
+    ...(categoryResolution.kind === 'match' && categoryResolution.groupOption
+      ? [{ value: categoryResolution.optionValue, label: categoryResolution.optionLabel, kind: 'group' as const }]
+      : []),
+  ]);
+  const setCategory = (slug: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (slug === ALL_CATEGORIES) next.delete('category'); else next.set('category', slug);
+    setSearchParams(next); // a push entry, so Back steps to the previous category
+  };
   const levels = [...new Set(courses.map(c => c.level).filter(Boolean))];
-  const durations = [...new Set(courses.map(c => c.duration).filter(Boolean))];
 
   // Component-scoped so the error UI can offer a real retry (re-fetch)
   // instead of a full page reload.
@@ -96,10 +123,11 @@ const CourseList = () => {
       (c.description || '').toLowerCase().includes(s) ||
       (c.category || '').toLowerCase().includes(s) ||
       (c.instructor?.name || '').toLowerCase().includes(s);
-    const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter;
+    const matchesCategory = categoryResolution.kind !== 'match' || categoryResolution.names.includes(c.category);
     const matchesLevel = levelFilter === 'all' || c.level === levelFilter;
-    const matchesSchedule = scheduleFilter === 'all' || c.duration === scheduleFilter;
-    return matchesSearch && matchesCategory && matchesLevel && matchesSchedule;
+    // Estimated time reads estimated_hours only; legacy `duration` has no defined unit and is not a schedule.
+    const matchesTime = matchesEstimatedTime((c as any).estimated_hours, timeFilter);
+    return matchesSearch && matchesCategory && matchesLevel && matchesTime;
   });
 
   return (
@@ -134,14 +162,14 @@ const CourseList = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full md:w-[200px] h-11 rounded-full border-border bg-card">
+          <Select value={categoryValue} onValueChange={setCategory}>
+            <SelectTrigger aria-label="Category" className="w-full md:w-[200px] h-11 rounded-full border-border bg-card">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+              {/* The group entry (present only while a several-name group or alias match is active) comes last. */}
+              {categoryMenu.map((e) => (
+                <SelectItem key={e.value} value={e.value}>{e.text}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -156,18 +184,28 @@ const CourseList = () => {
               ))}
             </SelectContent>
           </Select>
-          <Select value={scheduleFilter} onValueChange={setScheduleFilter}>
-            <SelectTrigger className="w-full md:w-[180px] h-11 rounded-full border-border bg-card">
-              <SelectValue placeholder="Schedule" />
+          <Select value={timeFilter} onValueChange={(v) => setTimeFilter(v as EstimatedTimeBucket)}>
+            <SelectTrigger aria-label="Estimated time" className="w-full md:w-[180px] h-11 rounded-full border-border bg-card">
+              <SelectValue placeholder="Estimated time" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Any schedule</SelectItem>
-              {durations.map((d) => (
-                <SelectItem key={d} value={d}>{d}</SelectItem>
+              <SelectItem value="all">Any estimated time</SelectItem>
+              {ESTIMATED_TIME_BUCKETS.map((b) => (
+                <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {!loading && !error && categoryResolution.kind === 'unknown' && (
+          <div role="status" className="max-w-7xl mx-auto mb-6 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+            No published courses match the category “{categoryResolution.raw}”, so courses from all categories are
+            shown. Your search and other filters still apply.{' '}
+            <button type="button" className="underline text-foreground" onClick={() => setCategory(ALL_CATEGORIES)}>
+              Clear category
+            </button>
+          </div>
+        )}
 
         {/* Grid */}
         <div data-onboarding="course-grid" className="max-w-7xl mx-auto">
@@ -197,7 +235,7 @@ const CourseList = () => {
               <p className="text-muted-foreground mb-4">Try adjusting your search or filters.</p>
               <Button
                 variant="outline"
-                onClick={() => { setSearchQuery(''); setCategoryFilter('all'); setLevelFilter('all'); setScheduleFilter('all'); }}
+                onClick={() => { setSearchQuery(''); setCategory(ALL_CATEGORIES); setLevelFilter('all'); setTimeFilter('all'); }}
               >
                 Clear filters
               </Button>
@@ -251,9 +289,9 @@ const CourseList = () => {
                         </p>
                       )}
                       <div className="mt-4 flex items-center gap-4 text-xs text-muted-foreground">
-                        {course.duration && (
+                        {formatEstimatedHours((course as any).estimated_hours) && (
                           <span className="inline-flex items-center gap-1">
-                            <Clock className="h-3.5 w-3.5" /> {course.duration}
+                            <Clock className="h-3.5 w-3.5" aria-hidden="true" /> <span className="sr-only">Estimated time: </span>{formatEstimatedHours((course as any).estimated_hours)}
                           </span>
                         )}
                         {course.level && (
