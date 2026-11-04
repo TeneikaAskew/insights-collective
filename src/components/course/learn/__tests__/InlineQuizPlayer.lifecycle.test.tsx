@@ -282,6 +282,51 @@ describe('InlineQuizPlayer lifecycle', () => {
     expect(onCompleted).not.toHaveBeenCalled();
   });
 
+  it('leaving during a slow start keeps the answer: the start lands, the answer is saved, and returning resumes it', async () => {
+    const server = createQuizServer({ quizzes: [serverQuiz('qa', 1), serverQuiz('qb', 1)] });
+    server.install();
+    const gateStart = gate();
+    server.hooks.beforeStart = (id) => (id === 'qa' ? gateStart.promise : undefined);
+
+    const { rerender } = render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
+    rerender(<InlineQuizPlayer item={itemFor('qb')} quiz={makeQuiz('qb', 1)} />);
+    await screen.findByText('qb: What is 2+2?');
+    await act(async () => gateStart.release());
+
+    await waitFor(() =>
+      expect(server.calls.answerWrites).toEqual([
+        { submissionId: server.submissions[0].id, answers: { 'qa-q1': 'qa-a1' }, stateAtApply: 'pending_review' },
+      ]),
+    );
+
+    rerender(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    await screen.findByTestId('quiz-player-active');
+    expect(await screen.findByRole('radio', { name: 'Four' })).toBeChecked();
+    expect(server.calls.startRpc).toEqual(['qa']);
+    expect(server.submissions).toHaveLength(1);
+  });
+
+  it('returning before a slow start lands waits for it instead of starting a second attempt', async () => {
+    const server = createQuizServer({ quizzes: [serverQuiz('qa', 2), serverQuiz('qb', 1)] });
+    server.install();
+    const gateStart = gate();
+    server.hooks.beforeStart = (id) => (id === 'qa' ? gateStart.promise : undefined);
+
+    const { rerender } = render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 2)} />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
+    rerender(<InlineQuizPlayer item={itemFor('qb')} quiz={makeQuiz('qb', 1)} />);
+    await screen.findByText('qb: What is 2+2?');
+    rerender(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 2)} />);
+    await act(async () => gateStart.release());
+
+    await screen.findByTestId('quiz-player-active');
+    expect(await screen.findByRole('radio', { name: 'Four' })).toBeChecked();
+    expect(server.calls.startRpc).toEqual(['qa']);
+    expect(server.submissions).toHaveLength(1);
+    expect(server.submissions[0].attempt).toBe(1);
+  });
+
   it('a slow attempt lookup for A resolving after switching to B does not overwrite B', async () => {
     const server = createQuizServer({ quizzes: [serverQuiz('qa', 2), serverQuiz('qb', 2)] });
     server.install();
