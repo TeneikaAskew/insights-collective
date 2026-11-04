@@ -3,6 +3,10 @@
 -- Same course, two quizzes (A, B) and a reading page. Real triggers and RLS, the learner acting as `authenticated`
 -- with PostgREST claims, finalize as service_role (what score-quiz calls). Positives use genuinely finalized
 -- ZERO-score attempts: the minimum-submission policy is unchanged and no pass threshold is introduced.
+-- X (cross-target): the same moves aimed at targets the learner cannot reach at all: a quiz in course X, where the
+-- learner is not enrolled, and an unpublished (hidden) quiz in course Y, where the learner IS enrolled. Y is separate
+-- from the main course so the main course's certificate cases keep their item set. 20261101000300 pins quiz_id/user_id
+-- and 20261101000500 requires the progression's target to be accessible, so neither move may produce evidence there.
 -- Synthetic rows, one transaction, rolled back.
 \set ON_ERROR_STOP on
 begin;
@@ -15,17 +19,32 @@ begin;
 \set itemB 'dddddddd-0000-4000-8000-000000000013'
 \set quizA 'dddddddd-0000-4000-8000-000000000021'
 \set quizB 'dddddddd-0000-4000-8000-000000000022'
-insert into auth.users (id, email) values (:'instr','r-instr@local.test'), (:'stud','r-stud@local.test'), (:'stud2','r-stud2@local.test');
-insert into public.profiles (id) select id from auth.users where id in (:'instr', :'stud', :'stud2') on conflict (id) do nothing;
-insert into public.user_roles (user_id, role) values (:'instr','instructor'), (:'stud','student'), (:'stud2','student') on conflict do nothing;
-insert into public.courses (id, title, description, category, level, instructor_id, published) values (:'course','T-09 retarget course','synthetic','General','beginner', :'instr', true);
+\set courseY 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeef'
+\set itemH 'eeeeeeee-0000-4000-8000-000000000014'
+\set quizH 'eeeeeeee-0000-4000-8000-000000000024'
+\set instrX '42222222-2222-4222-8222-222222222222'
+\set courseX 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'
+\set itemX 'eeeeeeee-0000-4000-8000-000000000012'
+\set quizX 'eeeeeeee-0000-4000-8000-000000000021'
+insert into auth.users (id, email) values (:'instr','r-instr@local.test'), (:'stud','r-stud@local.test'), (:'stud2','r-stud2@local.test'), (:'instrX','r-instrx@local.test');
+insert into public.profiles (id) select id from auth.users where id in (:'instr', :'stud', :'stud2', :'instrX') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values (:'instr','instructor'), (:'stud','student'), (:'stud2','student'), (:'instrX','instructor') on conflict do nothing;
+insert into public.courses (id, title, description, category, level, instructor_id, published) values (:'course','T-09 retarget course','synthetic','General','beginner', :'instr', true),
+  (:'courseX','T-09 other course','synthetic','General','beginner', :'instrX', true),
+  (:'courseY','T-09 hidden-quiz course','synthetic','General','beginner', :'instr', true);
 insert into public.modules (id, course_id, title, position, published) values ('dddddddd-0000-4000-8000-000000000001', :'course', 'M1', 1, true);
 insert into public.content_items (id, course_id, module_id, type, title, position, published) values
   (:'page',  :'course', 'dddddddd-0000-4000-8000-000000000001', 'page', 'Reading', 1, true),
   (:'itemA', :'course', 'dddddddd-0000-4000-8000-000000000001', 'quiz', 'Quiz A',  2, true),
   (:'itemB', :'course', 'dddddddd-0000-4000-8000-000000000001', 'quiz', 'Quiz B',  3, true);
-insert into public.quizzes (id, content_item_id, title, allowed_attempts) values (:'quizA', :'itemA', 'Quiz A', 0), (:'quizB', :'itemB', 'Quiz B', 0);
-insert into public.enrollments (user_id, course_id) values (:'stud', :'course'), (:'stud2', :'course');
+insert into public.modules (id, course_id, title, position, published) values ('eeeeeeee-0000-4000-8000-000000000001', :'courseX', 'MX', 1, true),
+  ('eeeeeeee-0000-4000-8000-000000000002', :'courseY', 'MY', 1, true);
+insert into public.content_items (id, course_id, module_id, type, title, position, published) values
+  (:'itemX', :'courseX', 'eeeeeeee-0000-4000-8000-000000000001', 'quiz', 'Quiz X', 1, true),
+  (:'itemH', :'courseY', 'eeeeeeee-0000-4000-8000-000000000002', 'quiz', 'Hidden quiz', 1, false);
+insert into public.quizzes (id, content_item_id, title, allowed_attempts) values (:'quizA', :'itemA', 'Quiz A', 0), (:'quizB', :'itemB', 'Quiz B', 0),
+  (:'quizH', :'itemH', 'Hidden quiz', 0), (:'quizX', :'itemX', 'Quiz X', 0);
+insert into public.enrollments (user_id, course_id) values (:'stud', :'course'), (:'stud2', :'course'), (:'stud', :'courseY');
 
 create temp table results (name text, pass boolean, detail text); grant all on results to public;
 create or replace function pg_temp.as_user(p_uid uuid, p_role text) returns void language plpgsql as $$
@@ -99,6 +118,33 @@ select pg_temp.check('R2d user_id cannot be moved to another learner (attempt st
 select pg_temp.finalize_zero(:'stud', :'quizB');
 select pg_temp.check('R2e positive: B finalized genuinely (score 0) -> B accepted and one certificate',
   pg_temp.mark(:'stud', :'itemB', 'completed') = 'accepted' and pg_temp.certs(:'stud') = 1, format('certificates=%s', pg_temp.certs(:'stud')));
+
+-- ===== X. inaccessible targets: the learner's finalized attempt on A and done row on A, aimed at quiz X (course X,
+-- not enrolled) and the hidden quiz H (course Y, enrolled, unpublished). State going in: stud has finalized A and B, done
+-- rows on page/A/B and one certificate for the course. The outcome is asserted, not the layer that stops it.
+select pg_temp.learner(:'stud', format('update public.quiz_submissions set quiz_id = %L where user_id = %L and quiz_id = %L', :'quizX', :'stud', :'quizA'));
+select pg_temp.check('X1 a finalized attempt cannot be moved to a quiz in an unenrolled course (stays on A, X has none)',
+  pg_temp.submitted(:'stud', :'quizA') = 1 and (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizX') = 0,
+  format('submittedA=%s attemptsX=%s', pg_temp.submitted(:'stud', :'quizA'), (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizX')));
+select pg_temp.learner(:'stud', format('update public.quiz_submissions set quiz_id = %L where user_id = %L and quiz_id = %L', :'quizH', :'stud', :'quizA'));
+select pg_temp.check('X2 a finalized attempt cannot be moved to a hidden quiz in another enrolled course (stays on A, H has none)',
+  pg_temp.submitted(:'stud', :'quizA') = 1 and (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizH') = 0,
+  format('submittedA=%s attemptsH=%s', pg_temp.submitted(:'stud', :'quizA'), (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizH')));
+select pg_temp.check('X3 the done row on A cannot be moved onto quiz X in an unenrolled course',
+  (pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemX', :'stud', :'itemA')) like 'REFUSED%'
+   or pg_temp.state(:'stud', :'itemX') = 'none')
+  and pg_temp.state(:'stud', :'itemX') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
+  format('X=%s A=%s', pg_temp.state(:'stud', :'itemX'), pg_temp.state(:'stud', :'itemA')));
+select pg_temp.check('X4 the done row on A cannot be moved onto the hidden quiz H of an enrolled course',
+  (pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemH', :'stud', :'itemA')) like 'REFUSED%'
+   or pg_temp.state(:'stud', :'itemH') = 'none')
+  and pg_temp.state(:'stud', :'itemH') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
+  format('H=%s A=%s', pg_temp.state(:'stud', :'itemH'), pg_temp.state(:'stud', :'itemA')));
+select pg_temp.check('X5 marking quiz X complete directly is REFUSED (no attempt, no enrollment)',
+  pg_temp.mark(:'stud', :'itemX', 'completed') like 'REFUSED%', format('X=%s', pg_temp.state(:'stud', :'itemX')));
+select pg_temp.check('X6 no certificate in course X or Y, and still exactly one in the learner''s own course',
+  (select count(*) from public.certificates where user_id = :'stud' and course_id in (:'courseX', :'courseY')) = 0 and pg_temp.certs(:'stud') = 1,
+  format('certsX=%s certs=%s', (select count(*) from public.certificates where user_id = :'stud' and course_id = :'courseX'), pg_temp.certs(:'stud')));
 
 select case when pass then 'PASS ' else 'FAIL ' end || name || case when pass or detail = '' then '' else ' (' || detail || ')' end as line from results order by name;
 do $$ declare f int; begin select count(*) into f from results where not pass;

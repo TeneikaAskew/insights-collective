@@ -52,6 +52,13 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     count; genuinely finalized zero-score attempts still do. Live-equivalent 5/11; with `20261101000300` 11/11.
   - With `20261101000000`, `000100` and `000200` all applied: 01 54/54, 02 16/16, 03 10/10, 04 17/17. 02's started-only
     checks now assert the required refusal (14/16 on the live-equivalent schema).
+  - Added for the November release, written but NOT yet executed (no counts recorded until a run on the isolated
+    database): 03 gains an assigned co-instructor (published and unpublished, allowed) and an instructor enrolled
+    only in another course (refused); 05 gains X1 to X6, moving a finalized attempt or done row onto a quiz in an
+    unenrolled course or a hidden quiz of an enrolled course; 08 gains T0 to T8, a learner who lost access to the
+    old target (unenrolled, or item unpublished) can neither edit the row nor move it onto a target they can still
+    reach; `07_narrow_reads.sql` is new, the behavioural test of `20261102000000` (career quiz attempts by owner and
+    anonymous session, feedback by owner or admin, blog settings by admin or instructor, with insert/write controls).
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
   exist in production (reference course, modules, the three `e2e-*` accounts) so the seed can be
   rehearsed offline: `psql <url> -f scripts/local-db/local-preseed.sql` then
