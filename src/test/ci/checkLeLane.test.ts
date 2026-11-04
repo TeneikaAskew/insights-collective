@@ -1546,6 +1546,36 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
       expect(e1ResultClass(bad), JSON.stringify(bad)).toBe('NO_CODE');
   });
 
+  it('result class needs OWN DATA fields of the right type: inherited, accessor, symbol, proxy or mistyped shapes are NO_CODE', () => {
+    const getterCalls: string[] = [];
+    const withGetter = (k: string, v: unknown) => Object.defineProperty({ code: 0 }, k, { get: () => { getterCalls.push(k); return v; }, enumerable: true });
+    const nullProto = Object.assign(Object.create(null), { code: 0 });
+    const cases: [string, unknown][] = [
+      ['inherited code', Object.create({ code: 0 })],
+      ['own null code + inherited unreaped', Object.assign(Object.create({ unreaped: true }), { code: null })],
+      ['inherited code via prototype chain of a class', new (class { code = 0; })()],
+      ['null prototype', nullProto],
+      ['out is a number', { code: 0, out: 123 }],
+      ['out is a buffer', { code: 0, out: Buffer.from('x') }],
+      ['out null', { code: 0, out: null }],
+      ['code getter', withGetter('code', 0)],
+      ['out getter', withGetter('out', '')],
+      ['unreaped getter', Object.defineProperty({ code: null }, 'unreaped', { get: () => true, enumerable: true })],
+      ['non-enumerable unreaped', Object.defineProperty({ code: null, out: '' }, 'unreaped', { value: true, enumerable: false })],
+      ['symbol key', { code: 0, [Symbol('x')]: 1 }],
+      ['unreaped false', { code: null, unreaped: false }],
+      ['unreaped with a code', { code: 0, out: '', unreaped: true }],
+      ['no code at all', { out: '' }],
+      ['proxy that throws', new Proxy({ code: 0 }, { ownKeys: () => { throw new Error('trap'); } })],
+    ];
+    for (const [name, v] of cases) expect(e1ResultClass(v), name).toBe('NO_CODE');
+    expect(getterCalls).toEqual([]); // getters are never invoked
+    // the exact shapes runChild builds still classify
+    expect(e1ResultClass({ code: 7, out: '' })).toBe('CLOSE_WITH_CODE');
+    expect(e1ResultClass({ code: null, out: '', unreaped: true })).toBe('REAP_UNCONFIRMED');
+    expect(e1ResultClass({ code: null, out: '' })).toBe('NO_CODE');
+  });
+
   const fakeChild = () => { const c = new EventEmitter() as EventEmitter & { kill: (s: string) => void; kills: string[]; stdout: null }; c.kills = []; c.kill = (s) => { c.kills.push(s); }; c.stdout = null; return c; };
   it('runChild (unchanged) through the classifier: close, timeout then close, error, spawn throw, final unreaped fallback, late events', async () => {
     vi.useFakeTimers();

@@ -242,12 +242,24 @@ export const REPORTED_ERROR_VALUES = Object.freeze([...REPORTED_ERROR_CODES, 'MU
 
 /** Classify a runChild result object. Only the two exact known shapes get a specific class; everything else is NO_CODE. */
 export function e1ResultClass(res) {
-  if (!res || typeof res !== 'object' || Array.isArray(res)) return 'NO_CODE';
-  const keys = Object.keys(res);
-  if (keys.some((k) => !['code', 'out', 'unreaped'].includes(k))) return 'NO_CODE';
-  if (res.unreaped === true) return res.code === null ? 'REAP_UNCONFIRMED' : 'NO_CODE';
-  if ('unreaped' in res) return 'NO_CODE';
-  return Number.isInteger(res.code) && res.code >= 0 && res.code <= 255 ? 'CLOSE_WITH_CODE' : 'NO_CODE';
+  try {
+    // A plain object (the literal runChild builds) whose fields are OWN, ENUMERABLE DATA properties with the right types.
+    // Inherited fields, accessors (getters are never invoked), non-enumerable or symbol keys, extra keys, a non-string `out`
+    // or a conflicting pair are NO_CODE.
+    if (!res || typeof res !== 'object' || Array.isArray(res) || Object.getPrototypeOf(res) !== Object.prototype) return 'NO_CODE';
+    const keys = Reflect.ownKeys(res);
+    if (keys.some((k) => typeof k !== 'string' || !['code', 'out', 'unreaped'].includes(k))) return 'NO_CODE';
+    const own = {};
+    for (const k of keys) {
+      const d = Object.getOwnPropertyDescriptor(res, k);
+      if (!d || !('value' in d) || d.enumerable !== true) return 'NO_CODE';
+      own[k] = d.value;
+    }
+    if (!('code' in own)) return 'NO_CODE';
+    if ('out' in own && typeof own.out !== 'string') return 'NO_CODE';
+    if ('unreaped' in own) return own.unreaped === true && own.code === null ? 'REAP_UNCONFIRMED' : 'NO_CODE';
+    return Number.isInteger(own.code) && own.code >= 0 && own.code <= 255 ? 'CLOSE_WITH_CODE' : 'NO_CODE';
+  } catch { return 'NO_CODE'; } // a Proxy trap that throws
 }
 
 /** A message from a DEFINED report error field: exactly `<CODE>` or `Error: <CODE>` (Playwright's name prefix). */
