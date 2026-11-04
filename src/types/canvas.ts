@@ -24,7 +24,10 @@ export interface ContentItem {
 export interface Assignment {
   id: string;
   content_item_id: string;
-  points_possible: number | null;
+  /** The real column on public.assignments. */
+  points?: number | null;
+  /** Legacy alias: not a column on public.assignments; raw assignments(*) embeds never carry it. Read via assignmentPointsPossible. */
+  points_possible?: number | null;
   due_at: string | null;
   unlock_at: string | null;
   lock_at: string | null;

@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
+import { assignmentPointsPossible, assertGradeSaved } from '@/lib/assignmentGrading';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
@@ -67,7 +68,9 @@ function CanvasGradingInterface() {
   const [feedback, setFeedback] = useState<string>('');
   const gradeInputRef = useRef<HTMLInputElement>(null);
 
-  const pointsPossible = contentItem?.assignment?.points_possible ?? 100;
+  // Denominator from the real column (assignments.points). The 100 fallback applies ONLY when the row has no points
+  // at all, exactly as before; a genuine 10-point assignment is no longer graded out of 100.
+  const pointsPossible = assignmentPointsPossible(contentItem?.assignment) ?? 100;
 
   useEffect(() => { loadGradingData(); }, [contentItemId]);
 
@@ -171,25 +174,30 @@ function CanvasGradingInterface() {
       }
       try {
         setSaving(true);
-        const { error } = await supabase
+        // assignment_submissions has no grader_id column; grader attribution
+        // is modeled on grades.graded_by / grade_history.changed_by. Sending
+        // it here made PostgREST reject the whole update, so saving a grade
+        // failed outright.
+        const written = {
+          grade: gradeNum,
+          grader_comments: feedback,
+          graded_at: new Date().toISOString(),
+          workflow_state: 'graded',
+        };
+        const { data, error } = await supabase
           .from('assignment_submissions')
-          .update({
-            // assignment_submissions has no grader_id column; grader attribution
-            // is modeled on grades.graded_by / grade_history.changed_by. Sending
-            // it here made PostgREST reject the whole update, so saving a grade
-            // failed outright.
-            grade: gradeNum,
-            grader_comments: feedback,
-            graded_at: new Date().toISOString(),
-            workflow_state: 'graded',
-          })
-          .eq('id', selectedSubmission.id);
+          .update(written)
+          .eq('id', selectedSubmission.id)
+          .select('id, grade, grader_comments, workflow_state, graded_at');
         if (error) throw error;
+        // Error-free is not saved: RLS can match zero rows and the grade pin can revert grade, feedback and
+        // graded_at while workflow_state still changes. Every written field must read back.
+        const saved = assertGradeSaved(data as any, selectedSubmission.id, written) as any;
 
         setSubmissions((prev) =>
           prev.map((s) =>
             s.id === selectedSubmission.id
-              ? { ...s, grade: gradeNum, grader_comments: feedback, workflow_state: 'graded', graded_at: new Date().toISOString() }
+              ? { ...s, grade: saved.grade, grader_comments: saved.grader_comments, workflow_state: saved.workflow_state, graded_at: saved.graded_at }
               : s,
           ),
         );
