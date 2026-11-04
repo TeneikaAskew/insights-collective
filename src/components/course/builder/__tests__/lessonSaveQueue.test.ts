@@ -226,6 +226,70 @@ describe('LessonSaveQueue', () => {
     expect(q.get('A')!.status).toBe('saved');
   });
 
+  describe('version-only changes (curriculum reorder bumps updated_at)', () => {
+    const conflictWith = (current: PersistedLesson) =>
+      Object.assign(new Error('changed'), { name: 'LessonSaveConflictError', current });
+
+    it('a save after a reorder adopts the new version and saves, with no conflict shown', async () => {
+      let serverVersion = 't1';
+      const persist = vi.fn(async (id: string, f: any, expected: string | null) => {
+        if (expected !== serverVersion) throw conflictWith(row(id, 'Old', 'Body', serverVersion));
+        serverVersion = 't3';
+        return row(id, f.title, f.content, 't3');
+      });
+      const q = new LessonSaveQueue({ read: noRead, persist });
+      q.track(row('A', 'Old', 'Body', 't1'));
+      serverVersion = 't2'; // reorder_content_items touched the row: same title and body, new version
+      q.edit('A', { title: 'New', content: 'Body' });
+      await expect(q.flush('A')).resolves.toBe(true);
+      expect(persist).toHaveBeenNthCalledWith(1, 'A', { title: 'New', content: 'Body' }, 't1');
+      expect(persist).toHaveBeenNthCalledWith(2, 'A', { title: 'New', content: 'Body' }, 't2');
+      expect(q.get('A')!.status).toBe('saved');
+      expect(q.get('A')!.conflictWith).toBeNull();
+    });
+
+    it('still reports a conflict when the title or body changed elsewhere', async () => {
+      const persist = vi.fn(async (id: string) => {
+        throw conflictWith(row(id, 'Old', 'Edited in another tab', 't2'));
+      });
+      const q = new LessonSaveQueue({ read: noRead, persist });
+      q.track(row('A', 'Old', 'Body', 't1'));
+      q.edit('A', { title: 'New', content: 'Body' });
+      await q.flush('A');
+      expect(persist).toHaveBeenCalledTimes(1);
+      expect(q.get('A')!.status).toBe('conflict');
+    });
+
+    it('gives up after a bounded number of version-only retries', async () => {
+      let n = 1;
+      const persist = vi.fn(async (id: string) => {
+        n += 1;
+        throw conflictWith(row(id, 'Old', 'Body', `t${n}`));
+      });
+      const q = new LessonSaveQueue({ read: noRead, persist });
+      q.track(row('A', 'Old', 'Body', 't1'));
+      q.edit('A', { title: 'New', content: 'Body' });
+      await q.flush('A');
+      expect(persist).toHaveBeenCalledTimes(3);
+      expect(q.get('A')!.status).toBe('conflict');
+    });
+
+    it('a publish after a reorder retries once on the new version', async () => {
+      const persist = vi.fn();
+      const side = vi
+        .fn()
+        .mockRejectedValueOnce(conflictWith(row('A', 'Old', 'Body', 't2')))
+        .mockResolvedValueOnce({ ...row('A', 'Old', 'Body', 't3'), published: true });
+      const q = new LessonSaveQueue({ read: noRead, persist });
+      q.track(row('A', 'Old', 'Body', 't1'));
+      await expect(q.sideWrite('A', side)).resolves.toMatchObject({ ok: true });
+      expect(side).toHaveBeenNthCalledWith(1, 't1');
+      expect(side).toHaveBeenNthCalledWith(2, 't2');
+      expect(persist).not.toHaveBeenCalled();
+      expect(q.get('A')!.status).toBe('saved');
+    });
+  });
+
   it('useTheirs discards the draft and adopts the server row', async () => {
     const theirs = row('A', 'Theirs', 'tb', 't9');
     const persist = vi.fn(async () => {

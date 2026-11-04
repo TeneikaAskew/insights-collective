@@ -173,6 +173,8 @@ export function isDefinitive(err: any): boolean {
   if (!/^[0-9A-Z]{5}$/.test(code)) return false;
   return DEFINITIVE_SQLSTATES.has(code) || DEFINITIVE_SQLSTATE_CLASSES.has(code.slice(0, 2));
 }
+/** Version-only rebases per sync: a concurrent reorder rarely lands twice in a row; beyond this, report. */
+const MAX_VERSION_REBASES = 2;
 const isConflict = (err: any) => !!err && err.name === 'LessonSaveConflictError' && !!err.current;
 
 export function describeSaveError(err: unknown): string {
@@ -570,6 +572,24 @@ export class LessonSaveQueue {
     void this.notifyFailed(id, e);
   }
 
+  /**
+   * A send refused by its version condition where the lesson's title and body still equal what we last
+   * confirmed: only `updated_at` moved, as when reorder_content_items rewrites positions (its update
+   * fires the content_items updated_at trigger for every lesson in the module). Nothing the author could
+   * lose, so adopt the new version and let the caller re-send. Refused (the caller reports the conflict)
+   * when the lesson is uncertain or any other send may still commit on an older version.
+   */
+  private rebaseOnVersionOnlyChange(id: string, e: Entry, err: unknown, send: Send): boolean {
+    if (!isConflict(err) || e.uncertain) return false;
+    const cur = (err as any).current as PersistedLesson;
+    if (cur.id !== id || cur.updated_at === undefined || !sameFields(fieldsOf(cur), e.server)) return false;
+    if (e.outstanding.some((o) => o !== send)) return false;
+    e.outstanding = [];
+    e.version = versionOf(cur);
+    this.mirror(id, e);
+    return true;
+  }
+
   private markConflict(id: string, e: Entry, row: PersistedLesson, message: string) {
     e.status = 'conflict';
     e.conflictWith = { ...row, ...fieldsOf(row) };
@@ -657,6 +677,7 @@ export class LessonSaveQueue {
         return false;
       }
     }
+    let rebases = 0;
     while (!sameFields(e.draft, e.server) || e.needsFence) {
       if (!(await this.mayAct()) || this.entries.get(id) !== e) {
         if (e.status === 'saving') e.status = e.uncertain ? 'error' : 'dirty';
@@ -678,6 +699,10 @@ export class LessonSaveQueue {
         row = await this.persist(id, sent, expected);
       } catch (err) {
         if (this.entries.get(id) !== e) return false;
+        if (rebases < MAX_VERSION_REBASES && this.rebaseOnVersionOnlyChange(id, e, err, send)) {
+          rebases += 1;
+          continue; // re-send the same draft on the adopted version
+        }
         this.fail(id, e, err, send);
         return false;
       }
@@ -828,8 +853,32 @@ export class LessonSaveQueue {
           row = await write(expected);
         } catch (err) {
           if (this.entries.get(id) !== e) return { ok: false, reason: 'Lesson removed.' };
-          this.fail(id, e, err, send);
-          return { ok: false, reason: e.error ?? 'Not changed.' };
+          if (!this.rebaseOnVersionOnlyChange(id, e, err, send)) {
+            this.fail(id, e, err, send);
+            return { ok: false, reason: e.error ?? 'Not changed.' };
+          }
+          // Only the version moved (for example a curriculum reorder): retry once on the adopted version.
+          const rebased = (e.version as { value: string | null }).value;
+          const retrySend: Send = { fields: { ...e.server }, expected: rebased };
+          e.outstanding.push(retrySend);
+          this.mirror(id, e);
+          try {
+            row = await write(rebased);
+          } catch (err2) {
+            if (this.entries.get(id) !== e) return { ok: false, reason: 'Lesson removed.' };
+            this.fail(id, e, err2, retrySend);
+            return { ok: false, reason: e.error ?? 'Not changed.' };
+          }
+          if (this.entries.get(id) !== e) return { ok: false, reason: 'Lesson removed.' };
+          if (!row || row.id !== id || !sameFields(fieldsOf(row), e.server) || row.updated_at === undefined) {
+            this.fail(id, e, new Error('The server response did not confirm this change.'), retrySend);
+            return { ok: false, reason: e.error ?? 'Not confirmed.' };
+          }
+          e.version = versionOf(row);
+          e.outstanding = [];
+          this.mirror(id, e);
+          this.emit(e, id);
+          return { ok: true, row };
         }
         if (this.entries.get(id) !== e) return { ok: false, reason: 'Lesson removed.' };
         if (!row || row.id !== id || !sameFields(fieldsOf(row), e.server) || row.updated_at === undefined) {
