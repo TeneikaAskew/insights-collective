@@ -1009,7 +1009,7 @@ describe('video observer lifecycle (correction c1): kept through owned context a
   });
 
   function okPrecheckContext({ box = { width: 120, height: 18 } as unknown, setContent = async () => {}, close = async () => {}, during = (_c: EventEmitter) => {} } = {}) {
-    const ctx = fakeContext([]) as EventEmitter & Record<string, unknown>;
+    const ctx = fakeContext([]) as unknown as EventEmitter & Record<string, unknown>;
     const calls: unknown[] = [];
     Object.assign(ctx, {
       calls,
