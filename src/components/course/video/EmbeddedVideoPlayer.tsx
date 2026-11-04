@@ -62,27 +62,38 @@ export function EmbeddedVideoPlayer({
   const [state, setState] = useState<FrameState>('loading');
   const statusId = useId();
   const frameBoxRef = useRef<HTMLDivElement>(null);
-  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined');
+  // Visibility is scoped to one source generation: seenSrc records WHICH frame
+  // source first intersected the viewport. A replaced, removed-then-restored or
+  // never-seen source compares unequal and starts unseen. Within a generation,
+  // the first intersection is sticky (the lazy frame has been requested by then),
+  // so later exits, re-entries and Retry never pause or skip the clock.
+  const noObserver = typeof IntersectionObserver === 'undefined';
+  const [seenSrc, setSeenSrc] = useState<string | null>(null);
+  const seen = frameSrc !== null && (noObserver || seenSrc === frameSrc);
 
-  // Once the frame box has entered the viewport it stays "seen": the lazy
-  // frame has been requested by then, so later scrolling never restarts or
-  // pauses the slow clock.
   useEffect(() => {
-    if (!frameSrc || inView) return;
+    if (!frameSrc || seen) return;
     const el = frameBoxRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setInView(true);
-      return;
-    }
+    if (!el) return;
+    // A callback already queued when this generation is cleaned up (replacement
+    // or unmount) must not mark anything seen: `active` is checked first, and
+    // the source it records is this generation's own, never the current one.
+    let active = true;
+    const generationSrc = frameSrc;
     const observer = new IntersectionObserver((entries) => {
+      if (!active) return;
       if (entries.some((entry) => entry.isIntersecting)) {
-        setInView(true);
+        active = false;
         observer.disconnect();
+        setSeenSrc(generationSrc);
       }
     });
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [frameSrc, inView]);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [frameSrc, seen]);
 
   // A new source or a Retry starts a fresh attempt.
   useEffect(() => {
@@ -90,15 +101,15 @@ export function EmbeddedVideoPlayer({
     setState('loading');
   }, [frameSrc, attempt]);
 
-  // The slow clock runs only while the frame has been seen and is still loading;
-  // it never resets a frame that already loaded.
+  // The slow clock runs only once this generation has been seen, restarts in
+  // full for every attempt, and never turns a loaded frame back to slow.
   useEffect(() => {
-    if (!frameSrc || !inView) return;
+    if (!frameSrc || !seen) return;
     const timer = window.setTimeout(() => {
       setState((current) => (current === 'loading' ? 'slow' : current));
     }, FRAME_SLOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [frameSrc, attempt, inView]);
+  }, [frameSrc, attempt, seen]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
