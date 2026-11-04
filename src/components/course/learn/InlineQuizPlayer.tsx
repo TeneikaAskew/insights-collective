@@ -630,13 +630,6 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
     void ensureAttempt();
   };
 
-  // Asks the server to start again after a confirmed refusal. Answers kept in
-  // this tab are still unsaved; they are written only once an attempt exists.
-  const retryRefusedStart = () => {
-    setStartRefused(null);
-    void ensureAttempt();
-  };
-
   const retryConfirmStart = async () => {
     const outcome = await reconcileStart(submissionRef.current);
     if (!aliveRef.current) return;
