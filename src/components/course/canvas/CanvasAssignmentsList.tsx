@@ -16,6 +16,7 @@ import {
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { assignmentPointsPossible } from '@/lib/assignmentGrading';
 import { useAuth } from '@/contexts/AuthContext';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import type { ContentItem } from '@/types/canvas';
@@ -184,12 +185,12 @@ export function CanvasAssignmentsList({ courseId }: CanvasAssignmentsListProps) 
                   </p>
                 </div>
                 <div className="text-right">
-                  {assignment.assignment?.points_possible && (
+                  {assignmentPointsPossible(assignment.assignment) !== null && (
                     <div className="text-lg font-semibold">
                       {submission?.grade !== null && submission?.grade !== undefined ? (
-                        <span>{submission.grade}/{assignment.assignment.points_possible} pts</span>
+                        <span>{submission.grade}/{assignmentPointsPossible(assignment.assignment)} pts</span>
                       ) : (
-                        <span>{assignment.assignment.points_possible} pts</span>
+                        <span>{assignmentPointsPossible(assignment.assignment)} pts</span>
                       )}
                     </div>
                   )}

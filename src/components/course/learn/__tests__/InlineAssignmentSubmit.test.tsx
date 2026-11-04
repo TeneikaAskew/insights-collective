@@ -79,10 +79,13 @@ const item = {
 
 
 // No max_attempts configured on purpose — the component must not invent one.
+// Shaped like the real row: public.assignments has `points`, not points_possible.
 const assignment = {
   id: 'assignment-1',
+  course_id: 'course-1',
+  title: 'Homework 1',
   submission_types: ['online_text_entry'],
-  points_possible: 10,
+  points: 10,
 } as any;
 
 describe('InlineAssignmentSubmit', () => {
@@ -287,5 +290,44 @@ describe('InlineAssignmentSubmit', () => {
       expect(uploadFileMock).not.toHaveBeenCalled();
     });
   });
-});
 
+  describe('learner grade display on a 10-point assignment (grade saved by the instructor, score NULL)', () => {
+    const graded = (over: Record<string, unknown>) =>
+      makeSubmission({ assignment_id: 'assignment-1', workflow_state: 'graded', attempt: 1, score: null, ...over });
+
+    for (const [g, comment] of [[0, 'Missing the thesis.'], [7, 'Solid argument.']] as const) {
+      it(`shows Score ${g} / 10 and the feedback after a reload`, async () => {
+        const tables = useTables({
+          assignment_submissions: makeTableBuilder({ data: graded({ grade: g, grader_comments: comment }), error: null }),
+          assignment_rubrics: makeTableBuilder({ data: [], error: null }),
+        });
+        // First mount, then a fresh mount (a page reload re-reads the row from the database).
+        const first = render(<InlineAssignmentSubmit item={item} assignment={assignment} />);
+        expect(await screen.findByText(new RegExp(`Score ${g} / 10`))).toBeInTheDocument();
+        first.unmount();
+        render(<InlineAssignmentSubmit item={item} assignment={assignment} />);
+        expect(await screen.findByText(new RegExp(`Score ${g} / 10`))).toBeInTheDocument();
+        expect(screen.getAllByText(comment).length).toBeGreaterThan(0);
+        expect(screen.queryByText(/\/ 100/)).not.toBeInTheDocument();
+        expect(tables.assignment_submissions.select).toHaveBeenCalledWith('*');
+      });
+    }
+
+    it('still shows the older score column when no grade exists, and nothing when both are NULL', async () => {
+      useTables({
+        assignment_submissions: makeTableBuilder({ data: graded({ grade: null, score: 4 }), error: null }),
+        assignment_rubrics: makeTableBuilder({ data: [], error: null }),
+      });
+      const r = render(<InlineAssignmentSubmit item={item} assignment={assignment} />);
+      expect(await screen.findByText(/Score 4 \/ 10/)).toBeInTheDocument();
+      r.unmount();
+      useTables({
+        assignment_submissions: makeTableBuilder({ data: graded({ grade: null, score: null }), error: null }),
+        assignment_rubrics: makeTableBuilder({ data: [], error: null }),
+      });
+      render(<InlineAssignmentSubmit item={item} assignment={assignment} />);
+      expect(await screen.findByText(/Graded/)).toBeInTheDocument();
+      expect(screen.queryByText(/Score/)).not.toBeInTheDocument();
+    });
+  });
+});
