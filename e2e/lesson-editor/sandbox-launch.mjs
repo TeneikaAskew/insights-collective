@@ -316,22 +316,28 @@ export function browserExitLine(state, pageTeardown) {
  * line are held transiently in one owned buffer of at most MAX_LINE bytes until the sample or a failure releases it; besides that,
  * only record counters are kept. Only the fixed codes are emitted; no path, line number, PID, message or raw byte leaves this module.
  *   GPU_UNUSABLE_REPORTED: exactly one fatal record, and it is the pinned Chrome for Testing 147.0.7727.15 record
- *     `[<stamp>:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`
+ *     `[<stamp>:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`
  *     (IntentionallyCrashBrowserForUnusableGpuProcess). It names a terminal path, never the upstream reason the GPU fallback ran out.
  *   OTHER_FATAL_REPORTED: exactly one fatal record of any other form (official-build CHECK failures write none at all).
- *   NO_MATCH: no complete, newline-terminated fatal record was observed from attachment (after launchServer returned; startup
- *     records are not seen) up to the first sample, within the byte budget. It is NOT proof that no fatal path ran.
+ *   NO_MATCH: no complete, newline-terminated record matching this grammar, from the owned pid or without one, was observed from
+ *     attachment (after launchServer returned; startup records are not seen) up to the first sample, within the byte budget. It is
+ *     NOT proof that no fatal path ran or that every FATAL form or crash path was observable here.
  *   MULTIPLE: more than one fatal record. TRUNCATED: the byte budget or the per-line bound was exceeded (a record could be
  *     hidden), and no MULTIPLE was already established. UNAVAILABLE: no stderr stream, not already flowing (attaching would change
  *     consumption), non-Buffer data, an errored stream, or a throwing classifier.
  * Records whose prefix carries a process id other than the owned browser's pid are ignored; a record without one counts.
  * The first sample freezes the result; later bytes are ignored (late records never change an emitted code).
+ * Grammar (r1.4): the producer is base/logging.cc LogMessage::Init at tag 147.0.7727.15 (L946-L1003, non-ChromeOS branch):
+ * `[` [prefix:] [pid:] [tid:] MMDD/HHMMSS.uuuuuu: [tickcount:] SEVERITY `:` <file, leading ../../ stripped> `:` <line> `] `.
+ * Headless calls InitLogging only with --enable-logging (headless_content_main_delegate.cc L285-L296), which this launch never
+ * passes, so the defaults hold: no prefix, pid, tid or tickcount, timestamp on, and LOG_DEFAULT includes LOG_TO_STDERR on POSIX.
+ * The omitted form and the pid:tid form are recognized; other prefix combinations are not (they count as NO_MATCH).
  */
 export const BROWSER_LOG_CODES = Object.freeze(['GPU_UNUSABLE_REPORTED', 'OTHER_FATAL_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']);
 export const BROWSER_LOG_LIMITS = Object.freeze({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
 const LOG_FATAL_PREFIX = String.raw`^\[(?:(\d{1,10}):\d{1,10}:)?\d{4}/\d{6}\.\d{6}:FATAL:`;
-const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/gpu_data_manager_impl_private\\.cc\\(417\\)\\] GPU process isn't usable\\. Goodbye\\.$`);
-const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\]]{1,512}\\(\\d{1,6}\\)\\] `);
+const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/gpu_data_manager_impl_private\\.cc:417\\] GPU process isn't usable\\. Goodbye\\.$`);
+const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\]]{1,512}:\\d{1,6}\\] `);
 /** The pure, bounded classifier: push(Buffer) per chunk, sample() once. Exported for the fake controls. */
 export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   let bytes = 0, pend = null, lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;

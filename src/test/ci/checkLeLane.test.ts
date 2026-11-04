@@ -2404,9 +2404,9 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
   type Obj = Record<string, unknown>;
   const PID = 4242;
   const STAMP = '1104/180140.123456';
-  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
-  const GPU_PID = `[${PID}:${PID + 1}:${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
-  const OTHER = `[${STAMP}:FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc(128)] No usable sandbox! token=eyJhbGciOi.secret /tmp/le-private/keys/anon`;
+  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`;
+  const GPU_PID = `[${PID}:${PID + 1}:${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`;
+  const OTHER = `[${STAMP}:FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc:128] No usable sandbox! token=eyJhbGciOi.secret /tmp/le-private/keys/anon`;
   const SMALL = { MAX_BYTES: 4096, MAX_LINE: 256 };
   const run = (chunks: (Buffer | string)[], limits?: { MAX_BYTES: number; MAX_LINE: number }, pid = PID) => {
     const c = browserLogClassifier(pid, limits);
@@ -2429,9 +2429,9 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
     expect(run([`${GPU}\n`])).toBe('GPU_UNUSABLE_REPORTED');
     expect(run([`${GPU_PID}\n`])).toBe('GPU_UNUSABLE_REPORTED');
     expect(run([`${GPU_PID}\n`], undefined, PID + 7)).toBe('NO_MATCH'); // other-process record
-    expect(run([`[7:8:${STAMP}:FATAL:x/y.cc(1)] m\n`])).toBe('NO_MATCH'); // other-process fatal
+    expect(run([`[7:8:${STAMP}:FATAL:x/y.cc:1] m\n`])).toBe('NO_MATCH'); // other-process fatal
     expect(run([])).toBe('NO_MATCH');
-    expect(run([`[${STAMP}:ERROR:content/browser/gpu/gpu_process_host.cc(1)] GPU process exited unexpectedly\n`])).toBe('NO_MATCH');
+    expect(run([`[${STAMP}:ERROR:content/browser/gpu/gpu_process_host.cc:1] GPU process exited unexpectedly\n`])).toBe('NO_MATCH');
   });
 
   it('chunk splits at every byte and CRLF give the same code for complete records', () => {
@@ -2447,7 +2447,7 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
 
   it('near matches of the GPU record are not the GPU record', () => {
     const near = [
-      GPU.replace('(417)', '(418)'), GPU.replace('gpu_data_manager_impl_private.cc', 'gpu_data_manager_impl.cc'), GPU.replace('Goodbye.', 'Goodbye'),
+      GPU.replace(':417]', ':418]'), GPU.replace(':417]', '(417)]'), GPU.replace('gpu_data_manager_impl_private.cc', 'gpu_data_manager_impl.cc'), GPU.replace('Goodbye.', 'Goodbye'),
       `${GPU} trailing`, GPU.replace(':FATAL:', ':Fatal:'), ` ${GPU}`, GPU.replace('content/browser/gpu/', '../../content/browser/gpu/'),
       GPU.replace(STAMP, '1104/180140.12345'), GPU.replace(`[${STAMP}`, `[1:${STAMP}`),
     ];
@@ -2458,7 +2458,7 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
 
   it('secret-shaped content is never kept: other fatal records with secret paths and messages are one code only', () => {
     expect(run([`${OTHER}\n`])).toBe('OTHER_FATAL_REPORTED');
-    expect(run([`[${STAMP}:FATAL:/home/u/eyJsecret/key.cc(9)] Bearer eyJ.secret\n`])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([`[${STAMP}:FATAL:/home/u/eyJsecret/key.cc:9] Bearer eyJ.secret\n`])).toBe('OTHER_FATAL_REPORTED');
     const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
     const body = src.slice(src.indexOf('export function browserLogClassifier'), src.indexOf('export function browserLogLine'));
     expect(body).not.toMatch(/console\.|process\.std|annotations|JSON\.stringify|setEncoding|\.pause\(|\.resume\(|on\('error'|once\('error'/);
@@ -2587,7 +2587,7 @@ describe('E1 browser-log r1: bounded fatal-record classifier on the owned browse
 
 describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no post-sample inspection', () => {
   const STAMP = '1104/180140.123456';
-  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc(417)] GPU process isn't usable. Goodbye.`;
+  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`;
   const L = (x: string) => Buffer.from(x, 'latin1');
   const TINY = { MAX_BYTES: 32, MAX_LINE: 16 };
 
@@ -2681,11 +2681,11 @@ describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no
 });
 
 describe('E1 browser-log r1.3: reviewed-source regression pin for sandbox-launch.mjs', () => {
-  // REVIEWED-SOURCE REGRESSION PIN. sha256 of the whole e2e/lesson-editor/sandbox-launch.mjs as independently reviewed at
-  // 8a473229. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
+  // REVIEWED-SOURCE REGRESSION PIN. sha256 of the whole e2e/lesson-editor/sandbox-launch.mjs. r1.3 pinned af66b7eb (reviewed at
+  // 8a473229); r1.4 pins the grammar-corrected module, valid only once its exact delta is reviewed. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
   // digest only after that review. It is not a semantic purity proof and not a runtime sandbox, and it does not replace the
   // repository's filesystem-write gate in security.yml, which is unchanged.
-  const REVIEWED_SANDBOX_LAUNCH_SHA256 = 'af66b7eb36472e381200b33eb83f05cf679cd0bb13b9deac6f0fff5d6adbe8a3';
+  const REVIEWED_SANDBOX_LAUNCH_SHA256 = '2026f141db5b78c38c4e59bca48b60f412cc2355f5e9665bbfab0a3cd0f31b31'; // r1.4: corrected grammar module, pending its exact delta review
   const FILE = path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs');
   const isReviewed = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex') === REVIEWED_SANDBOX_LAUNCH_SHA256;
 
@@ -2707,5 +2707,68 @@ describe('E1 browser-log r1.3: reviewed-source regression pin for sandbox-launch
       expect(isReviewed(m)).toBe(false);
     }
     expect(isReviewed(Buffer.from(src))).toBe(true);
+  });
+});
+
+describe('E1 browser-log r1.4: grammar derived from the pinned Chromium 147 producer (base/logging.cc LogMessage::Init)', () => {
+  // A transcription of base/logging.cc L946-L1003 at 147.0.7727.15 (POSIX, non-ChromeOS branch): `[`, optional prefix/pid/tid,
+  // the MMDD/HHMMSS.uuuuuu timestamp, optional tickcount, SEVERITY, `:`, __FILE__ with a leading `../../` stripped, `:`, line, `] `.
+  type Items = { prefix?: string; pid?: number; tid?: number; timestamp?: boolean; tick?: number };
+  const produce = (sev: string, file: string, line: number, msg: string, it: Items = { timestamp: true }) => {
+    const name = file[0] === '.' ? file.slice(Math.min(6, file.length)) : file;
+    let s = '[';
+    if (it.prefix) s += `${it.prefix}:`;
+    if (it.pid !== undefined) s += `${it.pid}:`;
+    if (it.tid !== undefined) s += `${it.tid}:`;
+    if (it.timestamp) s += '1104/194311.004211:';
+    if (it.tick !== undefined) s += `${it.tick}:`;
+    return `${s}${sev}:${name}:${line}] ${msg}`;
+  };
+  const GPU_FILE = '../../content/browser/gpu/gpu_data_manager_impl_private.cc';
+  const GPU_MSG = "GPU process isn't usable. Goodbye.";
+  const PID = 4242;
+  const run = (lines: string[], pid = PID) => { const c = browserLogClassifier(pid); for (const l of lines) c.push(Buffer.from(`${l}\n`, 'latin1')); return c.sample(); };
+
+  it('pinned launch form (defaults: no pid/tid, timestamp on): the exact GPU record and a generic FATAL', () => {
+    const gpu = produce('FATAL', GPU_FILE, 417, GPU_MSG);
+    expect(gpu).toBe("[1104/194311.004211:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.");
+    expect(run([gpu])).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([produce('FATAL', '../../content/browser/zygote_host/zygote_host_impl_linux.cc', 128, 'x')])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([produce('FATAL', 'base/check.cc', 1, '')])).toBe('OTHER_FATAL_REPORTED'); // a file not starting with '.' is kept as is
+  });
+
+  it('pid:tid form: owned pid counts, another pid is ignored', () => {
+    expect(run([produce('FATAL', GPU_FILE, 417, GPU_MSG, { pid: PID, tid: 7, timestamp: true })])).toBe('GPU_UNUSABLE_REPORTED');
+    expect(run([produce('FATAL', GPU_FILE, 417, GPU_MSG, { pid: PID + 1, tid: 7, timestamp: true })])).toBe('NO_MATCH');
+    expect(run([produce('FATAL', 'a/b.cc', 3, 'm', { pid: PID + 1, tid: 7, timestamp: true })])).toBe('NO_MATCH');
+  });
+
+  it('producer forms this launch does not configure are not recognized (pid-only, tid-only, prefix, tickcount, no timestamp)', () => {
+    for (const it of [{ pid: PID, timestamp: true }, { tid: 7, timestamp: true }, { prefix: 'p', timestamp: true }, { timestamp: true, tick: 99 }, {}] as Items[])
+      expect(run([produce('FATAL', GPU_FILE, 417, GPU_MSG, it)]), JSON.stringify(it)).toBe('NO_MATCH');
+  });
+
+  it('negatives: old parenthesized form, wrong path/line/text/severity/pid, unstripped path, incomplete line', () => {
+    const gpu = produce('FATAL', GPU_FILE, 417, GPU_MSG);
+    expect(run([gpu.replace('.cc:417]', '.cc(417)]')])).toBe('NO_MATCH'); // r1's wrong grammar is not this producer's
+    expect(run(['[1104/194311.004211:FATAL:a/b.cc(3)] m'])).toBe('NO_MATCH');
+    expect(run([produce('FATAL', GPU_FILE, 418, GPU_MSG)])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([produce('FATAL', '../../content/browser/gpu/gpu_data_manager_impl.cc', 417, GPU_MSG)])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([produce('FATAL', GPU_FILE, 417, `${GPU_MSG} x`)])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([produce('ERROR', GPU_FILE, 417, GPU_MSG)])).toBe('NO_MATCH');
+    expect(run([produce('FATAL', '../../content/browser/gpu/gpu_process_host.cc', 999, 'm').replace('content/', '../../content/')])).toBe('OTHER_FATAL_REPORTED');
+    expect(run([gpu.replace('content/', '../../content/')])).toBe('OTHER_FATAL_REPORTED'); // not the producer's stripped GPU path
+    const c = browserLogClassifier(PID);
+    c.push(Buffer.from(gpu, 'latin1'));
+    expect(c.sample()).toBe('NO_MATCH'); // complete-line rule unchanged
+  });
+
+  it('source: exactly the two corrected patterns; prefix, bounds and codes unchanged', () => {
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    expect(src).toContain("const LOG_FATAL_PREFIX = String.raw`^\\[(?:(\\d{1,10}):\\d{1,10}:)?\\d{4}/\\d{6}\\.\\d{6}:FATAL:`;");
+    expect(src).toContain("gpu_data_manager_impl_private\\\\.cc:417\\\\] GPU process isn't usable\\\\. Goodbye\\\\.$`);");
+    expect(src).toContain('const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\\\]]{1,512}:\\\\d{1,6}\\\\] `);');
+    expect(src).not.toMatch(/\\\\\(417\\\\\)|\\\\\(\\\\d\{1,6\}\\\\\)/);
+    expect(BROWSER_LOG_LIMITS).toEqual({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
   });
 });
