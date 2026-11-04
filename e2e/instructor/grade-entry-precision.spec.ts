@@ -107,7 +107,11 @@ test.describe('SpeedGrader grade entry (stored precision and range)', () => {
     await page.reload();
     const reloaded = await openGrader(page, ITEM.precision);
     await expect(reloaded).toHaveValue('10.08');
-    await expect(page.getByRole('tab', { name: 'Graded (1)' })).toBeVisible();
+    // The queue opens on "Needs", which no longer lists a graded submission; its row with the
+    // stored grade is under "Graded".
+    const gradedTab = page.getByRole('tab', { name: 'Graded (1)' });
+    await expect(gradedTab).toBeVisible();
+    await gradedTab.click();
     await expect(page.getByText('10.08/20', { exact: true }).first()).toBeVisible();
   });
 
