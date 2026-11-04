@@ -45,9 +45,35 @@ describe('FeaturedCourses', () => {
     expect(screen.queryByText(/lessons/)).not.toBeInTheDocument();
   });
 
-  it('shows a real lesson count when modules are present', () => {
+  // `modules` are modules (Courses -> Modules -> Lessons), so the count is labelled as modules.
+  // The old assertion pinned "3 lessons" for three modules, which no lesson data backs.
+  it('labels a loaded module count as modules, never as lessons', () => {
     renderCards([{ ...course, modules: [{}, {}, {}] }]);
-    expect(screen.getByText('3 lessons')).toBeInTheDocument();
+    expect(screen.getByText('3 modules')).toBeInTheDocument();
+    expect(screen.queryByText(/lessons?/)).not.toBeInTheDocument();
+  });
+
+  it('uses the singular for one module', () => {
+    renderCards([{ ...course, modules: [{}] }]);
+    expect(screen.getByText('1 module')).toBeInTheDocument();
+  });
+
+  it('shows the estimate from estimated_hours without a trailing .0', () => {
+    renderCards([{ ...course, estimated_hours: 4 }]);
+    expect(screen.getByText(/^4 hours$/)).toBeInTheDocument();
+    expect(screen.queryByText(/4\.0 hours/)).not.toBeInTheDocument();
+  });
+
+  it('labels the estimate "Estimated time" for screen readers (accessibility)', () => {
+    renderCards([{ ...course, estimated_hours: 4 }]);
+    expect(screen.getByText('Estimated time:')).toHaveClass('sr-only');
+  });
+
+  it.each([0, null, Number.NaN])('shows no time badge and no stray number for estimated_hours=%s', (h) => {
+    const { container } = renderCards([{ ...course, estimated_hours: h as any }]);
+    expect(screen.queryByText(/hours?$/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Estimated time:')).not.toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/\b0\b/);
   });
 
   it('omits the level badge when the course does not carry one', () => {
