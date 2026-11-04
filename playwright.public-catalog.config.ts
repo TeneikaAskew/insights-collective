@@ -66,6 +66,8 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], ...common, viewport: { width: 1440, height: 900 } } },
     { name: 'tablet', use: { ...devices['Desktop Chrome'], ...common, viewport: { width: 834, height: 1112 }, hasTouch: true } },
+    // 768x1024 (Tailwind `md` boundary): lane-only project, no agreed shot name. ACCEPTANCE GAP until a run passes it.
+    { name: 'tablet-768', use: { ...devices['Desktop Chrome'], ...common, viewport: { width: 768, height: 1024 }, hasTouch: true } },
     { name: 'mobile', use: { ...devices['Desktop Chrome'], ...common, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
   ],
 });

@@ -20,6 +20,9 @@ const SENTINEL = 'pca_keep';
 const CATALOG_SHOT: Record<string, 'PC-catalog-desktop-1440x900' | 'PC-catalog-tablet-834x1112' | 'PC-catalog-mobile-390x844'> = {
   desktop: 'PC-catalog-desktop-1440x900', tablet: 'PC-catalog-tablet-834x1112', mobile: 'PC-catalog-mobile-390x844',
 };
+// Projects that run every assertion but have no shot name agreed with the job contract (its NAMES list is shared and
+// PR134-owned). Recorded as a pc_no_shot annotation, never silently skipped; any other unmapped project is refused.
+const NO_SHOT_PROJECTS = new Set(['tablet-768']);
 
 const param = (url: string) => new URL(url).searchParams.get('category');
 const MENU = [
@@ -36,7 +39,10 @@ test.describe('anonymous catalog', () => {
     expect(await cardTitles(page)).not.toContain('PCA Private Draft Course');
     expect(net.courseResponses.length).toBeGreaterThan(0);
     // Fixed-name synthetic capture of the asserted catalog, one per project (after every assertion above; it asserts nothing).
-    await shot(page, info, CATALOG_SHOT[info.project.name]);
+    const p = info.project.name;
+    if (NO_SHOT_PROJECTS.has(p)) info.annotations.push({ type: 'pc_no_shot', description: `${p}: no agreed shot name` });
+    else if (CATALOG_SHOT[p]) await shot(page, info, CATALOG_SHOT[p]);
+    else throw new Error(`PUBLIC_CATALOG_E_SHOT_PROJECT: ${p}`);
   });
 
   test('A2 every card shows the literal Estimated time value node from estimated_hours, never the legacy duration', async ({ page, net }) => {
