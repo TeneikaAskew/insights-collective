@@ -19,9 +19,9 @@ const tmp = fs.mkdtempSync(path.join(tmpdir(), 'pc-shot-'));
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
 
 // Plan.
-ok(JSON.stringify(PUBLIC_SHOT_NAMES) === JSON.stringify(['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-834x1112', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757']), 'S1 exactly the 4 fixed names agreed with the job contract');
+ok(JSON.stringify(PUBLIC_SHOT_NAMES) === JSON.stringify(['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-768x1024', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757']), 'S1 exactly the 4 fixed names agreed with the job contract');
 ok(PUBLIC_SHOT_NAMES.every((n) => { const p = PUBLIC_SHOT_PLAN[n]; return n.endsWith(`-${p.project}-${p.width}x${p.height}`) && p.path === '/courses'; }), 'S2 each name carries its project and exact viewport; every route is /courses');
-ok(PUBLIC_SHOT_PLAN['PC-rail-desktop-1180x757'].project === 'desktop' && !PUBLIC_SHOT_NAMES.some((n) => /768/.test(n) || /rail-tablet|rail-mobile/.test(n)), 'S3 rail is desktop only at 1180x757 (no 768, no tablet rail)');
+ok(PUBLIC_SHOT_PLAN['PC-rail-desktop-1180x757'].project === 'desktop' && PUBLIC_SHOT_PLAN['PC-catalog-tablet-768x1024'].project === 'tablet-768' && !PUBLIC_SHOT_NAMES.some((n) => /834/.test(n) || /rail-tablet|rail-mobile/.test(n)), 'S3 rail is desktop only at 1180x757; the tablet shot is 768x1024 (no 834 name, no tablet rail)');
 ok(CARRIER_ID === PAIRING_TAG_ID, 'S4 the scanned carrier id equals the producer constant');
 
 // Core: materialize the pinned blobs into a temp root from this repo's object store; drift refuses before import.
@@ -174,7 +174,7 @@ for (const [label, mutate, want] of fileCases) {
   const d = await fullDir(); const target = path.join(d, `${N0}.png`);
   const io = { ...fs, readSync: (fd, buf, off, len, pos) => { const n = fs.readSync(fd, buf, off, len, pos); if (n > 0 && off === 0) fs.appendFileSync(target, 'grow'); return n; } };
   const r = await exp(d, { io }); ok(r.rc === 2 && r.code === 'PUBLIC_SHOT_E_GROWTH' && r.ls === null, `E25 file changed under the open handle: GROWTH, nothing written (got ${r.code})`); }
-{ const r = await exp(await fullDir({ [N0]: realPng['PC-catalog-tablet-834x1112'] })); ok(r.rc === 2 && r.code === 'PUBLIC_SHOT_E_DIMENSIONS' && r.ls === null, 'E26 a valid PNG at another viewport width: DIMENSIONS, nothing written'); }
+{ const r = await exp(await fullDir({ [N0]: realPng['PC-catalog-tablet-768x1024'] })); ok(r.rc === 2 && r.code === 'PUBLIC_SHOT_E_DIMENSIONS' && r.ls === null, 'E26 a valid PNG at another viewport width: DIMENSIONS, nothing written'); }
 const wd = await fullDir({}, { 'PC-catalog-mobile-390x844': { n: 1 } });
 const ew = await exp(wd);
 ok(ew.rc === 1 && ew.ls.length === 3 && ew.lines.includes('WITHHELD PC-catalog-mobile-390x844 MUTATED') && ew.lines.filter((l) => l.startsWith('SHOT ')).length === 3 && ew.lines.slice(0, -1).every((l) => grammar.test(l)), 'E27 one withheld: exit 1 (run fails), its WITHHELD line, the dir equals the 3 SHOT lines');
