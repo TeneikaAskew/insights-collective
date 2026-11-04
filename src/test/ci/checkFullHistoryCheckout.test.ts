@@ -2,7 +2,7 @@
 // ABOUTME: tests read named earlier commits with `git show <sha>:path`, which a default depth-1 checkout does not contain.
 //
 // Read-only: parses .github/workflows/*.yml and the test sources as text. It never runs git, so it passes or fails the
-// same way in a shallow and a full clone, and it is the control that keeps the history-reading tests runnable.
+// same way in a shallow and a full clone. Syntactic scope only: not checkout order/if/target, object presence or npm aliases.
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
