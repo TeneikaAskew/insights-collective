@@ -736,14 +736,14 @@ describe('sandboxed-test.ts: only the worker browser is overridden; observer, Ap
     expect(code(src)).not.toMatch(/\.off\(|removeListener|removeAllListeners/); // the observer is never detached
   });
   it('fs-write guard control: the guard pattern still reports exactly the three real fixture lines and nothing in this file', () => {
-    const wf = YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8'));
-    const run = JSON.stringify(wf);
-    const allowed = new RegExp(/ALLOWED='([^']+)'/.exec(run)![1]);
-    const pattern = new RegExp(/grep -nE '([^']+)'/.exec(run)![1]);
+    // Read from the raw workflow text (a literal block scalar), not from JSON.stringify, which would double every backslash.
+    const raw = readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8');
+    const allowed = new RegExp(/ALLOWED='([^']+)'/.exec(raw)![1]);
+    const pattern = new RegExp(/grep -nE '([^']+)'/.exec(raw)![1]);
     const hits = (rel: string) => readFileSync(path.join(ROOT, rel), 'utf8').split('\n').map((l, i) => (pattern.test(l) ? i + 1 : 0)).filter(Boolean);
     const fixture = 'e2e/stubbed/sandboxed-test.ts';
     const self = 'src/test/ci/checkSealedVideoLane.test.ts';
-    expect(allowed.test(fixture)).toBe(false); // not allowlisted: the guard keeps reporting it
+    expect(allowed.test(fixture)).toBe(true); // the one exact-file entry (review candidate); the hits below still exist
     expect(allowed.test(self)).toBe(false);
     const fx = hits(fixture);
     expect(fx).toHaveLength(3); // the import line and the two write calls (.start, .end)
@@ -755,6 +755,52 @@ describe('sandboxed-test.ts: only the worker browser is overridden; observer, Ap
     // Discriminating negative: the guard pattern does match a real call and the pre-correction test spelling.
     expect(pattern.test(['write', 'FileSync(p, t)'].join(''))).toBe(true);
     expect(pattern.test(String.raw`src.match(/write` + String.raw`FileSync\(/g)`)).toBe(true);
+  });
+  // Review candidate (c4): ONE exact-file ALLOWED entry for the fixture's two record writes, plus the CodeQL rationale. These
+  // controls compare against the reviewed source head 66c6e365 so the change is provably that one path and nothing else.
+  it('fs-write gate candidate: admits exactly e2e/stubbed/sandboxed-test.ts; every neighbour and every other tracked file is unchanged', () => {
+    const BASE = '66c6e365c0e7104fd54827a26313071fe9c88792';
+    const allowedOf = (text: string) => { YAML.parse(text); return /ALLOWED='([^']+)'/.exec(text)![1]; }; // raw literal block text
+    const nowSrc = allowedOf(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8'));
+    const baseSrc = allowedOf(git('show', `${BASE}:.github/workflows/security.yml`));
+    // Textually: the base list with exactly one inserted alternative, anchored at both ends.
+    expect(nowSrc).toBe(baseSrc.replace('|src/test/ci/(', '|e2e/stubbed/sandboxed-test\\.ts$|src/test/ci/('));
+    expect(nowSrc).toContain(String.raw`|e2e/stubbed/sandboxed-test\.ts$|`);
+    expect(nowSrc.split('sandboxed-test').length).toBe(2);
+    const now = new RegExp(nowSrc), base = new RegExp(baseSrc);
+    const fixture = 'e2e/stubbed/sandboxed-test.ts';
+    expect(now.test(fixture)).toBe(true);
+    expect(base.test(fixture)).toBe(false);
+    for (const n of ['e2e/stubbed/sandboxed-test.tsx', 'e2e/stubbed/sandboxed-test.ts.bak', 'e2e/stubbed/sandboxed-test.mjs', 'e2e/stubbed/sandboxed-test2.ts',
+      'e2e/stubbed/xsandboxed-test.ts', 'e2e/stubbed/Sandboxed-test.ts', 'e2e/stubbed/sub/sandboxed-test.ts', 'e2e/stubbed/wp09a-decide.ts',
+      'e2e/stubbed/wp09a-video-embed.spec.ts', 'e2e/stubbed/egress-test.ts', 'e2e/stubbed/', 'e2e/lesson-editor/sandboxed-test.ts',
+      'e2e/lesson-editor/egress-test.ts', 'e2e/lesson-editor/sandbox-launch.mjs', 'xe2e/stubbed/sandboxed-test.ts', './e2e/stubbed/sandboxed-test.ts',
+      'e2e/stubbedXsandboxed-test.ts', 'src/test/ci/checkSealedVideoLane.test.ts', 'playwright.sealed-video.config.ts']) expect(now.test(n), n).toBe(false);
+    // Over every tracked source file: the new list admits exactly the old set plus the fixture (no broadening, no narrowing).
+    const tracked = git('ls-files', '*.ts', '*.tsx', '*.js', '*.jsx', '*.mjs', '*.cjs').split('\n').filter(Boolean);
+    expect(tracked).toContain(fixture);
+    expect(tracked.filter((f) => now.test(f) && !base.test(f))).toEqual([fixture]);
+    expect(tracked.filter((f) => base.test(f) && !now.test(f))).toEqual([]);
+    // The match pattern, the step's failure path and the CodeQL query set and filter are untouched.
+    // Everything but the ALLOWED value and comment lines is byte-identical to the base workflow.
+    const step = (text: string) => text.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n').replace(/ALLOWED='[^']+'/, "ALLOWED=''");
+    const W = ['write', 'File'].join(''); // spelled in two parts so this test file is not itself a guard hit (see the comment above)
+    const A = ['append', 'File'].join(''), C = ['create', 'WriteStream'].join('');
+    const gatePattern = `${W}|${W}Sync|${C}|${A}|${A}Sync|Deno\\.write`;
+    expect(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8')).toContain(`grep -nE '${gatePattern}'`);
+    expect(step(readFileSync(path.join(ROOT, '.github/workflows/security.yml'), 'utf8'))).toBe(step(git('show', `${BASE}:.github/workflows/security.yml`)));
+    const cq = YAML.parse(readFileSync(path.join(ROOT, '.github/codeql/codeql-config.yml'), 'utf8'));
+    const cqBase = YAML.parse(git('show', `${BASE}:.github/codeql/codeql-config.yml`));
+    expect(cq).toEqual(cqBase); // comments only: the parsed config (queries, query-filters) is identical
+    expect(cq['query-filters']).toEqual([{ exclude: { id: 'js/http-to-file-access' } }]);
+    const cqText = readFileSync(path.join(ROOT, '.github/codeql/codeql-config.yml'), 'utf8');
+    expect(cqText).toContain('one exact local test writer, e2e/stubbed/sandboxed-test.ts');
+    expect(cqText).toMatch(/not tamper-proof, and their confinement depends on the composed lane\s*#\s*carrier/);
+    // Replay of the gate over the tracked tree: with the entry, no write site remains outside reviewed locations.
+    const pattern = new RegExp(gatePattern);
+    const hitsIn = (f: string) => readFileSync(path.join(ROOT, f), 'utf8').split('\n').some((l) => pattern.test(l));
+    expect(tracked.filter((f) => !now.test(f) && hitsIn(f))).toEqual([]);
+    expect(tracked.filter((f) => !base.test(f) && hitsIn(f))).toEqual([fixture]); // at the base, the fixture was the one hit
   });
   it('the spec imports test and expect from the fixture, and decide() from the pure module (owner delta d81b1d49)', () => {
     const spec = readFileSync(SPEC_ABS, 'utf8');
