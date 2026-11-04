@@ -15,7 +15,7 @@ import { checkHelperPins, SHOT_CORE_PINS } from './helper-pins.mjs';
 
 export const PUBLIC_SHOT_PLAN = Object.freeze({
   'PC-catalog-desktop-1440x900': Object.freeze({ project: 'desktop', path: '/courses', width: 1440, height: 900 }),
-  'PC-catalog-tablet-834x1112': Object.freeze({ project: 'tablet', path: '/courses', width: 834, height: 1112 }),
+  'PC-catalog-tablet-768x1024': Object.freeze({ project: 'tablet-768', path: '/courses', width: 768, height: 1024 }),
   'PC-catalog-mobile-390x844': Object.freeze({ project: 'mobile', path: '/courses', width: 390, height: 844 }),
   'PC-rail-desktop-1180x757': Object.freeze({ project: 'desktop', path: '/courses', width: 1180, height: 757 }),
 });

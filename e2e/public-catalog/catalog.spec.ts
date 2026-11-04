@@ -17,12 +17,12 @@ const ESTIMATE: Record<string, string | null> = {
 const HOME_FEATURED = ['PCA Analytics Course', 'PCA BI Course', 'PCA Leading Space Course'];
 const SENTINEL = 'pca_keep';
 /** The one catalog capture per project (shot-plan.mjs PUBLIC_SHOT_PLAN). */
-const CATALOG_SHOT: Record<string, 'PC-catalog-desktop-1440x900' | 'PC-catalog-tablet-834x1112' | 'PC-catalog-mobile-390x844'> = {
-  desktop: 'PC-catalog-desktop-1440x900', tablet: 'PC-catalog-tablet-834x1112', mobile: 'PC-catalog-mobile-390x844',
+const CATALOG_SHOT: Record<string, 'PC-catalog-desktop-1440x900' | 'PC-catalog-tablet-768x1024' | 'PC-catalog-mobile-390x844'> = {
+  desktop: 'PC-catalog-desktop-1440x900', 'tablet-768': 'PC-catalog-tablet-768x1024', mobile: 'PC-catalog-mobile-390x844',
 };
 // Projects that run every assertion but have no shot name agreed with the job contract (its NAMES list is shared and
 // PR134-owned). Recorded as a pc_no_shot annotation, never silently skipped; any other unmapped project is refused.
-const NO_SHOT_PROJECTS = new Set(['tablet-768']);
+const NO_SHOT_PROJECTS = new Set(['tablet']);
 
 const param = (url: string) => new URL(url).searchParams.get('category');
 const MENU = [

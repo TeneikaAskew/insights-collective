@@ -132,7 +132,9 @@ say(!/proxy:\s*\{/.test(cfg) && /EXCLUDE 127\.0\.0\.1/.test(cfg), 'config: no ow
 say(/'desktop'/.test(cfg) && /'tablet'/.test(cfg) && /'mobile'/.test(cfg), 'config: desktop, tablet and mobile projects');
 say(/name: 'tablet-768', use: \{[^}]*viewport: \{ width: 768, height: 1024 \}, hasTouch: true \}/.test(cfg) && /viewport: \{ width: 834, height: 1112 \}/.test(cfg), 'config: lane-only tablet-768 project at exactly 768x1024 with touch; the 834x1112 tablet is unchanged');
 const cat = readFileSync(path.join(ROOT, 'e2e/public-catalog/catalog.spec.ts'), 'utf8');
-say(/NO_SHOT_PROJECTS = new Set\(\['tablet-768'\]\)/.test(cat) && /type: 'pc_no_shot'/.test(cat) && /throw new Error\(`PUBLIC_CATALOG_E_SHOT_PROJECT/.test(cat) && !/CATALOG_SHOT\[info\.project\.name\]\)/.test(cat), 'catalog: 768 records pc_no_shot (no shot name), any other unmapped project is refused');
+const plan = readFileSync(path.join(ROOT, 'scripts/public-catalog-fixture/shot-plan.mjs'), 'utf8');
+say(/'PC-catalog-tablet-768x1024': Object\.freeze\(\{ project: 'tablet-768', path: '\/courses', width: 768, height: 1024 \}\)/.test(plan) && !/834/.test(plan) && (plan.match(/: Object\.freeze\(\{ project: /g) || []).length === 4, 'shot plan: exactly 4 names; the tablet shot is 768x1024 on tablet-768, no 834 name');
+say(/NO_SHOT_PROJECTS = new Set\(\['tablet'\]\)/.test(cat) && /'tablet-768': 'PC-catalog-tablet-768x1024'/.test(cat) && !/834x1112/.test(cat) && /type: 'pc_no_shot'/.test(cat) && /throw new Error\(`PUBLIC_CATALOG_E_SHOT_PROJECT/.test(cat) && !/CATALOG_SHOT\[info\.project\.name\]\)/.test(cat), 'catalog: tablet-768 captures PC-catalog-tablet-768x1024; the 834 tablet records pc_no_shot; any other unmapped project is refused');
 const cls = execFileSync('node', [path.join(HERE, 'probe-classifier-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(cls), 'probe classifier fake controls pass (see probe-classifier-controls.mjs)');
 const sup = readFileSync(path.join(ROOT, 'e2e/public-catalog/support.ts'), 'utf8');
