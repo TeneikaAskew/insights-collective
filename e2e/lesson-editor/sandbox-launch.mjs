@@ -211,9 +211,10 @@ const outcomePair = (v) => (Array.isArray(v) && v.length === 2 && v.every((x) =>
 /**
  * Passive exit observer for the owned launch process (BrowserServer.process()). Registers one `exit` listener and, at each
  * sample, also reads the handle's exitCode/signalCode, so an exit that happened BEFORE the listener was registered is still
- * observed. EXIT_OBSERVED: the listener fired or a code/signal is set. NO_EXIT_OBSERVED: a registered listener has not fired
+ * observed. EXIT_OBSERVED: the listener fired, or exactly one of a valid exit code (integer 0..255) and a SIG* signal name is
+ * set with the other exactly null. NO_EXIT_OBSERVED: a registered listener has not fired
  * and both fields are exactly null; this is NOT a liveness claim (an exit not yet delivered to Node reads the same).
- * UNKNOWN: no usable handle, registration failed, unexpected field types, or any throw.
+ * UNKNOWN: no usable handle, registration failed, malformed or incompatible fields (E1 diagnostics r2.1), or any throw.
  */
 export function exitObserver(child) {
   let seen = false, registered = false;
@@ -223,7 +224,10 @@ export function exitObserver(child) {
       if (seen) return 'EXIT_OBSERVED';
       if (!child || typeof child !== 'object') return 'UNKNOWN';
       const code = child.exitCode, signal = child.signalCode;
-      if ((code !== null && code !== undefined) || (signal !== null && signal !== undefined)) return 'EXIT_OBSERVED';
+      // Without an event, only a well-typed, compatible pair counts: an exit code 0..255 with no signal, or a SIG* name
+      // with no code (Node's ChildProcess sets one or the other). Any other shape is UNKNOWN, never an exit or a no-exit.
+      const codeOk = Number.isInteger(code) && code >= 0 && code <= 255, signalOk = typeof signal === 'string' && /^SIG[A-Z0-9]+$/.test(signal);
+      if ((codeOk && signal === null) || (signalOk && code === null)) return 'EXIT_OBSERVED';
       return registered && code === null && signal === null ? 'NO_EXIT_OBSERVED' : 'UNKNOWN';
     } catch { return 'UNKNOWN'; }
   };

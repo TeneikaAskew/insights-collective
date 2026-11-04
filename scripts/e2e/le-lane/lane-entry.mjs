@@ -25,7 +25,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
 import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode, postObservedEvidence, attemptStatusToken, failedStepToken } from './contract.mjs';
-import { E1_IDENTITY, testsOf } from '../le-e1-summary.mjs';
+import { E1_IDENTITY } from '../le-e1-summary.mjs';
 import { failedStep } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { PAIRING_COURSE_ID, PAIRING_PREFIX, assertLivePairing, assertPairingProof } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
 
@@ -109,7 +109,8 @@ export function workerAppArmorFromReport(r) {
  *   postObserved: the `lane-post-observed` annotation (written by the test-scoped gate next to `lane-apparmor`), exactly one
  *     distinct description in the closed grammar (contract.mjs postObservedEvidence), else MISSING (none) or INVALID.
  *     Like `lane-apparmor`, it is collected from every annotations array, not tied to one result.
- *   attemptStatus / failedStep: ONLY when the report holds exactly one test, that test is E1 by the full E1_IDENTITY (file,
+ *   attemptStatus / failedStep: ONLY when the report's raw structure is strictly typed (strictTests, no coercion) and holds
+ *     exactly one test, that test is E1 by the full E1_IDENTITY (file,
  *     describe path, title, project) and it has exactly one attempt with retry 0 and a known status: that attempt's status
  *     word, and step-codes.mjs failedStep (titles only; for timedOut, the last listed phase RECORDED, not necessarily the
  *     failing operation). Missing, extra, ambiguous or malformed selection is UNKNOWN for both. No message is read.
@@ -151,13 +152,49 @@ export function reportSnapshot(r) {
   return { aaLine: found.size === 1 && workerAppArmorEvidence(only) ? `LANE E1 APPARMOR ${only}` : 'LANE E1 APPARMOR INVALID', report: 'PARSED', reportedError, ...diag };
 }
 
+/**
+ * E1 diagnostics r2.1: every test in the report, from the RAW structure with strict types (no coercion), or null when any
+ * node on the suite/spec/test path is malformed. Same shape rules as le-e1-summary.mjs testsOf (a suite whose title equals
+ * its file is the file-level suite; other suite titles form the describe path), which stays unchanged for the summary.
+ * Suites, specs, tests and results must be arrays where present; suites, specs and tests plain objects; every suite and
+ * spec title, every file, and every projectName a string.
+ */
+export function strictTests(root) {
+  const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  const listOf = (v) => (v === undefined ? [] : Array.isArray(v) ? v : null);
+  const out = [];
+  const walk = (suite, file, describes) => {
+    if (!isObj(suite) || typeof suite.title !== 'string') return false;
+    if (suite.file !== undefined && typeof suite.file !== 'string') return false;
+    const f = suite.file ?? file;
+    const d = suite.title !== f ? [...describes, suite.title] : describes;
+    const specs = listOf(suite.specs), kids = listOf(suite.suites);
+    if (!specs || !kids) return false;
+    for (const s of specs) {
+      if (!isObj(s) || typeof s.title !== 'string' || (s.file !== undefined && typeof s.file !== 'string')) return false;
+      const tests = listOf(s.tests);
+      if (!tests) return false;
+      for (const t of tests) {
+        if (!isObj(t) || typeof t.projectName !== 'string' || !Array.isArray(t.results)) return false;
+        out.push({ title: s.title, file: s.file ?? f, describe: d.join(' > '), projectName: t.projectName, results: t.results });
+      }
+    }
+    for (const c of kids) if (!walk(c, f, d)) return false;
+    return true;
+  };
+  const top = listOf(root.suites);
+  if (!top) return null;
+  for (const s of top) if (!walk(s, undefined, [])) return null;
+  return out;
+}
+
 /** E1 diagnostics r2: the single E1 attempt's closed status and failed step, or UNKNOWN for both (see reportSnapshot). */
 export function e1Attempt(root) {
   const unknown = { attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' };
   try {
     if (!root || typeof root !== 'object' || Array.isArray(root)) return unknown;
-    const all = testsOf(root);
-    if (all.length !== 1) return unknown;
+    const all = strictTests(root);
+    if (!all || all.length !== 1) return unknown;
     const t = all[0];
     if (t.title !== E1_IDENTITY.title || t.file !== E1_IDENTITY.file || t.describe !== E1_IDENTITY.describe || t.projectName !== E1_IDENTITY.project) return unknown;
     if (t.results.length !== 1) return unknown;

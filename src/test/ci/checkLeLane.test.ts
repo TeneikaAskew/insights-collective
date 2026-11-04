@@ -2128,3 +2128,47 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
       expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/postObserved|attemptStatus|failedStep|POST_OBSERVED|ATTEMPT_STATUS|FAILED_STEP/);
   });
 });
+
+// E1 diagnostics r2.1 (review corrections; fakes only). Malformed exit fields and coerced identities are UNKNOWN.
+describe('E1 diagnostics r2.1: strict exit-field types and strict raw identity for the new diagnostics', () => {
+  const handle = (exitCode: unknown, signalCode: unknown) => Object.assign(new EventEmitter(), { pid: 10, exitCode, signalCode });
+  it('exit observer: without an exit event, only a well-typed, compatible exitCode/signalCode pair counts', () => {
+    expect(exitObserver(handle(0, null))()).toBe('EXIT_OBSERVED');
+    expect(exitObserver(handle(137, null))()).toBe('EXIT_OBSERVED');
+    expect(exitObserver(handle(null, 'SIGKILL'))()).toBe('EXIT_OBSERVED');
+    expect(exitObserver(handle(null, null))()).toBe('NO_EXIT_OBSERVED');
+    const malformed: [unknown, unknown][] = [['bad', null], ['0', null], [false, null], [true, null], [Number.NaN, null], [1.5, null], [Infinity, null], [-1, null], [256, null],
+      [{}, null], [null, {}], [null, 'kill'], [null, 'SIG'], [null, ''], [null, 9], [null, false], [0, 'SIGKILL'], [undefined, null], [null, undefined], [undefined, undefined]];
+    for (const [c, s] of malformed) expect(exitObserver(handle(c, s))(), `${String(c)} ${String(s)}`).toBe('UNKNOWN');
+    // an observed exit event still wins over malformed fields (the listener is the primary evidence)
+    const h = handle('bad', {});
+    const obs = exitObserver(h);
+    expect(obs()).toBe('UNKNOWN');
+    h.emit('exit', 0, null);
+    expect(obs()).toBe('EXIT_OBSERVED');
+  });
+
+  const ID = E1_IDENTITY;
+  const okAttempt = { retry: 0, status: 'passed', steps: [] };
+  const rep = (o: { file?: unknown; describe?: unknown; title?: unknown; project?: unknown; specFile?: unknown; results?: unknown; tests?: unknown; specs?: unknown; suites?: unknown; inner?: unknown } = {}) => ({
+    suites: o.suites ?? [{ title: o.file ?? ID.file, file: o.file ?? ID.file, specs: [], suites: o.inner ?? [{ title: o.describe ?? ID.describe, file: o.file ?? ID.file,
+      specs: o.specs ?? [{ title: o.title ?? ID.title, file: o.specFile ?? ID.file, tests: o.tests ?? [{ projectName: o.project ?? ID.project, results: o.results ?? [okAttempt] }] }] }] }],
+  });
+  it('selection: the strict raw shape is PASSED/NONE; coercible identities and malformed structure are UNKNOWN', () => {
+    expect(e1Attempt(rep())).toEqual({ attemptStatus: 'PASSED', failedStep: 'NONE' });
+    const U = { attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' };
+    const bad: [string, Obj][] = [
+      ['projectName array', rep({ project: [ID.project] })], ['projectName boxed', rep({ project: { toString: () => ID.project } })],
+      ['describe title array', rep({ describe: [ID.describe] })], ['spec title array', rep({ title: [ID.title] })],
+      ['spec file array', rep({ specFile: [ID.file] })], ['suite file array', rep({ file: [ID.file] })], ['describe title number', rep({ describe: 5 })],
+      ['suites not an array', rep({ suites: { 0: {} } })], ['inner suites not an array', rep({ inner: 'x' })], ['specs not an array', rep({ specs: {} })],
+      ['tests not an array', rep({ tests: {} })], ['results not an array', rep({ results: {} })], ['suite is an array', rep({ inner: [[]] })],
+      ['spec is null', rep({ specs: [null] })], ['test is a string', rep({ tests: ['x'] })], ['projectName missing', rep({ tests: [{ results: [okAttempt] }] })],
+      ['suite title missing', rep({ inner: [{ file: ID.file, specs: [{ title: ID.title, file: ID.file, tests: [{ projectName: ID.project, results: [okAttempt] }] }] }] })],
+    ];
+    for (const [name, r] of bad) expect(e1Attempt(r), name).toEqual(U);
+    // the inherited summary extractor is unchanged (it still coerces; it is not the new diagnostic)
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-e1-summary.mjs'), 'utf8');
+    expect(src).toContain("projectName: String(t.projectName ?? ''),");
+  });
+});
