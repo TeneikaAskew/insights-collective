@@ -166,6 +166,45 @@ describe('EmbeddedVideoPlayer', () => {
     expect(screen.queryByRole('button', { name: 'Retry loading video' })).toBeNull();
   });
 
+  it('seen A, then unsupported, then A again: the restored A is a new generation and starts unseen', () => {
+    const { container, rerender } = render(<EmbeddedVideoPlayer src={A} />);
+    const firstA = live()[0];
+    enterViewport();
+    rerender(<EmbeddedVideoPlayer src="https://media.example.invalid/x" />);
+    rerender(<EmbeddedVideoPlayer src={A} />);
+    expect(live()).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 3); });
+    expect(stateOf(container)).toBe('loading');
+    emit(firstA, true); // the first A generation's callback, delivered after restoration
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 3); });
+    expect(stateOf(container)).toBe('loading');
+    enterViewport();
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS - 1000); });
+    expect(stateOf(container)).toBe('loading');
+    act(() => { vi.advanceTimersByTime(1001); });
+    expect(stateOf(container)).toBe('slow');
+  });
+
+  it('seen A, then unseen B, then A again: the restored A is a new generation and starts unseen', () => {
+    const { container, rerender } = render(<EmbeddedVideoPlayer src={A} />);
+    const firstA = live()[0];
+    enterViewport();
+    rerender(<EmbeddedVideoPlayer src={B} />);
+    const bObserver = live()[0];
+    rerender(<EmbeddedVideoPlayer src={A} />);
+    expect(bObserver.disconnected).toBe(true);
+    expect(live()).toHaveLength(1);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 3); });
+    expect(stateOf(container)).toBe('loading');
+    emit(firstA, true);
+    emit(bObserver, true);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 3); });
+    expect(stateOf(container)).toBe('loading');
+    enterViewport();
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS + 1); });
+    expect(stateOf(container)).toBe('slow');
+  });
+
   it('an old observer callback delivered after replacement does not mark the new frame seen', () => {
     const { container, rerender } = render(<EmbeddedVideoPlayer src={A} />);
     const oldObserver = live()[0];

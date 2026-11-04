@@ -62,30 +62,37 @@ export function EmbeddedVideoPlayer({
   const [state, setState] = useState<FrameState>('loading');
   const statusId = useId();
   const frameBoxRef = useRef<HTMLDivElement>(null);
-  // Visibility is scoped to one source generation: seenSrc records WHICH frame
-  // source first intersected the viewport. A replaced, removed-then-restored or
-  // never-seen source compares unequal and starts unseen. Within a generation,
-  // the first intersection is sticky (the lazy frame has been requested by then),
-  // so later exits, re-entries and Retry never pause or skip the clock.
+  // Visibility is scoped to a source GENERATION, not a URL: every change of
+  // frameSrc, including to and from null (unsupported or missing), starts a new
+  // generation, so a replaced source and a restored earlier source (A, then
+  // null or B, then A) both start unseen. Within a generation the first
+  // intersection is sticky (the lazy frame has been requested by then), so
+  // later exits, re-entries and Retry never pause or skip the clock.
   const noObserver = typeof IntersectionObserver === 'undefined';
-  const [seenSrc, setSeenSrc] = useState<string | null>(null);
-  const seen = frameSrc !== null && (noObserver || seenSrc === frameSrc);
+  const [sourceGen, setSourceGen] = useState({ src: frameSrc, gen: 0 });
+  if (sourceGen.src !== frameSrc) {
+    // Adjusting state during render on a prop change (React's documented pattern).
+    setSourceGen({ src: frameSrc, gen: sourceGen.gen + 1 });
+  }
+  const generation = sourceGen.src === frameSrc ? sourceGen.gen : sourceGen.gen + 1;
+  const [seenGen, setSeenGen] = useState<number | null>(null);
+  const seen = frameSrc !== null && (noObserver || seenGen === generation);
 
   useEffect(() => {
     if (!frameSrc || seen) return;
     const el = frameBoxRef.current;
     if (!el) return;
-    // A callback already queued when this generation is cleaned up (replacement
-    // or unmount) must not mark anything seen: `active` is checked first, and
-    // the source it records is this generation's own, never the current one.
+    // A callback already queued when this generation is cleaned up (replacement,
+    // removal or unmount) must not mark anything seen: `active` is checked first,
+    // and the generation it records is its own, never the current one.
     let active = true;
-    const generationSrc = frameSrc;
+    const observedGen = generation;
     const observer = new IntersectionObserver((entries) => {
       if (!active) return;
       if (entries.some((entry) => entry.isIntersecting)) {
         active = false;
         observer.disconnect();
-        setSeenSrc(generationSrc);
+        setSeenGen(observedGen);
       }
     });
     observer.observe(el);
@@ -93,13 +100,13 @@ export function EmbeddedVideoPlayer({
       active = false;
       observer.disconnect();
     };
-  }, [frameSrc, seen]);
+  }, [frameSrc, generation, seen]);
 
   // A new source or a Retry starts a fresh attempt.
   useEffect(() => {
     if (!frameSrc) return;
     setState('loading');
-  }, [frameSrc, attempt]);
+  }, [frameSrc, generation, attempt]);
 
   // The slow clock runs only once this generation has been seen, restarts in
   // full for every attempt, and never turns a loaded frame back to slow.
@@ -109,7 +116,7 @@ export function EmbeddedVideoPlayer({
       setState((current) => (current === 'loading' ? 'slow' : current));
     }, FRAME_SLOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [frameSrc, attempt, seen]);
+  }, [frameSrc, generation, attempt, seen]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
