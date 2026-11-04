@@ -234,6 +234,55 @@ export function exitObserver(child) {
 }
 
 /**
+ * E1 diagnostics r3: HOW the owned browser exited, as one closed token, and the page's state when the test body ended.
+ * Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads either value.
+ *   shape: CODE_<0..255> (Node's exit code) | a signal name from EXIT_SIGNALS | SIG_OTHER (any other SIG* name) | NONE (the
+ *     listener is registered and neither field is set yet; NOT a liveness claim) | UNKNOWN (anything else). Node sets a code
+ *     or a signal, never both.
+ *   page (BODY_END_PAGES): the spec's page when its fixture teardown began, which is the first teardown after the test body;
+ *     CLOSED means the page was already closed (the spec never closes it), CRASHED that it emitted 'crash' (renderer).
+ */
+export const EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGHUP', 'SIGILL', 'SIGINT', 'SIGKILL', 'SIGPIPE', 'SIGSEGV', 'SIGSYS', 'SIGTERM', 'SIGTRAP']);
+export const BODY_END_PAGES = Object.freeze(['OPEN', 'CLOSED', 'CRASHED', 'CRASHED_CLOSED', 'UNKNOWN']);
+const EXIT_SHAPE_RE = new RegExp(`^(CODE_(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN)$`);
+/** One exit (code, signal) pair as a closed shape; a malformed or conflicting pair is UNKNOWN. */
+export function exitShape(code, signal) {
+  const codeOk = Number.isInteger(code) && code >= 0 && code <= 255, signalOk = typeof signal === 'string' && /^SIG[A-Z0-9]+$/.test(signal);
+  if (codeOk && signal === null) return `CODE_${code}`;
+  if (signalOk && code === null) return EXIT_SIGNALS.includes(signal) ? signal : 'SIG_OTHER';
+  return 'UNKNOWN';
+}
+/** A passive 'exit' listener on the owned ChildProcess; the sampler returns the shape (the event first, then the fields). */
+export function exitRecorder(child) {
+  let seen = null, registered = false;
+  try { if (child && typeof child === 'object' && typeof child.once === 'function') { child.once('exit', (code, signal) => { seen = exitShape(code, signal); }); registered = true; } } catch { registered = false; }
+  return () => {
+    try {
+      if (seen !== null) return seen;
+      if (!child || typeof child !== 'object') return 'UNKNOWN';
+      const code = child.exitCode, signal = child.signalCode;
+      if (code === null && signal === null) return registered ? 'NONE' : 'UNKNOWN';
+      return exitShape(code, signal);
+    } catch { return 'UNKNOWN'; }
+  };
+}
+/** The page's state at the start of its fixture teardown; `crashed` is what a passive 'crash' listener recorded. */
+export function pageEndState(page, crashed) {
+  try {
+    const closed = page.isClosed();
+    if (typeof closed !== 'boolean' || typeof crashed !== 'boolean') return 'UNKNOWN';
+    return crashed ? (closed ? 'CRASHED_CLOSED' : 'CRASHED') : closed ? 'CLOSED' : 'OPEN';
+  } catch { return 'UNKNOWN'; }
+}
+/** The test-scoped gate's `lane-browser-exit` annotation: `SHAPE <shape> BODY_END_PAGE <page>`, closed values only. */
+export function browserExitLine(state, bodyEndPage) {
+  let shape = 'UNKNOWN';
+  try { const v = typeof state?.exitShape === 'function' ? state.exitShape() : 'UNKNOWN'; shape = typeof v === 'string' && EXIT_SHAPE_RE.test(v) ? v : 'UNKNOWN'; } catch { shape = 'UNKNOWN'; }
+  const page = typeof bodyEndPage === 'string' && BODY_END_PAGES.includes(bodyEndPage) ? bodyEndPage : 'UNKNOWN';
+  return `SHAPE ${shape} BODY_END_PAGE ${page}`;
+}
+
+/**
  * Post-run evidence for the worker and the owned browser; ok only if all four are ENFORCE (pre equal to post).
  * @param {{ pid: number, readLabel: (who: number | 'self', note?: (outcomes: string[]) => void) => string | null, exitObservation?: () => string, pre: { worker: string, browser: string } }} state
  */
@@ -290,11 +339,12 @@ export async function withSandboxedBrowser(chromium, { launchOptions, defaults, 
     const child = server.process();
     const pid = child?.pid;
     const exitObservation = exitObserver(child); // passive, diagnostic only (postrunAppArmorObserved)
+    const exitShapeOf = exitRecorder(child); // passive, diagnostic only (browserExitLine, E1 diagnostics r3)
     const a = attestArgv(pid, readCmdline, shell);
     if (a) throw new SandboxLaunchError(a);
     let state = null;
     if (readLabel) {
-      state = { pid, readLabel, exitObservation, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
+      state = { pid, readLabel, exitObservation, exitShape: exitShapeOf, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
       if (state.pre.browser !== AA_ENFORCE) throw new SandboxLaunchError('LANE_E_APPARMOR_PRE', { apparmor: state.pre.browser });
       onAppArmor?.(state);
     }

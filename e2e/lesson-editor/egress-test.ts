@@ -9,7 +9,7 @@ import { test as base, expect } from '@playwright/test';
 import { allowedOrigins, installBoundary, type Boundary } from './egress-boundary';
 import { startEgressProxy, type EgressProxy } from './egress-proxy';
 import { readFileSync } from 'node:fs';
-import { postrunAppArmor, postrunAppArmorObserved, readLabelAttempts, withSandboxedBrowser } from './sandbox-launch.mjs';
+import { browserExitLine, pageEndState, postrunAppArmor, postrunAppArmorObserved, readLabelAttempts, withSandboxedBrowser } from './sandbox-launch.mjs';
 
 // Controls (self-test only): off = no layer but the resolver; route-only = no proxy; proxy-only = no route/WebSocket layer.
 const CONTROL = process.env.LE_EGRESS_CONTROL ?? '';
@@ -38,6 +38,8 @@ export function readLabel(who: number | 'self', note?: (outcomes: string[]) => v
 }
 // The authentic lane's worker-side AppArmor state, set by the browser fixture once the owned browser is attested and gated.
 let laneAppArmor: AppArmorState | null = null;
+// E1 diagnostics r3: the spec page's closed state when the test body ended (set by the page wrapper, reset by the gate).
+let bodyEndPage: string | null = null;
 const authenticLane = () => TARGET_VARS.some((k) => process.env[k] !== undefined);
 
 export const test = base.extend<{ boundary: Boundary; laneAppArmorGate: void }, { egressProxy: EgressProxy | null }>({
@@ -84,13 +86,28 @@ export const test = base.extend<{ boundary: Boundary; laneAppArmorGate: void }, 
       if (!authenticLane()) return use();
       const state = laneAppArmor;
       if (!state) throw new Error('LANE_E_APPARMOR_PRE');
+      bodyEndPage = null;
       await use();
       const post = postrunAppArmorObserved(state); // same reads and decision as postrunAppArmor, plus the closed observation
       test.info().annotations.push({ type: 'lane-apparmor', description: post.line });
       test.info().annotations.push({ type: 'lane-post-observed', description: post.observed }); // diagnostic only (E1 diagnostics r2)
+      test.info().annotations.push({ type: 'lane-browser-exit', description: browserExitLine(state, bodyEndPage) }); // diagnostic only (r3)
       if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');
     },
     { auto: true },
+  ],
+  // E1 diagnostics r3, authentic lane only: a passive wrapper around the spec's page. Its teardown is the first after the test
+  // body, so it records whether the page was already closed or had crashed when the body ended (closed tokens only). It
+  // changes nothing the page does, adds no read of page content and decides nothing.
+  page: [
+    async ({ page }, use) => {
+      if (!authenticLane()) return use(page);
+      let crashed = false;
+      try { page.once('crash', () => { crashed = true; }); } catch { /* observation only */ }
+      await use(page);
+      bodyEndPage = pageEndState(page, crashed);
+    },
+    { scope: 'test' },
   ],
   boundary: [
     async ({ context, egressProxy }, use) => {

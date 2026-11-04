@@ -15,6 +15,7 @@ import {
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
   E1_RESULT_CLASSES, REPORTED_ERROR_CODES, REPORT_STATES, e1ResultClass, refusalDetail, reportedErrorCode,
   ATTEMPT_STATUSES, E1_STEP_CODES, FAILED_STEP_TOKENS, POST_EXIT_OBSERVATIONS, POST_READ_OUTCOMES, attemptStatusToken, failedStepToken, postObservedEvidence,
+  BODY_END_PAGE_STATES, BROWSER_EXIT_SIGNALS, browserExitEvidence,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
 import { inputsOk, runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
@@ -26,6 +27,7 @@ import {
   FORBIDDEN_FLAGS, LAUNCH_BOUND_MS, RESOLVER_ARG, SandboxLaunchError, attestArgv, defaultsProblem, effectiveOptions, effectiveProblem, incomingProblem, labelCode,
   postrunAppArmor, serverOptions, withSandboxedBrowser,
   EXIT_OBSERVATIONS, READ_OUTCOMES, exitObserver, postrunAppArmorObserved, readErrorOutcome, readLabelAttempts, readTextOutcome,
+  BODY_END_PAGES, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
@@ -233,8 +235,9 @@ describe('lane inspect gate (Docker 28 effective config, exact)', () => {
 
 const ENF = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
 const AA_LINE = `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} ${ENF}`;
-// E1 diagnostics r2: the three diagnostic lines for a report with no observation annotation and no full-identity E1 test.
-const DIAG_TAIL = 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN\n';
+// E1 diagnostics r2: the three diagnostic lines for a report with no observation annotation and no full-identity E1 test;
+// r3 adds the BROWSER_EXIT line (no `lane-browser-exit` annotation: MISSING).
+const DIAG_TAIL = 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS UNKNOWN\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n';
 const LANE_OK = `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT CLOSE_WITH_CODE\n${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`;
 const OKV = laneVerdict({ runLaneStarted: true, gatesText: 'x\nGATE CONTAINER LANE_ABSENT\nGATE BRIDGE BRIDGE_REAPED\nGATE CLIENTS REAPED\nGATE STARTED YES\nLANE_GATES_END\n' });
 
@@ -1638,17 +1641,17 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const r = await enter({ report: null, e1Code: null });
     expect(r.lane()).toContain('LANE E1 RESULT NO_CODE\nLANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING\nLANE E1 REPORTED_ERROR UNKNOWN\n');
     expect(r.code).toBe(1);
-    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+    expect(snap('{not json')).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
     for (const why of ['open', 'owner', 'mode', 'size', 'grew', 'path', 'read'])
-      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+      expect(reportSnapshot({ status: 'refused', why })).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
     expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).report).toBe('INVALID');
     // budget exhaustion, even with a recognisable code earlier in the walk, is INVALID and UNKNOWN
     let deep: Obj = {}; for (let i = 0; i < 100; i++) deep = { child: deep };
-    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+    expect(snap(JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], deep }))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
     const wide = JSON.stringify({ errors: [{ message: 'Error: LANE_E_CONNECT' }], items: Array.from({ length: REPORT_MAX_NODES }, () => ({})) });
     expect(snap(wide).report).toBe('INVALID');
     // parsed with no annotation: AppArmor MISSING, report PARSED
-    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+    expect(snap(errReport([R1('Error: LANE_E_LAUNCH_HUNG')], [], []))).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'PARSED', reportedError: 'LANE_E_LAUNCH_HUNG', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING' });
     // the old function is the same snapshot's AppArmor line
     expect(workerAppArmorFromReport({ status: 'ok', text: errReport([R1('Error: LANE_E_CONNECT')]) })).toBe(AA_LINE);
   });
@@ -1709,7 +1712,7 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     for (const good of [
       swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING'),
-      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED MISSING`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED INVALID'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED MISSING`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID\nLANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED INVALID').replace('BROWSER_EXIT MISSING', 'BROWSER_EXIT INVALID'),
       swap(AA_LINE, 'LANE E1 APPARMOR MISSING'), swap(AA_LINE, 'LANE E1 APPARMOR INVALID'),
       swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR MULTIPLE'), swap('LANE E1 REPORTED_ERROR UNKNOWN', 'LANE E1 REPORTED_ERROR LANE_E_SANDBOX_PID'),
     ]) expect(parseLaneOut(good).ok, good).toBe(true);
@@ -1724,17 +1727,17 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
       `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP PASS\nLANE E1 RAN\nLANE E1 RESULT ${result}\n${aa}\nLANE E1 REPORT ${report}\nLANE E1 REPORTED_ERROR ${err}\n${DIAG_TAIL}LANE CLEANUP ${cleanup}\nLANE END\n`;
     const missing = lane('NO_CODE', 'LANE E1 APPARMOR MISSING', 'MISSING', 'UNKNOWN', 'FAIL');
     expect(planSummary({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
-    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=FAIL');
+    expect(refusalDetail({ verdict: OKV, laneText: missing, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=NO_CODE aa=MISSING report=MISSING error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=FAIL');
     const real255 = lane('CLOSE_WITH_CODE', 'LANE E1 APPARMOR MISSING', 'PARSED', 'LANE_E_LAUNCH_HUNG');
-    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS');
+    expect(refusalDetail({ verdict: OKV, laneText: real255, pwExit: okPw('255') })).toBe('LE-E1 DETAIL exit=255 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=LANE_E_LAUNCH_HUNG post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS');
     const nonEnf = lane('CLOSE_WITH_CODE', `LANE E1 APPARMOR PRE ${ENF} ${ENF} POST ${ENF} APPARMOR_E_UNCONFINED`, 'PARSED', 'MULTIPLE');
-    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: nonEnf, pwExit: okPw('001') })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNCONFINED report=PARSED error=MULTIPLE post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS`);
     // every other plan: NONE (summary, not-run, other refusals, skip), and the plan itself is unchanged by the new lines
     const other: [string | null, Obj, Obj][] = [[LANE_OK, okPw('0'), OKV], [LANE_OK, { state: 'absent' }, OKV], [LANE_OK, { state: 'bad' }, OKV], [null, { state: 'absent' }, OKV],
       ['LANE START\n', { state: 'absent' }, OKV], [missing, okPw('255'), { ...OKV, ok: false }], ['garbage\n', okPw('0'), OKV]];
     for (const [t, pw, v] of other) expect(refusalDetail({ verdict: v as never, laneText: t, pwExit: pw as never })).toBe('LE-E1 DETAIL NONE');
     expect(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: okPw('0') })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
-    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ post=[A-Z_:,;]+ attempt_status=[A-Z_]+ failed_step=[A-Z0-9_]+ cleanup=(PASS|FAIL))$/;
+    const DETAIL = /^LE-E1 DETAIL (NONE|exit=\d{1,3} result=[A-Z_]+ aa=[A-Z_:,;]+ report=[A-Z]+ error=[A-Z_]+ post=[A-Z_:,;]+ attempt_status=[A-Z_]+ failed_step=[A-Z0-9_]+ browser_exit=[A-Z0-9_,]+ cleanup=(PASS|FAIL))$/;
     for (const t of [missing, real255, nonEnf]) expect(refusalDetail({ verdict: OKV, laneText: t, pwExit: okPw('255') })).toMatch(DETAIL);
   });
 
@@ -1751,7 +1754,7 @@ describe('E1 diagnostics r1: run-result class, report state, reported-error lead
     const lane = LANE_OK.replace(AA_LINE, 'LANE E1 APPARMOR MISSING');
     const files = { [L.started]: 'x', [L.gates]: block, [L.laneTxt]: lane, [L.pwExit]: '1\n' };
     expect(planLine(fsFor(files), L)).toBe('PLAN REFUSED LE_SUM_E_WORKER_APPARMOR');
-    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN cleanup=PASS');
+    expect(detailLine(fsFor(files), L)).toBe('LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=MISSING report=PARSED error=UNKNOWN post=MISSING attempt_status=UNKNOWN failed_step=UNKNOWN browser_exit=MISSING cleanup=PASS');
     expect(detailLine(fsFor({ ...files, [L.laneTxt]: LANE_OK, [L.pwExit]: '0\n' }), L)).toBe('LE-E1 DETAIL NONE');
     const step = (YAML.parse(readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8')) as Obj).jobs as Obj;
     const run = (Object.values(step).flatMap((j) => ((j as Obj).steps as Obj[] | undefined) ?? []).find((s) => s.id === 'le_summary') as Obj).run as string;
@@ -2039,7 +2042,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const swapped = snapOf(e1Report({ results: [{ ...withSecondary, error: { message: 'Error: LANE_E_CONNECT' }, errors: [] }], rootErrors: [] }));
     expect(swapped).toMatchObject({ reportedError: 'LANE_E_CONNECT', attemptStatus: 'FAILED', failedStep: 'E1_RELOAD' });
     // two errors in errors[] do not establish an order, and nothing here claims one: no ordering value exists
-    expect(Object.keys(a).sort()).toEqual(['aaLine', 'attemptStatus', 'failedStep', 'postObserved', 'report', 'reportedError']);
+    expect(Object.keys(a).sort()).toEqual(['aaLine', 'attemptStatus', 'browserExit', 'failedStep', 'postObserved', 'report', 'reportedError']);
   });
 
   it('observation annotation: one valid description, else MISSING or INVALID; budgets exhausted are INVALID for every value', () => {
@@ -2055,8 +2058,8 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const deepR = JSON.parse(e1Report()); deepR.deep = deep;
     const wideR = JSON.parse(e1Report()); wideR.items = Array.from({ length: REPORT_MAX_NODES }, () => ({}));
     for (const r of [deepR, wideR])
-      expect(snapOf(JSON.stringify(r))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
-    expect(reportSnapshot({ status: 'missing' })).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'MISSING', reportedError: 'UNKNOWN', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN' });
+      expect(snapOf(JSON.stringify(r))).toEqual({ aaLine: 'LANE E1 APPARMOR INVALID', report: 'INVALID', reportedError: 'UNKNOWN', postObserved: 'INVALID', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'INVALID' });
+    expect(reportSnapshot({ status: 'missing' })).toEqual({ aaLine: 'LANE E1 APPARMOR MISSING', report: 'MISSING', reportedError: 'UNKNOWN', postObserved: 'MISSING', attemptStatus: 'UNKNOWN', failedStep: 'UNKNOWN', browserExit: 'MISSING' });
     expect(snapOf(`${e1Report()}x`).report).toBe('INVALID');
     expect(reportSnapshot({ status: 'ok', text: 'x'.repeat(REPORT_MAX + 1) }).postObserved).toBe('INVALID');
   });
@@ -2065,7 +2068,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const secretRep = JSON.parse(e1Report({ results: [attempt({ steps: [{ title: 'E1_SAVED', error: { message: 'postgresql://postgres:hunter2@127.0.0.1:54322/x' } }],
       stdout: [{ text: 'eyJhbGciOiJIUzI1NiJ9.x.y' }] })], rootErrors: [{ message: 'secret hunter2' }] }));
     const r = await enter({ report: JSON.stringify(secretRep), e1Code: 1 });
-    expect(r.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP E1_SAVED\nLANE CLEANUP PASS\n`);
+    expect(r.lane()).toContain(`LANE E1 REPORTED_ERROR UNKNOWN\nLANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS FAILED\nLANE E1 FAILED_STEP E1_SAVED\nLANE E1 BROWSER_EXIT MISSING\nLANE CLEANUP PASS\n`);
     expect(r.lane()).not.toMatch(SECRET);
     expect(r.lane().split('\n').every((l) => l === '' || /^LANE [A-Z0-9_ ]+$/.test(l))).toBe(true);
     expect(parseLaneOut(r.lane())).toMatchObject({ ok: true, interrupted: false, attemptStatus: 'FAILED', failedStep: 'E1_SAVED', postObserved: { state: 'EVIDENCE' } });
@@ -2079,7 +2082,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     const okPw = { state: 'ok', digits: '1' };
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: okPw }));
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toEqual({ kind: 'refused', code: 'LE_SUM_E_WORKER_APPARMOR' });
-    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:NO_EXIT_OBSERVED,NO_EXIT_OBSERVED attempt_status=FAILED failed_step=E1_SAVED cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: okPw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF},${ENF};POST:${ENF},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:NO_EXIT_OBSERVED,NO_EXIT_OBSERVED attempt_status=FAILED failed_step=E1_SAVED browser_exit=MISSING cleanup=PASS`);
     // a passing, enforced run still accepts exactly as before
     const good = await enter({ report: e1Report({ ann: [{ type: 'lane-apparmor', description: AA_DESC }, { type: 'lane-post-observed', description: 'WORKER_READ OK NOT_TRIED BROWSER_READ OK NOT_TRIED EXIT NO_EXIT_OBSERVED NO_EXIT_OBSERVED' }], results: [attempt({ status: 'passed', error: undefined })] }) });
     expect(good.code).toBe(0);
@@ -2107,9 +2110,9 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
       `LANE START\nLANE APPARMOR ${ENF}\nLANE SETUP FAIL\nLANE E1 NOT RUN\n${DIAG_TAIL}LANE CLEANUP PASS\nLANE END\n`,
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     const goods = [
-      swap(DIAG_TAIL, `LANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS TIMED_OUT\nLANE E1 FAILED_STEP E1_SETTLE\n`),
-      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED INVALID\nLANE E1 ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP NONE\n'),
-      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS INTERRUPTED\nLANE E1 FAILED_STEP UNKNOWN\n'),
+      swap(DIAG_TAIL, `LANE E1 POST_OBSERVED ${OBS}\nLANE E1 ATTEMPT_STATUS TIMED_OUT\nLANE E1 FAILED_STEP E1_SETTLE\nLANE E1 BROWSER_EXIT MISSING\n`),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED INVALID\nLANE E1 ATTEMPT_STATUS PASSED\nLANE E1 FAILED_STEP NONE\nLANE E1 BROWSER_EXIT MISSING\n'),
+      swap(DIAG_TAIL, 'LANE E1 POST_OBSERVED MISSING\nLANE E1 ATTEMPT_STATUS INTERRUPTED\nLANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n'),
     ];
     for (const g of goods) {
       expect(parseLaneOut(g).ok, g).toBe(true);
@@ -2175,5 +2178,173 @@ describe('E1 diagnostics r2.1: strict exit-field types and strict raw identity f
     // the inherited summary extractor is unchanged (it still coerces; it is not the new diagnostic)
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-e1-summary.mjs'), 'utf8');
     expect(src).toContain("projectName: String(t.projectName ?? ''),");
+  });
+});
+
+// E1 diagnostics r3 (fakes only; no browser, process, file or listener). The owned browser's closed exit SHAPE and the spec
+// page's closed state when the test body ended, as one DIAGNOSTIC lane line. Nothing decides on either value.
+describe('E1 diagnostics r3: owned-browser exit shape and the page state at body end', () => {
+  type Obj = Record<string, unknown>;
+  const ENF3 = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
+  const AA_U = `PRE ${ENF3} ${ENF3} POST ${ENF3} APPARMOR_E_UNKNOWN`;
+  const OBS3 = 'WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT EXIT_OBSERVED EXIT_OBSERVED';
+  const BX = 'SHAPE SIGTRAP BODY_END_PAGE CLOSED';
+  const handle = (exitCode: unknown = null, signalCode: unknown = null) => Object.assign(new EventEmitter(), { pid: 10, exitCode, signalCode });
+  const report = (ann: Obj[], results: Obj[] = [{ retry: 0, status: 'failed', error: { message: 'x' }, errors: [], annotations: [], steps: [{ title: 'E1_OPEN', duration: 1, error: { message: 'x' } }] }]) => {
+    const file = E1_IDENTITY.file;
+    return JSON.stringify({ errors: [], suites: [{ title: file, file, specs: [], suites: [{ title: E1_IDENTITY.describe, file, specs: [
+      { title: E1_IDENTITY.title, file, tests: [{ projectName: E1_IDENTITY.project, annotations: ann, results }] }] }] }] });
+  };
+  const base = [{ type: 'lane-apparmor', description: AA_U }, { type: 'lane-post-observed', description: OBS3 }];
+
+  it('closed lists: the contract copies equal their sources; no liveness or free-text token exists', () => {
+    expect([...BROWSER_EXIT_SIGNALS]).toEqual([...EXIT_SIGNALS]);
+    expect([...BODY_END_PAGE_STATES]).toEqual([...BODY_END_PAGES]);
+    expect([...EXIT_SIGNALS, ...BODY_END_PAGES].join(' ')).not.toMatch(/ALIVE|RUNNING|LIVE\b/);
+  });
+
+  it('exit shape: a code 0..255 with no signal, or a SIG* name with no code; anything else is UNKNOWN', () => {
+    expect(exitShape(0, null)).toBe('CODE_0');
+    expect(exitShape(255, null)).toBe('CODE_255');
+    expect(exitShape(null, 'SIGTRAP')).toBe('SIGTRAP');
+    expect(exitShape(null, 'SIGKILL')).toBe('SIGKILL');
+    expect(exitShape(null, 'SIGUSR1')).toBe('SIG_OTHER');
+    for (const [c, sg] of [[256, null], [-1, null], [1.5, null], ['1', null], [NaN, null], [null, null], [undefined, null], [1, 'SIGTERM'],
+      [null, 'sigterm'], [null, 'TERM'], [null, ''], [null, { toString: () => 'SIGTERM' }], [null, 'SIGTERM secret hunter2']] as [unknown, unknown][])
+      expect(exitShape(c, sg), JSON.stringify([c, sg])).toBe('UNKNOWN');
+  });
+
+  it('exit recorder: event first, then the fields; NONE only with a registered listener and both fields null', () => {
+    const h = handle();
+    const rec = exitRecorder(h);
+    expect(rec()).toBe('NONE');
+    h.emit('exit', null, 'SIGSEGV');
+    expect(rec()).toBe('SIGSEGV');
+    h.signalCode = 'SIGKILL'; // the event value wins; it is never re-read
+    expect(rec()).toBe('SIGSEGV');
+    expect(exitRecorder(handle(0, null))()).toBe('CODE_0'); // exited before registration
+    expect(exitRecorder(handle(null, 'SIGTRAP'))()).toBe('SIGTRAP');
+    expect(exitRecorder({ pid: 10, exitCode: null, signalCode: null })()).toBe('UNKNOWN'); // no listener possible
+    expect(exitRecorder(null)()).toBe('UNKNOWN');
+    expect(exitRecorder(handle('0', null))()).toBe('UNKNOWN');
+    const throwing = Object.defineProperty(Object.assign(new EventEmitter(), { pid: 10, signalCode: null }), 'exitCode', { get: () => { throw new Error('secret hunter2'); } });
+    expect(exitRecorder(throwing)()).toBe('UNKNOWN');
+    const bad = handle();
+    const r2 = exitRecorder(bad);
+    bad.emit('exit', 1, 'SIGTERM'); // a conflicting event pair is UNKNOWN, not a code
+    expect(r2()).toBe('UNKNOWN');
+  });
+
+  it('page state at body end: closed tokens from isClosed and the crash flag; anything odd is UNKNOWN', () => {
+    const pg = (v: unknown) => ({ isClosed: () => v });
+    expect(pageEndState(pg(false), false)).toBe('OPEN');
+    expect(pageEndState(pg(true), false)).toBe('CLOSED');
+    expect(pageEndState(pg(false), true)).toBe('CRASHED');
+    expect(pageEndState(pg(true), true)).toBe('CRASHED_CLOSED');
+    for (const [p, c] of [[pg('true'), false], [pg(1), false], [pg(false), 'yes'], [{ isClosed: () => { throw new Error('secret'); } }, false], [null, false], [{}, false]] as [unknown, unknown][])
+      expect(pageEndState(p, c)).toBe('UNKNOWN');
+  });
+
+  it('annotation line: closed values only; a bad sampler or page token is UNKNOWN, never echoed', () => {
+    expect(browserExitLine({ exitShape: () => 'SIGTRAP' }, 'CLOSED')).toBe(BX);
+    expect(browserExitLine({ exitShape: () => 'CODE_0' }, 'OPEN')).toBe('SHAPE CODE_0 BODY_END_PAGE OPEN');
+    expect(browserExitLine({ exitShape: () => 'NONE' }, null)).toBe('SHAPE NONE BODY_END_PAGE UNKNOWN');
+    for (const v of ['CODE_256', 'secret hunter2', 7, null, 'SIGUSR1', 'EXIT_OBSERVED'])
+      expect(browserExitLine({ exitShape: () => v }, 'OPEN')).toBe('SHAPE UNKNOWN BODY_END_PAGE OPEN');
+    expect(browserExitLine({ exitShape: () => { throw new Error('secret'); } }, 'secret')).toBe('SHAPE UNKNOWN BODY_END_PAGE UNKNOWN');
+    expect(browserExitLine(null, 'CLOSED')).toBe('SHAPE UNKNOWN BODY_END_PAGE CLOSED');
+    expect(browserExitEvidence(browserExitLine({ exitShape: () => 'SIG_OTHER' }, 'CRASHED_CLOSED'))).toEqual({ shape: 'SIG_OTHER', page: 'CRASHED_CLOSED' });
+  });
+
+  it('wiring: the recorder rides on the same owned handle; gate and wrapper are passive, ordered and lane-only', async () => {
+    const run = async (h: unknown) => {
+      const ev: string[] = [];
+      const server = { process: () => h, wsEndpoint: () => 'ws://127.0.0.1:1/x', close: () => { ev.push('server.close'); return Promise.resolve(); }, kill: () => Promise.resolve() };
+      const chromium = { launchServer: async () => { ev.push('launchServer'); return server; }, connect: async () => { ev.push('connect'); return { close: () => { ev.push('browser.close'); return Promise.resolve(); } }; } };
+      const states: Obj[] = [];
+      const opts = { launchOptions: { executablePath: SHELL, args: [RESOLVER_ARG] }, defaults: DEFAULTS(), shell: SHELL, outputDir: L.output, proxyUrl: PROXY,
+        readCmdline: () => `${SHELL}\0--headless\0`, readLabel: () => 'docker-default (enforce)\n', onAppArmor: (st: Obj) => { states.push(st); } };
+      let code = 'ok';
+      try { await withSandboxedBrowser(chromium, opts, async () => { ev.push('use'); (h as EventEmitter | null)?.emit?.('exit', null, 'SIGTRAP'); }); } catch (e) { code = (e as SandboxLaunchError).code ?? 'other'; }
+      return { ev, states, code };
+    };
+    const a = await run(handle()), b = await run({ pid: 10 });
+    expect(a.ev).toEqual(b.ev);
+    expect(a.code).toBe(b.code);
+    expect((a.states[0].exitShape as () => string)()).toBe('SIGTRAP');
+    expect((b.states[0].exitShape as () => string)()).toBe('UNKNOWN');
+    const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
+    expect(src).toContain('const exitShapeOf = exitRecorder(child);');
+    expect(src.match(/exitRecorder\(/g)).toHaveLength(2); // definition and the one call on the launchServer handle
+    expect(src).not.toMatch(/exitShape\(\)[^;]*\b(ok|marks|throw)\b/);
+    const eg = readFileSync(path.join(ROOT, 'e2e/lesson-editor/egress-test.ts'), 'utf8');
+    const iReset = eg.indexOf('bodyEndPage = null;'), iUse = eg.indexOf('await use();'), iObs = eg.indexOf("type: 'lane-post-observed'"),
+      iBx = eg.indexOf("type: 'lane-browser-exit', description: browserExitLine(state, bodyEndPage)"), iThrow = eg.indexOf("if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');");
+    expect([iReset, iUse, iObs, iBx, iThrow].every((i) => i > 0)).toBe(true);
+    expect(iReset < iUse && iUse < iObs && iObs < iBx && iBx < iThrow).toBe(true);
+    expect(eg).toContain("if (!authenticLane()) return use(page);");
+    const w = eg.slice(eg.indexOf('async ({ page }, use) => {'), eg.indexOf('boundary: ['));
+    expect(w.indexOf('await use(page);')).toBeLessThan(w.indexOf('bodyEndPage = pageEndState(page, crashed);'));
+    expect(w).not.toMatch(/goto|evaluate|content\(|textContent|close\(|title\(|url\(/);
+  });
+
+  it('snapshot: one valid annotation, else MISSING or INVALID; other values are unchanged by it', () => {
+    const snap = (ann: Obj[], results?: Obj[]) => reportSnapshot({ status: 'ok', text: report(ann, results) });
+    const withBx = snap([...base, { type: 'lane-browser-exit', description: BX }]);
+    expect(withBx).toMatchObject({ browserExit: BX, attemptStatus: 'FAILED', failedStep: 'E1_OPEN', postObserved: OBS3 });
+    const without = snap(base);
+    expect(without.browserExit).toBe('MISSING');
+    const { browserExit: _a, ...r1 } = withBx, { browserExit: _b, ...r0 } = without;
+    expect(r1).toEqual(r0);
+    for (const ann of [[{ type: 'lane-browser-exit', description: BX }, { type: 'lane-browser-exit', description: 'SHAPE CODE_0 BODY_END_PAGE OPEN' }],
+      [{ type: 'lane-browser-exit', description: `${BX} secret hunter2` }], [{ type: 'lane-browser-exit', description: 7 }], [{ type: 'lane-browser-exit' }],
+      [{ type: 'lane-browser-exit', description: 'SHAPE SIGUSR1 BODY_END_PAGE OPEN' }], [{ type: 'lane-browser-exit', description: 'SHAPE ALIVE BODY_END_PAGE OPEN' }]])
+      expect(snap([...base, ...ann]).browserExit, JSON.stringify(ann)).toBe('INVALID');
+    // the same description on the test and on its result is ONE distinct value
+    expect(snap(base, [{ retry: 0, status: 'failed', annotations: [{ type: 'lane-browser-exit', description: BX }], steps: [] }]).browserExit).toBe(BX);
+    expect(reportSnapshot({ status: 'missing' }).browserExit).toBe('MISSING');
+    expect(reportSnapshot({ status: 'ok', text: '{x' }).browserExit).toBe('INVALID');
+  });
+
+  it('supervisor and summary: the line comes from the same single read; decisions, exit content and cleanup are identical', async () => {
+    const r = await enter({ report: report([...base, { type: 'lane-browser-exit', description: BX }]), e1Code: 1 });
+    const r0 = await enter({ report: report(base), e1Code: 1 });
+    expect(r.lane()).toContain(`LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT ${BX}\nLANE CLEANUP PASS\n`);
+    expect(r0.lane()).toContain('LANE E1 FAILED_STEP E1_OPEN\nLANE E1 BROWSER_EXIT MISSING\nLANE CLEANUP PASS\n');
+    expect(r.code).toBe(r0.code);
+    expect(r.writes.get(3)).toBe(r0.writes.get(3));
+    expect(r.runs).toEqual(r0.runs);
+    const pw = { state: 'ok', digits: '1' };
+    expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: pw }));
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,CLOSED cleanup=PASS`);
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
+    expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
+    expect(src).toContain('say(`LANE E1 BROWSER_EXIT ${snap.browserExit}`);');
+  });
+
+  it('grammar: the line is required after FAILED_STEP with closed, consistent values; decisions ignore it', () => {
+    const swap = (from: string, to: string) => LANE_OK.replace(from, to);
+    for (const bad of [
+      swap('LANE E1 BROWSER_EXIT MISSING\n', ''), swap('LANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n', 'LANE E1 BROWSER_EXIT MISSING\nLANE E1 FAILED_STEP UNKNOWN\n'),
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_256 BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGUSR1 BODY_END_PAGE OPEN'),
+      swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX} secret`), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT shape sigtrap body_end_page closed'),
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGTRAP BODY_END_PAGE ALIVE'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT UNKNOWN'),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING').replace('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`),
+      swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID').replace('POST_OBSERVED MISSING', 'POST_OBSERVED INVALID'), // needs BROWSER_EXIT INVALID
+    ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
+    for (const g of [swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT INVALID'),
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE NONE BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_0 BODY_END_PAGE UNKNOWN')]) {
+      const o = parseLaneOut(g);
+      expect(o.ok, g).toBe(true);
+      for (const pw of [{ state: 'ok', digits: '0' }, { state: 'ok', digits: '1' }, { state: 'absent' }, { state: 'bad' }])
+        expect(planSummary({ verdict: OKV, laneText: g, pwExit: pw as never })).toEqual(planSummary({ verdict: OKV, laneText: LANE_OK, pwExit: pw as never }));
+      const { browserExit: _x, ...rest } = o as Obj, { browserExit: _y, ...rest0 } = parseLaneOut(LANE_OK) as Obj;
+      expect(rest).toEqual(rest0);
+    }
+    expect(parseLaneOut(swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`)).browserExit).toEqual({ state: 'EVIDENCE', shape: 'SIGTRAP', page: 'CLOSED' });
+    for (const f of ['gates.mjs', 'run-lane.mjs', 'image.mjs', 'bridge.mjs'])
+      expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserExit|BROWSER_EXIT|bodyEndPage/);
+    const contract = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
+    expect(contract.split('\n').filter((l) => /o\.browserExit|r\.browserExit/.test(l)).length).toBeLessThanOrEqual(4); // parser sets, detail reads
   });
 });

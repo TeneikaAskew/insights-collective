@@ -272,6 +272,17 @@ export function postObservedEvidence(text) {
   return { reads: { worker: [m[1], m[2]], browser: [m[3], m[4]] }, exit: [m[5], m[6]] };
 }
 
+// E1 diagnostics r3 (closed values only; DIAGNOSTIC, never acceptance). Copies of the sandbox-launch.mjs lists; a test checks
+// each copy equals its source.
+export const BROWSER_EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGHUP', 'SIGILL', 'SIGINT', 'SIGKILL', 'SIGPIPE', 'SIGSEGV', 'SIGSYS', 'SIGTERM', 'SIGTRAP']);
+export const BODY_END_PAGE_STATES = Object.freeze(['OPEN', 'CLOSED', 'CRASHED', 'CRASHED_CLOSED', 'UNKNOWN']);
+const BROWSER_EXIT = new RegExp(`^SHAPE (CODE_(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${BROWSER_EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN) BODY_END_PAGE (${BODY_END_PAGE_STATES.join('|')})$`);
+/** The test-scoped gate's `lane-browser-exit` annotation (sandbox-launch.mjs browserExitLine) to { shape, page } or null. */
+export function browserExitEvidence(text) {
+  const m = typeof text === 'string' ? BROWSER_EXIT.exec(text) : null;
+  return m ? { shape: m[1], page: m[2] } : null;
+}
+
 /** Classify a runChild result object. Only the two exact known shapes get a specific class; everything else is NO_CODE. */
 export function e1ResultClass(res) {
   try {
@@ -313,6 +324,7 @@ export function reportedErrorCode(message) {
  *       LANE E1 POST_OBSERVED <postObservedEvidence grammar>|MISSING|INVALID,
  *       LANE E1 ATTEMPT_STATUS <ATTEMPT_STATUSES>,
  *       LANE E1 FAILED_STEP <FAILED_STEP_TOKENS>,
+ *       LANE E1 BROWSER_EXIT <browserExitEvidence grammar>|MISSING|INVALID,
  *     LANE CLEANUP PASS|FAIL, LANE END
  * The E1 APPARMOR line is the WORKER-side evidence (egress-test.ts laneAppArmorGate), copied from the report annotation.
  * RESULT, REPORT and REPORTED_ERROR are DIAGNOSTIC ONLY (E1 diagnostics r1): no acceptance, teardown or upload decision reads
@@ -322,12 +334,14 @@ export function reportedErrorCode(message) {
  * POST_OBSERVED, ATTEMPT_STATUS and FAILED_STEP (E1 diagnostics r2) are DIAGNOSTIC ONLY as well. A report that is not PARSED
  * needs POST_OBSERVED equal to the report state and UNKNOWN status and step; UNKNOWN status needs UNKNOWN step; PASSED needs
  * NONE and only PASSED may have NONE. ATTEMPT_STATUS is Playwright's word for the one selected attempt, never an E1 verdict.
+ * BROWSER_EXIT (E1 diagnostics r3) is DIAGNOSTIC ONLY too: the owned browser's closed exit shape and the spec page's state when
+ * the test body ended. A report that is not PARSED needs it equal to the report state. It never says why a process exited.
  * A valid prefix without LANE END is { ok: true, interrupted: true }. Anything else is { ok: false }.
  */
 export function parseLaneOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, postObserved: null, attemptStatus: null, failedStep: null, cleanup: null };
+  const r = { ok: true, interrupted: true, apparmor: null, setup: null, precheck: null, e1: null, e1Result: null, workerAppArmor: null, report: null, reportedError: null, postObserved: null, attemptStatus: null, failedStep: null, browserExit: null, cleanup: null };
   const want = (i) => ls[i];
   let i = 0;
   if (ls.length === 0) return r;
@@ -385,6 +399,11 @@ export function parseLaneOut(text) {
       if (as[1] === 'PASSED' && fs1[1] !== 'NONE') return { ok: false };
       if (as[1] !== 'PASSED' && fs1[1] === 'NONE') return { ok: false };
       r.failedStep = fs1[1];
+      if (i >= ls.length) return r;
+      const bx = /^LANE E1 BROWSER_EXIT (.+)$/.exec(want(i++));
+      if (!bx) return { ok: false };
+      if (bx[1] === 'MISSING' || bx[1] === 'INVALID') { if (r.report !== 'PARSED' && bx[1] !== r.report) return { ok: false }; r.browserExit = { state: bx[1] }; }
+      else { const ev = browserExitEvidence(bx[1]); if (!ev || r.report !== 'PARSED') return { ok: false }; r.browserExit = { state: 'EVIDENCE', ...ev }; }
       if (i >= ls.length) return r;
     }
     const c = want(i++);
@@ -576,5 +595,7 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
   const aa = w.state === 'EVIDENCE' ? `PRE:${w.codes[0]},${w.codes[1]};POST:${w.codes[2]},${w.codes[3]}` : w.state;
   const po = o.postObserved;
   const post = po.state === 'EVIDENCE' ? `WR:${po.reads.worker.join(',')};BR:${po.reads.browser.join(',')};EXIT:${po.exit.join(',')}` : po.state;
-  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} cleanup=${o.cleanup}`;
+  const bx = o.browserExit;
+  const browserExit = bx.state === 'EVIDENCE' ? `${bx.shape},${bx.page}` : bx.state;
+  return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} browser_exit=${browserExit} cleanup=${o.cleanup}`;
 }
