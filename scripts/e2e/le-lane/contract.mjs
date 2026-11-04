@@ -79,19 +79,21 @@ export function synBinds(L) {
 }
 /** SYNTHETIC environment keys, in -e order. No app, API or DB origin, no key, password, proof or socket path. */
 export const SYN_ENV_KEYS = Object.freeze(['HOME', 'TMPDIR', 'CI', 'LE_LANE_DIR', 'LE_OUT_DIR', 'LE_WORK_DIR', 'LE_EVIDENCE_DIR',
-  'LE_OUTPUT_DIR', 'LE_REPORT_JSON', 'E2E_EVIDENCE_COMMIT', 'E2E_EVIDENCE_ENVIRONMENT', 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', 'LE_TARGET']);
+  'LE_OUTPUT_DIR', 'LE_REPORT_JSON', 'E2E_EVIDENCE_COMMIT', 'E2E_EVIDENCE_ENVIRONMENT', 'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH', 'LE_TARGET', 'LE_SYN_ARM']);
 /** Names that must never reach a synthetic container (authentic inputs, and Playwright's baseURL default source). */
 export const SYN_FORBIDDEN_ENV = Object.freeze(['LE_APP_ORIGIN', 'LE_API_ORIGIN', 'LE_DB_URL', 'LE_DB_PASSWORD_FILE', 'LE_KEYS_DIR',
   'LE_PROOF_FILE', 'LE_SOCK_DIR', 'PLAYWRIGHT_TEST_BASE_URL']);
 export const SYN_EVIDENCE_ENVIRONMENT = 'synthetic-lifecycle-matrix';
 /** The exact synthetic -e values. Throws unless every input is in its closed form. */
-export function synEnv(L, { commit, shell }) {
+export function synEnv(L, { commit, shell, arm }) {
   if (!/^[0-9a-f]{40}$/.test(commit ?? '')) throw new Error('synEnv: commit');
   if (typeof shell !== 'string' || !path.isAbsolute(shell) || /[\0\n]/.test(shell)) throw new Error('synEnv: shell');
+  // DESIGN-r3 section 2: one closed arm per container, and the arm's paths are exactly <parent>/<arm>/...
+  if (!SYN_ARMS.includes(arm) || path.basename(L.P) !== arm || !/^syn-[1-9]\d{0,19}-[1-9]\d{0,4}$/.test(path.basename(path.dirname(L.P)))) throw new Error('synEnv: arm');
   const v = {
     HOME: '/tmp', TMPDIR: '/tmp', CI: 'true', LE_LANE_DIR: L.lane, LE_OUT_DIR: L.out, LE_WORK_DIR: L.work, LE_EVIDENCE_DIR: L.evidence,
     LE_OUTPUT_DIR: L.output, LE_REPORT_JSON: L.report, E2E_EVIDENCE_COMMIT: commit, E2E_EVIDENCE_ENVIRONMENT: SYN_EVIDENCE_ENVIRONMENT,
-    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: shell, LE_TARGET: 'SYNTHETIC',
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: shell, LE_TARGET: 'SYNTHETIC', LE_SYN_ARM: arm,
   };
   return SYN_ENV_KEYS.map((k) => `${k}=${v[k]}`);
 }
@@ -105,12 +107,67 @@ export function synParent(runnerTemp, runId, attempt) {
   if (!/^[1-9]\d{0,19}$/.test(String(runId ?? '')) || !/^[1-9]\d{0,4}$/.test(String(attempt ?? ''))) throw new Error('synParent: run id and attempt');
   return path.join(runnerTemp, `syn-${runId}-${attempt}`);
 }
-/** Lane paths for the synthetic parent: the same layout as E1 (lane/, out/, work/, evidence/, pw-output, report, lane.txt). */
+/** ROOT paths of the synthetic matrix: P = the synthetic parent, C = the control dir. The root holds the immutable image inputs
+ *  (C/image.id, C/manifest.sha256, the image records) and the AGGREGATE C/run-lane.started and C/gates.txt (DESIGN-r3 section 3). */
 export function synLanePaths(runnerTemp, runId, attempt, C, R) {
   return lanePaths(synParent(runnerTemp, runId, attempt), C, R);
 }
-/** The directories createSynDirs makes, in creation order (each exclusive). */
-export const synDirs = (L) => [L.P, L.lane, L.out, L.work, L.evidence, L.output];
+/**
+ * One arm's lifecycle and receipt paths: lanePaths(P/<X>, C/arms/<X>, R). The image inputs are NOT relocated: this object has
+ * no iid, manifest, ctx or image records (each is null, so a read through it throws), and run-lane reads them from the ROOT
+ * paths only (review constraint 4). It is built from the root paths and a closed arm, never from a caller-supplied path.
+ */
+export function synArmPaths(root, arm) {
+  if (!SYN_ARMS.includes(arm) || !root || !/^syn-[1-9]\d{0,19}-[1-9]\d{0,4}$/.test(path.basename(root.P ?? ''))) throw new Error('synArmPaths: root and arm');
+  const a = lanePaths(path.join(root.P, arm), path.join(root.C, 'arms', arm), root.R);
+  return Object.freeze({ ...a, iid: null, manifest: null, ctx: null, imageBuildRec: null, imageCleanupRec: null, arm });
+}
+/** The control dirs the matrix creates (host-only, inside C, which the existing rule removes as a whole): C/arms, C/arms/<X>. */
+export const synArmsCtl = (root) => path.join(root.C, 'arms');
+/** One arm's private directories, in creation order (each an exclusive, non-recursive mkdir, recorded in C/syn-created). */
+export const synArmDirs = (A) => [A.P, A.lane, A.out, A.work, A.evidence, A.output];
+
+// Ownership receipts (DESIGN-r3 section 3 with review constraint 3), written by run-lane through its existing wx writer.
+export const SYN_CREATE_INTENT = 'syn-create-intent';
+export const SYN_CREATED = 'syn-created';
+export const synIntentPath = (root) => path.join(root.C, SYN_CREATE_INTENT);
+export const synCreatedPath = (root) => path.join(root.C, SYN_CREATED);
+const DIR_LINE = /^DIR (\/[^\0\n ]*) DEV (0|[1-9]\d{0,30}) INO (0|[1-9]\d{0,30}) UID (0|[1-9]\d{0,9}) MODE 0700$/;
+/** The C/syn-created text: one line per directory ACTUALLY created and verified, in creation order, then END. */
+export function synCreatedRecord(entries) {
+  return `${entries.map((e) => `DIR ${e.path} DEV ${e.dev} INO ${e.ino} UID ${e.uid} MODE 0700`).join('\n')}${entries.length ? '\n' : ''}END\n`;
+}
+/**
+ * Parse C/syn-created against the synthetic parent P. null unless: every line is a DIR line then END; the first entry (if any)
+ * is P itself; every later entry is a canonical path strictly inside P whose parent was recorded earlier (creation order); no
+ * path repeats. Anything else (truncated, reordered, foreign path) is unparsable, which is UNRESOLVED ownership.
+ */
+export function parseSynCreated(text, P) {
+  if (typeof text !== 'string' || text.length > 65536 || !text.endsWith('END\n')) return null;
+  const ls = text.slice(0, -1).split('\n');
+  if (ls.pop() !== 'END') return null;
+  const out = [], seen = new Set();
+  for (const l of ls) {
+    const m = DIR_LINE.exec(l);
+    if (!m) return null;
+    const p = m[1];
+    if (p !== path.normalize(p) || p.endsWith('/') || seen.has(p)) return null;
+    if (out.length === 0 ? p !== P : !(p.startsWith(`${P}/`) && seen.has(path.dirname(p)))) return null;
+    seen.add(p);
+    out.push({ path: p, dev: m[2], ino: m[3], uid: Number(m[4]), mode: 0o700 });
+  }
+  return out;
+}
+/**
+ * Ownership state from the two receipts ONLY. intent: true (present), false (ENOENT), null (unreadable). createdText: the record
+ * text, or null when absent. NOT_INVOKED (nothing may be removed) | UNRESOLVED (preserve and fail) | OWNED (only these entries).
+ */
+export function synOwnership({ intent, createdText, P }) {
+  if (intent === false && createdText === null) return { state: 'NOT_INVOKED', entries: [] };
+  if (intent !== true || createdText === null) return { state: 'UNRESOLVED', entries: [] };
+  const entries = parseSynCreated(createdText, P);
+  return entries ? { state: 'OWNED', entries } : { state: 'UNRESOLVED', entries: [] };
+}
 
 
 /** Exact environment keys, in -e order. Nothing else may be passed (no E2E_*_PASSWORD, SUPABASE_*, VITE_*, PG*, other PLAYWRIGHT_*). */
@@ -674,63 +731,76 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// The closed `LANE SYN` grammar of the synthetic lane.txt (written by lane-entry.mjs synMain through its one say()).
+// The closed `LANE SYN` grammar of ONE arm's lane.txt (DESIGN-r3 section 6; written by lane-entry.mjs synMain through its one
+// say(), inside that arm's own container). There is NO matrix line in-container: the host derives every verdict.
 //   LANE SYN START
 //   LANE SYN NOT_ACCEPTANCE
 //   LANE SYN APPARMOR <LANE_APPARMOR code>
 //   then either  LANE SYN NOT RUN <SYN_PRECHECK_CODES code>
-//   or           LANE SYN RAN / LANE SYN RESULT <E1_RESULT_CLASSES> / LANE SYN REPORT <MISSING|INVALID|PARSED>
-//                four arm lines, A to D in order / LANE SYN MATRIX <PASS|FAIL|UNRESOLVED>
+//   or           LANE SYN RAN / LANE SYN RESULT <E1_RESULT_CLASSES> / LANE SYN PW_CODE <0-255|NONE> / LANE SYN REPORT <state>
+//                / LANE SYN <arm body> / LANE SYN <cleanup body>
 //   LANE SYN END
-// Arm line (the spec's `syn-arm` annotation, re-validated here before it is written):
-//   ARM <A-D> STATUS <DONE|FAILED|NOT_RUN|UNKNOWN> M <milestone> REAP <PROVEN|UNPROVEN|NOT_RUN|UNKNOWN>
-//     BROWSER_EXIT <NOT_RUN|UNKNOWN|SHAPE .. FIRST_SEEN .. BODY_END_PAGE ..> BROWSER_LOG <BROWSER_LOG_CODES|NOT_RUN|UNKNOWN>
-// BROWSER_EXIT and BROWSER_LOG are DIAGNOSTIC ONLY (the same closed shapes as E1's, sampled per arm); nothing decides on them.
+// Arm body (the spec's `syn-arm` annotation, re-validated in-lane):
+//   ARM <A-D> STATUS <DONE|FAILED|UNKNOWN> M <milestone> BROWSER_EXIT_OBSERVED <NOT_RUN|UNKNOWN|SHAPE .. FIRST_SEEN .. BODY_END_PAGE ..>
+//     BROWSER_LOG <BROWSER_LOG_CODES|NOT_RUN|UNKNOWN>
+// BROWSER_EXIT_OBSERVED records that Node saw the owned browser process exit. It is NOT a reap of its descendants (playwright-core
+// 1.59.1 processLauncher skips the kill once processClosed is set); per arm, "nothing left" is the host's container absence.
+// Cleanup body (the spec's `syn-cleanup` annotation): CLEANUP JOIN <SETTLED|UNRESOLVED> CONTEXT <s> BROWSER <s> DUMMY <s> PROXY <s>,
+// s in CLOSED|TIMEOUT|ERROR|NONE (NONE = never created); the all-UNKNOWN body when the report does not establish it.
 
 export const SYN_ARMS = Object.freeze(['A', 'B', 'C', 'D']);
 export const SYN_MILESTONES = Object.freeze(['NONE', 'CONTEXT', 'PRELIM', 'FINAL_GOTO', 'VISIBLE', 'TYPED', 'DONE', 'UNKNOWN']);
-export const SYN_STATUSES = Object.freeze(['DONE', 'FAILED', 'NOT_RUN', 'UNKNOWN']);
-export const SYN_REAPS = Object.freeze(['PROVEN', 'UNPROVEN', 'NOT_RUN', 'UNKNOWN']);
+export const SYN_STATUSES = Object.freeze(['DONE', 'FAILED', 'UNKNOWN']);
+export const SYN_CLOSE_STATES = Object.freeze(['CLOSED', 'TIMEOUT', 'ERROR', 'NONE']);
+export const SYN_JOIN_STATES = Object.freeze(['SETTLED', 'UNRESOLVED']);
 export const SYN_PRECHECK_CODES = Object.freeze(['LANE_E_APPARMOR', 'LANE_E_UMASK', 'LANE_E_ENV', 'LANE_E_CLOSURE', 'LANE_E_DIRS']);
 export const SYN_MATRIX = Object.freeze(['PASS', 'FAIL', 'UNRESOLVED']);
 
-const ARM_RE = /^ARM ([A-D]) STATUS ([A-Z_]+) M ([A-Z_]+) REAP ([A-Z_]+) BROWSER_EXIT (NOT_RUN|UNKNOWN|SHAPE [A-Z0-9_]+ FIRST_SEEN [A-Z_]+ BODY_END_PAGE [A-Z_]+) BROWSER_LOG ([A-Z_]+)$/;
-/** One arm body (without `LANE SYN `) to its fields, or null. Consistency: DONE needs M DONE and REAP PROVEN; NOT_RUN is all NOT_RUN. */
+const ARM_RE = /^ARM ([A-D]) STATUS ([A-Z_]+) M ([A-Z_]+) BROWSER_EXIT_OBSERVED (NOT_RUN|UNKNOWN|SHAPE [A-Z0-9_]+ FIRST_SEEN [A-Z_]+ BODY_END_PAGE [A-Z_]+) BROWSER_LOG ([A-Z_]+)$/;
+/** The fixed arm body for an arm the report does not establish. */
+export const unknownArm = (arm) => `ARM ${arm} STATUS UNKNOWN M UNKNOWN BROWSER_EXIT_OBSERVED UNKNOWN BROWSER_LOG UNKNOWN`;
+/** The fixed cleanup body when the report does not establish it. */
+export const UNKNOWN_CLEANUP = 'CLEANUP JOIN UNKNOWN CONTEXT UNKNOWN BROWSER UNKNOWN DUMMY UNKNOWN PROXY UNKNOWN';
+/** An exit Node actually observed (an exit code or a signal), never NONE or UNKNOWN. */
+const exitSeen = (exit) => /^SHAPE (CODE_\d+|SIG[A-Z_]+) /.test(exit);
+/**
+ * One arm body to its fields, or null. Consistency: UNKNOWN only as the exact unknownArm body; DONE needs M DONE and an
+ * observed browser exit; NOT_RUN exit and log go together and only with M NONE (the browser never launched).
+ */
 export function parseSynArm(text) {
   const m = typeof text === 'string' ? ARM_RE.exec(text) : null;
   if (!m) return null;
-  const [, arm, status, milestone, reap, exit, log] = m;
-  if (!SYN_STATUSES.includes(status) || !SYN_MILESTONES.includes(milestone) || !SYN_REAPS.includes(reap)) return null;
+  const [, arm, status, milestone, exit, log] = m;
+  if (!SYN_STATUSES.includes(status) || !SYN_MILESTONES.includes(milestone)) return null;
   if (!['NOT_RUN', 'UNKNOWN'].includes(exit) && !browserExitEvidence(exit)) return null;
   if (![...BROWSER_LOG_CODES, 'NOT_RUN', 'UNKNOWN'].includes(log)) return null;
-  const notRun = [reap, exit, log].map((v) => v === 'NOT_RUN');
-  if (status === 'NOT_RUN' ? !(milestone === 'NONE' && notRun.every(Boolean)) : notRun.some(Boolean)) return null;
-  if (status === 'DONE' && (milestone !== 'DONE' || reap !== 'PROVEN')) return null;
-  if (status !== 'DONE' && milestone === 'DONE' && status !== 'FAILED') return null;
-  return { arm, status, milestone, reap, exit, log };
+  if ((status === 'UNKNOWN') !== (text === unknownArm(arm))) return null;
+  if ((exit === 'NOT_RUN') !== (log === 'NOT_RUN') || (exit === 'NOT_RUN' && milestone !== 'NONE')) return null;
+  if (status === 'DONE' && (milestone !== 'DONE' || !exitSeen(exit))) return null;
+  if (status !== 'UNKNOWN' && milestone === 'UNKNOWN') return null;
+  return { arm, status, milestone, exit, log };
 }
-/** The fixed arm body for an arm the report does not establish. */
-export const unknownArm = (arm) => `ARM ${arm} STATUS UNKNOWN M UNKNOWN REAP UNKNOWN BROWSER_EXIT UNKNOWN BROWSER_LOG UNKNOWN`;
-/** The fixed arm body for an arm that was never started. */
-export const notRunArm = (arm) => `ARM ${arm} STATUS NOT_RUN M NONE REAP NOT_RUN BROWSER_EXIT NOT_RUN BROWSER_LOG NOT_RUN`;
+const CLEANUP_RE = /^CLEANUP JOIN ([A-Z_]+) CONTEXT ([A-Z_]+) BROWSER ([A-Z_]+) DUMMY ([A-Z_]+) PROXY ([A-Z_]+)$/;
+/** One cleanup body to its fields, or null. UNKNOWN only as the exact all-UNKNOWN body. */
+export function parseSynCleanup(text) {
+  if (text === UNKNOWN_CLEANUP) return { known: false, join: 'UNKNOWN', context: 'UNKNOWN', browser: 'UNKNOWN', dummy: 'UNKNOWN', proxy: 'UNKNOWN' };
+  const m = typeof text === 'string' ? CLEANUP_RE.exec(text) : null;
+  if (!m || !SYN_JOIN_STATES.includes(m[1]) || m.slice(2).some((v) => !SYN_CLOSE_STATES.includes(v))) return null;
+  return { known: true, join: m[1], context: m[2], browser: m[3], dummy: m[4], proxy: m[5] };
+}
+/** Every cleanup state proven: JOIN SETTLED and each close CLOSED. Anything else (TIMEOUT, ERROR, NONE, UNRESOLVED) is not. */
+export const synCleanupClean = (c) => !!c && c.known && c.join === 'SETTLED' && ['context', 'browser', 'dummy', 'proxy'].every((k) => c[k] === 'CLOSED');
 
 /**
- * The matrix verdict from the four parsed arms and the run facts. PASS needs a parsed report, a Playwright exit code of 0 and
- * every arm DONE with a proven reap. Any UNPROVEN or UNKNOWN reap, an unknown arm or an unparsed report is UNRESOLVED (the reap
- * of some browser is not established). Otherwise FAIL. A failure status is never overwritten by a later arm.
+ * Parse ONE arm's lane.txt. { ok, interrupted, apparmor, precheck, ran, result, pwCode, report, arm, cleanup } or { ok: false }.
+ * Coherence is checked here, not trusted (review finding 5): RESULT CLOSE_WITH_CODE iff PW_CODE is a number; an unparsed report
+ * carries exactly the unknown bodies; a DONE arm needs CLOSE_WITH_CODE, PW_CODE 0, REPORT PARSED and every cleanup proven; a
+ * parsed non-DONE arm with PW_CODE 0 is contradictory. Any other line (a MATRIX line included) is refused.
  */
-export function synMatrix({ report, pwCode, arms }) {
-  if (report !== 'PARSED' || !Array.isArray(arms) || arms.length !== 4 || arms.some((a) => !a)) return 'UNRESOLVED';
-  if (arms.some((a) => a.status === 'UNKNOWN' || a.reap === 'UNPROVEN' || a.reap === 'UNKNOWN')) return 'UNRESOLVED';
-  if (pwCode === 0 && arms.every((a) => a.status === 'DONE')) return 'PASS';
-  return 'FAIL';
-}
-
-/** Parse a synthetic lane.txt. { ok, interrupted, apparmor, precheck, result, report, arms, matrix } or { ok: false }. */
 export function parseSynOut(text) {
   if (typeof text !== 'string' || text.length > 4096 || (text !== '' && !text.endsWith('\n'))) return { ok: false };
   const ls = text === '' ? [] : text.slice(0, -1).split('\n');
-  const r = { ok: true, interrupted: true, apparmor: null, precheck: null, ran: false, result: null, report: null, arms: [], matrix: null };
+  const r = { ok: true, interrupted: true, apparmor: null, precheck: null, ran: false, result: null, pwCode: null, report: null, arm: null, cleanup: null };
   if (ls.some((l) => !l.startsWith('LANE SYN '))) return { ok: false };
   const seq = ls.map((l) => l.slice(9));
   let i = 0;
@@ -757,19 +827,26 @@ export function parseSynOut(text) {
     if (!x || !E1_RESULT_CLASSES.includes(x[1])) return { ok: false };
     r.result = x[1];
     if (done()) return r;
+    const c = /^PW_CODE (NONE|0|[1-9]\d{0,2})$/.exec(seq[i++]);
+    if (!c || (c[1] === 'NONE') !== (r.result !== 'CLOSE_WITH_CODE') || (c[1] !== 'NONE' && Number(c[1]) > 255)) return { ok: false };
+    r.pwCode = c[1] === 'NONE' ? null : Number(c[1]);
+    if (done()) return r;
     const rp = /^REPORT ([A-Z_]+)$/.exec(seq[i++]);
     if (!rp || !REPORT_STATES.includes(rp[1])) return { ok: false };
     r.report = rp[1];
-    for (const arm of SYN_ARMS) {
-      if (done()) return r;
-      const p = parseSynArm(seq[i++]);
-      if (!p || p.arm !== arm || (r.report !== 'PARSED' && seq[i - 1] !== unknownArm(arm))) return { ok: false };
-      r.arms.push(p);
-    }
     if (done()) return r;
-    const mx = /^MATRIX ([A-Z_]+)$/.exec(seq[i++]);
-    if (!mx || !SYN_MATRIX.includes(mx[1])) return { ok: false };
-    r.matrix = mx[1];
+    const armText = seq[i++];
+    const p = parseSynArm(armText);
+    if (!p) return { ok: false };
+    if (done()) return r;
+    const cl = parseSynCleanup(seq[i++]);
+    if (!cl) return { ok: false };
+    if (r.report !== 'PARSED' && (armText !== unknownArm(p.arm) || cl.known)) return { ok: false };
+    if (r.report === 'PARSED' && (p.status === 'UNKNOWN') !== !cl.known) return { ok: false };
+    if (p.status === 'DONE' && (r.result !== 'CLOSE_WITH_CODE' || r.pwCode !== 0 || r.report !== 'PARSED' || !synCleanupClean(cl))) return { ok: false };
+    if (r.report === 'PARSED' && p.status !== 'DONE' && r.pwCode === 0) return { ok: false };
+    r.arm = p;
+    r.cleanup = cl;
   }
   if (done()) return r;
   if (seq[i++] !== 'END' || !done()) return { ok: false };
@@ -777,22 +854,83 @@ export function parseSynOut(text) {
   return r;
 }
 
+// ---- Host side (DESIGN-r3 sections 3, 4 and 6; review constraints 2 and 5): aggregate gates and derived verdicts. ----------
+
+/** The lane container's exit as the arm's own gates receipt records it: ZERO | NONZERO | NONE (exactly one such line, or NONE). */
+export function laneExitFromGates(text) {
+  if (typeof text !== 'string') return 'NONE';
+  const ls = text.split('\n').filter((l) => l === 'LANE_EXIT_ZERO' || l === 'LANE_EXIT_NONZERO');
+  return ls.length === 1 ? (ls[0] === 'LANE_EXIT_ZERO' ? 'ZERO' : 'NONZERO') : 'NONE';
+}
+
 /**
- * Host summary lines (never `LE-E1`). The lane verdict comes from gates.mjs readVerdict (host receipts only). Synthetic output
- * is UNRESOLVED unless the lane container is proven absent and docker clients reaped; MATRIX PASS is reported only from a
- * complete, valid lane.txt. Every line says NOT_ACCEPTANCE first.
+ * The AGGREGATE C/gates.txt, in the existing parseGates grammar, from each arm's own verdict (laneVerdict over that arm's
+ * receipts, read from disk). An arm whose run-lane.started receipt is absent was never invoked; every other arm needs a parsed,
+ * ok receipt. CONTAINER LANE_ABSENT only if every invoked arm is absent (or never created one) and one is absent; LANE_NO_CONTAINER
+ * only if no invoked arm reached a container; otherwise UNRESOLVED. Leading SYN_ARM lines are informational (no GATE prefix).
  */
-export function synSummaryLines({ verdict, laneText }) {
-  const out = ['LE-SYN NOT_ACCEPTANCE synthetic lifecycle matrix; never E1 evidence'];
-  if (!verdict?.ok) return { ok: false, lines: [...out, 'LE-SYN RESULT UNRESOLVED LANE_TEARDOWN'] };
+export function synAggregateGates(armVerdicts) {
+  const vs = SYN_ARMS.map((x) => armVerdicts?.[x] ?? null);
+  const invoked = vs.filter((v) => !v || v.source !== 'NOT_INVOKED');
+  const bad = invoked.some((v) => !v || !v.ok || !['LANE_ABSENT', 'LANE_NO_CONTAINER'].includes(v.container));
+  const container = bad ? 'UNRESOLVED' : invoked.some((v) => v.container === 'LANE_ABSENT') ? 'LANE_ABSENT' : 'LANE_NO_CONTAINER';
+  const clients = invoked.every((v) => v && v.ok && v.clients === 'REAPED') ? 'REAPED' : 'UNRESOLVED';
+  const bridge = invoked.every((v) => v && v.bridge === 'BRIDGE_NOT_STARTED') ? 'BRIDGE_NOT_STARTED' : 'UNRESOLVED';
+  const started = invoked.some((v) => !v || v.started !== 'NO') ? 'YES' : 'NO';
+  const head = SYN_ARMS.map((x, i) => `SYN_ARM ${x} ${vs[i] ? `${vs[i].source} ${vs[i].container} ${vs[i].clients}` : 'UNREADABLE UNRESOLVED UNRESOLVED'}`);
+  return `${[...head, `GATE CONTAINER ${container}`, `GATE BRIDGE ${bridge}`, `GATE CLIENTS ${clients}`, `GATE STARTED ${container === 'LANE_NO_CONTAINER' ? 'NO' : started}`, 'LANE_GATES_END'].join('\n')}\n`;
+}
+
+/**
+ * One arm's host-derived result (never trusted from the container): { result: DONE|FAILED|UNRESOLVED|NOT_RUN, container:
+ * ABSENT|UNRESOLVED|NOT_RUN, record: OK|MISSING|REFUSED|INTERRUPTED|WRONG_ARM|NONE|NOT_RUN_<code>, arm, cleanup, pwCode }.
+ * DONE only when the container is proven absent, the record is complete and coherent for THIS arm, its status is DONE with
+ * PW_CODE 0 (a numeric zero Playwright exit; CLOSE_WITH_CODE alone or the container exit alone is not enough) AND the arm's
+ * own gates receipt says LANE_EXIT_ZERO. Contradictions are UNRESOLVED, not FAIL.
+ */
+export function synArmResult({ arm, verdict, laneText, exit }) {
+  const base = { arm, container: 'UNRESOLVED', record: 'NONE', parsed: null };
+  const U = (record) => ({ ...base, result: 'UNRESOLVED', record });
+  if (!verdict) return U('NONE');
+  if (verdict.source === 'NOT_INVOKED') return laneText === null ? { ...base, result: 'NOT_RUN', container: 'NOT_RUN' } : U('REFUSED');
+  if (!verdict.ok || !['LANE_ABSENT', 'LANE_NO_CONTAINER'].includes(verdict.container)) return U(laneText === null ? 'MISSING' : 'NONE');
+  const container = verdict.container === 'LANE_ABSENT' ? 'ABSENT' : 'NOT_RUN';
+  if (verdict.started !== 'YES') return laneText === null ? { ...base, result: 'FAILED', container } : { ...U('REFUSED'), container };
+  if (laneText === null) return { ...U('MISSING'), container };
   const p = typeof laneText === 'string' ? parseSynOut(laneText) : { ok: false };
-  if (!p.ok) return { ok: false, lines: [...out, 'LE-SYN RESULT REFUSED LANE_OUT'] };
-  if (p.interrupted) return { ok: false, lines: [...out, 'LE-SYN RESULT UNRESOLVED LANE_INTERRUPTED'] };
-  if (p.precheck) return { ok: false, lines: [...out, `LE-SYN RESULT NOT_RUN ${p.precheck}`] };
-  const lines = [...out, `LE-SYN RUN RESULT ${p.result} REPORT ${p.report}`];
-  for (const a of p.arms) lines.push(`LE-SYN ARM ${a.arm} STATUS ${a.status} M ${a.milestone} REAP ${a.reap} BROWSER_EXIT ${a.exit} BROWSER_LOG ${a.log}`);
-  lines.push(`LE-SYN RESULT ${p.matrix}`);
-  return { ok: p.matrix === 'PASS', lines };
+  if (!p.ok) return { ...U('REFUSED'), container };
+  if (p.interrupted) return { ...U('INTERRUPTED'), container };
+  if (p.precheck) return exit === 'ZERO' ? { ...U('REFUSED'), container } : { ...base, result: 'FAILED', container, record: `NOT_RUN_${p.precheck}` };
+  if (p.arm.arm !== arm) return { ...U('WRONG_ARM'), container };
+  const out = { ...base, container, record: 'OK', parsed: p };
+  if (p.arm.status === 'UNKNOWN') return { ...out, result: 'UNRESOLVED' };
+  if (p.arm.status === 'DONE') return exit === 'ZERO' && p.pwCode === 0 ? { ...out, result: 'DONE' } : { ...out, result: 'UNRESOLVED', record: 'CONTRADICTION' };
+  return exit === 'ZERO' ? { ...out, result: 'UNRESOLVED', record: 'CONTRADICTION' } : { ...out, result: 'FAILED' };
+}
+
+/** The matrix verdict, computed on the host: PASS only if the root verdict is ok and all four arms are DONE. */
+export function synMatrix({ rootVerdict, arms }) {
+  if (!rootVerdict?.ok || !Array.isArray(arms) || arms.length !== SYN_ARMS.length || arms.some((a, i) => !a || a.arm !== SYN_ARMS[i])) return 'UNRESOLVED';
+  if (arms.some((a) => a.result === 'UNRESOLVED' || a.container === 'UNRESOLVED')) return 'UNRESOLVED';
+  return arms.every((a) => a.result === 'DONE') ? 'PASS' : 'FAIL';
+}
+
+/** Host summary lines (never `LE-E1`): NOT_ACCEPTANCE first, one line per arm, one RESULT line. */
+export function synSummaryLines({ rootVerdict, arms }) {
+  const out = ['LE-SYN NOT_ACCEPTANCE synthetic lifecycle matrix; never E1 evidence'];
+  if (!rootVerdict?.ok) return { ok: false, lines: [...out, 'LE-SYN RESULT UNRESOLVED LANE_TEARDOWN'] };
+  for (const a of arms ?? []) {
+    out.push(`LE-SYN ARM ${a.arm} RESULT ${a.result} CONTAINER ${a.container} RECORD ${a.record}`);
+    if (a.parsed?.arm) {
+      const x = a.parsed;
+      out.push(`LE-SYN ARM ${a.arm} DETAIL STATUS ${x.arm.status} M ${x.arm.milestone} PW_CODE ${x.pwCode ?? 'NONE'} REPORT ${x.report} BROWSER_EXIT_OBSERVED ${x.arm.exit} BROWSER_LOG ${x.arm.log}`);
+      const c = x.cleanup;
+      out.push(`LE-SYN ARM ${a.arm} CLEANUP JOIN ${c.join} CONTEXT ${c.context} BROWSER ${c.browser} DUMMY ${c.dummy} PROXY ${c.proxy}`);
+    }
+  }
+  const m = synMatrix({ rootVerdict, arms });
+  out.push(`LE-SYN RESULT ${m}`);
+  return { ok: m === 'PASS', lines: out };
 }
 
 /** `select`: the target and the absence of every authentic input in THIS process environment. One fixed line. */

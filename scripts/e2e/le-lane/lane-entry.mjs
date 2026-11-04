@@ -25,7 +25,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
 import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode, postObservedEvidence, attemptStatusToken, failedStepToken, browserExitEvidence, BROWSER_LOG_CODES } from './contract.mjs';
-import { SYN_ARMS, SYN_ENV_KEYS, laneTarget, parseSynArm, synEnv, synMatrix, unknownArm } from './contract.mjs';
+import { SYN_ARMS, SYN_ENV_KEYS, UNKNOWN_CLEANUP, laneTarget, parseSynArm, parseSynCleanup, parseSynOut, synEnv, unknownArm } from './contract.mjs';
 import { E1_IDENTITY } from '../le-e1-summary.mjs';
 import { failedStep } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { PAIRING_COURSE_ID, PAIRING_PREFIX, assertLivePairing, assertPairingProof } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
@@ -355,39 +355,51 @@ export async function laneMain(d) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
-// SYNTHETIC target (lifecycle matrix; LOCAL candidate, unrun). Same umask, AppArmor gate and closure check as E1; then ONLY the
-// synthetic spec. No forwarder, bridge reach, pairing, run.sh setup or cleanup exists on this path. Every lane.txt line starts
-// `LANE SYN ` (contract.mjs parseSynOut grammar), which the E1 grammar refuses outright. Writers: lane.txt through the same one wx 0600
-// descriptor and say(); Playwright writes its JSON report and output dir as in E1. Nothing else.
+// SYNTHETIC target (lifecycle matrix; LOCAL candidate, unrun; DESIGN-r3). ONE arm per container (LE_SYN_ARM). Same umask,
+// AppArmor gate and closure check as E1; then ONLY the synthetic spec. No forwarder, bridge reach, pairing, run.sh setup or
+// cleanup exists on this path. Every lane.txt line starts `LANE SYN ` (contract.mjs parseSynOut grammar), which the E1 grammar
+// refuses outright. There is no matrix line here: the host derives every verdict. Writers: lane.txt through ONE wx 0600
+// descriptor and say(), opened only AFTER out/ is proven empty (review finding 1); Playwright writes its JSON report and output
+// dir as in E1. Nothing else.
 
-/** The synthetic container environment: exactly SYN_ENV_KEYS (values recomputed), PATH and Docker's HOSTNAME; nothing else. */
+/** The synthetic container environment: exactly SYN_ENV_KEYS (values recomputed for the arm), PATH and Docker's HOSTNAME. */
 export function synEnvProblems(env, R) {
   try {
     const P = path.dirname(env.LE_LANE_DIR ?? '');
     const L = lanePaths(P, '/nonexistent-ctl', R);
-    const want = synEnv(L, { commit: env.E2E_EVIDENCE_COMMIT, shell: env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH });
+    const want = synEnv(L, { commit: env.E2E_EVIDENCE_COMMIT, shell: env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, arm: env.LE_SYN_ARM });
     for (const kv of want) { const i = kv.indexOf('='); if (env[kv.slice(0, i)] !== kv.slice(i + 1)) return true; }
     const extra = Object.keys(env).filter((k) => !SYN_ENV_KEYS.includes(k) && k !== 'PATH' && k !== 'HOSTNAME');
     return extra.length > 0 || env.PATH !== `/usr/lib/postgresql/${PG_MAJOR}/bin:/usr/bin`;
   } catch { return true; }
 }
 
-/** The host-created synthetic dirs as mounted: lane/ holds exactly work/ and evidence/, evidence/ exactly pw-output/, each 0700
- *  and own uid, pw-output/ and out/ empty, and no report yet. */
-export function synDirsOk(fsx, L, uid) {
+/** The host-created arm dirs as mounted: lane/ holds exactly work/ and evidence/, evidence/ exactly pw-output/, each 0700 and
+ *  own uid, pw-output/ and work/ empty, and out/ EMPTY (before lane.txt is opened) or exactly `lane.txt` (after). */
+export function synDirsOk(fsx, L, uid, { laneTxtOpen = false } = {}) {
   const dir = (p) => { try { const s = fsx.lstatSync(p); return s.isDirectory() && !s.isSymbolicLink() && (s.mode & 0o777) === 0o700 && s.uid === uid; } catch { return false; } };
   const names = (p) => { try { return fsx.readdirSync(p).sort().join(','); } catch { return null; } };
   return [L.lane, L.work, L.evidence, L.output, L.out].every(dir) && names(L.lane) === 'evidence,work' && names(L.evidence) === 'pw-output'
-    && names(L.output) === '' && names(L.work) === '' && names(L.out) === '';
+    && names(L.output) === '' && names(L.work) === '' && names(L.out) === (laneTxtOpen ? 'lane.txt' : '');
+}
+
+/** After the exclusive open: the descriptor is a regular file with one link, our uid, mode 0600, and it IS out/lane.txt (same
+ *  dev and ino by lstat, no link followed), and out/ holds nothing else. A replaced or extra entry fails. */
+export function laneTxtIdentityOk(d, fd, L) {
+  try {
+    const f = d.fstat(fd), s = d.fs.lstatSync(L.laneTxt);
+    return f.isFile() && s.isFile() && !s.isSymbolicLink() && f.nlink === 1 && f.uid === d.uid() && (f.mode & 0o777) === 0o600
+      && String(f.dev) === String(s.dev) && String(f.ino) === String(s.ino) && d.fs.readdirSync(L.out).join(',') === 'lane.txt';
+  } catch { return false; }
 }
 
 /**
- * The arm lines from ONE bounded report read (readReportBounded result): ONLY when the raw structure is strictly typed and
- * holds exactly one test, the synthetic one, with exactly one attempt (retry 0), that attempt's `syn-arm` annotations must be
- * exactly one valid body per arm, A to D in order. Anything else is { report, arms: four unknownArm bodies }.
+ * The arm and cleanup bodies from ONE bounded report read (readReportBounded result): ONLY when the raw structure is strictly
+ * typed and holds exactly one test, the synthetic `one arm` test, with exactly one attempt (retry 0), whose annotations hold
+ * exactly one valid `syn-arm` body for THIS arm and exactly one valid `syn-cleanup` body. Anything else is the unknown bodies.
  */
-export function synArmsFromReport(r) {
-  const unknown = (report) => ({ report, arms: SYN_ARMS.map(unknownArm) });
+export function synArmFromReport(r, arm) {
+  const unknown = (report) => ({ report, arm: unknownArm(arm), cleanup: UNKNOWN_CLEANUP });
   if (!r || r.status === 'missing') return unknown('MISSING');
   if (r.status !== 'ok' || typeof r.text !== 'string' || Buffer.byteLength(r.text, 'utf8') > REPORT_MAX) return unknown('INVALID');
   let root;
@@ -398,13 +410,16 @@ export function synArmsFromReport(r) {
     if (!all) return unknown('INVALID');
     if (all.length !== 1) return unknown('PARSED');
     const t = all[0];
-    if (t.title !== 'arms A to D' || t.file !== 'lifecycle-matrix.spec.ts' || t.describe !== 'lifecycle matrix (synthetic)' || t.projectName !== 'lifecycle-matrix-chromium'
+    if (t.title !== 'one arm' || t.file !== 'lifecycle-matrix.spec.ts' || t.describe !== 'lifecycle matrix (synthetic)' || t.projectName !== 'lifecycle-matrix-chromium'
       || t.results.length !== 1) return unknown('PARSED');
     const only = t.results[0];
     if (!only || typeof only !== 'object' || Array.isArray(only) || only.retry !== 0 || !Array.isArray(only.annotations)) return unknown('PARSED');
-    const bodies = only.annotations.filter((a) => a && a.type === 'syn-arm').map((a) => a.description);
-    if (bodies.length !== SYN_ARMS.length || bodies.some((b, i) => parseSynArm(b)?.arm !== SYN_ARMS[i])) return unknown('PARSED');
-    return { report: 'PARSED', arms: bodies };
+    const of = (type) => only.annotations.filter((a) => a && a.type === type).map((a) => a.description);
+    const arms = of('syn-arm'), cleanups = of('syn-cleanup');
+    if (arms.length !== 1 || cleanups.length !== 1) return unknown('PARSED');
+    const p = parseSynArm(arms[0]), c = parseSynCleanup(cleanups[0]);
+    if (!p || p.arm !== arm || p.status === 'UNKNOWN' || !c || !c.known) return unknown('PARSED');
+    return { report: 'PARSED', arm: arms[0], cleanup: cleanups[0] };
   } catch { return unknown('INVALID'); }
 }
 
@@ -415,7 +430,12 @@ export async function synMain(d) {
   const say = (l) => { lines.push(l); if (fd !== null) d.write(fd, `${l}\n`); };
   const P = path.dirname(env.LE_LANE_DIR ?? '/nonexistent/lane');
   let L;
-  try { L = lanePaths(P, '/nonexistent-ctl', R); fd = d.openExcl(L.laneTxt); } catch { return { code: 1, lines: ['LANE_E_OUT'] }; }
+  try { L = lanePaths(P, '/nonexistent-ctl', R); } catch { return { code: 1, lines: ['LANE_E_OUT'] }; }
+  // Review finding 1: out/ must be EMPTY and lane/ exactly as created BEFORE lane.txt is opened. A pre-existing lane.txt or any
+  // foreign entry refuses here with no lane output at all; a racing creation after this check fails the exclusive open (OUT).
+  if (!synDirsOk(d.fs, L, d.uid())) return { code: 1, lines: ['LANE_E_DIRS'] };
+  try { fd = d.openExcl(L.laneTxt); } catch { return { code: 1, lines: ['LANE_E_OUT'] }; }
+  if (!laneTxtIdentityOk(d, fd, L)) { const f = fd; fd = null; try { d.close(f); } catch { /* exits next */ } return { code: 1, lines: ['LANE_E_DIRS'] }; }
   const end = (code) => { say('LANE SYN END'); return { code, lines }; };
   const notRun = (c) => { say(`LANE SYN NOT RUN ${c}`); return end(1); };
   say('LANE SYN START');
@@ -427,19 +447,24 @@ export async function synMain(d) {
   if (d.umask() !== 0o077) return notRun('LANE_E_UMASK');
   if (synEnvProblems(env, R)) return notRun('LANE_E_ENV');
   if (closureProblems(d.fs, env, d.execPath)) return notRun('LANE_E_CLOSURE');
-  if (!synDirsOk(d.fs, L, d.uid())) return notRun('LANE_E_DIRS');
+  if (!synDirsOk(d.fs, L, d.uid(), { laneTxtOpen: true }) || !laneTxtIdentityOk(d, fd, L)) return notRun('LANE_E_DIRS');
+  const arm = env.LE_SYN_ARM; // validated by synEnvProblems: exactly one of A to D, equal to the arm directory name
   const pw = await d.run(LANE_NODE, [path.join(R, 'node_modules/@playwright/test/cli.js'), 'test', '-c', path.join(R, 'e2e/lesson-editor/playwright.lifecycle-matrix.config.ts')], { timeout: SYN_PW_TIMEOUT_MS });
   say('LANE SYN RAN');
-  say(`LANE SYN RESULT ${e1ResultClass(pw)}`);
-  const snap = synArmsFromReport(d.readReport(L.report)); // the ONE bounded read
+  const cls = e1ResultClass(pw);
+  say(`LANE SYN RESULT ${cls}`);
+  say(`LANE SYN PW_CODE ${cls === 'CLOSE_WITH_CODE' ? pw.code : 'NONE'}`);
+  const snap = synArmFromReport(d.readReport(L.report), arm); // the ONE bounded read
   say(`LANE SYN REPORT ${snap.report}`);
-  for (const b of snap.arms) say(`LANE SYN ${b}`);
-  const matrix = synMatrix({ report: snap.report, pwCode: pw.code, arms: snap.arms.map(parseSynArm) });
-  say(`LANE SYN MATRIX ${matrix}`);
-  return end(matrix === 'PASS' ? 0 : 1);
+  say(`LANE SYN ${snap.arm}`);
+  say(`LANE SYN ${snap.cleanup}`);
+  const r = end(0);
+  // Exit 0 only for a coherent DONE record of this arm (the same parser the host uses); the host still derives the verdict.
+  const p = parseSynOut(lines.map((l) => `${l}\n`).join(''));
+  return { ...r, code: p.ok && !p.interrupted && p.arm?.arm === arm && p.arm.status === 'DONE' && p.pwCode === 0 ? 0 : 1 };
 }
-/** The synthetic Playwright child bound: the config's one-test backstop (1 000 000 ms) plus a minute. */
-export const SYN_PW_TIMEOUT_MS = 1_060_000;
+/** The synthetic Playwright child bound (DESIGN-r3 section 4): the one-test backstop (300 000 ms) plus 30 s. */
+export const SYN_PW_TIMEOUT_MS = 330_000;
 
 /** psql through a private passfile on the container tmpfs (pgconn.mjs, unchanged), PG* cleared; removed after use. */
 export function makePsql(d0) {
@@ -461,7 +486,7 @@ if (process.argv[1] && /le-lane\/lane-entry\.mjs$/.test(process.argv[1])) {
   const cleanEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('PG')));
   const d = {
     env: process.env, repo, fs, execPath: process.execPath, uid: () => process.getuid(), umask: () => { const u = process.umask(0o077); return u; },
-    openExcl: (p) => fs.openSync(p, 'wx', 0o600), write: (f, t) => fs.writeSync(f, t), close: (f) => fs.closeSync(f),
+    openExcl: (p) => fs.openSync(p, 'wx', 0o600), write: (f, t) => fs.writeSync(f, t), close: (f) => fs.closeSync(f), fstat: (f) => fs.fstatSync(f),
     readText: (p) => { try { return fs.readFileSync(p, 'utf8'); } catch { return null; } },
     readReport: (p) => readReportBounded(fs, p, process.getuid(), REPORT_MAX),
     fetch: (u, o) => fetch(u, { ...o, signal: AbortSignal.timeout(15000) }), randomUUID: () => crypto.randomUUID(),

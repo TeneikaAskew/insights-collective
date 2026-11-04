@@ -15,9 +15,13 @@
 // Docker clients and the bridge get a sanitized environment (image.mjs sanitizedEnv): this process holds the job's secrets in
 // its own environment (it is trusted orchestration), but nothing it spawns inherits them.
 // Writers (disclosed, host-only control dir): run-lane.started, create-invoked, gates.txt (wx, 0600). docker writes lane.cid.
-// Lifecycle matrix (LOCAL candidate, unrun): `--synthetic` selects the SYNTHETIC target. It creates the fresh synthetic-only
-// directories (createSynDirs below: directories only, exclusive, 0700) as its last validation step, never starts a
-// bridge (GATE BRIDGE BRIDGE_NOT_STARTED), and otherwise runs the same create, inspect, start, wait and teardown.
+// Lifecycle matrix (LOCAL candidate, unrun; DESIGN-r3 with the five review constraints): `--synthetic` runs runSynMatrix below.
+// Arms A to D run strictly in sequence, ONE fresh container per arm, each through the same runLane create, inspect, start,
+// wait and teardown (never a bridge: GATE BRIDGE BRIDGE_NOT_STARTED), with per-arm receipts under C/arms/<X>/. The next arm
+// starts only after the previous arm's receipts prove its container absent and its clients reaped. The image inputs are read
+// from the ROOT control dir only. Matrix writers (same wx 0600 writer): the root C/run-lane.started marker (before any possible
+// container action), C/syn-create-intent (before the first mkdir), C/syn-created (exactly once, after creation has stopped for
+// good, from identities held in memory) and the aggregate C/gates.txt. Directories: exclusive non-recursive mkdir, 0700.
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -25,7 +29,7 @@ import { spawn } from 'node:child_process';
 import { makeExec } from '../le-iso/run-probe.mjs';
 import { CONFIG_FIELDS, absenceVerdict, createdNeverStarted, exitStateOk, BROWSER_PIN, BROWSER_PATH_RE, SECCOMP_RAW_SHA256 } from '../le-iso/expect.mjs';
 import { CID, IMAGE_ID, LANE_CONFIG_FIELDS, LANE_NODE, LANE_WAIT_MS, compareLaneInspect, expectedLaneConfig, laneCreateArgs, laneEnv, lanePaths, lanePorts } from './contract.mjs';
-import { synEnv, synDirs, synLanePaths } from './contract.mjs';
+import { SYN_ARMS, laneVerdict, synAggregateGates, synArmDirs, synArmPaths, synArmsCtl, synCreatedPath, synCreatedRecord, synEnv, synIntentPath, synLanePaths } from './contract.mjs';
 import { parseBridgeFinal } from './bridge.mjs';
 import { sanitizedEnv, spawnClean } from './image.mjs';
 
@@ -53,36 +57,118 @@ export function inputsOk(fsx, L, uid) {
 }
 
 /**
- * DESIGN-r2.2 A, in order: (2) the parent must NOT exist (lstat ENOENT is the only accepted result); (3) every EXISTING ancestor
- * from the runner temp root down to the parent's directory is a real directory, not a symlink, and its own realpath; (4) the
- * parent is created with an exclusive mkdir (no recursion: EEXIST is a refusal); (5) its owner and mode are then verified by
- * lstat (job uid, 0700); then lane/, out/, work/, evidence/ and evidence/pw-output are created and verified the same way.
- * Returns null on success or one fixed code. A refusal before step 4 creates nothing.
+ * DESIGN-r2.2 A steps 1 to 3 for the synthetic parent, with NO write: the name, lstat ENOENT as the only accepted result (a
+ * pre-existing parent is refused here, before any receipt, so its ownership state is NOT_INVOKED), and every existing ancestor
+ * from '/' down to the runner temp is a real directory, not a symlink, and its own realpath. Returns null or one fixed code.
  */
-export function createSynDirs(fsx, runnerTemp, L, uid) {
-  if (L.P !== path.join(runnerTemp, path.basename(L.P)) || !/^syn-\d+-\d+$/.test(path.basename(L.P))) return 'SYN_E_DIR_PARENT';
-  try { fsx.lstatSync(L.P); return 'SYN_E_DIR_EXISTS'; } catch (e) { if (e?.code !== 'ENOENT') return 'SYN_E_DIR_EXISTS'; }
-  // Every existing ancestor: '/', then each component down to runnerTemp (the parent's own directory).
+export function synParentFree(fsx, runnerTemp, root) {
+  if (root.P !== path.join(runnerTemp, path.basename(root.P)) || !/^syn-\d+-\d+$/.test(path.basename(root.P))) return 'SYN_E_DIR_PARENT';
+  try { fsx.lstatSync(root.P); return 'SYN_E_DIR_EXISTS'; } catch (e) { if (e?.code !== 'ENOENT') return 'SYN_E_DIR_EXISTS'; }
   const parts = runnerTemp.split('/').filter(Boolean);
   for (let i = 0; i <= parts.length; i++) {
     const a = '/' + parts.slice(0, i).join('/');
-    let s;
-    try { s = fsx.lstatSync(a); } catch { return 'SYN_E_DIR_ANCESTOR'; }
-    let real;
-    try { real = fsx.realpathSync(a); } catch { return 'SYN_E_DIR_ANCESTOR'; }
+    let s, real;
+    try { s = fsx.lstatSync(a); real = fsx.realpathSync(a); } catch { return 'SYN_E_DIR_ANCESTOR'; }
     if (!s.isDirectory() || s.isSymbolicLink() || real !== a) return 'SYN_E_DIR_ANCESTOR';
-  }
-  for (const d of synDirs(L)) {
-    try { fsx.mkdirSync(d, { mode: 0o700 }); } catch { return 'SYN_E_DIR_CREATE'; }
-    let s;
-    try { s = fsx.lstatSync(d); } catch { return 'SYN_E_DIR_VERIFY'; }
-    if (!s.isDirectory() || s.isSymbolicLink() || s.uid !== uid || (s.mode & 0o777) !== 0o700) return 'SYN_E_DIR_VERIFY';
   }
   return null;
 }
 
-/** SYNTHETIC container wait: the in-lane Playwright child bound (lane-entry.mjs SYN_PW_TIMEOUT_MS, 1 060 000 ms) plus margin. */
-export const SYN_WAIT_MS = 1_200_000;
+/**
+ * One exclusive, non-recursive mkdir (0700), then lstat WITHOUT following links. Only a verified directory is recorded
+ * (path, dev, ino, uid, mode) in `created`, in memory. A directory whose identity cannot be verified is NOT recorded, so the
+ * cleanup never removes it (it is an unrecorded child of its parent, which preserves every ancestor). null or one fixed code.
+ */
+export function mkdirRecorded(fsx, p, uid, created) {
+  try { fsx.mkdirSync(p, { mode: 0o700 }); } catch { return 'SYN_E_DIR_CREATE'; }
+  let s;
+  try { s = fsx.lstatSync(p, { bigint: true }); } catch { return 'SYN_E_DIR_VERIFY'; }
+  if (!s.isDirectory() || s.isSymbolicLink() || Number(s.uid) !== uid || (Number(s.mode) & 0o777) !== 0o700) return 'SYN_E_DIR_VERIFY';
+  created.push({ path: p, dev: String(s.dev), ino: String(s.ino), uid, mode: 0o700 });
+  return null;
+}
+
+/** One arm's inputs before its create: its six dirs exactly as created (0700, own uid, lane/ = {evidence, work}, evidence/ =
+ *  {pw-output}, the rest empty) and its control dir C/arms/<X> (0700, own uid, empty: no stale cidfile or receipt). */
+export function synArmInputsOk(fsx, A, uid) {
+  const dir = (p) => { try { const s = fsx.lstatSync(p); return s.isDirectory() && !s.isSymbolicLink() && (s.mode & 0o777) === 0o700 && s.uid === uid; } catch { return false; } };
+  const names = (p) => { try { return fsx.readdirSync(p).sort().join(','); } catch { return null; } };
+  return [A.C, ...synArmDirs(A)].every(dir) && names(A.C) === '' && names(A.P) === 'lane,out' && names(A.lane) === 'evidence,work'
+    && names(A.evidence) === 'pw-output' && names(A.output) === '' && names(A.work) === '' && names(A.out) === '';
+}
+
+/** One arm's verdict from its OWN receipts on disk (laneVerdict): NOT_INVOKED without its run-lane.started; null if unreadable. */
+export function synArmVerdict(fsx, A) {
+  let started;
+  try { fsx.lstatSync(A.started); started = true; } catch (e) { started = e?.code === 'ENOENT' ? false : null; }
+  if (started === null) return null;
+  let gatesText = null;
+  if (started) { try { gatesText = fsx.readFileSync(A.gates, 'utf8'); } catch { gatesText = null; } }
+  return laneVerdict({ runLaneStarted: started, gatesText });
+}
+
+/** SYNTHETIC container wait per arm (DESIGN-r3 section 4): the in-lane Playwright child bound (330 000 ms) plus margin. */
+export const SYN_ARM_WAIT_MS = 400_000;
+
+/**
+ * The matrix (DESIGN-r3 section 4, review constraints 2 and 3). Validation writes nothing. Then, in order: the root
+ * C/run-lane.started marker (no arm runs unless it was written), C/syn-create-intent, P, C/arms; per arm, C/arms/<X> and its
+ * six dirs right before its runLane. Any refusal or unproven arm stops for good: every later arm is NOT_RUN (no dir, no create).
+ * Finally, once creation has permanently stopped: C/syn-created exactly once (only if the intent was written), then the
+ * aggregate C/gates.txt from every arm's own receipts. A crash before those records leaves intent without a record
+ * (UNRESOLVED ownership) and/or the marker without gates (UNRESOLVED lane), never NOT_INVOKED.
+ */
+export async function runSynMatrix(d, o) {
+  const fsx = d.fs, uid = d.uid();
+  const say = [];
+  let ok = true;
+  const fail = (c) => { ok = false; say.push(c); };
+  let root;
+  try { root = synLanePaths(o.T, o.runId, o.attempt, o.C, o.R); } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
+  try {
+    const c = fsx.lstatSync(root.C);
+    if (!c.isDirectory() || c.isSymbolicLink() || (c.mode & 0o777) !== 0o700 || c.uid !== uid) return { ok: false, say: ['LANE_E_INPUT'] };
+  } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
+  const pre = synParentFree(fsx, o.T, root);
+  if (pre) return { ok: false, say: [pre] };
+  let marker = false, intent = false;
+  const created = [];
+  try {
+    try { d.files.put(root.started, 'run-lane.started\n'); marker = true; } catch { fail('LANE_E_RECEIPT'); }
+    if (marker) { try { d.files.put(synIntentPath(root), 'syn-create-intent\n'); intent = true; } catch { fail('LANE_E_SYN_INTENT_RECEIPT'); } }
+    let stop = !intent;
+    if (!stop) {
+      const e = mkdirRecorded(fsx, root.P, uid, created);
+      if (e) { fail(e); stop = true; }
+    }
+    if (!stop) { try { fsx.mkdirSync(synArmsCtl(root), { mode: 0o700 }); } catch { fail('SYN_E_CTL_CREATE'); stop = true; } }
+    for (const arm of SYN_ARMS) {
+      if (stop) { say.push(`ARM ${arm} NOT_RUN`); continue; }
+      const A = synArmPaths(root, arm);
+      try { fsx.mkdirSync(A.C, { mode: 0o700 }); } catch { fail(`ARM ${arm} SYN_E_CTL_CREATE`); stop = true; say.push(`ARM ${arm} NOT_RUN`); continue; }
+      let e = null;
+      for (const p of synArmDirs(A)) { e = mkdirRecorded(fsx, p, uid, created); if (e) break; }
+      if (e) { fail(`ARM ${arm} ${e}`); stop = true; say.push(`ARM ${arm} NOT_RUN`); continue; }
+      let r;
+      try { r = await runLane(d, { target: 'SYNTHETIC', arm, T: o.T, runId: o.runId, attempt: o.attempt, C: o.C, R: o.R, node: o.node, shell: o.shell, commit: o.commit }); } catch { r = { ok: false, say: ['LANE_E_UNCLASSIFIED'] }; }
+      for (const l of r.say) say.push(`ARM ${arm} ${l}`);
+      if (!r.ok) ok = false;
+      const v = synArmVerdict(fsx, A);
+      if (!v || !v.ok || !['LANE_ABSENT', 'LANE_NO_CONTAINER'].includes(v.container)) { fail(`ARM ${arm} SYN_E_ARM_UNRESOLVED`); stop = true; }
+    }
+  } catch { fail('LANE_E_UNCLASSIFIED'); } finally {
+    // Creation has stopped for good here: the identities held in memory are written ONCE, then the aggregate.
+    if (intent) { try { d.files.put(synCreatedPath(root), synCreatedRecord(created)); say.push(`SYN_CREATED ${created.length}`); } catch { fail('LANE_E_SYN_CREATED_RECEIPT'); } }
+    if (marker) {
+      const vs = {};
+      for (const arm of SYN_ARMS) { try { vs[arm] = synArmVerdict(fsx, synArmPaths(root, arm)); } catch { vs[arm] = null; } }
+      const text = synAggregateGates(vs);
+      for (const l of text.slice(0, -1).split('\n')) say.push(l);
+      try { d.files.put(root.gates, text); } catch { fail('LANE_E_GATES_RECEIPT'); }
+    }
+  }
+  return { ok, say };
+}
 
 export async function runLane(d, o) {
   const fsx = d.fs;
@@ -91,34 +177,32 @@ export async function runLane(d, o) {
   let ok = true;
   const fail = (c) => { ok = false; out(c); };
   // Lifecycle matrix: o.target is undefined for E1 (every E1 call is unchanged) or exactly 'SYNTHETIC'; anything else is refused
-  // before any read, directory or docker call. SYNTHETIC: paths from the runner temp, run id and attempt only (never an E1 path),
-  // fresh synthetic-only dirs, three binds, the closed synthetic env, and NO bridge.
+  // before any read, directory or docker call. SYNTHETIC (one arm, called by runSynMatrix): the arm's lifecycle and receipt paths
+  // from the runner temp, run id, attempt and closed arm only (never an E1 path), while the image id and manifest come from the
+  // ROOT control dir (`img`), never from the arm's paths; three binds, the closed synthetic env, and NO bridge.
   const syn = o.target === 'SYNTHETIC';
   if (o.target !== undefined && !syn) return { ok: false, say: ['LANE_E_TARGET'] };
-  let L;
-  try { L = syn ? synLanePaths(o.T, o.runId, o.attempt, o.C, o.R) : lanePaths(o.P, o.C, o.R); } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
+  let L, img;
+  try {
+    if (syn) { img = synLanePaths(o.T, o.runId, o.attempt, o.C, o.R); L = synArmPaths(img, o.arm); } else { L = lanePaths(o.P, o.C, o.R); img = L; }
+  } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
   // Validation needs no docker; nothing below this block may run without the started receipt.
   let imageId = null, env = null, seccompText = null, ports = null;
   try {
-    imageId = fsx.readFileSync(L.iid, 'utf8').trim();
+    imageId = fsx.readFileSync(img.iid, 'utf8').trim();
     if (!IMAGE_ID.test(imageId)) throw new Error('iid');
     if (!syn) {
       ports = lanePorts({ apiOrigin: o.apiOrigin, dbUrl: o.dbUrl });
       env = laneEnv(L, { apiOrigin: o.apiOrigin, dbUrl: o.dbUrl, commit: o.commit, shell: o.shell });
-    } else env = synEnv(L, { commit: o.commit, shell: o.shell });
+    } else env = synEnv(L, { commit: o.commit, shell: o.shell, arm: o.arm });
     const raw = fsx.readFileSync(L.seccomp);
     if (crypto.createHash('sha256').update(raw).digest('hex') !== SECCOMP_RAW_SHA256) throw new Error('profile');
     seccompText = raw.toString('utf8');
     if (!BROWSER_PATH_RE.test(o.shell) || sha(fsx, o.shell) !== (d.browserSha256 ?? BROWSER_PIN.SHA256)) throw new Error('browser');
     // The lane's Node (LANE_NODE in the image) must be byte-identical to this job's Node, as recorded by the image build.
-    if (!path.isAbsolute(o.node ?? '') || !fsx.readFileSync(L.manifest, 'utf8').split('\n').includes(`${sha(fsx, o.node)}  ${LANE_NODE}`)) throw new Error('node');
+    if (!path.isAbsolute(o.node ?? '') || !fsx.readFileSync(img.manifest, 'utf8').split('\n').includes(`${sha(fsx, o.node)}  ${LANE_NODE}`)) throw new Error('node');
     if (!syn && !inputsOk(fsx, L, d.uid())) throw new Error('inputs');
-    if (syn) {
-      const c = fsx.lstatSync(L.C);
-      if (!c.isDirectory() || c.isSymbolicLink() || (c.mode & 0o777) !== 0o700 || c.uid !== d.uid()) throw new Error('ctl');
-      // Last validation step, so a refused input creates nothing (createSynDirs, DESIGN-r2.2 A order).
-      if (createSynDirs(fsx, o.T, L, d.uid()) !== null) throw new Error('dirs');
-    }
+    if (syn && !synArmInputsOk(fsx, L, d.uid())) throw new Error('arm inputs');
   } catch { return { ok: false, say: ['LANE_E_INPUT'] }; }
   try { d.files.put(L.started, 'run-lane.started\n'); } catch { return { ok: false, say: ['LANE_E_RECEIPT'] }; }
 
@@ -173,7 +257,7 @@ export async function runLane(d, o) {
       if (!s.ok || String(s.stdout).trim() !== cid) fail('LANE_E_START');
       else {
         out('LANE_STARTED');
-        const w = await x('docker', ['wait', cid], { timeout: syn ? SYN_WAIT_MS : LANE_WAIT_MS });
+        const w = await x('docker', ['wait', cid], { timeout: syn ? SYN_ARM_WAIT_MS : LANE_WAIT_MS });
         const code = String(w.stdout ?? '').trim();
         if (w.timedOut) fail('LANE_E_WAIT_TIMEOUT');
         else if (!w.ok || !/^-?\d+$/.test(code)) fail('LANE_E_WAIT');
@@ -253,12 +337,12 @@ export async function runLane(d, o) {
 if (process.argv[1] && /le-lane\/run-lane\.mjs$/.test(process.argv[1])) {
   process.umask(0o077);
   // E1 (unchanged):  run-lane.mjs <C> <P> <R> <node> <shell> <api origin> <db url> <commit>
-  // SYNTHETIC:       run-lane.mjs --synthetic <C> <runner temp> <run id> <attempt> <R> <node> <shell> <commit>
+  // SYNTHETIC matrix: run-lane.mjs --synthetic <C> <runner temp> <run id> <attempt> <R> <node> <shell> <commit>
   const a = process.argv.slice(2);
-  let o;
-  if (a[0] === '--synthetic') { const [, C, T, runId, attempt, R, node, shell, commit] = a; o = { target: 'SYNTHETIC', C, T, runId, attempt, R, node, shell, commit }; }
+  let o, run = runLane;
+  if (a[0] === '--synthetic') { const [, C, T, runId, attempt, R, node, shell, commit] = a; o = { C, T, runId, attempt, R, node, shell, commit }; run = runSynMatrix; }
   else { const [C, P, R, node, shell, apiOrigin, dbUrl, commit] = a; o = { C, P, R, node, shell, apiOrigin, dbUrl, commit }; }
-  runLane(realDeps, o)
+  run(realDeps, o)
     .then((r) => { for (const l of r.say) console.log(l); process.exit(r.ok ? 0 : 1); })
     .catch(() => { console.log('LANE_E_UNCLASSIFIED'); process.exit(1); });
 }

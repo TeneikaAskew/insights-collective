@@ -1934,12 +1934,12 @@ jobs:
       - name: Build and check the lane image (exact image config)
         id: syn_image
         run: node scripts/e2e/le-lane/image.mjs build "$RUNNER_TEMP/syn-lane-ctl" "$GITHUB_WORKSPACE" "$(command -v node)" "$SYN_SHELL_PATH"
-      - name: Synthetic lane, once (fresh synthetic-only dirs, three binds, closed env, no bridge; container and teardown in one orchestrator)
+      - name: Synthetic matrix, once (arms A to D in sequence, one fresh container per arm, each proven absent before the next; owned dirs recorded; no bridge)
         id: syn_run
         run: |
           node scripts/e2e/le-lane/run-lane.mjs --synthetic "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
             "$GITHUB_WORKSPACE" "$(command -v node)" "$SYN_SHELL_PATH" "$(git rev-parse HEAD)"
-      - name: Lane teardown gates (verify the orchestrator's host receipts; always)
+      - name: Lane teardown gates (verify the orchestrator's AGGREGATE host receipts; always)
         id: syn_gates
         if: always() && steps.syn_image.outcome != 'skipped'
         run: node scripts/e2e/le-lane/gates.mjs verify "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
@@ -1947,28 +1947,35 @@ jobs:
         id: syn_image_cleanup
         if: always() && steps.syn_image.outcome != 'skipped'
         run: node scripts/e2e/le-lane/image.mjs cleanup "$RUNNER_TEMP/syn-lane-ctl" "$GITHUB_WORKSPACE"
-      - name: LE-SYN summary (fixed lines only; NOT acceptance; after lane teardown)
+      - name: LE-SYN summary (fixed lines only; verdict derived on the host from every arm's receipts; NOT acceptance)
         if: always() && steps.syn_run.outcome != 'skipped'
         run: node scripts/e2e/le-lane/synthetic.mjs summary "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
-      # The synthetic parent is the ONLY private scope here (no E1 path exists in this job). The control dir is removed only when
-      # the lane verdict and the image cleanup are both proven; otherwise it is kept and the step fails.
-      - name: Remove synthetic outputs (synthetic parent only; absence verified)
+      # The synthetic parent is the ONLY private scope here (no E1 path exists in this job). It is removed ONLY through the
+      # recorded ownership (synthetic.mjs cleanup): nothing is touched unless the aggregate verdict proves no container is left,
+      # and a missing, mismatched, foreign or unrecorded entry preserves its directory and every ancestor.
+      - name: Remove owned synthetic directories (recorded identities only; absence verified)
+        id: syn_cleanup
+        if: always()
+        run: node scripts/e2e/le-lane/synthetic.mjs cleanup "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+      # The control dir is removed only when the lane verdict, the image cleanup AND the owned-directory cleanup are all proven;
+      # otherwise its receipts are kept and the step fails.
+      - name: Remove synthetic controls (only after every cleanup is proven)
         if: always()
         env:
           O_GATES: ${{ steps.syn_gates.outcome }}
           O_IMAGE_CLEANUP: ${{ steps.syn_image_cleanup.outcome }}
+          O_DIR_CLEANUP: ${{ steps.syn_cleanup.outcome }}
         run: |
           rc=0
-          P="$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          rm -rf -- "$P" "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound" || rc=1
-          for p in "$P" "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound"; do
+          rm -f -- "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound" || rc=1
+          for p in "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound"; do
             if [ -e "$p" ] || [ -L "$p" ]; then echo "synthetic output still present: $p"; rc=1; fi
           done
           C="$RUNNER_TEMP/syn-lane-ctl"
-          if [ "$O_GATES" = success ] && [ "$O_IMAGE_CLEANUP" = success ]; then
+          if [ "$O_GATES" = success ] && [ "$O_IMAGE_CLEANUP" = success ] && [ "$O_DIR_CLEANUP" = success ]; then
             rm -rf -- "$C" || rc=1
             if [ -e "$C" ] || [ -L "$C" ]; then echo "CONTROLS_E_STILL_PRESENT"; rc=1; else echo "CONTROLS_REMOVED"; fi
-          elif [ -e "$C" ]; then echo "CONTROLS_KEPT (lane or image state not proven; receipts preserved)"; rc=1
+          elif [ -e "$C" ]; then echo "CONTROLS_KEPT (lane, image or owned-directory state not proven; receipts preserved)"; rc=1
           fi
           [ "$rc" -eq 0 ] && echo "SYNTHETIC_OUTPUTS_REMOVED"
           exit "$rc"
