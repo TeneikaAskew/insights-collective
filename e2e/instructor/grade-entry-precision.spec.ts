@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { test, expect } from '../fixtures/page-helpers';
 import { goto } from '../fixtures/page-helpers';
 import { Routes, TestIds } from '../helpers/route-helpers';
-import { classifyTarget } from '../../scripts/e2e/assert-safe-target.mjs';
+import { assertLocalDsn } from '../../scripts/local-db/assert-local-dsn.mjs';
 
 /**
  * Runs under chromium-instructor (e2e/instructor/** is matched by that project), signed in as the
@@ -32,15 +32,23 @@ const SUBMISSION = {
   high: 'acce3333-0000-0000-0000-000000000003',
 };
 
+function psqlEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const k of ['PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PGPORT']) delete env[k];
+  return env;
+}
+
 type StoredGrade = { grade: string | null; workflow_state: string; graded_at: string | null };
 
 function readStoredGrade(submissionId: string): StoredGrade {
   const dsn = process.env.SUPABASE_DB_URL;
-  const target = classifyTarget(dsn);
+  // The repo's libpq DSN guard, loopback only (no isolated-project allowance). It refuses when
+  // PGHOST/PGPORT/PGSERVICE overrides are set, and psql below runs with them removed regardless.
+  const verdict = assertLocalDsn(dsn ?? '');
   expect(
-    target.kind,
-    `SUPABASE_DB_URL must point at the loopback stack for the stored-grade readback (got ${target.shown})`,
-  ).toBe('loopback');
+    verdict.ok && verdict.target === 'loopback',
+    `SUPABASE_DB_URL must point at the loopback stack for the stored-grade readback (${verdict.reason ?? 'not loopback'})`,
+  ).toBe(true);
   expect(submissionId).toMatch(/^[0-9a-f-]{36}$/);
   const out = execFileSync(
     'psql',
@@ -51,7 +59,7 @@ function readStoredGrade(submissionId: string): StoredGrade {
       `select coalesce(grade::text, '<null>') || '|' || workflow_state || '|' || coalesce(graded_at::text, '<null>')
          from public.assignment_submissions where id = '${submissionId}'`,
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: psqlEnv() },
   ).trim();
   expect(out, `submission ${submissionId} must exist`).not.toBe('');
   const [grade, workflow_state, graded_at] = out.split('|');
