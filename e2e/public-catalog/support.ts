@@ -8,6 +8,8 @@ import { COURSES, MODULES } from '../../scripts/public-catalog-fixture/fixtures.
 import { loadProvenance } from '../../scripts/public-catalog-fixture/served-provenance.mjs';
 // @ts-expect-error: plain ESM helper without type declarations
 import { createResponseBinder } from '../../scripts/public-catalog-fixture/response-binding.mjs';
+// @ts-expect-error: plain ESM helper without type declarations
+import { check } from '../../scripts/public-catalog-fixture/failed-check.mjs';
 
 export type FixtureCourse = { id: string; title: string; category: string; estimated_hours: number | null; duration: number | null; published: boolean; status: string; created_at: string; visibility: string };
 export const FIXTURE: FixtureCourse[] = COURSES;
@@ -43,7 +45,7 @@ function provenance() {
 export const BINDING_SETTLE_MS = 5000;
 
 export const test = boundaryTest.extend<Fixtures>({
-  net: async ({ context, page, baseURL, boundary }, use) => {
+  net: async ({ context, page, baseURL, boundary }, use, testInfo) => {
     void boundary; // the auto boundary fixture is installed first and fails the test on any violation
     const allowed = new Set([new URL(baseURL!).origin, API_ORIGIN]);
     const prov = provenance();
@@ -78,12 +80,16 @@ export const test = boundaryTest.extend<Fixtures>({
       for (const p of extraPages) p.off('pageerror', onPageError);
     }
     net.unbound.push(...frozen.unbound);
-    expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },
-      'the response-binding capture settled completely inside its bound (incomplete is a refusal)').toEqual({ unfinished: 0, timedOut: false, late: 0 });
-    expect(frozen.failed, 'no app-origin request failed without a response').toEqual([]);
-    expect(frozen.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]);
-    expect(net.offOrigin, 'no foreign request attempt').toEqual([]);
-    expect(errors, 'no uncaught page errors').toEqual([]);
+    // A failed teardown check is named by its fixed net_* title as a test annotation (failed-check.mjs), because the JSON
+    // reporter drops test.step steps made in fixture teardown; pw-summary.mjs exports only that title, never the values.
+    await check(testInfo, 'net_settled', async () => {
+      expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },
+        'the response-binding capture settled completely inside its bound (incomplete is a refusal)').toEqual({ unfinished: 0, timedOut: false, late: 0 });
+    });
+    await check(testInfo, 'net_app_failed', async () => { expect(frozen.failed, 'no app-origin request failed without a response').toEqual([]); });
+    await check(testInfo, 'net_unbound', async () => { expect(frozen.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]); });
+    await check(testInfo, 'net_foreign', async () => { expect(net.offOrigin, 'no foreign request attempt').toEqual([]); });
+    await check(testInfo, 'net_pageerror', async () => { expect(errors, 'no uncaught page errors').toEqual([]); });
   },
 });
 export { expect };
