@@ -1358,7 +1358,7 @@ jobs:
   # the pinned launch and the D1 record come BEFORE the lane's setup personas and its local service-key HTTP. One test only
   # (--grep 'E1 save'); raw Playwright output stays private; six fixed LE-E1 lines are staged; no PNG.
   lesson-editor:
-    name: Lesson-editor E1 save/reload acceptance (#152 lane on #142; NEW schema, NO Edge runtime, hermetic served app; D1 before any lane write)
+    name: Lesson-editor E1 save/reload acceptance (#152 lane on #142; sealed lane container, sandbox-on browser; NEW schema, NO Edge runtime; D1 before any lane write)
     if: inputs.specs == 'lesson-editor'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -1418,7 +1418,10 @@ jobs:
           scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$LE_EVIDENCE/checks/stack-net-selftest.txt"
           scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$LE_EVIDENCE/checks/owned-proc-selftest.txt"
           scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$LE_EVIDENCE/checks/noedge-probes-selftest.txt"
-          npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkLessonEditorJob.test.ts 2>&1 | tail -6 | tee "$LE_EVIDENCE/checks/d1-selftest.txt"
+          npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkLessonEditorJob.test.ts src/test/ci/checkLeLane.test.ts 2>&1 | tail -6 | tee "$LE_EVIDENCE/checks/d1-selftest.txt"
+          # The E1 worker fixture lies outside tsconfig.app; it is type-checked explicitly (strict) against its real imports.
+          if ! tc=$(npx --no-install tsc -p scripts/e2e/le-lane/tsconfig.e1-fixture.json 2>&1); then printf '%s\n' "$tc" | tail -20; exit 1; fi
+          echo "E1 fixture type-check: ok"
           node scripts/served-app/tests/served-app-check-selftest.mjs | tee "$LE_EVIDENCE/checks/served-app-check-selftest.txt"
           # Static tiers only (no browser): the pinned avatar fixture's contract and its live-binding check with a FAKE fetch.
           node scripts/served-app/tests/avatar-fixture-selftest.mjs 2>&1 | tail -3 | tee "$LE_EVIDENCE/checks/avatar-fixture-selftest.txt"
@@ -1427,6 +1430,47 @@ jobs:
           node e2e/lesson-editor/body-oracle-selftest.mjs 2>&1 | tail -3 | tee "$LE_EVIDENCE/checks/le-body-oracle-selftest.txt"
           node scripts/local-stack/lesson-editor/tests/pgconn-selftest.mjs 2>&1 | tail -3 | tee "$LE_EVIDENCE/checks/le-pgconn-selftest.txt"
 
+      # Pre-stack credential scope: everything from here to `supabase start` runs before any stack credential exists. From
+      # `supabase start` on, sensitive material is in a private log, and export-status writes the password-bearing
+      # SUPABASE_DB_URL and the local JWTs into GITHUB_ENV, so EVERY later step's processes can see them. No lane code runs on
+      # the host after that point; host steps after it are the closed orchestration list checked in checkLeLane.test.ts.
+      - name: Early runner preflight (read-only, fixed codes; docker/runc/kernel/daemon pins and the reviewed seccomp profile bytes)
+        run: node scripts/e2e/le-iso/preflight.mjs "$GITHUB_WORKSPACE" | tee "$LE_EVIDENCE/checks/lane-preflight.txt"
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      # The ONE browser every lesson-editor launch may use, pinned and exported BEFORE the stack starts (no credential exists yet).
+      # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
+      # fallback), and the pin module itself refuses if that variable names anything else.
+      - name: Pin the headless shell and export it for every launch (refuses before any write)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/le-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          tee "$LE_EVIDENCE/checks/headless-shell.txt" < "$R"
+          # Enforced pin (the reviewed @playwright/test -> playwright -> playwright-core 1.59.1 chain, revision, version line and
+          # binary digest). This step, not the launch-binding receipt, is the one that executes the shell (--version).
+          node scripts/e2e/le-iso/browser-pin.mjs "$SHELL_PATH" "$GITHUB_WORKSPACE" | tee "$LE_EVIDENCE/checks/browser-pin.txt"
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+          echo "GB_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      # Pre-stack: it imports the lane config (and @playwright/test and e2e/support/chromium-executable.ts), which with the
+      # explicit PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH returns that path verbatim and runs nothing. No stack credential exists yet.
+      - name: Launch binding receipt (every config project resolves to the pinned shell; before the stack starts)
+        run: |
+          set -o pipefail
+          GB_LANE=lesson-editor npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$LE_EVIDENCE/checks/launch-binding.txt"
+
+      # The lane image, FROM scratch out of host files (no pull, no network), BEFORE the stack and before D1. Removed by the
+      # always() image-cleanup step only when the host lane receipts prove no container can still hold it.
+      - name: Build and check the lane image (pre-stack; exact image config)
+        id: le_image
+        run: |
+          set -o pipefail
+          node scripts/e2e/le-lane/image.mjs build "$RUNNER_TEMP/le-lane-ctl" "$GITHUB_WORKSPACE" "$(command -v node)" "$GB_SHELL_PATH" | tee "$LE_EVIDENCE/checks/le-image.txt"
       - name: Prepare workdir (no functions are served in this job)
         id: le_prep
         run: |
@@ -1528,29 +1572,6 @@ jobs:
           set -o pipefail
           node scripts/served-app/avatar-live-check.mjs "$E2E_BASE_URL" "$LE_DIST" "$LE_HERMETIC" "$LE_SERVED" | tee "$LE_EVIDENCE/checks/avatar-live.txt"
 
-      - name: Install Chromium headless shell
-        run: npx --no-install playwright install --with-deps --only-shell chromium
-      # The ONE browser every lesson-editor launch may use, pinned and exported BEFORE any D1, actor, fixture or carrier write.
-      # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
-      # fallback), and the pin module itself refuses if that variable names anything else.
-      - name: Pin the headless shell and export it for every launch (refuses before any write)
-        run: |
-          set -o pipefail
-          R="$RUNNER_TEMP/le-shell-receipt.txt"
-          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
-          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
-          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
-          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
-          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
-          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
-          tee "$LE_EVIDENCE/checks/headless-shell.txt" < "$R"
-          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
-          echo "GB_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
-      - name: Launch binding receipt (every config project and the setup launch resolve to the pinned shell; before any write)
-        run: |
-          set -o pipefail
-          GB_LANE=lesson-editor npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$LE_EVIDENCE/checks/launch-binding.txt"
-
       # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
       # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
       # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
@@ -1583,11 +1604,8 @@ jobs:
           [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "inputs refused: the pinned headless shell is not bound"; exit 1; }
           P="$RUNNER_TEMP/le-private"
           [ ! -e "$P" ] && [ ! -L "$P" ] || { echo "inputs refused: private parent exists (never reused)"; exit 1; }
-          mkdir -m 700 "$P" "$P/tmp" "$P/proof" "$P/pair-raw"
+          mkdir -m 700 "$P" "$P/proof" "$P/pair-raw" "$P/sock" "$P/lane" "$P/out"
           echo "LE_PRIV=$P" >> "$GITHUB_ENV"
-          # Owned-lifetime marker: every lane process is started with LE_OWNED_RUN=<this token> (inherited by its whole tree);
-          # le-owned-procs.mjs later scans /proc for it. Kept in the private parent only, never in the job env.
-          node -e 'require("node:fs").writeFileSync(process.argv[1], require("node:crypto").randomBytes(16).toString("hex") + "\n", { mode: 0o600, flag: "wx" })' "$P/run-token"
           S=$(mktemp "$P/status.XXXXXXXX")
           trap 'rm -f -- "$S" "$S.err"' EXIT
           npx --no-install supabase status --workdir "$IC_WORKDIR_LE" -o env > "$S" 2> "$S.err" || { echo "supabase status failed"; exit 1; }
@@ -1599,7 +1617,7 @@ jobs:
             // The exported DSN is rebuilt from its parts WITHOUT the password field (never an assigned empty password).
             process.stdout.write(`LE_DB_URL=${u.protocol}//${u.username}@${u.host}${u.pathname}${u.search}\n`);
           ' "$P/dbpass" >> "$GITHUB_ENV"
-          echo "lane inputs: anon and service key files, DB password file and run marker (0600), private TMPDIR, proof and pairing dirs in the private parent; password-free DSN exported"
+          echo "lane inputs: anon and service key files and DB password file (0600); proof, pairing, socket, lane and output dirs (0700) in the private parent; password-free DSN exported"
 
       # D1 re-verify: the ownership record against a fresh DB system-identifier read, these origins and the reviewed bootstrap
       # constant. This is ownership/consistency only; it does NOT prove the API serves this database. That identity is the
@@ -1611,7 +1629,6 @@ jobs:
           APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
           node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/le-priv" \
             | node scripts/e2e/stack-ownership.mjs verify "$API" "$APP" "$LE_D1_BOOTSTRAP_SHA256" | tee "$LE_EVIDENCE/checks/d1-reverify.txt"
-          GB_LANE=lesson-editor npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$LE_PRIV/launch-recheck.txt" || { cat "$LE_PRIV/launch-recheck.txt"; exit 1; }
 
       # The shared runner-owned rows, as the gradebook and builder jobs write them before their pairing: frozen local-preseed.sql
       # (3 synthetic users with profiles and roles, 5 reference courses, 4 modules) then auth-fixtures.sql. The pairing
@@ -1624,13 +1641,12 @@ jobs:
           node scripts/e2e/gb-job-psql.mjs preseed "$RUNNER_TEMP/le-priv" | tee "$LE_EVIDENCE/checks/actors.txt"
           node scripts/e2e/gb-job-psql.mjs seed-auth "$RUNNER_TEMP/le-priv" | tee -a "$LE_EVIDENCE/checks/actors.txt"
 
-      # Live API<->DB identity: the qualified shared pairing producer (the gradebook and builder lanes' gate 3, reused unchanged)
-      # writes a fresh nonce carrier through the DSN and reads it back through the DSN AND the anon API, on this fresh stack
-      # (PAIR_E_USED_STACK otherwise). Pins, DSN binding, D1 ownership and the served-app verifier run first, inside the same
-      # step. run.sh setup (read-only preflight, then the first persona and service-key write) follows IMMEDIATELY in the same
-      # step, so nothing runs between the identity proof and the first lane write. Only the producer's fixed lines are kept.
-      - name: Shared API<->DB pairing, then lane setup (run.sh setup; preflight, personas, fixture, backend contract)
-        id: le_setup
+      # Live API<->DB identity: the qualified shared pairing producer (reused unchanged) writes the carrier ONCE and reads it back
+      # through the DSN and the anon API. The lane orchestrator follows IMMEDIATELY in the same step: it creates, inspects and
+      # starts the sealed lane container, and owns the bridge's whole lifetime (launch, wait, seal, termination, reap) in one
+      # try/finally. Inside the container the pairing is re-checked READ-ONLY before run.sh setup. Fixed lines only.
+      - name: Shared API<->DB pairing (once), then the sealed lane (one orchestrator; container, bridge and teardown)
+        id: le_run
         run: |
           set -o pipefail
           umask 077
@@ -1642,47 +1658,46 @@ jobs:
           [ "$(cat "$LE_PRIV/pair-raw/pair.out")" = "PASS pairing: carrier written through the DSN, read back through the DSN and the anon API" ] || { echo "pairing output is not the fixed PASS line"; exit 1; }
           echo "PAIRING PASS dsn_write=1 dsn_read=match api_read=match" | tee "$LE_EVIDENCE/checks/le-pairing.txt"
           API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
-          APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
-          TOKEN=$(cat "$LE_PRIV/run-token")
-          TMPDIR="$LE_PRIV/tmp" LE_OWNED_RUN="$TOKEN" LE_DB_PASSWORD_FILE="$LE_PRIV/dbpass" scripts/local-stack/lesson-editor/run.sh setup "$API" "$APP" "$LE_DB_URL" \
-            "$LE_PRIV/keys/anon" "$LE_PRIV/keys/service" "$LE_PRIV/work" "$LE_PRIV/evidence" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact > "$LE_PRIV/setup.txt"
+          node scripts/e2e/le-lane/run-lane.mjs "$RUNNER_TEMP/le-lane-ctl" "$LE_PRIV" "$GITHUB_WORKSPACE" "$(command -v node)" "$GB_SHELL_PATH" \
+            "$API" "$LE_DB_URL" "$(git rev-parse HEAD)" | tee "$LE_EVIDENCE/checks/le-lane.txt"
 
-      - name: Playwright E1 only (lane config, pinned shell, JSON report private)
-        id: le_e1
-        if: steps.le_setup.outcome == 'success'
+      # Receipt verification only: no docker call, no child handle, no PID-based reap claim. If the orchestrator was lost
+      # abruptly its gate block is missing and the verdict is UNRESOLVED.
+      - name: Lane teardown gates (verify the orchestrator's host receipts; always)
+        id: le_lane_gates
+        if: always() && steps.le_image.outcome != 'skipped'
         run: |
-          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "E1 refused: the pinned headless shell is not bound"; exit 1; }
-          API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
-          APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
-          # Raw Playwright output and the JSON report live INSIDE the private evidence dir (the spec's beforeAll refuses anything
-          # else), which is inside the private parent: never staged. umask 077 makes the report 0600 for the summary's reader.
-          umask 077
-          TOKEN=$(cat "$LE_PRIV/run-token")
-          set +e
-          TMPDIR="$LE_PRIV/tmp" LE_OWNED_RUN="$TOKEN" \
-          LE_APP_ORIGIN="$APP" LE_API_ORIGIN="$API" LE_DB_URL="$LE_DB_URL" LE_DB_PASSWORD_FILE="$LE_PRIV/dbpass" \
-          LE_WORK_DIR="$LE_PRIV/work" LE_EVIDENCE_DIR="$LE_PRIV/evidence" LE_OUTPUT_DIR="$LE_PRIV/evidence/pw-output" LE_REPORT_JSON="$LE_PRIV/evidence/report.json" \
-          E2E_EVIDENCE_COMMIT="$(git rev-parse HEAD)" E2E_EVIDENCE_ENVIRONMENT=isolated-local-stack \
-            npx --no-install playwright test -c e2e/lesson-editor/playwright.lesson-editor.config.ts --grep 'E1 save' > "$LE_PRIV/pw-list.txt" 2>&1
-          echo "$?" > "$LE_PRIV/pw-exit"
-          set -e
-          echo "E1 run finished; its list, report and output stay private"
+          set -o pipefail
+          node scripts/e2e/le-lane/gates.mjs verify "$RUNNER_TEMP/le-lane-ctl" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" | tee "$LE_EVIDENCE/checks/le-lane-gates.txt"
+      - name: Lane image cleanup (only when the receipts prove no lane container can hold it; always)
+        id: le_image_cleanup
+        if: always() && steps.le_image.outcome != 'skipped'
+        run: |
+          set -o pipefail
+          node scripts/e2e/le-lane/image.mjs cleanup "$RUNNER_TEMP/le-lane-ctl" "$GITHUB_WORKSPACE" | tee "$LE_EVIDENCE/checks/le-image-cleanup.txt"
 
-      - name: Lane cleanup (run.sh cleanup of its session dir; always)
-        id: le_lane_cleanup
-        if: always() && steps.le_inputs.outcome == 'success'
-        run: scripts/local-stack/lesson-editor/run.sh cleanup "$LE_PRIV/work" > "$LE_PRIV/lane-cleanup.txt" 2>&1
-
-      # Six fixed lines only (the lane's README section 3), derived from the private JSON report's single E1 status.
-      - name: LE-E1 summary (fixed lines only)
+      # Nine fixed lines, AFTER lane absence and bridge reaping are established and BEFORE the stack stops. The plan reads the
+      # lane's own output as untrusted data (closed grammar) and passes the Playwright exit CONTENT, never a file name. A lane that
+      # never reached run.sh setup gets the reviewed not-run adapter; nothing fabricates run.sh evidence.
+      - name: LE-E1 summary (fixed lines only; after lane teardown, before the stack stop)
         id: le_summary
         if: always() && steps.le_inputs.outcome == 'success'
         run: |
           set -o pipefail
-          f() { [ "$1" = success ] && echo PASS || echo FAIL; }
-          PW=$(cat "$LE_PRIV/pw-exit" 2>/dev/null || echo 255)
-          node scripts/e2e/le-e1-summary.mjs "$LE_PRIV/evidence/report.json" "$PW" "$(git rev-parse HEAD)" \
-            "$(f '${{ steps.le_setup.outcome }}')" "$LE_PRIV/setup.txt" "$(f '${{ steps.le_lane_cleanup.outcome }}')" | tee "$LE_EVIDENCE/checks/le-e1.txt"
+          C="$RUNNER_TEMP/le-lane-ctl"
+          PLAN=$(node scripts/e2e/le-lane/gates.mjs plan "$C" "$LE_PRIV" "$GITHUB_WORKSPACE")
+          set -- $PLAN
+          case "$#:$1:${2:-}" in
+            5:PLAN:SUMMARY)
+              node scripts/e2e/le-e1-summary.mjs "$LE_PRIV/lane/evidence/report.json" "$3" "$(git rev-parse HEAD)" "$4" "$LE_PRIV/out/setup.txt" "$5" | tee "$LE_EVIDENCE/checks/le-e1.txt" ;;
+            4:PLAN:NOTRUN)
+              node scripts/e2e/le-e1-notrun.mjs "$(git rev-parse HEAD)" "$3" "$4" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
+            3:PLAN:REFUSED)
+              case "$3" in LE_SUM_E_LANE_OUT|LE_SUM_E_LANE_INTERRUPTED|LE_SUM_E_PW_MISSING|LE_SUM_E_PW|LE_SUM_E_PW_UNEXPECTED|LE_SUM_E_WORKER_APPARMOR) ;; *) set -- x x LE_SUM_E_UNCLASSIFIED ;; esac
+              echo "LE-E1 REFUSED $3" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
+            *)
+              echo "LE-E1 SUMMARY NOT RUN: lane absence or bridge reaping unresolved" | tee "$LE_EVIDENCE/checks/le-e1.txt"; exit 1 ;;
+          esac
 
       - name: No Edge runtime container exists (read-only; after the run)
         if: always() && steps.le_prep.outcome == 'success'
@@ -1720,35 +1735,13 @@ jobs:
             0) echo "psql UNRESOLVED: a psql process is still alive after the stack stop" | tee "$LE_EVIDENCE/checks/psql-procs.txt"; exit 1 ;;
             *) echo "psql UNRESOLVED: the psql process probe did not answer present or absent" | tee "$LE_EVIDENCE/checks/psql-procs.txt"; exit 1 ;;
           esac
-      # Owned lifetime, not names: every lane process was started with this run's private LE_OWNED_RUN marker, which its whole
-      # tree inherits (workers, egress proxy, every browser, whatever its name, process group or session). Status mapped
-      # explicitly: 0 = a marked process is alive, 1 = none, anything else = UNRESOLVED. Probe stderr is discarded; its stdout is
-      # only ever one fixed reason code, checked against the list below. It runs AFTER the stack stop (run 41676587739 lead,
-      # UNCONFIRMED: running stack containers at the runner uid can refuse an environ read) and BEFORE the private parent that
-      # holds the run marker is removed.
-      - name: No lane process survives (owned-lifetime marker scan; runner-user processes only; bounded)
-        id: le_procs
-        if: always() && steps.le_prep.outcome == 'success'
-        run: |
-          if [ "${{ steps.le_inputs.outcome }}" != success ]; then
-            echo "no lane process was started (lane inputs did not complete)" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 0
-          fi
-          st=255; why=
-          for i in $(seq 1 10); do st=0; why=$(node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" 2>/dev/null) || st=$?; [ "$st" -eq 0 ] || break; sleep 1; done
-          # Only a fixed reason code from the scanner's closed list is recorded; anything else (or nothing) is "unclassified".
-          case "$why" in
-            LE_PROCS_E_TOKEN|LE_PROCS_E_PROCDIR|LE_PROCS_E_STAT|LE_PROCS_E_ENVIRON_EACCES|LE_PROCS_E_ENVIRON_EPERM|LE_PROCS_E_ENVIRON_OTHER|LE_PROCS_E_UNCLASSIFIED) ;;
-            LE_PROCS_E_ENVIRON_EACCES_UIDMIX|LE_PROCS_E_ENVIRON_EACCES_CAPS|LE_PROCS_E_ENVIRON_EACCES_NSPID|LE_PROCS_E_ENVIRON_EACCES_PLAIN|LE_PROCS_E_ENVIRON_EACCES_CAPS_PRE|LE_PROCS_E_ENVIRON_EACCES_CAPS_DURING) ;;
-            *) why=unclassified ;;
-          esac
-          case "$st" in
-            1) echo "no lane Playwright, browser, proxy or setup process remains" | tee "$LE_EVIDENCE/checks/le-procs.txt" ;;
-            0) echo "lane processes UNRESOLVED: a process of this run is still alive" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
-            *) echo "lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: $why)" | tee "$LE_EVIDENCE/checks/le-procs.txt"; exit 1 ;;
-          esac
       - name: Remove private outputs (lane private parent with keys, DB password, sessions, report and output; psql dir; D1 record; verified)
         id: le_private
         if: always()
+        env:
+          O_PREVIEW: ${{ steps.le_owned_stop.outcome }}
+          O_STACK: ${{ steps.le_stop.outcome }}
+          O_PRODUCERS: ${{ steps.le_producers.outcome }}
         run: |
           rc=0
           for p in "$RUNNER_TEMP/le-private" "$RUNNER_TEMP/le-priv" "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/le-shell-receipt.txt" \
@@ -1760,7 +1753,29 @@ jobs:
           for root in /tmp "$RUNNER_TEMP"; do
             if compgen -G "$root/le-pf-*" > /dev/null; then echo "private output still present: a preflight passfile dir in a default temp root"; rc=1; fi
           done
-          if [ "$rc" -eq 0 ]; then echo "lane private parent (keys, DB password, run marker, TMPDIR, proof, sessions, report, output), psql dir, shell receipts and D1 record absent" | tee "$LE_EVIDENCE/checks/private-removed.txt"; fi
+          if [ "$rc" -eq 0 ]; then echo "PRIVATE_HOST_PATHS_REMOVED (lane private parent: keys, DB password, proof, sockets, sessions, report, output; psql dir; shell receipts; D1 record)" | tee "$LE_EVIDENCE/checks/private-removed.txt"; else echo "PRIVATE_E_HOST_PATHS" | tee "$LE_EVIDENCE/checks/private-removed.txt"; fi
+          # Unlinking host paths does NOT revoke a bind mount or an open descriptor, and does not stop a process that already read
+          # a secret. Two separate decisions from host records (gates.mjs scope):
+          #  - secrets: LANE_SECRET_SCOPE covers the lane only (container absent, bridge reaped, docker clients reaped, host paths
+          #    removed). SECRET_CLEANUP_EFFECTIVE additionally needs every other credential consumer proven stopped (preview,
+          #    stack, psql producers: step outcome 'success' only); otherwise SECRET_CLEANUP_UNRESOLVED <consumers>, rc 1.
+          #  - controls: the NON-secret control dir (receipts, image id, image records) is removed only when the lane verdict
+          #    and both image records are clean; any unresolved image or client state keeps it (CONTROLS KEEP) and fails.
+          C="$RUNNER_TEMP/le-lane-ctl"
+          set +e
+          SCOPE=$(node scripts/e2e/le-lane/gates.mjs scope "$C" "$RUNNER_TEMP/le-private" "$GITHUB_WORKSPACE" "$O_PREVIEW" "$O_STACK" "$O_PRODUCERS" "$rc")
+          st=$?
+          set -e
+          printf '%s\n' "$SCOPE" | tee -a "$LE_EVIDENCE/checks/private-removed.txt"
+          [ "$st" -eq 0 ] || rc=1
+          case "$SCOPE" in
+            *"CONTROLS REMOVE"*)
+              rm -rf -- "$C" || rc=1
+              if [ -e "$C" ] || [ -L "$C" ]; then echo "CONTROLS_E_STILL_PRESENT" | tee -a "$LE_EVIDENCE/checks/private-removed.txt"; rc=1
+              else echo "CONTROLS_REMOVED" | tee -a "$LE_EVIDENCE/checks/private-removed.txt"; fi ;;
+            *"CONTROLS NONE"*) ;;
+            *) echo "CONTROLS_KEPT (lane, image or client state unresolved; receipts and image records preserved)" | tee -a "$LE_EVIDENCE/checks/private-removed.txt"; rc=1 ;;
+          esac
           exit "$rc"
       - name: Remove owned network (only the one this job created; absence verified)
         id: le_net
@@ -1777,11 +1792,12 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$LE_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ le-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/d1-reverify.txt" "$E/checks/actors.txt" "$E/checks/le-pairing.txt" "$E/checks/le-e1.txt" "$E/checks/le-procs.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/psql-procs.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ le-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/lane-preflight.txt" "$E/checks/headless-shell.txt" "$E/checks/browser-pin.txt" "$E/checks/launch-binding.txt" "$E/checks/le-image.txt" "$E/checks/d1-write.txt" "$E/checks/d1-reverify.txt" "$E/checks/actors.txt" "$E/checks/le-pairing.txt" "$E/checks/le-lane.txt" "$E/checks/le-lane-gates.txt" "$E/checks/le-image-cleanup.txt" "$E/checks/le-e1.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/psql-procs.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       # Release gate: nothing is uploaded unless every independent cleanup and absence step succeeded.
       - name: Upload evidence (the staged manifest only; after the full teardown)
         if: >-
-          always() && steps.stage.outcome == 'success' && steps.le_procs.outcome == 'success' && steps.le_owned_stop.outcome == 'success'
+          always() && steps.stage.outcome == 'success' && steps.le_lane_gates.outcome == 'success' && steps.le_image_cleanup.outcome == 'success'
+          && steps.le_owned_stop.outcome == 'success'
           && steps.le_private.outcome == 'success' && steps.le_stop.outcome == 'success' && steps.le_producers.outcome == 'success'
           && steps.le_net.outcome == 'success' && steps.le_left.outcome == 'success'
         uses: actions/upload-artifact@v4

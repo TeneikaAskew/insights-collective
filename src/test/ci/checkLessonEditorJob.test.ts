@@ -21,10 +21,11 @@ const S = LE.steps as Step[];
 const runOf = (s: Step) => String(s.run ?? '');
 const at = (re: RegExp) => { const i = S.findIndex((s) => re.test(runOf(s))); expect(i, String(re)).toBeGreaterThan(-1); return i; };
 const id = (x: string) => { const i = S.findIndex((s) => s.id === x); expect(i, x).toBeGreaterThan(-1); return i; };
-// le_procs runs after the stack stop (containers gone) and before the private parent holding the run marker is removed.
-const TEARDOWN = ['le_owned_stop', 'le_stop', 'le_producers', 'le_procs', 'le_private', 'le_net', 'le_left'];
+// One explicit order: lane receipts verified (seal, absence and bridge reap were done by the orchestrator), image cleanup, the
+// summary, THEN the retained stack stop and absence gates, private removal (two-part) and the network.
+const TEARDOWN = ['le_lane_gates', 'le_image_cleanup', 'le_summary', 'le_owned_stop', 'le_stop', 'le_producers', 'le_private', 'le_net', 'le_left'];
 
-describe('lesson-editor job (proposal)', () => {
+describe('lesson-editor job (proposal; sealed lane container candidate)', () => {
   it('passes the shared workflow policy and is its own dispatch option', async () => {
     expect(await checkWorkflowText(WF)).toEqual([]);
     expect(LE.if).toBe("inputs.specs == 'lesson-editor'");
@@ -40,16 +41,17 @@ describe('lesson-editor job (proposal)', () => {
     expect(r).toBeLessThan(at(/scripts\/local-stack\/workdir\.sh/));
     expect(S[r].if).toBeUndefined();
   });
-  it('orders PRE, bootstrap, migrations, served app, shell pin, launch binding and D1 before any lane input or write', () => {
-    const order = [at(/stage-pre\.sh/), at(/bootstrap\.sh "\$SUPABASE_DB_URL"/), at(/apply-reviewed\.sh "\$SUPABASE_DB_URL" NEW/),
-      at(/served-app-check\.mjs "\$E2E_BASE_URL"/), at(/headless-shell\.mjs receipt >/), at(/GB_LANE=lesson-editor npx --no-install tsx scripts\/e2e\/gb-launch-binding\.ts \| tee/),
-      at(/stack-ownership\.mjs write/), id('le_inputs'), at(/stack-ownership\.mjs verify "\$API" "\$APP" "\$LE_D1_BOOTSTRAP_SHA256" \| tee "\$LE_EVIDENCE\/checks\/d1-reverify\.txt"/),
-      id('le_setup'), id('le_e1')];
+  it('orders the pre-stack shell pin, BPIN, launch binding and lane image, then PRE, migrations, served app and D1 before any lane input', () => {
+    const order = [at(/le-iso\/preflight\.mjs/), at(/headless-shell\.mjs receipt >/), at(/le-iso\/browser-pin\.mjs "\$SHELL_PATH"/),
+      at(/GB_LANE=lesson-editor npx --no-install tsx scripts\/e2e\/gb-launch-binding\.ts \| tee/), id('le_image'), at(/npx --no-install supabase start/),
+      at(/export-status\.mjs "\$S" "\$GITHUB_ENV"/), at(/stage-pre\.sh/), at(/bootstrap\.sh "\$SUPABASE_DB_URL"/), at(/apply-reviewed\.sh "\$SUPABASE_DB_URL" NEW/),
+      at(/served-app-check\.mjs "\$E2E_BASE_URL"/), at(/stack-ownership\.mjs write/), id('le_inputs'),
+      at(/stack-ownership\.mjs verify "\$API" "\$APP" "\$LE_D1_BOOTSTRAP_SHA256" \| tee "\$LE_EVIDENCE\/checks\/d1-reverify\.txt"/), id('le_actors'), id('le_run')];
     expect([...order].sort((a, b) => a - b)).toEqual(order);
-    expect(runOf(S[id('le_setup')])).toMatch(/run\.sh setup "\$API" "\$APP" "\$LE_DB_URL"/);
-    expect(runOf(S[id('le_setup')])).toMatch(/> "\$LE_PRIV\/setup\.txt"$/m);
+    // the launch binding runs exactly once, pre-stack; the post-inputs recheck is gone
+    expect(S.filter((x) => /gb-launch-binding\.ts/.test(runOf(x)))).toHaveLength(1);
   });
-  it('keeps every lane input and raw output in the one private parent and runs E1 only', () => {
+  it('keeps every lane input in the one private parent and runs no lane code on the host', () => {
     const inputs = runOf(S[id('le_inputs')]);
     expect(inputs).toContain('P="$RUNNER_TEMP/le-private"');
     expect(inputs).toContain('export-status.mjs "$S" /dev/null "$P/keys"');
@@ -57,51 +59,43 @@ describe('lesson-editor job (proposal)', () => {
     // password-free DSN rebuilt from its parts; never an assigned empty password (CodeQL empty-password rule on #170)
     expect(inputs).toContain('process.stdout.write(`LE_DB_URL=${u.protocol}//${u.username}@${u.host}${u.pathname}${u.search}\\n`);');
     expect(inputs).not.toMatch(/password\s*=\s*["']{2}/);
-    const e1 = runOf(S[id('le_e1')]);
-    expect(e1).toMatch(/playwright test -c e2e\/lesson-editor\/playwright\.lesson-editor\.config\.ts --grep 'E1 save' > "\$LE_PRIV\/pw-list\.txt" 2>&1/);
-    // B: raw output and report INSIDE the private evidence dir (the spec's beforeAll refuses anything else), never public
-    for (const v of ['LE_OUTPUT_DIR="$LE_PRIV/evidence/pw-output"', 'LE_REPORT_JSON="$LE_PRIV/evidence/report.json"', 'LE_WORK_DIR="$LE_PRIV/work"', 'LE_EVIDENCE_DIR="$LE_PRIV/evidence"']) expect(e1).toContain(v);
-    expect(e1).not.toMatch(/LE_PRIV\/pw-output|LE_PRIV\/report\.json/);
-    expect(e1).toMatch(/umask 077/);
-    expect(e1).not.toMatch(/LE_ALLOWED_ORIGINS|LE_EGRESS_CONTROL|LE_ALLOW_SHIM|PGPASSWORD/);
-    expect(runOf(S[id('le_summary')])).toMatch(/le-e1-summary\.mjs "\$LE_PRIV\/evidence\/report\.json"/);
-    // run 41676587739: the contract flag must come from the private setup output, never from the setup step outcome twice
-    expect(runOf(S[id('le_summary')])).toContain(`"$(f '\${{ steps.le_setup.outcome }}')" "$LE_PRIV/setup.txt" "$(f '\${{ steps.le_lane_cleanup.outcome }}')"`);
-    expect(runOf(S[id('le_summary')]).match(/steps\.le_setup\.outcome/g)).toHaveLength(1);
-    // D: one private TMPDIR under the owned parent for setup and E1; the removal step also refuses a default-root le-pf-* dir
-    expect(inputs).toContain('mkdir -m 700 "$P" "$P/tmp" "$P/proof" "$P/pair-raw"');
-    for (const x of ['le_setup', 'le_e1']) expect(runOf(S[id(x)])).toContain('TMPDIR="$LE_PRIV/tmp" LE_OWNED_RUN="$TOKEN"');
+    expect(inputs).toContain('mkdir -m 700 "$P" "$P/proof" "$P/pair-raw" "$P/sock" "$P/lane" "$P/out"');
+    expect(inputs).not.toMatch(/run-token|LE_OWNED_RUN/);
+    for (const x of S) expect(runOf(x), String(x.name)).not.toMatch(/run\.sh (setup|cleanup)|playwright test|LE_OWNED_RUN|le-owned-procs/);
+    for (const gone of ['le_setup', 'le_e1', 'le_lane_cleanup', 'le_procs']) expect(S.findIndex((x) => x.id === gone), gone).toBe(-1);
     expect(runOf(S[id('le_private')])).toMatch(/for root in \/tmp "\$RUNNER_TEMP"; do\n\s+if compgen -G "\$root\/le-pf-\*"/);
   });
-  it('A: proves API<->DB identity with the shared pairing producer, then sets up in the SAME step with nothing between', () => {
+  it('A: proves API<->DB identity with the shared pairing producer ONCE, then the one orchestrator in the SAME step', () => {
     expect(id('le_d1')).toBeLessThan(id('le_actors'));
     expect(String(S[at(/stack-ownership\.mjs verify "\$API" "\$APP" "\$LE_D1_BOOTSTRAP_SHA256" \| tee "\$LE_EVIDENCE\/checks\/d1-reverify\.txt"/)].name)).toContain('ownership and consistency only, not API<->DB identity');
-    expect(id('le_actors') + 1).toBe(id('le_setup'));
+    expect(id('le_actors') + 1).toBe(id('le_run'));
     expect(runOf(S[id('le_actors')])).toMatch(/gb-job-psql\.mjs preseed[^\n]*\n[^\n]*gb-job-psql\.mjs seed-auth/);
-    const run = runOf(S[id('le_setup')]);
-    const order = ['pairing-producer.mjs" "$c"', 'pairing-producer.mjs" ownership', 'pairing-producer.mjs" appverify', 'pairing-producer.mjs" pair "$LE_PRIV/proof"', 'le-pairing.txt', 'run.sh setup'];
+    const run = runOf(S[id('le_run')]);
+    const order = ['pairing-producer.mjs" "$c"', 'pairing-producer.mjs" ownership', 'pairing-producer.mjs" appverify', 'pairing-producer.mjs" pair "$LE_PRIV/proof"', 'le-pairing.txt', 'le-lane/run-lane.mjs'];
     const at2 = order.map((x) => run.indexOf(x));
     expect(at2.every((v) => v >= 0)).toBe(true);
     expect([...at2].sort((a, b) => a - b)).toEqual(at2);
     expect(run).toContain('for c in pins dsn; do');
-    // nothing between the pair PASS check and run.sh setup but the fixed receipt, origins and the marker read
-    const between = run.slice(run.indexOf('le-pairing.txt'), run.indexOf('run.sh setup'));
+    // the carrier is written exactly once in the whole job
+    expect(WF.slice(WF.indexOf('\n  lesson-editor:'), WF.indexOf('\n  le-isolation-probe:')).match(/pairing-producer\.mjs" pair /g)).toHaveLength(1);
+    const between = run.slice(run.indexOf('le-pairing.txt'), run.indexOf('le-lane/run-lane.mjs'));
     expect(between).not.toMatch(/curl|psql|personas|supabase |service/);
   });
-  it('stages fixed lines only: no lane evidence dir, report, list or PNG reaches the manifest', () => {
+  it('stages fixed lines only: no lane private dir, report, list or PNG reaches the manifest', () => {
     const st = runOf(S[id('stage')]);
     expect(st).toContain('"$E/checks/le-e1.txt"');
-    expect(st).not.toMatch(/LE_PRIV|report\.json|pw-list|pw-output|\.png|backend-contract|pair-raw|run-token/);
-    for (const f of ['actors.txt', 'le-pairing.txt', 'le-procs.txt']) expect(st).toContain(`"$E/checks/${f}"`);
+    expect(st).not.toMatch(/LE_PRIV|report\.json|pw-list|pw-output|\.png|backend-contract|pair-raw|run-token|le-procs/);
+    for (const f of ['actors.txt', 'le-pairing.txt', 'le-lane.txt', 'le-lane-gates.txt', 'le-image.txt', 'le-image-cleanup.txt', 'browser-pin.txt', 'lane-preflight.txt']) expect(st).toContain(`"$E/checks/${f}"`);
   });
-  it('tears down independently and releases only after every teardown step succeeded', () => {
+  it('tears down in one explicit order and releases only after every teardown step succeeded', () => {
     for (const x of TEARDOWN) expect(S[id(x)].if, x).toMatch(/^always\(\)/);
     const order = TEARDOWN.map(id);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(id('le_run')).toBeLessThan(id('le_lane_gates'));
     expect(runOf(S[id('le_private')])).toContain('"$RUNNER_TEMP/le-private"');
     expect(runOf(S[id('le_producers')])).toMatch(/pgrep -u "\$\(id -u\)" -x psql/);
     const up = S.find((s) => String(s.uses ?? '').startsWith('actions/upload-artifact@'))!;
-    for (const x of ['stage', ...TEARDOWN]) expect(up.if).toContain(`steps.${x}.outcome == 'success'`);
+    for (const x of ['stage', ...TEARDOWN.filter((t) => t !== 'le_summary')]) expect(up.if).toContain(`steps.${x}.outcome == 'success'`);
     expect(S.indexOf(up)).toBe(id('stage') + 1);
   });
   it('binds the lane config to the pinned shell (exactly one project)', () => {
@@ -110,7 +104,7 @@ describe('lesson-editor job (proposal)', () => {
     expect(laneProblems('lesson-editor', [{ name: 'lesson-editor-chromium' }, { name: 'x' }])).not.toEqual([]);
     expect(laneProblems('journey', [{ name: 'x' }])).toEqual([]);
   });
-  it('derives the six LE-E1 lines from exactly one E1 test status, copying nothing else', () => {
+  it('derives the nine LE-E1 lines from exactly one E1 test status, copying nothing else', () => {
     type Opt = { status?: string; results?: unknown[]; project?: string; expectedStatus?: string; tStatus?: string; stats?: Record<string, number>; errors?: unknown[]; file?: string; describe?: string };
     const rep = (titles: string[], o: Opt = {}) => {
       const status = o.status ?? 'passed';
@@ -295,50 +289,8 @@ describe('le-e1-summary private report reader (same descriptor; fakes and real n
   });
 });
 
-describe('le_procs: owned-lifetime marker probe, explicit 0/1/other mapping (shell stand-in, no real process probe)', () => {
-  const BODY = String((S.find((s) => s.id === 'le_procs') ?? {}).run ?? '');
-  const run = (seqs: string, inputs = 'success', why = '') => {
-    const body = BODY.replace('${{ steps.le_inputs.outcome }}', inputs);
-    const prelude = [
-      'N=0',
-      `WHY='${why}'`,
-      "tee() { while IFS= read -r l; do printf '%s\\n' \"$l\"; done; }",
-      'sleep() { :; }',
-      'seq() { i=$1; while [ "$i" -le "$2" ]; do echo "$i"; i=$((i+1)); done; }',
-      // the probe runs inside $( ), a subshell, so the call index is the loop variable i and each call is counted on fd 3
-      seqs === 'none' ? '' : `node() { [ "$1" = scripts/e2e/le-owned-procs.mjs ] || return 99; echo CALL >&3; set -- ${seqs}; [ "$i" -le $# ] && k=$i || k=$#; eval "v=\\\${$k}"; [ -n "$WHY" ] && echo "$WHY" || echo RAW-PROBE-OUT; echo RAW-PROBE-ERR >&2; return "$v"; }`,
-      'exec 3>&2',
-    ].join('\n');
-    const r = spawnSync('/bin/bash', ['-e', '-c', `${prelude}\n${body}`], { encoding: 'utf8', env: { PATH: '/nonexistent' } });
-    return { status: r.status, out: r.stdout, err: r.stderr, calls: (r.stderr.match(/^CALL$/gm) ?? []).length };
-  };
-  const ABSENT = 'no lane Playwright, browser, proxy or setup process remains\n';
-  const ALIVE = 'lane processes UNRESOLVED: a process of this run is still alive\n';
-  const NOANSWER = 'lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: unclassified)\n';
-  it('uses the marker scan, never a name regex', () => {
-    expect(BODY).toContain('why=$(node scripts/e2e/le-owned-procs.mjs "$LE_PRIV/run-token" 2>/dev/null) || st=$?');
-    expect(BODY).not.toMatch(/pgrep|chrome-headless-shell|playwright test/);
-  });
-  it('maps 1 and 0->1 to absent, persistent 0 to alive, and 2, 3, 127, a missing tool or no probe to UNRESOLVED', () => {
-    for (const [seq, calls] of [['1', 1], ['0 1', 2]] as const) { const r = run(seq); expect([r.status, r.out, r.calls], seq).toEqual([0, ABSENT, calls]); expect(r.out + r.err).not.toMatch(/RAW-PROBE/); }
-    const alive = run('0'); expect([alive.status, alive.out, alive.calls]).toEqual([1, ALIVE, 10]);
-    for (const seq of ['2', '3', '127', '0 3']) { const r = run(seq); expect([r.status, r.out], seq).toEqual([1, NOANSWER]); expect(r.out + r.err).not.toMatch(/RAW-PROBE/); }
-    const missing = run('none'); expect([missing.status, missing.out]).toEqual([1, NOANSWER]);
-  });
-  it('records only a reason code from the closed list, and the code never turns UNRESOLVED into absent', () => {
-    for (const why of REASONS) {
-      const r = run('3', 'success', why);
-      expect([r.status, r.out]).toEqual([1, `lane processes UNRESOLVED: the owned-process probe did not answer present or absent (reason: ${why})\n`]);
-    }
-    for (const why of ['LE_PROCS_E_BOGUS', 'secret value', 'LE_PROCS_E_TOKEN extra']) expect(run('3', 'success', why).out).toBe(NOANSWER);
-    expect(run('1', 'success', 'LE_PROCS_E_ENVIRON_EACCES').out).toBe(ABSENT);
-  });
-  it('claims "no process was started" only when the lane inputs never completed', () => {
-    const r = run('0', 'failure');
-    expect([r.status, r.out, r.calls]).toEqual([0, 'no lane process was started (lane inputs did not complete)\n', 0]);
-  });
-});
-
+// le_procs (the host marker scan) is retired from the job: lane processes now live only in the sealed container, whose
+// lifetime is bounded structurally (checkLeLane.test.ts). The scanner module stays in the tree and keeps its unit tests below.
 describe('le-owned-procs scanner (fake /proc; nothing is written or probed)', () => {
   const TOK = '0123456789abcdef0123456789abcdef';
   const env = (...kv: string[]) => Buffer.from(kv.join('\0') + '\0');

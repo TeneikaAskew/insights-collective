@@ -1,0 +1,223 @@
+// ABOUTME: Pure launch contract for the lesson-editor worker browser: Chromium sandbox ON (set last), closed option set, the
+// ABOUTME: EFFECTIVE options Playwright 1.59.1 will merge, a bounded owned-browser argv attestation, and cleanup on every path.
+//
+// Playwright 1.59.1 facts this module is written against (installed sources, read 2026-11-04):
+// - playwright/lib/index.js `_browserOptions` (auto worker fixture) sets playwright._defaultLaunchOptions =
+//   { handleSIGINT: false, ...launchOptions, tracesDir, artifactsDir, headless }.
+// - playwright-core/lib/client/browserType.js launchServer: `options = { ...this._playwright._defaultLaunchOptions, ...options }`,
+//   i.e. the defaults are merged AFTER anything the fixture validated. So the incoming launchOptions are checked, AND the exact
+//   effective merged object is computed and checked before launch.
+// - playwright-core/lib/server/chromium/chromium.js: `if (options.chromiumSandbox !== true) chromeArguments.push("--no-sandbox")`.
+// - playwright/lib/runner/workerHost.js: artifactsDir = join(outputDir, `.playwright-artifacts-${workerIndex}`); tracesDir =
+//   join(artifactsDir, 'traces') (worker/testTracing.js).
+// - playwright-core/lib/browserServerImpl.js launchServer: `controller.run(async (progress) => ...)` is called WITHOUT a timeout
+//   argument, so the `timeout` launch option bounds nothing here; and `server.listen(...)` runs AFTER the browser started, so a
+//   listen failure rejects with no handle to a running browser. The launch is therefore bounded HERE (LAUNCH_BOUND_MS, then a
+//   LATE_GRACE_MS wait for a late handle, which is closed and, failing that, killed, both awaited and bounded). A launch that
+//   is rejected, hangs, or settles late leaves the owned browser's state UNKNOWN unless a late handle was closed; nothing
+//   claims absence. Containment of anything left is the lane container's own PID-namespace teardown, not this module.
+// AppArmor (worker-side, authentic lane): the worker's own label is gated BEFORE launch (exact docker-default (enforce), else
+// no launch), the owned browser's label right after attestation, and both again after the test (postrunAppArmor). Pre and
+// post must be ENFORCE and equal. The fixed line `PRE <w> <b> POST <w> <b>` is published as the test annotation
+// `lane-apparmor`, which the supervisor copies into lane.txt's validated grammar. Unknown, unconfined, complain, other or an
+// unreadable label fails closed. No policy is set or changed.
+// Claim of the attestation, exactly: at attestation time the OWNED browser process (BrowserServer.process()) was the pinned
+// binary, launched with chromiumSandbox: true, and its argv carried none of FORBIDDEN_FLAGS. Nothing about child processes
+// (zygote, renderers, utility), which sandbox layer is active, or any process absence is claimed. No /proc enumeration, no
+// children walk, no freeze, no ptrace, no extra privilege.
+import path from 'node:path';
+import { apparmorGate } from '../../scripts/e2e/le-iso/expect.mjs';
+
+export const RESOLVER_ARG = '--host-resolver-rules=MAP * 127.0.0.1:1,EXCLUDE localhost,EXCLUDE 127.0.0.1';
+export const FORBIDDEN_FLAGS = Object.freeze(['--no-sandbox', '--disable-setuid-sandbox', '--disable-namespace-sandbox',
+  '--disable-seccomp-filter-sandbox', '--no-zygote', '--single-process']);
+export const LAUNCH_BOUND_MS = 60000;
+export const LATE_GRACE_MS = 15000;
+export const CLOSE_TIMEOUT_MS = 10000;
+export const AA_ENFORCE = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+/**
+ * The config's `launchOptions` (incoming): keys within { executablePath, args, chromiumSandbox }; chromiumSandbox ABSENT or
+ * exactly true; args EXACTLY [RESOLVER_ARG]; executablePath equal to `shell` when a shell is bound. Returns a code or null.
+ */
+export function incomingProblem(lo, { shell }) {
+  if (!lo || typeof lo !== 'object' || Array.isArray(lo)) return 'LANE_E_SANDBOX_OPTION';
+  for (const k of Object.keys(lo)) if (!['executablePath', 'args', 'chromiumSandbox'].includes(k)) return 'LANE_E_SANDBOX_OPTION';
+  if (own(lo, 'chromiumSandbox') && lo.chromiumSandbox !== true) return 'LANE_E_SANDBOX_OPTION';
+  if (!Array.isArray(lo.args) || lo.args.length !== 1 || lo.args[0] !== RESOLVER_ARG) return 'LANE_E_SANDBOX_OPTION';
+  if (shell ? lo.executablePath !== shell : own(lo, 'executablePath') && typeof lo.executablePath !== 'string') return 'LANE_E_SANDBOX_OPTION';
+  return null;
+}
+
+/**
+ * Our launchServer options. chromiumSandbox: true is written LAST (it overrides any merged default); no ignoreDefaultArgs key.
+ * No `timeout` key: launchServer ignores it (see the header); the bound is LAUNCH_BOUND_MS in boundedLaunch.
+ */
+export function serverOptions({ shell, proxyUrl }) {
+  const o = {};
+  if (shell) o.executablePath = shell;
+  o.args = [RESOLVER_ARG];
+  if (proxyUrl) o.proxy = { server: proxyUrl, bypass: '<-loopback>' };
+  o.env = { HOME: '/tmp', TMPDIR: '/tmp' };
+  o.host = '127.0.0.1';
+  o.port = 0;
+  o.chromiumSandbox = true;
+  return o;
+}
+
+/** Exactly what playwright-core 1.59.1 launchServer will use (client/browserType.js). */
+export const effectiveOptions = (defaults, ours) => ({ ...defaults, ...ours });
+
+/**
+ * The auto fixture's defaults: exactly { handleSIGINT: false, executablePath?, args, chromiumSandbox?: true, tracesDir,
+ * artifactsDir, headless: true }, with artifacts confined to `outputDir/.playwright-artifacts-<n>` when outputDir is bound.
+ */
+export function defaultsProblem(def, { shell, outputDir }) {
+  if (!def || typeof def !== 'object' || Array.isArray(def)) return 'LANE_E_SANDBOX_DEFAULTS';
+  const allowed = ['handleSIGINT', 'executablePath', 'args', 'chromiumSandbox', 'tracesDir', 'artifactsDir', 'headless'];
+  for (const k of Object.keys(def)) if (!allowed.includes(k)) return 'LANE_E_SANDBOX_DEFAULTS';
+  if (def.handleSIGINT !== false || def.headless !== true) return 'LANE_E_SANDBOX_DEFAULTS';
+  const { tracesDir, artifactsDir, ...rest } = def;
+  delete rest.handleSIGINT; delete rest.headless;
+  if (incomingProblem(rest, { shell })) return 'LANE_E_SANDBOX_DEFAULTS';
+  if (typeof artifactsDir !== 'string' || tracesDir !== path.join(artifactsDir, 'traces')) return 'LANE_E_SANDBOX_ARTIFACTS';
+  if (outputDir && !/^\.playwright-artifacts-\d{1,3}$/.test(path.relative(outputDir, artifactsDir))) return 'LANE_E_SANDBOX_ARTIFACTS';
+  return null;
+}
+
+const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(',')}}` : JSON.stringify(v));
+
+/**
+ * The merged effective object must equal, key for key (order-independent), the explicit expectation below, built from fixed
+ * values and the already validated artifact paths, NOT from the merge itself. chromiumSandbox must be exactly true in it.
+ */
+export function effectiveProblem(eff, { shell, proxyUrl, defaults }) {
+  const want = { handleSIGINT: false, ...(shell ? { executablePath: shell } : {}), args: [RESOLVER_ARG], tracesDir: defaults?.tracesDir,
+    artifactsDir: defaults?.artifactsDir, headless: true, ...(proxyUrl ? { proxy: { server: proxyUrl, bypass: '<-loopback>' } } : {}),
+    env: { HOME: '/tmp', TMPDIR: '/tmp' }, host: '127.0.0.1', port: 0, chromiumSandbox: true };
+  if (!eff || typeof eff !== 'object' || eff.chromiumSandbox !== true || canon(eff) !== canon(want)) return 'LANE_E_SANDBOX_EFFECTIVE';
+  return null;
+}
+
+/** Owned-browser argv attestation (the tested probe method): one cmdline read of the server's own process. */
+export function attestArgv(pid, readCmdline, shell) {
+  if (!Number.isInteger(pid) || pid <= 0) return 'LANE_E_SANDBOX_PID';
+  let argv;
+  try { argv = String(readCmdline(pid)).split('\0').filter((a, i, all) => !(a === '' && i === all.length - 1)); } catch { return 'LANE_E_SANDBOX_UNREAD'; }
+  if (argv.length < 2) return 'LANE_E_SANDBOX_UNREAD';
+  if (shell && argv[0] !== shell) return 'LANE_E_SANDBOX_EXE';
+  for (const a of argv) {
+    const flag = a.toLowerCase().split('=')[0];
+    if (FORBIDDEN_FLAGS.includes(flag)) return 'LANE_E_SANDBOX_OFF';
+  }
+  return null;
+}
+
+export class SandboxLaunchError extends Error {
+  constructor(code, extra = {}) { super(code); this.code = code; Object.assign(this, extra); }
+}
+
+/** Rejects after `ms` (fixed code); never leaves the timer running. */
+export function bounded(p, ms, code) {
+  let t;
+  return Promise.race([Promise.resolve(p).finally(() => clearTimeout(t)), new Promise((_, rej) => { t = setTimeout(() => rej(new SandboxLaunchError(code)), ms); })]);
+}
+
+const defaultSleep = (ms) => new Promise((r) => { const t = setTimeout(r, ms); t.unref?.(); });
+
+/** Close a BrowserServer: bounded close, then (only if that failed) an awaited bounded kill. { ok, marks }. */
+export async function closeServer(server) {
+  const marks = [];
+  try { await bounded(server.close(), CLOSE_TIMEOUT_MS, 'LANE_E_SERVER_CLOSE'); return { ok: true, marks }; } catch { marks.push('LANE_E_SERVER_CLOSE'); }
+  try { await bounded(server.kill(), CLOSE_TIMEOUT_MS, 'LANE_E_SERVER_KILL'); return { ok: true, marks }; } catch { marks.push('LANE_E_SERVER_KILL'); }
+  return { ok: false, marks };
+}
+
+/**
+ * launchServer under OUR bound. Returns { server } or { code, browserState, marks }:
+ *   rejected (any time)             -> LANE_E_LAUNCH_REJECTED, UNKNOWN (it may have failed after the browser started)
+ *   bound passed, handle in grace   -> handle closed/killed (awaited, bounded): LANE_E_LAUNCH_LATE, LATE_HANDLE_CLOSED or UNKNOWN
+ *   bound passed, rejected in grace -> LANE_E_LAUNCH_LATE_REJECTED, UNKNOWN
+ *   bound and grace passed          -> LANE_E_LAUNCH_HUNG, UNKNOWN. A handle arriving even later is still closed when it arrives,
+ *                                      but that is not awaited here and nothing is claimed from it.
+ */
+export async function boundedLaunch(chromium, ours, sleep = defaultSleep) {
+  const settled = Promise.resolve().then(() => chromium.launchServer(ours)).then((server) => ({ kind: 'ok', server }), () => ({ kind: 'rejected' }));
+  const first = await Promise.race([settled, sleep(LAUNCH_BOUND_MS).then(() => ({ kind: 'timeout' }))]);
+  if (first.kind === 'ok') return { server: first.server };
+  if (first.kind === 'rejected') return { code: 'LANE_E_LAUNCH_REJECTED', browserState: 'UNKNOWN', marks: [] };
+  const late = await Promise.race([settled, sleep(LATE_GRACE_MS).then(() => ({ kind: 'hung' }))]);
+  if (late.kind === 'ok') {
+    const c = await closeServer(late.server);
+    return { code: 'LANE_E_LAUNCH_LATE', browserState: c.ok ? 'LATE_HANDLE_CLOSED' : 'UNKNOWN', marks: c.marks };
+  }
+  if (late.kind === 'rejected') return { code: 'LANE_E_LAUNCH_LATE_REJECTED', browserState: 'UNKNOWN', marks: [] };
+  settled.then((r) => (r.kind === 'ok' ? closeServer(r.server) : null)).catch(() => {});
+  return { code: 'LANE_E_LAUNCH_HUNG', browserState: 'UNKNOWN', marks: [] };
+}
+
+/** One AppArmor label read to a closed code; an unreadable label is APPARMOR_E_UNKNOWN. */
+export function labelCode(readLabel, who) {
+  let t = null;
+  try { t = readLabel(who); } catch { t = null; }
+  return apparmorGate(t);
+}
+
+/**
+ * Post-run evidence for the worker and the owned browser; ok only if all four are ENFORCE (pre equal to post).
+ * @param {{ pid: number, readLabel: (who: number | 'self') => string | null, pre: { worker: string, browser: string } }} state
+ */
+export function postrunAppArmor(state) {
+  const worker = labelCode(state.readLabel, 'self'), browser = labelCode(state.readLabel, state.pid);
+  const ok = [state.pre.worker, state.pre.browser, worker, browser].every((c) => c === AA_ENFORCE) && worker === state.pre.worker && browser === state.pre.browser;
+  return { worker, browser, ok, line: `PRE ${state.pre.worker} ${state.pre.browser} POST ${worker} ${browser}` };
+}
+
+/**
+ * Launch (bounded), attest, gate AppArmor (when readLabel is bound), connect, use, and clean up on EVERY path. A failed close
+ * is recorded (marks) and followed by an AWAITED, bounded server.kill(); nothing is fire-and-forget. The first error (or a
+ * cleanup failure) is rethrown as a fixed code.
+ * @param {any} chromium
+ * @param {{ launchOptions: any, defaults: any, shell?: string, outputDir?: string, proxyUrl?: string | null, readCmdline: (pid: number) => string,
+ *   readLabel?: (who: number | 'self') => string | null, onAppArmor?: (state: any) => void, sleep?: (ms: number) => Promise<unknown> }} o
+ * @param {(browser: any) => Promise<unknown>} use
+ */
+export async function withSandboxedBrowser(chromium, { launchOptions, defaults, shell, outputDir, proxyUrl, readCmdline, readLabel, onAppArmor, sleep }, use) {
+  const marks = [];
+  const p1 = incomingProblem(launchOptions, { shell }) ?? defaultsProblem(defaults, { shell, outputDir });
+  if (p1) throw new SandboxLaunchError(p1);
+  const ours = serverOptions({ shell, proxyUrl });
+  const p2 = effectiveProblem(effectiveOptions(defaults, ours), { shell, proxyUrl, defaults });
+  if (p2) throw new SandboxLaunchError(p2);
+  let preWorker = null;
+  if (readLabel) { preWorker = labelCode(readLabel, 'self'); if (preWorker !== AA_ENFORCE) throw new SandboxLaunchError('LANE_E_APPARMOR_PRE', { apparmor: preWorker }); }
+  const l = await boundedLaunch(chromium, ours, sleep);
+  if (!l.server) throw new SandboxLaunchError(l.code, { browserState: l.browserState, laneMarks: l.marks });
+  const server = l.server;
+  let primary = null;
+  try {
+    const pid = server.process()?.pid;
+    const a = attestArgv(pid, readCmdline, shell);
+    if (a) throw new SandboxLaunchError(a);
+    let state = null;
+    if (readLabel) {
+      state = { pid, readLabel, pre: { worker: preWorker, browser: labelCode(readLabel, pid) } };
+      if (state.pre.browser !== AA_ENFORCE) throw new SandboxLaunchError('LANE_E_APPARMOR_PRE', { apparmor: state.pre.browser });
+      onAppArmor?.(state);
+    }
+    let browser;
+    try { browser = await chromium.connect(server.wsEndpoint(), { timeout: 15000 }); } catch { throw new SandboxLaunchError('LANE_E_CONNECT'); }
+    try { await use(browser); } finally {
+      if (state && !postrunAppArmor(state).ok) marks.push('LANE_E_APPARMOR_POST');
+      try { await bounded(browser.close(), CLOSE_TIMEOUT_MS, 'LANE_E_BROWSER_CLOSE'); } catch { marks.push('LANE_E_BROWSER_CLOSE'); }
+    }
+  } catch (e) { primary = e; } finally {
+    const c = await closeServer(server);
+    marks.push(...c.marks);
+  }
+  if (primary) throw Object.assign(primary, { laneMarks: marks });
+  if (marks.length) throw new SandboxLaunchError(marks[0], { laneMarks: marks });
+  return marks;
+}
