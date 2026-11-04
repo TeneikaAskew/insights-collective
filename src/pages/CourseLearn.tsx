@@ -306,6 +306,8 @@ const CourseLearn = () => {
     [flatItems, markItemComplete, toast],
   );
 
+  const assessedSelected = isAssessedContentType(selected?.item.type);
+
   const handleContinue = useCallback(async () => {
     if (!selected) return;
     // Next completes informational content only; assessed items stay
@@ -620,15 +622,26 @@ const CourseLearn = () => {
               <span className="sm:hidden">Prev</span>
             </button>
           </Hint>
-          <Hint label={isSelectedComplete ? 'Move to the next lesson' : 'Mark this lesson done and continue'}>
+          {/* For quizzes and assignments this button only navigates (handleContinue never completes them), so its
+              label, hint and accessible name must not say "Complete" or "done" at any width. */}
+          <Hint
+            label={
+              isSelectedComplete
+                ? 'Move to the next lesson'
+                : assessedSelected
+                  ? 'Go to the next lesson. This does not submit or complete this one.'
+                  : 'Mark this lesson done and continue'
+            }
+          >
             <button
               data-onboarding="learn-continue"
               type="button"
               onClick={handleContinue}
+              aria-label={!isSelectedComplete && assessedSelected ? 'Continue to the next lesson without completing this one' : undefined}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <span className="hidden sm:inline">{isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}</span>
-              <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
+              <span className="hidden sm:inline">{isSelectedComplete || assessedSelected ? 'Continue' : 'Complete and Continue'}</span>
+              <span className="sm:hidden">{isSelectedComplete || assessedSelected ? 'Next' : 'Complete'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </Hint>
