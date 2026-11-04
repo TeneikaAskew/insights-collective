@@ -15,7 +15,7 @@ import {
   parseImageCleanupRecord, parseLaneOut, planSummary, pwExitContent,
   E1_RESULT_CLASSES, REPORTED_ERROR_CODES, REPORT_STATES, e1ResultClass, refusalDetail, reportedErrorCode,
   ATTEMPT_STATUSES, E1_STEP_CODES, FAILED_STEP_TOKENS, POST_EXIT_OBSERVATIONS, POST_READ_OUTCOMES, attemptStatusToken, failedStepToken, postObservedEvidence,
-  BODY_END_PAGE_STATES, BROWSER_EXIT_SIGNALS, browserExitEvidence,
+  BODY_END_PAGE_STATES, BROWSER_EXIT_CHECKPOINTS, BROWSER_EXIT_SIGNALS, browserExitEvidence,
 } from '../../../scripts/e2e/le-lane/contract.mjs';
 import { SEALED_HOLD_MAX_MS, createBridge, parseBridgeFinal } from '../../../scripts/e2e/le-lane/bridge.mjs';
 import { inputsOk, runLane } from '../../../scripts/e2e/le-lane/run-lane.mjs';
@@ -27,7 +27,7 @@ import {
   FORBIDDEN_FLAGS, LAUNCH_BOUND_MS, RESOLVER_ARG, SandboxLaunchError, attestArgv, defaultsProblem, effectiveOptions, effectiveProblem, incomingProblem, labelCode,
   postrunAppArmor, serverOptions, withSandboxedBrowser,
   EXIT_OBSERVATIONS, READ_OUTCOMES, exitObserver, postrunAppArmorObserved, readErrorOutcome, readLabelAttempts, readTextOutcome,
-  BODY_END_PAGES, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState,
+  BODY_END_PAGES, EXIT_CHECKPOINTS, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState, pageTeardownRecord, sampleExitShape,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
@@ -2181,15 +2181,17 @@ describe('E1 diagnostics r2.1: strict exit-field types and strict raw identity f
   });
 });
 
-// E1 diagnostics r3 (fakes only; no browser, process, file or listener). The owned browser's closed exit SHAPE and the spec
-// page's closed state when the test body ended, as one DIAGNOSTIC lane line. Nothing decides on either value.
-describe('E1 diagnostics r3: owned-browser exit shape and the page state at body end', () => {
+// E1 diagnostics r3 (fakes only; no browser, process, file or listener). The owned browser's closed exit SHAPE, the first
+// CHECKPOINT (Node observation order, never an OS exit time) at which it was seen, and the spec page's closed state at the page
+// teardown checkpoint, as one DIAGNOSTIC lane line. Nothing decides on any of them.
+describe('E1 diagnostics r3: owned-browser exit shape, first-seen checkpoint and page state', () => {
   type Obj = Record<string, unknown>;
   const ENF3 = 'APPARMOR_DOCKER_DEFAULT_ENFORCE';
   const AA_U = `PRE ${ENF3} ${ENF3} POST ${ENF3} APPARMOR_E_UNKNOWN`;
   const OBS3 = 'WORKER_READ OK NOT_TRIED BROWSER_READ ENOENT ENOENT EXIT EXIT_OBSERVED EXIT_OBSERVED';
-  const BX = 'SHAPE SIGTRAP BODY_END_PAGE CLOSED';
+  const BX = 'SHAPE SIGTRAP FIRST_SEEN PAGE_TEARDOWN_START BODY_END_PAGE CLOSED';
   const handle = (exitCode: unknown = null, signalCode: unknown = null) => Object.assign(new EventEmitter(), { pid: 10, exitCode, signalCode });
+  const pg = (closed: unknown) => ({ isClosed: () => closed });
   const report = (ann: Obj[], results: Obj[] = [{ retry: 0, status: 'failed', error: { message: 'x' }, errors: [], annotations: [], steps: [{ title: 'E1_OPEN', duration: 1, error: { message: 'x' } }] }]) => {
     const file = E1_IDENTITY.file;
     return JSON.stringify({ errors: [], suites: [{ title: file, file, specs: [], suites: [{ title: E1_IDENTITY.describe, file, specs: [
@@ -2197,46 +2199,51 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
   };
   const base = [{ type: 'lane-apparmor', description: AA_U }, { type: 'lane-post-observed', description: OBS3 }];
 
-  it('closed lists: the contract copies equal their sources; no liveness or free-text token exists', () => {
+  it('closed lists: the contract copies equal their sources; no liveness, body or free-text token exists', () => {
     expect([...BROWSER_EXIT_SIGNALS]).toEqual([...EXIT_SIGNALS]);
     expect([...BODY_END_PAGE_STATES]).toEqual([...BODY_END_PAGES]);
-    expect([...EXIT_SIGNALS, ...BODY_END_PAGES].join(' ')).not.toMatch(/ALIVE|RUNNING|LIVE\b/);
+    expect([...BROWSER_EXIT_CHECKPOINTS]).toEqual([...EXIT_CHECKPOINTS]);
+    expect([...EXIT_SIGNALS, ...BODY_END_PAGES, ...EXIT_CHECKPOINTS].join(' ')).not.toMatch(/ALIVE|RUNNING|LIVE\b|TEST_BODY|DURING/);
   });
 
-  it('exit shape: a code 0..255 with no signal, or a SIG* name with no code; anything else is UNKNOWN', () => {
+  it('exit shape: exclusive, strictly typed code 0..255 or SIG* name; finite vocabulary, SIG_OTHER, else UNKNOWN', () => {
     expect(exitShape(0, null)).toBe('CODE_0');
     expect(exitShape(255, null)).toBe('CODE_255');
     expect(exitShape(null, 'SIGTRAP')).toBe('SIGTRAP');
-    expect(exitShape(null, 'SIGKILL')).toBe('SIGKILL');
     expect(exitShape(null, 'SIGUSR1')).toBe('SIG_OTHER');
-    for (const [c, sg] of [[256, null], [-1, null], [1.5, null], ['1', null], [NaN, null], [null, null], [undefined, null], [1, 'SIGTERM'],
-      [null, 'sigterm'], [null, 'TERM'], [null, ''], [null, { toString: () => 'SIGTERM' }], [null, 'SIGTERM secret hunter2']] as [unknown, unknown][])
+    for (const [c, sg] of [[256, null], [-1, null], [1.5, null], ['1', null], [NaN, null], [Infinity, null], [null, null], [undefined, null], [0, undefined],
+      [1, 'SIGTERM'], [null, 'sigterm'], [null, 'TERM'], [null, ''], [null, { toString: () => 'SIGTERM' }], [null, 'SIGTERM secret hunter2'], [{}, null]] as [unknown, unknown][])
       expect(exitShape(c, sg), JSON.stringify([c, sg])).toBe('UNKNOWN');
   });
 
-  it('exit recorder: event first, then the fields; NONE only with a registered listener and both fields null', () => {
+  it('exit recorder: pre-registration exit, event versus already-set fields, delayed event, malformed and conflicting shapes', () => {
+    expect(exitRecorder(handle(0, null))()).toBe('CODE_0'); // exited before registration: fields already set, no event needed
+    expect(exitRecorder(handle(null, 'SIGTRAP'))()).toBe('SIGTRAP');
     const h = handle();
     const rec = exitRecorder(h);
-    expect(rec()).toBe('NONE');
+    expect(rec()).toBe('NONE'); // registered, nothing set yet: NOT a liveness claim
+    h.signalCode = 'SIGSEGV'; // fields set before the event is delivered: seen through the fields
+    expect(rec()).toBe('SIGSEGV');
     h.emit('exit', null, 'SIGSEGV');
     expect(rec()).toBe('SIGSEGV');
-    h.signalCode = 'SIGKILL'; // the event value wins; it is never re-read
-    expect(rec()).toBe('SIGSEGV');
-    expect(exitRecorder(handle(0, null))()).toBe('CODE_0'); // exited before registration
-    expect(exitRecorder(handle(null, 'SIGTRAP'))()).toBe('SIGTRAP');
+    const e = handle();
+    const recE = exitRecorder(e);
+    e.emit('exit', 3, null); // event first; later field changes never override it
+    e.exitCode = 4;
+    expect(recE()).toBe('CODE_3');
+    const bad = handle();
+    const recB = exitRecorder(bad);
+    bad.emit('exit', 1, 'SIGTERM');
+    expect(recB()).toBe('UNKNOWN'); // conflicting event pair
+    expect(exitRecorder(handle(1, 'SIGTERM'))()).toBe('UNKNOWN'); // conflicting fields
+    expect(exitRecorder(handle('0', null))()).toBe('UNKNOWN');
     expect(exitRecorder({ pid: 10, exitCode: null, signalCode: null })()).toBe('UNKNOWN'); // no listener possible
     expect(exitRecorder(null)()).toBe('UNKNOWN');
-    expect(exitRecorder(handle('0', null))()).toBe('UNKNOWN');
     const throwing = Object.defineProperty(Object.assign(new EventEmitter(), { pid: 10, signalCode: null }), 'exitCode', { get: () => { throw new Error('secret hunter2'); } });
     expect(exitRecorder(throwing)()).toBe('UNKNOWN');
-    const bad = handle();
-    const r2 = exitRecorder(bad);
-    bad.emit('exit', 1, 'SIGTERM'); // a conflicting event pair is UNKNOWN, not a code
-    expect(r2()).toBe('UNKNOWN');
   });
 
-  it('page state at body end: closed tokens from isClosed and the crash flag; anything odd is UNKNOWN', () => {
-    const pg = (v: unknown) => ({ isClosed: () => v });
+  it('page state: closed tokens from isClosed and the crash flag; anything odd is UNKNOWN', () => {
     expect(pageEndState(pg(false), false)).toBe('OPEN');
     expect(pageEndState(pg(true), false)).toBe('CLOSED');
     expect(pageEndState(pg(false), true)).toBe('CRASHED');
@@ -2245,18 +2252,55 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
       expect(pageEndState(p, c)).toBe('UNKNOWN');
   });
 
-  it('annotation line: closed values only; a bad sampler or page token is UNKNOWN, never echoed', () => {
-    expect(browserExitLine({ exitShape: () => 'SIGTRAP' }, 'CLOSED')).toBe(BX);
-    expect(browserExitLine({ exitShape: () => 'CODE_0' }, 'OPEN')).toBe('SHAPE CODE_0 BODY_END_PAGE OPEN');
-    expect(browserExitLine({ exitShape: () => 'NONE' }, null)).toBe('SHAPE NONE BODY_END_PAGE UNKNOWN');
+  it('checkpoints: first seen at PAGE_TEARDOWN_START or GATE_POST in Node observation order; anything unprovable is UNKNOWN', () => {
+    // a recorder whose state moves between the two samples, like a real handle
+    const at = (h: EventEmitter & { exitCode: unknown; signalCode: unknown }) => ({ exitShape: exitRecorder(h) });
+    // 1. exited (event delivered) before the page teardown sample
+    const h1 = handle(); const s1 = at(h1); h1.emit('exit', null, 'SIGTRAP');
+    expect(browserExitLine(s1, pageTeardownRecord(s1, pg(true), false))).toBe(BX);
+    // 2. fields set before the page teardown sample, event delivered later: still first seen at PAGE_TEARDOWN_START
+    const h2 = handle(); const s2 = at(h2); h2.exitCode = 0;
+    const r2 = pageTeardownRecord(s2, pg(true), false); h2.emit('exit', 0, null);
+    expect(browserExitLine(s2, r2)).toBe('SHAPE CODE_0 FIRST_SEEN PAGE_TEARDOWN_START BODY_END_PAGE CLOSED');
+    // 3. delayed delivery: nothing observable at the page teardown sample, seen by GATE_POST (the exit itself may be earlier)
+    const h3 = handle(); const s3 = at(h3); const r3 = pageTeardownRecord(s3, pg(false), false); h3.emit('exit', null, 'SIGKILL');
+    expect(browserExitLine(s3, r3)).toBe('SHAPE SIGKILL FIRST_SEEN GATE_POST BODY_END_PAGE OPEN');
+    // 4. no exit observed at either checkpoint
+    const s4 = at(handle());
+    expect(browserExitLine(s4, pageTeardownRecord(s4, pg(false), false))).toBe('SHAPE NONE FIRST_SEEN NOT_SEEN BODY_END_PAGE OPEN');
+    // 5. page checkpoint never recorded (wrapper did not run): an exit at GATE_POST has no provable first checkpoint
+    const h5 = handle(); const s5 = at(h5); h5.emit('exit', null, 'SIGSEGV');
+    expect(browserExitLine(s5, null)).toBe('SHAPE SIGSEGV FIRST_SEEN UNKNOWN BODY_END_PAGE UNKNOWN');
+    // 6. page sample UNKNOWN (bad sampler) then an exit at GATE_POST: first checkpoint UNKNOWN
+    expect(browserExitLine({ exitShape: () => 'SIGTERM' }, { exit: 'UNKNOWN', page: 'OPEN' })).toBe('SHAPE SIGTERM FIRST_SEEN UNKNOWN BODY_END_PAGE OPEN');
+    // 7. two different exit values: UNKNOWN for both
+    expect(browserExitLine({ exitShape: () => 'SIGTERM' }, { exit: 'SIGKILL', page: 'CLOSED' })).toBe('SHAPE UNKNOWN FIRST_SEEN UNKNOWN BODY_END_PAGE CLOSED');
+    // 8. out-of-grammar values are never echoed
     for (const v of ['CODE_256', 'secret hunter2', 7, null, 'SIGUSR1', 'EXIT_OBSERVED'])
-      expect(browserExitLine({ exitShape: () => v }, 'OPEN')).toBe('SHAPE UNKNOWN BODY_END_PAGE OPEN');
-    expect(browserExitLine({ exitShape: () => { throw new Error('secret'); } }, 'secret')).toBe('SHAPE UNKNOWN BODY_END_PAGE UNKNOWN');
-    expect(browserExitLine(null, 'CLOSED')).toBe('SHAPE UNKNOWN BODY_END_PAGE CLOSED');
-    expect(browserExitEvidence(browserExitLine({ exitShape: () => 'SIG_OTHER' }, 'CRASHED_CLOSED'))).toEqual({ shape: 'SIG_OTHER', page: 'CRASHED_CLOSED' });
+      expect(browserExitLine({ exitShape: () => v }, { exit: 'NONE', page: 'OPEN' })).toBe('SHAPE UNKNOWN FIRST_SEEN UNKNOWN BODY_END_PAGE OPEN');
+    expect(browserExitLine({ exitShape: () => { throw new Error('secret'); } }, { exit: 'secret', page: 'secret' })).toBe('SHAPE UNKNOWN FIRST_SEEN UNKNOWN BODY_END_PAGE UNKNOWN');
+    expect(sampleExitShape(null)).toBe('UNKNOWN');
+    // the page record samples the exit FIRST, then the page
+    const order: string[] = [];
+    pageTeardownRecord({ exitShape: () => { order.push('exit'); return 'NONE'; } }, { isClosed: () => { order.push('page'); return false; } }, false);
+    expect(order).toEqual(['exit', 'page']);
+    // every produced line parses, and every pair the grammar accepts is consistent
+    for (const l of [BX, 'SHAPE NONE FIRST_SEEN NOT_SEEN BODY_END_PAGE OPEN', 'SHAPE SIGSEGV FIRST_SEEN UNKNOWN BODY_END_PAGE UNKNOWN', 'SHAPE UNKNOWN FIRST_SEEN UNKNOWN BODY_END_PAGE CLOSED'])
+      expect(browserExitEvidence(l), l).not.toBeNull();
+    for (const l of ['SHAPE NONE FIRST_SEEN GATE_POST BODY_END_PAGE OPEN', 'SHAPE SIGTRAP FIRST_SEEN NOT_SEEN BODY_END_PAGE OPEN',
+      'SHAPE UNKNOWN FIRST_SEEN GATE_POST BODY_END_PAGE OPEN', 'SHAPE NONE FIRST_SEEN UNKNOWN BODY_END_PAGE OPEN', 'SHAPE SIGTRAP FIRST_SEEN TEST_BODY BODY_END_PAGE OPEN'])
+      expect(browserExitEvidence(l), l).toBeNull();
   });
 
-  it('wiring: the recorder rides on the same owned handle; gate and wrapper are passive, ordered and lane-only', async () => {
+  it('AppArmor unchanged: same reads, order, first-success and decision with or without the recorder; cleanup sequence identical', async () => {
+    const calls: string[] = [];
+    const readLabel = (who: number | 'self', note?: (o: string[]) => void) => readLabelAttempts((p: string) => { calls.push(p); if (p.includes('/10/attr/apparmor')) throw Object.assign(new Error('x'), { code: 'ENOENT' }); return 'docker-default (enforce)\n'; }, who, note);
+    const pre = { worker: ENF3, browser: ENF3 };
+    const a = postrunAppArmorObserved({ pid: 10, readLabel, exitObservation: () => 'EXIT_OBSERVED', exitShape: () => 'SIGTRAP', pre });
+    const callsA = calls.splice(0);
+    const b = postrunAppArmorObserved({ pid: 10, readLabel, exitObservation: () => 'EXIT_OBSERVED', pre });
+    expect(a).toEqual(b);
+    expect(callsA).toEqual(calls);
     const run = async (h: unknown) => {
       const ev: string[] = [];
       const server = { process: () => h, wsEndpoint: () => 'ws://127.0.0.1:1/x', close: () => { ev.push('server.close'); return Promise.resolve(); }, kill: () => Promise.resolve() };
@@ -2268,24 +2312,27 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
       try { await withSandboxedBrowser(chromium, opts, async () => { ev.push('use'); (h as EventEmitter | null)?.emit?.('exit', null, 'SIGTRAP'); }); } catch (e) { code = (e as SandboxLaunchError).code ?? 'other'; }
       return { ev, states, code };
     };
-    const a = await run(handle()), b = await run({ pid: 10 });
-    expect(a.ev).toEqual(b.ev);
-    expect(a.code).toBe(b.code);
-    expect((a.states[0].exitShape as () => string)()).toBe('SIGTRAP');
-    expect((b.states[0].exitShape as () => string)()).toBe('UNKNOWN');
+    const x = await run(handle()), y = await run({ pid: 10 });
+    expect(x.ev).toEqual(y.ev);
+    expect(x.code).toBe(y.code);
+    expect((x.states[0].exitShape as () => string)()).toBe('SIGTRAP');
+    expect((y.states[0].exitShape as () => string)()).toBe('UNKNOWN');
     const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
     expect(src).toContain('const exitShapeOf = exitRecorder(child);');
     expect(src.match(/exitRecorder\(/g)).toHaveLength(2); // definition and the one call on the launchServer handle
-    expect(src).not.toMatch(/exitShape\(\)[^;]*\b(ok|marks|throw)\b/);
+    expect(src).toContain("if (state && !postrunAppArmor(state).ok) marks.push('LANE_E_APPARMOR_POST');");
+  });
+
+  it('wiring: the gate and the page wrapper are passive, ordered and lane-only', () => {
     const eg = readFileSync(path.join(ROOT, 'e2e/lesson-editor/egress-test.ts'), 'utf8');
-    const iReset = eg.indexOf('bodyEndPage = null;'), iUse = eg.indexOf('await use();'), iObs = eg.indexOf("type: 'lane-post-observed'"),
-      iBx = eg.indexOf("type: 'lane-browser-exit', description: browserExitLine(state, bodyEndPage)"), iThrow = eg.indexOf("if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');");
+    const iReset = eg.indexOf('pageTeardown = null;'), iUse = eg.indexOf('await use();'), iObs = eg.indexOf("type: 'lane-post-observed'"),
+      iBx = eg.indexOf("type: 'lane-browser-exit', description: browserExitLine(state, pageTeardown)"), iThrow = eg.indexOf("if (!post.ok) throw new Error('LANE_E_APPARMOR_POST');");
     expect([iReset, iUse, iObs, iBx, iThrow].every((i) => i > 0)).toBe(true);
     expect(iReset < iUse && iUse < iObs && iObs < iBx && iBx < iThrow).toBe(true);
-    expect(eg).toContain("if (!authenticLane()) return use(page);");
     const w = eg.slice(eg.indexOf('async ({ page }, use) => {'), eg.indexOf('boundary: ['));
-    expect(w.indexOf('await use(page);')).toBeLessThan(w.indexOf('bodyEndPage = pageEndState(page, crashed);'));
-    expect(w).not.toMatch(/goto|evaluate|content\(|textContent|close\(|title\(|url\(/);
+    expect(w).toContain('if (!authenticLane()) return use(page);');
+    expect(w.indexOf('await use(page);')).toBeLessThan(w.indexOf('pageTeardown = pageTeardownRecord(laneAppArmor, page, crashed);'));
+    expect(w).not.toMatch(/goto|evaluate|content\(|textContent|close\(|title\(|url\(|throw/);
   });
 
   it('snapshot: one valid annotation, else MISSING or INVALID; other values are unchanged by it', () => {
@@ -2296,11 +2343,11 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
     expect(without.browserExit).toBe('MISSING');
     const { browserExit: _a, ...r1 } = withBx, { browserExit: _b, ...r0 } = without;
     expect(r1).toEqual(r0);
-    for (const ann of [[{ type: 'lane-browser-exit', description: BX }, { type: 'lane-browser-exit', description: 'SHAPE CODE_0 BODY_END_PAGE OPEN' }],
+    for (const ann of [[{ type: 'lane-browser-exit', description: BX }, { type: 'lane-browser-exit', description: 'SHAPE NONE FIRST_SEEN NOT_SEEN BODY_END_PAGE OPEN' }],
       [{ type: 'lane-browser-exit', description: `${BX} secret hunter2` }], [{ type: 'lane-browser-exit', description: 7 }], [{ type: 'lane-browser-exit' }],
-      [{ type: 'lane-browser-exit', description: 'SHAPE SIGUSR1 BODY_END_PAGE OPEN' }], [{ type: 'lane-browser-exit', description: 'SHAPE ALIVE BODY_END_PAGE OPEN' }]])
+      [{ type: 'lane-browser-exit', description: 'SHAPE SIGTRAP BODY_END_PAGE CLOSED' }], [{ type: 'lane-browser-exit', description: 'SHAPE NONE FIRST_SEEN GATE_POST BODY_END_PAGE OPEN' }]])
       expect(snap([...base, ...ann]).browserExit, JSON.stringify(ann)).toBe('INVALID');
-    // the same description on the test and on its result is ONE distinct value
+    // report-global aggregation (a provenance LIMIT, not a binding): the same description on the test and its result is ONE value
     expect(snap(base, [{ retry: 0, status: 'failed', annotations: [{ type: 'lane-browser-exit', description: BX }], steps: [] }]).browserExit).toBe(BX);
     expect(reportSnapshot({ status: 'missing' }).browserExit).toBe('MISSING');
     expect(reportSnapshot({ status: 'ok', text: '{x' }).browserExit).toBe('INVALID');
@@ -2316,7 +2363,7 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
     expect(r.runs).toEqual(r0.runs);
     const pw = { state: 'ok', digits: '1' };
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: pw }));
-    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,CLOSED cleanup=PASS`);
+    expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,PAGE_TEARDOWN_START,CLOSED cleanup=PASS`);
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
     expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
     expect(src).toContain('say(`LANE E1 BROWSER_EXIT ${snap.browserExit}`);');
@@ -2326,14 +2373,14 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
     const swap = (from: string, to: string) => LANE_OK.replace(from, to);
     for (const bad of [
       swap('LANE E1 BROWSER_EXIT MISSING\n', ''), swap('LANE E1 FAILED_STEP UNKNOWN\nLANE E1 BROWSER_EXIT MISSING\n', 'LANE E1 BROWSER_EXIT MISSING\nLANE E1 FAILED_STEP UNKNOWN\n'),
-      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_256 BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGUSR1 BODY_END_PAGE OPEN'),
-      swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX} secret`), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT shape sigtrap body_end_page closed'),
-      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGTRAP BODY_END_PAGE ALIVE'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT UNKNOWN'),
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_256 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGUSR1 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN'),
+      swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX} secret`), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE SIGTRAP BODY_END_PAGE CLOSED'),
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE NONE FIRST_SEEN GATE_POST BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT UNKNOWN'),
       swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR MISSING\nLANE E1 REPORT MISSING').replace('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`),
       swap(`${AA_LINE}\nLANE E1 REPORT PARSED`, 'LANE E1 APPARMOR INVALID\nLANE E1 REPORT INVALID').replace('POST_OBSERVED MISSING', 'POST_OBSERVED INVALID'), // needs BROWSER_EXIT INVALID
     ]) expect(parseLaneOut(bad).ok, bad).toBe(false);
     for (const g of [swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT INVALID'),
-      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE NONE BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_0 BODY_END_PAGE UNKNOWN')]) {
+      swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE NONE FIRST_SEEN NOT_SEEN BODY_END_PAGE OPEN'), swap('BROWSER_EXIT MISSING', 'BROWSER_EXIT SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE UNKNOWN')]) {
       const o = parseLaneOut(g);
       expect(o.ok, g).toBe(true);
       for (const pw of [{ state: 'ok', digits: '0' }, { state: 'ok', digits: '1' }, { state: 'absent' }, { state: 'bad' }])
@@ -2341,9 +2388,9 @@ describe('E1 diagnostics r3: owned-browser exit shape and the page state at body
       const { browserExit: _x, ...rest } = o as Obj, { browserExit: _y, ...rest0 } = parseLaneOut(LANE_OK) as Obj;
       expect(rest).toEqual(rest0);
     }
-    expect(parseLaneOut(swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`)).browserExit).toEqual({ state: 'EVIDENCE', shape: 'SIGTRAP', page: 'CLOSED' });
+    expect(parseLaneOut(swap('BROWSER_EXIT MISSING', `BROWSER_EXIT ${BX}`)).browserExit).toEqual({ state: 'EVIDENCE', shape: 'SIGTRAP', firstSeen: 'PAGE_TEARDOWN_START', page: 'CLOSED' });
     for (const f of ['gates.mjs', 'run-lane.mjs', 'image.mjs', 'bridge.mjs'])
-      expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserExit|BROWSER_EXIT|bodyEndPage/);
+      expect(readFileSync(path.join(ROOT, 'scripts/e2e/le-lane', f), 'utf8'), f).not.toMatch(/browserExit|BROWSER_EXIT|pageTeardown/);
     const contract = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
     expect(contract.split('\n').filter((l) => /o\.browserExit|r\.browserExit/.test(l)).length).toBeLessThanOrEqual(4); // parser sets, detail reads
   });

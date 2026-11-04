@@ -276,11 +276,16 @@ export function postObservedEvidence(text) {
 // each copy equals its source.
 export const BROWSER_EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGHUP', 'SIGILL', 'SIGINT', 'SIGKILL', 'SIGPIPE', 'SIGSEGV', 'SIGSYS', 'SIGTERM', 'SIGTRAP']);
 export const BODY_END_PAGE_STATES = Object.freeze(['OPEN', 'CLOSED', 'CRASHED', 'CRASHED_CLOSED', 'UNKNOWN']);
-const BROWSER_EXIT = new RegExp(`^SHAPE (CODE_(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${BROWSER_EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN) BODY_END_PAGE (${BODY_END_PAGE_STATES.join('|')})$`);
-/** The test-scoped gate's `lane-browser-exit` annotation (sandbox-launch.mjs browserExitLine) to { shape, page } or null. */
+export const BROWSER_EXIT_CHECKPOINTS = Object.freeze(['PAGE_TEARDOWN_START', 'GATE_POST', 'NOT_SEEN', 'UNKNOWN']);
+const BROWSER_EXIT = new RegExp(`^SHAPE (CODE_(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${BROWSER_EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN) FIRST_SEEN (${BROWSER_EXIT_CHECKPOINTS.join('|')}) BODY_END_PAGE (${BODY_END_PAGE_STATES.join('|')})$`);
+/** The test-scoped gate's `lane-browser-exit` annotation (sandbox-launch.mjs browserExitLine) to { shape, firstSeen, page } or
+ *  null. Consistent pairs only: an exit shape needs a checkpoint or UNKNOWN; NONE needs NOT_SEEN; UNKNOWN needs UNKNOWN. */
 export function browserExitEvidence(text) {
   const m = typeof text === 'string' ? BROWSER_EXIT.exec(text) : null;
-  return m ? { shape: m[1], page: m[2] } : null;
+  if (!m) return null;
+  const exited = m[1].startsWith('CODE_') || m[1].startsWith('SIG');
+  const ok = exited ? ['PAGE_TEARDOWN_START', 'GATE_POST', 'UNKNOWN'].includes(m[2]) : m[1] === 'NONE' ? m[2] === 'NOT_SEEN' : m[2] === 'UNKNOWN';
+  return ok ? { shape: m[1], firstSeen: m[2], page: m[3] } : null;
 }
 
 /** Classify a runChild result object. Only the two exact known shapes get a specific class; everything else is NO_CODE. */
@@ -596,6 +601,6 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
   const po = o.postObserved;
   const post = po.state === 'EVIDENCE' ? `WR:${po.reads.worker.join(',')};BR:${po.reads.browser.join(',')};EXIT:${po.exit.join(',')}` : po.state;
   const bx = o.browserExit;
-  const browserExit = bx.state === 'EVIDENCE' ? `${bx.shape},${bx.page}` : bx.state;
+  const browserExit = bx.state === 'EVIDENCE' ? `${bx.shape},${bx.firstSeen},${bx.page}` : bx.state;
   return `LE-E1 DETAIL exit=${Number(pwExit.digits)} result=${o.e1Result} aa=${aa} report=${o.report} error=${o.reportedError} post=${post} attempt_status=${o.attemptStatus} failed_step=${o.failedStep} browser_exit=${browserExit} cleanup=${o.cleanup}`;
 }

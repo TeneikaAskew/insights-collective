@@ -234,8 +234,12 @@ export function exitObserver(child) {
 }
 
 /**
- * E1 diagnostics r3: HOW the owned browser exited, as one closed token, and the page's state when the test body ended.
- * Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads either value.
+ * E1 diagnostics r3: HOW the owned browser exited, as one closed token, the first CHECKPOINT at which Node had observed it, and
+ * the page's state at the first checkpoint. Diagnostic only: no gate, refusal, acceptance, cleanup or upload decision reads them.
+ * Checkpoints are sampling points in Node observation order, never OS exit times (an exit event or field can lag the exit):
+ *   PAGE_TEARDOWN_START: the spec page's fixture teardown begins (the first test-fixture teardown after the test body);
+ *   GATE_POST: the test-scoped gate's post-run sample, after the page, boundary and context teardowns. The gate's `await use()`
+ *     spans test setup, the body AND those teardowns, so GATE_POST alone never places an exit inside the body.
  *   shape: CODE_<0..255> (Node's exit code) | a signal name from EXIT_SIGNALS | SIG_OTHER (any other SIG* name) | NONE (the
  *     listener is registered and neither field is set yet; NOT a liveness claim) | UNKNOWN (anything else). Node sets a code
  *     or a signal, never both.
@@ -244,6 +248,7 @@ export function exitObserver(child) {
  */
 export const EXIT_SIGNALS = Object.freeze(['SIGABRT', 'SIGBUS', 'SIGFPE', 'SIGHUP', 'SIGILL', 'SIGINT', 'SIGKILL', 'SIGPIPE', 'SIGSEGV', 'SIGSYS', 'SIGTERM', 'SIGTRAP']);
 export const BODY_END_PAGES = Object.freeze(['OPEN', 'CLOSED', 'CRASHED', 'CRASHED_CLOSED', 'UNKNOWN']);
+export const EXIT_CHECKPOINTS = Object.freeze(['PAGE_TEARDOWN_START', 'GATE_POST', 'NOT_SEEN', 'UNKNOWN']);
 const EXIT_SHAPE_RE = new RegExp(`^(CODE_(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)|${EXIT_SIGNALS.join('|')}|SIG_OTHER|NONE|UNKNOWN)$`);
 /** One exit (code, signal) pair as a closed shape; a malformed or conflicting pair is UNKNOWN. */
 export function exitShape(code, signal) {
@@ -274,12 +279,34 @@ export function pageEndState(page, crashed) {
     return crashed ? (closed ? 'CRASHED_CLOSED' : 'CRASHED') : closed ? 'CLOSED' : 'OPEN';
   } catch { return 'UNKNOWN'; }
 }
-/** The test-scoped gate's `lane-browser-exit` annotation: `SHAPE <shape> BODY_END_PAGE <page>`, closed values only. */
-export function browserExitLine(state, bodyEndPage) {
-  let shape = 'UNKNOWN';
-  try { const v = typeof state?.exitShape === 'function' ? state.exitShape() : 'UNKNOWN'; shape = typeof v === 'string' && EXIT_SHAPE_RE.test(v) ? v : 'UNKNOWN'; } catch { shape = 'UNKNOWN'; }
-  const page = typeof bodyEndPage === 'string' && BODY_END_PAGES.includes(bodyEndPage) ? bodyEndPage : 'UNKNOWN';
-  return `SHAPE ${shape} BODY_END_PAGE ${page}`;
+/** One sample of the state's exit recorder as a closed shape; a missing, throwing or out-of-grammar sampler is UNKNOWN. */
+export function sampleExitShape(state) {
+  try { const v = typeof state?.exitShape === 'function' ? state.exitShape() : 'UNKNOWN'; return typeof v === 'string' && EXIT_SHAPE_RE.test(v) ? v : 'UNKNOWN'; } catch { return 'UNKNOWN'; }
+}
+/** The page wrapper's checkpoint record: the exit sample first, then the page state, both closed. */
+export function pageTeardownRecord(state, page, crashed) {
+  const exit = sampleExitShape(state);
+  return { exit, page: pageEndState(page, crashed) };
+}
+/**
+ * The test-scoped gate's `lane-browser-exit` annotation: `SHAPE <shape> FIRST_SEEN <checkpoint> BODY_END_PAGE <page>`.
+ * An exit seen at PAGE_TEARDOWN_START is first seen there; one first seen at GATE_POST needs a PAGE_TEARDOWN_START sample of
+ * exactly NONE (else UNKNOWN); NOT_SEEN needs NONE at GATE_POST; two different exit values are UNKNOWN for both.
+ */
+export function browserExitLine(state, pageTeardown) {
+  const seen = (s) => s.startsWith('CODE_') || s.startsWith('SIG');
+  const w0 = pageTeardown && typeof pageTeardown === 'object' ? pageTeardown.exit : undefined;
+  const w = typeof w0 === 'string' && EXIT_SHAPE_RE.test(w0) ? w0 : 'UNKNOWN';
+  const g = sampleExitShape(state);
+  let shape, first;
+  if (seen(w) && seen(g) && w !== g) { shape = 'UNKNOWN'; first = 'UNKNOWN'; }
+  else if (seen(w)) { shape = w; first = 'PAGE_TEARDOWN_START'; }
+  else if (seen(g)) { shape = g; first = w === 'NONE' ? 'GATE_POST' : 'UNKNOWN'; }
+  else if (g === 'NONE') { shape = 'NONE'; first = 'NOT_SEEN'; }
+  else { shape = 'UNKNOWN'; first = 'UNKNOWN'; }
+  const p0 = pageTeardown && typeof pageTeardown === 'object' ? pageTeardown.page : undefined;
+  const page = typeof p0 === 'string' && BODY_END_PAGES.includes(p0) ? p0 : 'UNKNOWN';
+  return `SHAPE ${shape} FIRST_SEEN ${first} BODY_END_PAGE ${page}`;
 }
 
 /**
