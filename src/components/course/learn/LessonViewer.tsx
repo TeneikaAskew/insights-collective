@@ -166,7 +166,10 @@ export function LessonViewer({
 
         {/* Quiz player */}
         {item.type === 'quiz' && item.quiz && (
-          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={async (id) => { await onMarkDone(id, 'submission'); }} />
+          // Forward onMarkDone's result: CourseLearn resolves false when the
+          // progress write fails, and the player reports that separately from
+          // the (already final) quiz submission.
+          <InlineQuizPlayer item={item} quiz={item.quiz} onCompleted={(id) => onMarkDone(id, 'submission')} />
         )}
 
         {/* External URL */}

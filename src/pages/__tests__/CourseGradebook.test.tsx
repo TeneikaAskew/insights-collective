@@ -128,6 +128,17 @@ const quizRow = {
   content_items: { course_id: 'course-1' },
 };
 
+// An update result that echoes the last payload written, as the database would for a staff save.
+function echoUpdate(getBuilder: () => any, over: Record<string, unknown> = {}): TableResult {
+  return {
+    get data() {
+      const w = getBuilder().update.mock.calls.at(-1)[0];
+      return [{ id: 'sub-1', ...w, graded_at: new Date(w.graded_at).toISOString().replace('Z', '+00:00'), ...over }];
+    },
+    error: null,
+  } as TableResult;
+}
+
 function successTables() {
   return {
     enrollments: tableBuilder({ data: [{ user_id: 'student-1' }], error: null }),
@@ -271,7 +282,13 @@ describe('CourseGradebook', () => {
   });
 
   it('saves a grade to assignment_submissions with only real columns and toasts success', async () => {
-    const builders = wireTables(successTables());
+    const tables = successTables();
+    // The write is read back: exactly one row carrying every written field (timestamptz re-formatted).
+    tables.assignment_submissions = tableBuilder(
+      { data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade: 90, workflow_state: 'graded' })], error: null },
+      echoUpdate(() => builders.assignment_submissions),
+    );
+    const builders = wireTables(tables);
 
     render(<CourseGradebook />);
 
@@ -294,6 +311,7 @@ describe('CourseGradebook', () => {
     expect(payload).not.toHaveProperty('graded_by');
     expect(payload).not.toHaveProperty('status');
     expect(builders.assignment_submissions.eq).toHaveBeenCalledWith('id', 'sub-1');
+    expect(builders.assignment_submissions.select).toHaveBeenCalledWith('id, grade, graded_at, workflow_state');
 
     // REGRESSION: the nonexistent grades table is never touched.
     expect(tablesQueried()).not.toContain('grades');
@@ -307,6 +325,54 @@ describe('CourseGradebook', () => {
       expect.objectContaining({ variant: 'destructive' }),
     );
   });
+
+  it('treats an unchanged same-grade re-save as success (idempotent staff save)', async () => {
+    const tables = successTables();
+    let builders: any;
+    tables.assignment_submissions = tableBuilder(
+      { data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade: 90, workflow_state: 'graded' })], error: null },
+      echoUpdate(() => builders.assignment_submissions),
+    );
+    builders = wireTables(tables);
+    render(<CourseGradebook />);
+    fireEvent.click(await screen.findByText('90'));
+    const input = await screen.findByRole('spinbutton');
+    // The input starts at 90; step away and back so the cell records an explicit 90 to save.
+    fireEvent.change(input, { target: { value: '91' } });
+    fireEvent.change(input, { target: { value: '90' } });
+    fireEvent.click(input.parentElement!.querySelector('button')!);
+    await waitFor(() => expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' })));
+    expect(builders.assignment_submissions.update).toHaveBeenCalledWith(expect.objectContaining({ grade: 90 }));
+    expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+  });
+
+  // An error-free update is not a saved grade. RLS can match zero rows (PostgREST still answers 200), and the
+  // pin_assignment_grade_columns trigger silently keeps the OLD grade for non-staff. Neither may toast Success.
+  for (const [label, makeResult] of [
+    ['zero rows (RLS-filtered)', () => ({ data: [], error: null })],
+    ['row returned with the old grade (pin reverted it)', () => ({ data: [{ id: 'sub-1', grade: 90, graded_at: '2026-01-12T00:00:00+00:00', workflow_state: 'graded' }], error: null })],
+    ['the matching grade with workflow_state still submitted', (b: () => any) => echoUpdate(b, { workflow_state: 'submitted' })],
+    ['the matching grade and state but the OLD graded_at (pin reverted it)', (b: () => any) => echoUpdate(b, { graded_at: '2026-01-12T00:00:00+00:00' })],
+  ] as const) {
+    it(`does not report success when the save returns ${label}`, async () => {
+      const tables = successTables();
+      let builders: any;
+      tables.assignment_submissions = tableBuilder(
+        { data: [makeSubmission({ id: 'sub-1', assignment_id: 'a1', user_id: 'student-1', grade: 90, workflow_state: 'graded' })], error: null },
+        (makeResult as any)(() => builders.assignment_submissions),
+      );
+      builders = wireTables(tables);
+      render(<CourseGradebook />);
+      fireEvent.click(await screen.findByText('90'));
+      const input = await screen.findByRole('spinbutton');
+      fireEvent.change(input, { target: { value: '95' } });
+      fireEvent.click(input.parentElement!.querySelector('button')!);
+      await waitFor(() =>
+        expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' })),
+      );
+      expect(toastMock).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Success' }));
+    });
+  }
 
   it('shows a destructive toast when the grade update fails', async () => {
     const tables = successTables();
@@ -349,13 +415,15 @@ describe('CourseGradebook', () => {
   describe('bulk grade updates', () => {
     it('applies per-submission updates and collects failures honestly', async () => {
       const builder: any = { update: vi.fn(() => builder) };
-      builder.eq = vi.fn((_col: string, id: string) =>
-        Promise.resolve(
-          id === 'sub-bad'
-            ? { data: null, error: { message: 'row locked' } }
-            : { data: null, error: null },
+      builder.eq = vi.fn((_col: string, id: string) => ({
+        select: vi.fn(() =>
+          Promise.resolve(
+            id === 'sub-bad'
+              ? { data: null, error: { message: 'row locked' } }
+              : { data: [{ id, ...builder.update.mock.calls.at(-1)[0] }], error: null },
+          ),
         ),
-      );
+      }));
       // Call history accumulates across tests in this file; start clean so the
       // table assertions below only see this test's queries.
       (mockSupabaseClient.from as Mock).mockClear();
