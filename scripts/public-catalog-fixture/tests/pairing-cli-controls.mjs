@@ -9,15 +9,17 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { withOwnRoot } from './own-root.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../../..');
 const SO = path.resolve(process.argv[2] ?? '');
 if (!fs.existsSync(SO)) { console.log('usage: pairing-cli-controls.mjs <stack-ownership.mjs>'); process.exit(2); }
-const T = fs.mkdtempSync(path.join(tmpdir(), 'pca-cli-')); fs.chmodSync(T, 0o700);
+// Own root (T: no leaked pca-cli roots): one fresh 0700 root per invocation, removed in a bounded finally only if it is still
+// that exact directory; a failing control's error is preserved if the removal also fails (own-root.mjs). Never another root.
+const exitCode = await withOwnRoot('pca-cli-', async (T) => {
 const blob = (b) => createHash('sha1').update(`blob ${b.length}\0`).update(b).digest('hex');
 
 function buildRoot(name, prePin) {
@@ -138,5 +140,7 @@ zero('Z15 malformed run id', HARNESS, 'PAIR_E_RUN_ID', { apply: () => ({ env: { 
   const f = fixture({ anonSees: false }); const r = cli(HARNESS, f);
   ok(r.out === 'PAIR_E_API_MISMATCH' && !fs.existsSync(path.join(f.out, 'stack-proof.json')), `F3 anon cannot read the carrier: refused, no proof written (${r.out})`);
 }
-console.log(bad ? `${bad} FAILED` : 'ALL PASS');
-process.exit(bad ? 1 : 0);
+return bad;
+});
+console.log(exitCode ? `${exitCode} FAILED` : 'ALL PASS');
+process.exit(exitCode ? 1 : 0);
