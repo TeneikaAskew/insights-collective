@@ -62,27 +62,44 @@ test.describe('anonymous catalog', () => {
     for (const n of MENU) await expect(page.getByRole('option', { name: n, exact: true })).toHaveCount(1);
   });
 
-  test('A4 keyboard only: Tab to Category, open, arrow to a name, Enter; URL, cards; Back restores all', async ({ page, net }) => {
-    await catalogRows(page, '/courses');
-    let reached = false;
-    for (let i = 0; i < 80 && !reached; i++) {
-      await page.keyboard.press('Tab');
-      reached = await categoryTrigger(page).evaluate((el) => el === document.activeElement).catch(() => false);
-    }
-    expect(reached, 'Category combobox reachable with Tab').toBe(true);
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('listbox')).toBeVisible();
-    const focused = page.locator('[role="option"]:focus');
-    for (let i = 0; i < MENU.length && ((await focused.count()) === 0 || (await focused.innerText()).trim() !== 'Business Intelligence'); i++) {
-      await page.keyboard.press('ArrowDown');
-    }
-    await expect(page.locator('[role="option"]:focus')).toHaveAccessibleName('Business Intelligence');
-    await page.keyboard.press('Enter');
-    await expect.poll(() => param(page.url())).toBe('business-intelligence');
-    expect(await cardTitles(page)).toEqual(['PCA BI Course']);
-    await page.goBack();
-    await expect.poll(() => param(page.url())).toBe(null);
-    await expect(cards(page)).toHaveCount(ANON_TITLES.length);
+  test('A4 keyboard only: Tab to Category, open, arrow to a name, Enter; URL, cards; Back and Forward restore each', async ({ page, net }) => {
+    // Fixed step titles (a4_*) are the only failure detail pw-summary.mjs exports; no error message leaves the private report.
+    await test.step('a4_load', async () => { await catalogRows(page, '/courses'); });
+    await test.step('a4_tab_reach', async () => {
+      let reached = false;
+      for (let i = 0; i < 80 && !reached; i++) {
+        await page.keyboard.press('Tab');
+        reached = await categoryTrigger(page).evaluate((el) => el === document.activeElement).catch(() => false);
+      }
+      expect(reached, 'Category combobox reachable with Tab').toBe(true);
+    });
+    await test.step('a4_open', async () => {
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('listbox')).toBeVisible();
+    });
+    await test.step('a4_arrow', async () => {
+      const focused = page.locator('[role="option"]:focus');
+      for (let i = 0; i < MENU.length && ((await focused.count()) === 0 || (await focused.innerText()).trim() !== 'Business Intelligence'); i++) {
+        await page.keyboard.press('ArrowDown');
+      }
+      await expect(page.locator('[role="option"]:focus')).toHaveAccessibleName('Business Intelligence');
+    });
+    await test.step('a4_select_url', async () => {
+      await page.keyboard.press('Enter');
+      await expect.poll(() => param(page.url())).toBe('business-intelligence');
+    });
+    await test.step('a4_cards', async () => { expect(await cardTitles(page)).toEqual(['PCA BI Course']); });
+    await test.step('a4_back', async () => {
+      await page.goBack();
+      await expect.poll(() => param(page.url())).toBe(null);
+      await expect(cards(page)).toHaveCount(ANON_TITLES.length);
+    });
+    await test.step('a4_forward', async () => {
+      await page.goForward();
+      await expect.poll(() => param(page.url())).toBe('business-intelligence');
+      await expect(cards(page)).toHaveCount(1);
+      expect(await cardTitles(page)).toEqual(['PCA BI Course']);
+    });
   });
 
   test('A5 a stored name equal to the sentinel up to whitespace is its own option with its own URL', async ({ page, net }) => {
@@ -111,19 +128,26 @@ test.describe('anonymous catalog', () => {
   });
 
   test('A8 course detail from a card shows the same literal Estimated time and only the public module', async ({ page, net }) => {
-    await catalogRows(page, '/courses');
+    // Fixed step titles (a8_*) are the only failure detail pw-summary.mjs exports; no error message leaves the private report.
     const c = byTitle('PCA Analytics Course');
-    await card(page, c.title).click();
-    await expect(page).toHaveURL(new RegExp(`/courses/${c.id}$`));
-    await expect(page.getByRole('heading', { name: c.title }).first()).toBeVisible();
-    const nodes = await estimatedTimeNodes(page.locator('main'));
-    expect(nodes.length, 'at least one visible Estimated time value node').toBeGreaterThan(0);
-    expect(new Set(nodes), 'every visible value node reads the literal value').toEqual(new Set(['Estimated time: 2.5 hours']));
+    await test.step('a8_load', async () => { await catalogRows(page, '/courses'); });
+    await test.step('a8_open_card', async () => {
+      await card(page, c.title).click();
+      await expect(page).toHaveURL(new RegExp(`/courses/${c.id}$`));
+    });
+    await test.step('a8_heading', async () => { await expect(page.getByRole('heading', { name: c.title }).first()).toBeVisible(); });
+    await test.step('a8_estimate', async () => {
+      const nodes = await estimatedTimeNodes(page.locator('main'));
+      expect(nodes.length, 'at least one visible Estimated time value node').toBeGreaterThan(0);
+      expect(new Set(nodes), 'every visible value node reads the literal value').toEqual(new Set(['Estimated time: 2.5 hours']));
+    });
     const pub = FIXTURE_MODULES.find((m) => m.course_id === c.id && m.published)!;
     const hidden = FIXTURE_MODULES.find((m) => m.course_id === c.id && !m.published)!;
-    expect(pub.title).toBe('PCA Published Module');
-    await expect(page.getByText(pub.title, { exact: true }).filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByText(hidden.title, { exact: true })).toHaveCount(0);
+    await test.step('a8_public_module', async () => {
+      expect(pub.title).toBe('PCA Published Module');
+      await expect(page.getByText(pub.title, { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    });
+    await test.step('a8_hidden_module', async () => { await expect(page.getByText(hidden.title, { exact: true })).toHaveCount(0); });
   });
 
   test('A9 a private draft course is not rendered for an anonymous visitor, even by direct URL', async ({ page, net }) => {

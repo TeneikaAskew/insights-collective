@@ -78,12 +78,15 @@ export const test = boundaryTest.extend<Fixtures>({
       for (const p of extraPages) p.off('pageerror', onPageError);
     }
     net.unbound.push(...frozen.unbound);
-    expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },
-      'the response-binding capture settled completely inside its bound (incomplete is a refusal)').toEqual({ unfinished: 0, timedOut: false, late: 0 });
-    expect(frozen.failed, 'no app-origin request failed without a response').toEqual([]);
-    expect(frozen.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]);
-    expect(net.offOrigin, 'no foreign request attempt').toEqual([]);
-    expect(errors, 'no uncaught page errors').toEqual([]);
+    // Fixed step titles (net_*) name which teardown check failed; pw-summary.mjs exports only the title, never the values.
+    await boundaryTest.step('net_settled', async () => {
+      expect({ unfinished: frozen.unfinished, timedOut: frozen.timedOut, late: frozen.late },
+        'the response-binding capture settled completely inside its bound (incomplete is a refusal)').toEqual({ unfinished: 0, timedOut: false, late: 0 });
+    });
+    await boundaryTest.step('net_app_failed', async () => { expect(frozen.failed, 'no app-origin request failed without a response').toEqual([]); });
+    await boundaryTest.step('net_unbound', async () => { expect(frozen.unbound, 'every app-origin response is bound to the hermetic provenance').toEqual([]); });
+    await boundaryTest.step('net_foreign', async () => { expect(net.offOrigin, 'no foreign request attempt').toEqual([]); });
+    await boundaryTest.step('net_pageerror', async () => { expect(errors, 'no uncaught page errors').toEqual([]); });
   },
 });
 export { expect };

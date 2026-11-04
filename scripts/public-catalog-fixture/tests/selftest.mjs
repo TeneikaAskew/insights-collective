@@ -156,4 +156,6 @@ const pc = execFileSync('node', [path.join(HERE, 'pairing-controls.mjs')], { enc
 say(/^ALL PASS$/m.test(pc), 'pairing producer fake controls pass (see pairing-controls.mjs)');
 const ic = execFileSync('node', [path.join(HERE, 'integration-controls.mjs')], { encoding: 'utf8' });
 say(/^ALL PASS$/m.test(ic), 'integration controls (avatar binding, D1 consumer) pass');
+const ps = execFileSync('node', [path.join(HERE, 'pw-summary-controls.mjs')], { encoding: 'utf8' });
+say(/^PASS pw-summary controls /m.test(ps), 'pw-summary names only an allowlisted failed step, never a message (see pw-summary-controls.mjs)');
 console.log(fail ? `${fail} FAILED` : 'ALL PASS'); process.exit(fail ? 1 : 0);
