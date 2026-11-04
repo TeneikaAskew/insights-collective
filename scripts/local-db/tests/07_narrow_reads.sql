@@ -2,8 +2,9 @@
 -- ABOUTME: read and insert career quiz attempts, read feedback, and read blog settings, as each real API role.
 -- Tier: schema snapshot on PostgreSQL 16 with real RLS; actors act as anon/authenticated with PostgREST claims and a
 -- request.headers value, the way PostgREST sets them. Not live, not PG15, not a browser. The static source check is
--- src/test/ci/narrowReadsMigration.test.ts; this file asserts behaviour. Without the migration, C3, C4, C9, C12, F2,
--- F4, B3 and B4 fail by design (the old predicates were wider). Synthetic rows, one transaction, rolled back.
+-- src/test/ci/narrowReadsMigration.test.ts; this file asserts behaviour. Without the migration, C3, C4, C9, C12, F1,
+-- F2, F4, B3 and B4 fail by design (the old predicates were wider: every signed-in user read all feedback, so even
+-- the owner sees all three rows in F1). Synthetic rows, one transaction, rolled back.
 \set ON_ERROR_STOP on
 begin;
 \set U1    '71111111-1111-4111-8111-111111111111'

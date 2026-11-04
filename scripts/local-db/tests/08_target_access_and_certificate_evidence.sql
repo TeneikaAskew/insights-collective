@@ -213,6 +213,8 @@ select pg_temp.check('T6 nor moved from the now-hidden item onto visible page PK
 create temp table t7 as select pg_temp.mark_as(:'S3', :'S3', :'P', 'read') || ' | ' || pg_temp.submit_as(:'S3', :'S3', :'aA', 'C work') || ' | ' || pg_temp.mark_as(:'S3', :'S3', :'PK', 'read') as r;
 select pg_temp.check('T7 control: fresh writes to targets the learner can still reach keep working (P read, A submitted, PK read)',
   pg_temp.nprog(:'S3', :'P') = 1 and pg_temp.nsub(:'S3', :'aA') = 1 and pg_temp.nprog(:'S3', :'PK') = 1, (select r from t7));
+-- T8 holds only once T2 and T4 are refused: without 20261101000600 those moves succeed, the rows leave G, and T8
+-- fails on the baseline as a consequence, not as an independent read regression.
 select pg_temp.check('T8 control: the course owner still reads the learner''s rows in G',
   pg_temp.api_count(:'I', format('select count(*) from public.assignment_submissions where user_id = %L and assignment_id = %L', :'S3', :'aG')) = 1
   and pg_temp.api_count(:'I', format('select count(*) from public.content_item_progressions where user_id = %L and content_item_id = %L', :'S3', :'PG')) = 1, '');
