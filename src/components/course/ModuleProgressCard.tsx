@@ -2,20 +2,17 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  CheckCircle2, 
-  Circle, 
-  FileText, 
-  ClipboardList, 
+import {
+  CheckCircle2,
+  Circle,
+  FileText,
+  ClipboardList,
   BookOpen,
   Lock,
-  Unlock,
   ChevronRight,
-  Target
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { ModuleProgress } from '@/types/course';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import CourseErrorState from '@/components/course/CourseErrorState';
@@ -25,10 +22,32 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 
+/**
+ * One module's slice of the canonical progress snapshot (useCourseProgress). T-10 r2 (2): the card's completion
+ * figures, percent and badge come ONLY from this slice, the same eligible universe and DONE set as every other view.
+ * The card never recounts completion from the assignments/quizzes tables (that double-counted content items and used
+ * different predicates than the snapshot).
+ */
+export interface ModuleSnapshot {
+  totalItems: number;
+  completedItems: number;
+  /** Display-only (capped, see displayPercent). */
+  percent: number;
+  /** Exact: every eligible item of the module is done. */
+  isComplete: boolean;
+  /** The module's eligible item IDs. */
+  itemIds: string[];
+}
+
 interface ModuleProgressCardProps {
   moduleId: string;
   moduleTitle: string;
   studentId: string;
+  snapshot: ModuleSnapshot;
+  /** The snapshot's DONE IDs (stored progress, not assessment evidence). */
+  doneItemIds: ReadonlySet<string>;
+  /** Type of each eligible item; null while unknown. Any of this module's items missing means the breakdown is unknown. */
+  typeById: ReadonlyMap<string, string> | null;
   isLocked?: boolean;
   unlockDate?: string;
   prerequisites?: Array<{
@@ -39,10 +58,61 @@ interface ModuleProgressCardProps {
   showDetails?: boolean;
 }
 
+type Bucket = { done: number; total: number };
+export type ModuleBreakdown = { page: Bucket; assignment: Bucket; quiz: Bucket } | null;
+
+/** Per-type counts from the snapshot; null (unknown) when any of the module's items has no known type. */
+export function moduleBreakdown(
+  itemIds: string[],
+  done: ReadonlySet<string>,
+  typeById: ReadonlyMap<string, string> | null,
+): ModuleBreakdown {
+  if (!typeById || itemIds.some((id) => !typeById.has(id))) return null;
+  const b = { page: { done: 0, total: 0 }, assignment: { done: 0, total: 0 }, quiz: { done: 0, total: 0 } };
+  for (const id of itemIds) {
+    const t = typeById.get(id) as keyof typeof b;
+    if (!(t in b)) continue;
+    b[t].total += 1;
+    if (done.has(id)) b[t].done += 1;
+  }
+  return b;
+}
+
+/** Assessment evidence is its OWN fact, shown next to (never instead of) the stored-progress checkmark. */
+function assignmentStatus(a: any): string {
+  const subs: any[] = a?.submissions || [];
+  // A stored 'graded' state is graded whatever the grade column holds: a NULL grade means the SCORE is unavailable,
+  // never that the work is ungraded or missing. A numeric grade (including 0) is shown as the score.
+  const graded = subs.find((s) => s.workflow_state === 'graded' && s.grade != null) ?? subs.find((s) => s.workflow_state === 'graded');
+  if (graded) {
+    if (graded.grade == null) return 'Graded, score unavailable';
+    return a.points ? `Graded ${graded.grade}/${a.points}` : `Graded ${graded.grade}`;
+  }
+  if (subs.some((s) => s.workflow_state === 'submitted' || s.submitted_at)) return 'Submitted, not graded';
+  return 'No submission';
+}
+
+function quizStatus(q: any): string {
+  const finished = (q?.attempts || []).find((at: any) => at.workflow_state === 'complete');
+  if (!finished) return 'No completed attempt';
+  return finished.score != null && q.points_possible
+    ? `Attempt complete ${finished.score}/${q.points_possible}`
+    : 'Attempt complete';
+}
+
+const TYPE_LABEL: Record<string, string> = {
+  page: 'Lessons',
+  assignment: 'Assignments',
+  quiz: 'Quizzes',
+};
+
 export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
   moduleId,
   moduleTitle,
   studentId,
+  snapshot,
+  doneItemIds,
+  typeById,
   isLocked = false,
   unlockDate,
   prerequisites = [],
@@ -50,60 +120,41 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
   showDetails = true,
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const itemKey = React.useMemo(() => [...snapshot.itemIds].sort().join(','), [snapshot.itemIds]);
+  const breakdown = moduleBreakdown(snapshot.itemIds, doneItemIds, typeById);
 
-  // Single query against the live schema: content_items + progressions for
-  // lessons, plus assignments/quizzes with their student submissions/attempts.
-  // Progress is computed client-side — there is no calculate_module_progress
-  // RPC in the live database.
+  // Details only: titles of the module's ELIGIBLE items, plus each assessment's own status. None of this feeds a count.
   const {
-    data: moduleData,
-    isLoading,
-    error: moduleError,
+    data: details,
+    error: detailsError,
     refetch,
   } = useQuery({
-    queryKey: ['module-progress', moduleId, studentId],
+    queryKey: ['module-progress-details', moduleId, studentId, itemKey],
     queryFn: async () => {
-      // 1. Published content items in this module.
-      const itemsRes = await supabase
-        .from('content_items')
-        .select('id, title, type, position')
-        .eq('module_id', moduleId)
-        .eq('published', true)
-        .order('position');
-      if (itemsRes.error) throw new Error(itemsRes.error.message);
-      const items = itemsRes.data || [];
-      const itemIds = items.map((i) => i.id);
-
-      // 2. The student's progressions, assignments, and quizzes in parallel.
-      const [progressionsRes, assignmentsRes, quizzesRes] = await Promise.all([
-        itemIds.length
-          ? supabase
-              .from('content_item_progressions')
-              .select('content_item_id, workflow_state')
-              .eq('user_id', studentId)
-              .in('content_item_id', itemIds)
-          : Promise.resolve({ data: [], error: null } as any),
+      const ids = snapshot.itemIds;
+      const [itemsRes, assignmentsRes, quizzesRes] = await Promise.all([
+        supabase.from('content_items').select('id, title, type, position').in('id', ids).order('position'),
         supabase
           .from('assignments')
           .select(`
             id,
-            title,
-            due_date,
             points,
+            content_item_id,
             submissions:assignment_submissions!left(
               id,
               workflow_state,
-              grade
+              grade,
+              submitted_at
             )
           `)
-          .eq('module_id', moduleId)
+          .in('content_item_id', ids)
           .eq('submissions.user_id', studentId),
         supabase
           .from('quizzes')
           .select(`
             id,
-            title,
             points_possible,
+            content_item_id,
             attempts:quiz_submissions!left(
               id,
               score,
@@ -111,225 +162,134 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
               workflow_state
             )
           `)
-          .eq('module_id', moduleId)
+          .in('content_item_id', ids)
           .eq('attempts.user_id', studentId),
       ]);
-
-      // A failed query must surface as an error — silently rendering empty
-      // lists would misrepresent the module content.
-      const queryError =
-        progressionsRes.error ?? assignmentsRes.error ?? quizzesRes.error;
+      const queryError = itemsRes.error ?? assignmentsRes.error ?? quizzesRes.error;
       if (queryError) throw new Error(queryError.message || 'Failed to load module content');
-
-      const doneItems = new Set(
-        (progressionsRes.data || [])
-          .filter((p: any) => p.workflow_state === 'read' || p.workflow_state === 'completed')
-          .map((p: any) => p.content_item_id)
-      );
-      const lessons = items.map((i) => ({ ...i, completed: doneItems.has(i.id) }));
-      const assignments = assignmentsRes.data || [];
-      const quizzes = quizzesRes.data || [];
-
-      const isAssignmentDone = (a: any) =>
-        (a.submissions || []).some(
-          (s: any) => s.workflow_state === 'graded' || s.grade != null
-        );
-      // quiz_submissions is the table the live quiz flow writes; quiz_attempts
-      // was only ever written by the deleted QuizTaker and is empty, so this
-      // previously counted zero completed quizzes for everyone.
-      const isQuizDone = (q: any) =>
-        (q.attempts || []).some((at: any) => at.workflow_state === 'complete');
-
-      const progress: ModuleProgress = {
-        total_lessons: lessons.length,
-        completed_lessons: lessons.filter((l) => l.completed).length,
-        total_assignments: assignments.length,
-        completed_assignments: assignments.filter(isAssignmentDone).length,
-        total_quizzes: quizzes.length,
-        completed_quizzes: quizzes.filter(isQuizDone).length,
-        progress_percentage: 0,
-      };
-      const total = progress.total_lessons + progress.total_assignments + progress.total_quizzes;
-      const done = progress.completed_lessons + progress.completed_assignments + progress.completed_quizzes;
-      progress.progress_percentage = total ? Math.round((done / total) * 100) : 0;
-
-      return { progress, lessons, assignments, quizzes };
+      const eligible = new Set(ids);
+      const items = (itemsRes.data || []).filter((i: any) => eligible.has(i.id));
+      const assignmentByItem = new Map((assignmentsRes.data || []).map((a: any) => [a.content_item_id, a]));
+      const quizByItem = new Map((quizzesRes.data || []).map((q: any) => [q.content_item_id, q]));
+      return { items, assignmentByItem, quizByItem, complete: items.length === ids.length };
     },
-    enabled: !!moduleId && !!studentId,
+    enabled: showDetails && !isLocked && !!moduleId && !!studentId && snapshot.itemIds.length > 0,
   });
-
-  // A failed progress fetch must render an error with retry — never the
-  // loading skeleton forever (isLoading is false once the query errors).
-  if (moduleError) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <CourseErrorState
-            title={`Failed to load progress for ${moduleTitle}`}
-            error={moduleError}
-            onRetry={() => void refetch()}
-          />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (isLoading || !moduleData) {
-    return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="animate-pulse space-y-3">
-            <div className="h-4 bg-muted rounded w-3/4"></div>
-            <div className="h-2 bg-muted rounded"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  const { progress, lessons, assignments, quizzes } = moduleData;
-  const totalItems = progress.total_lessons + progress.total_assignments + progress.total_quizzes;
-  const completedItems = progress.completed_lessons + progress.completed_assignments + progress.completed_quizzes;
-  const isCompleted = progress.progress_percentage === 100;
 
   const getStatusBadge = () => {
     if (isLocked) {
       return <Badge variant="secondary"><Lock className="h-3 w-3 mr-1" />Locked</Badge>;
     }
-    if (isCompleted) {
+    if (snapshot.isComplete) {
       return <Badge variant="success"><CheckCircle2 className="h-3 w-3 mr-1" />Completed</Badge>;
     }
-    if (progress.progress_percentage > 0) {
+    if (snapshot.completedItems > 0) {
       return <Badge variant="default">In Progress</Badge>;
     }
     return <Badge variant="outline">Not Started</Badge>;
   };
 
-  const renderContentItem = (item: any, type: 'lesson' | 'assignment' | 'quiz') => {
-    const isItemCompleted = type === 'lesson'
-      ? item.completed === true
-      : type === 'assignment'
-      ? item.submissions?.some((s: any) => s.workflow_state === 'graded' || s.grade != null)
-      // Same predicate as isQuizDone above — quiz_submissions rows are
-      // finished when workflow_state is 'complete'. Checking completed_at here
-      // (a quiz_attempts column) would leave completed quizzes greyed out in
-      // the detail list while still counting toward the percentage.
-      : item.attempts?.some((a: any) => a.workflow_state === 'complete');
-
-    const icon = type === 'lesson' 
-      ? <BookOpen className="h-4 w-4" />
-      : type === 'assignment'
+  const renderContentItem = (item: any) => {
+    // The checkmark is stored progress (the snapshot's DONE set), the same fact the counts use.
+    const isItemDone = doneItemIds.has(item.id);
+    const assessment =
+      item.type === 'assignment' && details?.assignmentByItem.has(item.id)
+        ? assignmentStatus(details.assignmentByItem.get(item.id))
+        : item.type === 'quiz' && details?.quizByItem.has(item.id)
+          ? quizStatus(details.quizByItem.get(item.id))
+          : null;
+    const icon = item.type === 'assignment'
       ? <FileText className="h-4 w-4" />
-      : <ClipboardList className="h-4 w-4" />;
+      : item.type === 'quiz'
+        ? <ClipboardList className="h-4 w-4" />
+        : <BookOpen className="h-4 w-4" />;
 
     return (
       <div
         key={item.id}
+        data-testid={`module-item-${item.id}`}
+        data-done={isItemDone ? 'true' : 'false'}
         className={cn(
-          "flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer",
-          isItemCompleted 
-            ? "bg-ss-good-chip border-ss-good hover:bg-ss-good-chip" 
-            : "hover:bg-accent"
+          'flex items-center justify-between p-3 rounded-lg border transition-colors cursor-pointer',
+          isItemDone ? 'bg-ss-good-chip border-ss-good hover:bg-ss-good-chip' : 'hover:bg-accent',
         )}
-        onClick={() => type === 'lesson' && onLessonClick?.(item.id)}
+        onClick={() => item.type === 'page' && onLessonClick?.(item.id)}
       >
         <div className="flex items-center gap-3">
-          {isItemCompleted ? (
-            <CheckCircle2 className="h-5 w-5 text-ss-good" />
+          {isItemDone ? (
+            <CheckCircle2 className="h-5 w-5 text-ss-good" aria-label="Marked done" />
           ) : (
-            <Circle className="h-5 w-5 text-muted-foreground" />
+            <Circle className="h-5 w-5 text-muted-foreground" aria-label="Not marked done" />
           )}
           <div className="flex items-center gap-2">
             {icon}
-            <span className={cn(
-              "text-sm",
-              isItemCompleted && "text-ss-good font-medium"
-            )}>
-              {item.title}
-            </span>
+            <span className={cn('text-sm', isItemDone && 'text-ss-good font-medium')}>{item.title}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          {type === 'assignment' && (
-            <>
-              {item.points && <span>{item.points} pts</span>}
-              {item.submissions?.[0]?.grade && (
-                <Badge variant="outline">
-                  {item.submissions[0].grade}/{item.points}
-                </Badge>
-              )}
-            </>
-          )}
-          {type === 'quiz' && (
-            <>
-              {item.points_possible && <span>{item.points_possible} pts</span>}
-              {item.attempts?.[0]?.score && (
-                <Badge variant="outline">
-                  {item.attempts[0].score}/{item.points_possible}
-                </Badge>
-              )}
-            </>
-          )}
-        </div>
+        {assessment && (
+          <Badge variant="outline" data-testid={`assessment-${item.id}`}>
+            {assessment}
+          </Badge>
+        )}
       </div>
     );
   };
 
+  const groups = details
+    ? ['page', 'assignment', 'quiz', 'other'].map((t) => ({
+        t,
+        items: details.items.filter((i: any) => (t === 'other' ? !(i.type in TYPE_LABEL) : i.type === t)),
+      }))
+    : [];
+
+  const cell = (b: Bucket | undefined) => (breakdown && b ? `${b.done}/${b.total}` : 'Unknown');
+
   return (
-    <Card className={cn(isLocked && "opacity-75")}>
+    <Card className={cn(isLocked && 'opacity-75')} data-testid={`module-card-${moduleId}`}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <CardTitle className="text-lg">{moduleTitle}</CardTitle>
             <CardDescription>
-              {completedItems}/{totalItems} items completed
+              {snapshot.completedItems}/{snapshot.totalItems} items completed
             </CardDescription>
           </div>
           {getStatusBadge()}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Progress bar */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Progress</span>
-            <span className="font-medium">{Math.round(progress.progress_percentage)}%</span>
+            <span className="font-medium">{snapshot.percent}%</span>
           </div>
-          <Progress value={progress.progress_percentage} className="h-2" />
+          <Progress value={snapshot.percent} className="h-2" />
         </div>
 
-        {/* Progress breakdown */}
         <div className="grid grid-cols-3 gap-4 text-center">
           <div className="space-y-1">
             <div className="flex items-center justify-center gap-1">
               <BookOpen className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Lessons</span>
             </div>
-            <p className="text-2xl font-bold">
-              {progress.completed_lessons}/{progress.total_lessons}
-            </p>
+            <p className="text-2xl font-bold" data-testid="module-breakdown-page">{cell(breakdown?.page)}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-center gap-1">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Assignments</span>
             </div>
-            <p className="text-2xl font-bold">
-              {progress.completed_assignments}/{progress.total_assignments}
-            </p>
+            <p className="text-2xl font-bold" data-testid="module-breakdown-assignment">{cell(breakdown?.assignment)}</p>
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-center gap-1">
               <ClipboardList className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">Quizzes</span>
             </div>
-            <p className="text-2xl font-bold">
-              {progress.completed_quizzes}/{progress.total_quizzes}
-            </p>
+            <p className="text-2xl font-bold" data-testid="module-breakdown-quiz">{cell(breakdown?.quiz)}</p>
           </div>
         </div>
 
-        {/* Lock/Prerequisites info */}
         {isLocked && (
           <div className="bg-muted rounded-lg p-4 space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -351,7 +311,7 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
                     ) : (
                       <Circle className="h-3 w-3 text-muted-foreground" />
                     )}
-                    <span className={prereq.completed ? "line-through text-muted-foreground" : ""}>
+                    <span className={prereq.completed ? 'line-through text-muted-foreground' : ''}>
                       {prereq.moduleTitle}
                     </span>
                   </div>
@@ -361,38 +321,35 @@ export const ModuleProgressCard: React.FC<ModuleProgressCardProps> = ({
           </div>
         )}
 
-        {/* Detailed content list. */}
         {showDetails && !isLocked && (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
               <Button variant="ghost" className="w-full justify-between p-2">
                 <span className="text-sm font-medium">View Details</span>
-                <ChevronRight className={cn(
-                  "h-4 w-4 transition-transform",
-                  isOpen && "rotate-90"
-                )} />
+                <ChevronRight className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-90')} />
               </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="space-y-3 mt-3">
-              {lessons.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Lessons</h4>
-                  {lessons.map(lesson => renderContentItem(lesson, 'lesson'))}
-                </div>
-              )}
-
-              {assignments.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Assignments</h4>
-                  {assignments.map(assignment => renderContentItem(assignment, 'assignment'))}
-                </div>
-              )}
-
-              {quizzes.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">Quizzes</h4>
-                  {quizzes.map(quiz => renderContentItem(quiz, 'quiz'))}
-                </div>
+              {detailsError ? (
+                <CourseErrorState
+                  title={`Failed to load details for ${moduleTitle}`}
+                  error={detailsError}
+                  onRetry={() => void refetch()}
+                />
+              ) : (
+                <>
+                  {details && !details.complete && (
+                    <p className="text-sm text-muted-foreground">Some items in this module could not be loaded.</p>
+                  )}
+                  {groups.map(({ t, items }) =>
+                    items.length > 0 ? (
+                      <div key={t} className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">{TYPE_LABEL[t] ?? 'Other items'}</h4>
+                        {items.map(renderContentItem)}
+                      </div>
+                    ) : null,
+                  )}
+                </>
               )}
             </CollapsibleContent>
           </Collapsible>
