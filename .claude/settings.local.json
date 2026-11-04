@@ -7,7 +7,9 @@
       "Write(*)",
       "Edit(*)",
       "Glob(*)",
-      "Grep(*)"
+      "Grep(*)",
+      "mcp__Supabase",
+      "mcp__claude_ai_Supabase"
     ],
     "deny": [
       "Bash(git push --force:*)",
