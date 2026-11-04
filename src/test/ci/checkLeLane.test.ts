@@ -37,6 +37,8 @@ import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
+/** Lifecycle matrix: the E1 supervisor body only (laneMain up to the synthetic section), so E1's one-read controls stay exact. */
+const e1MainOf = (src: string) => { const a = src.indexOf('export async function laneMain'), b = src.indexOf('// SYNTHETIC target (lifecycle matrix'); if (a < 0 || b < a) throw new Error('lane-entry layout'); return src.slice(a, b); };
 const P = '/rt/le-private', C = '/rt/le-lane-ctl', R = '/w/repo';
 const L = lanePaths(P, C, R);
 const NODE = '/n/bin/node';
@@ -1174,7 +1176,7 @@ describe('lane-entry supervisor: umask, AppArmor first, closure, forwarders, rea
     // the supervisor reads the report ONLY through the bounded reader, never readText
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
     expect(src).toContain('const snap = reportSnapshot(d.readReport(L.report));');
-    expect(src.match(/d\.readReport\(/g)).toHaveLength(1); // E1 diagnostics r1: ONE read, shared by AppArmor and diagnostics
+    expect(e1MainOf(src).match(/d\.readReport\(/g)).toHaveLength(1); // lifecycle matrix: scoped to the E1 laneMain body (synMain has its own one read) // E1 diagnostics r1: ONE read, shared by AppArmor and diagnostics
     expect(src).toContain('readReport: (p) => readReportBounded(fs, p, process.getuid(), REPORT_MAX),');
     expect(src).not.toMatch(/readText\(L\.report\)/);
   });
@@ -2093,7 +2095,7 @@ describe('E1 diagnostics r2: POST read outcomes, owned-child exit observation, a
     expect(planSummary({ verdict: OKV, laneText: good.lane(), pwExit: { state: 'ok', digits: '0' } })).toEqual({ kind: 'summary', pw: '0', setup: 'PASS', cleanup: 'PASS' });
     // the supervisor still reads the report exactly once and writes the three lines from that snapshot
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
-    expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
+    expect(e1MainOf(src).match(/d\.readReport\(/g)).toHaveLength(1); // lifecycle matrix: scoped to the E1 laneMain body (synMain has its own one read)
     for (const t of ['say(`LANE E1 POST_OBSERVED ${snap.postObserved}`);', 'say(`LANE E1 ATTEMPT_STATUS ${snap.attemptStatus}`);', 'say(`LANE E1 FAILED_STEP ${snap.failedStep}`);']) expect(src).toContain(t);
   });
 
@@ -2369,7 +2371,7 @@ describe('E1 diagnostics r3: owned-browser exit shape, first-seen checkpoint and
     expect(planSummary({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toEqual(planSummary({ verdict: OKV, laneText: r0.lane(), pwExit: pw }));
     expect(refusalDetail({ verdict: OKV, laneText: r.lane(), pwExit: pw })).toBe(`LE-E1 DETAIL exit=1 result=CLOSE_WITH_CODE aa=PRE:${ENF3},${ENF3};POST:${ENF3},APPARMOR_E_UNKNOWN report=PARSED error=UNKNOWN post=WR:OK,NOT_TRIED;BR:ENOENT,ENOENT;EXIT:EXIT_OBSERVED,EXIT_OBSERVED attempt_status=FAILED failed_step=E1_OPEN browser_exit=SIGTRAP,PAGE_TEARDOWN_START,CLOSED browser_log=MISSING cleanup=PASS`);
     const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/lane-entry.mjs'), 'utf8');
-    expect(src.match(/d\.readReport\(/g)).toHaveLength(1);
+    expect(e1MainOf(src).match(/d\.readReport\(/g)).toHaveLength(1); // lifecycle matrix: scoped to the E1 laneMain body (synMain has its own one read)
     expect(src).toContain('say(`LANE E1 BROWSER_EXIT ${snap.browserExit}`);');
   });
 

@@ -37,7 +37,8 @@ on:
         # gradebook-journey: LOCAL-ONLY PROPOSAL (unrun). The gradebook no-quiz UI journey on the no-Edge stack below.
         # lesson-editor: LOCAL-ONLY PROPOSAL (unrun). Lesson-editor E1 save/reload on #142's product, no-Edge stack below.
         # le-isolation-probe: SYNTHETIC feasibility probe only (unrun). Sealed container vs a dummy nonce endpoint; no stack.
-        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, lesson-editor, le-isolation-probe]
+        # lesson-editor-syn: SYNTHETIC lifecycle matrix only (unrun). Sealed lane vs an in-lane dummy page server; no stack; never E1.
+        options: [readonly-courses, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, lesson-editor, le-isolation-probe, lesson-editor-syn]
 
 permissions: {}
 
@@ -1869,3 +1870,105 @@ jobs:
           echo "ISO_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
       - name: Run the probe once (fixed codes only; every teardown gate verified; no retry)
         run: scripts/e2e/le-iso/run-probe.mjs "$GITHUB_WORKSPACE" "$(command -v node)" "$ISO_SHELL_PATH"
+
+  # SYNTHETIC lifecycle matrix (LOCAL candidate, unrun; DESIGN-r2 with r2.1 and r2.2). Its own dispatch option, so the lesson-editor
+  # E1 job above is byte-identical and no authentic step exists in this job at all: no local stack, migrations, D1 record, actors,
+  # preseed, keys, DB password, state files, API/DB identity carrier, served app or bridge socket. The sealed lane container,
+  # reviewed seccomp profile, AppArmor gates, sandbox-on launch and teardown gates are the E1 lane's own (run-lane.mjs --synthetic,
+  # three binds, closed env). Arms A to D run against an in-lane dummy page server. Output: fixed LE-SYN lines in the log only,
+  # NEVER E1 evidence or acceptance; no upload, no retry.
+  lesson-editor-syn:
+    name: Lesson-editor lifecycle matrix (SYNTHETIC arms A-D; sealed lane, dummy pages only; never E1 acceptance)
+    if: inputs.specs == 'lesson-editor-syn'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+      LE_TARGET: SYNTHETIC
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      # The first lane step: LE_TARGET must be exactly SYNTHETIC and no authentic input or baseURL source may be set.
+      - name: Synthetic target selection (closed; refuses any authentic input or baseURL source)
+        id: syn_select
+        run: node scripts/e2e/le-lane/synthetic.mjs select
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+      - name: Early runner preflight (read-only, fixed codes; docker/runc/kernel/daemon pins and the reviewed seccomp profile bytes)
+        run: node scripts/e2e/le-iso/preflight.mjs "$GITHUB_WORKSPACE"
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Pin the headless shell (the one browser the synthetic lane may launch)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/syn-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          cat "$R"
+          node scripts/e2e/le-iso/browser-pin.mjs "$SHELL_PATH" "$GITHUB_WORKSPACE"
+          echo "SYN_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      - name: Build and check the lane image (exact image config)
+        id: syn_image
+        run: node scripts/e2e/le-lane/image.mjs build "$RUNNER_TEMP/syn-lane-ctl" "$GITHUB_WORKSPACE" "$(command -v node)" "$SYN_SHELL_PATH"
+      - name: Synthetic lane, once (fresh synthetic-only dirs, three binds, closed env, no bridge; container and teardown in one orchestrator)
+        id: syn_run
+        run: |
+          node scripts/e2e/le-lane/run-lane.mjs --synthetic "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
+            "$GITHUB_WORKSPACE" "$(command -v node)" "$SYN_SHELL_PATH" "$(git rev-parse HEAD)"
+      - name: Lane teardown gates (verify the orchestrator's host receipts; always)
+        id: syn_gates
+        if: always() && steps.syn_image.outcome != 'skipped'
+        run: node scripts/e2e/le-lane/gates.mjs verify "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+      - name: Lane image cleanup (only when the receipts prove no lane container can hold it; always)
+        id: syn_image_cleanup
+        if: always() && steps.syn_image.outcome != 'skipped'
+        run: node scripts/e2e/le-lane/image.mjs cleanup "$RUNNER_TEMP/syn-lane-ctl" "$GITHUB_WORKSPACE"
+      - name: LE-SYN summary (fixed lines only; NOT acceptance; after lane teardown)
+        if: always() && steps.syn_run.outcome != 'skipped'
+        run: node scripts/e2e/le-lane/synthetic.mjs summary "$RUNNER_TEMP/syn-lane-ctl" "$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_WORKSPACE"
+      # The synthetic parent is the ONLY private scope here (no E1 path exists in this job). The control dir is removed only when
+      # the lane verdict and the image cleanup are both proven; otherwise it is kept and the step fails.
+      - name: Remove synthetic outputs (synthetic parent only; absence verified)
+        if: always()
+        env:
+          O_GATES: ${{ steps.syn_gates.outcome }}
+          O_IMAGE_CLEANUP: ${{ steps.syn_image_cleanup.outcome }}
+        run: |
+          rc=0
+          P="$RUNNER_TEMP/syn-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          rm -rf -- "$P" "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound" || rc=1
+          for p in "$P" "$RUNNER_TEMP/syn-shell-receipt.txt" "$RUNNER_TEMP/syn-shell-receipt.txt.bound"; do
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "synthetic output still present: $p"; rc=1; fi
+          done
+          C="$RUNNER_TEMP/syn-lane-ctl"
+          if [ "$O_GATES" = success ] && [ "$O_IMAGE_CLEANUP" = success ]; then
+            rm -rf -- "$C" || rc=1
+            if [ -e "$C" ] || [ -L "$C" ]; then echo "CONTROLS_E_STILL_PRESENT"; rc=1; else echo "CONTROLS_REMOVED"; fi
+          elif [ -e "$C" ]; then echo "CONTROLS_KEPT (lane or image state not proven; receipts preserved)"; rc=1
+          fi
+          [ "$rc" -eq 0 ] && echo "SYNTHETIC_OUTPUTS_REMOVED"
+          exit "$rc"
