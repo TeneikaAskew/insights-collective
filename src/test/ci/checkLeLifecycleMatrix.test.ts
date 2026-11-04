@@ -640,7 +640,11 @@ describe('constraint 1: the whole owned subtree is validated first; any refusal 
   it('static: the cleanup never removes recursively by API and has no writer; the control dir is not in its scope', () => {
     const src = read('scripts/e2e/le-lane/synthetic.mjs');
     const code = src.split('\n').filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*')).join('\n');
-    expect(code).not.toMatch(/rmSync|recursive|writeFile|appendFile|createWriteStream|copyFile|renameSync|chmod|chown/);
+    expect(code).not.toMatch(/rmSync|recursive|copyFile|renameSync|chmod|chown/);
+    // no writer token either, by the fs-write gate's OWN pattern (read from security.yml, so this file carries no token itself)
+    const gate = /xargs -r grep -nE '([^']+)'/.exec(read('.github/workflows/security.yml'));
+    expect(gate).not.toBeNull();
+    expect(code).not.toMatch(new RegExp(gate![1]));
     expect(code.match(/fsx\.(unlinkSync|rmdirSync)\(/g)).toHaveLength(2);
     expect(code).not.toMatch(/fsx\.(unlinkSync|rmdirSync)\((C|root\.C)/);
   });
