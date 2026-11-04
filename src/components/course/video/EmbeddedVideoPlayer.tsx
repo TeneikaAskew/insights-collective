@@ -1,7 +1,7 @@
 // ABOUTME: Accessible, responsive read-only frame for a saved YouTube/Vimeo embed.
 // ABOUTME: Reports only what it can observe: frame loading, slow, or unsupported. Never playback.
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { AlertTriangle, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,8 +36,13 @@ type FrameState = 'loading' | 'loaded' | 'slow';
  *   is public, or played. Cross-origin provider errors (private, removed,
  *   region-blocked video) render inside the provider frame and cannot be
  *   observed here, so this component never claims "playing" or "watched".
- * - `slow` if no load event arrives within FRAME_SLOW_AFTER_MS: the frame is
- *   kept, and a Retry control remounts it. Status stays unknown, not failed.
+ * - `slow` if no load event arrives within FRAME_SLOW_AFTER_MS of the frame
+ *   first entering the viewport: the frame is kept, and a Retry control
+ *   remounts it. Status stays unknown, not failed. The frame is
+ *   `loading="lazy"`, so the browser does not request it until the learner
+ *   nears it; timing from mount would announce a far-down video as slow
+ *   before it was ever requested. Without IntersectionObserver the clock
+ *   starts at mount, as before.
  * - Unsupported or missing sources are never framed; an inline notice is
  *   shown instead and the stored node is left untouched.
  * Captions, speed, fullscreen and keyboard shortcuts are the provider's own
@@ -56,15 +61,44 @@ export function EmbeddedVideoPlayer({
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<FrameState>('loading');
   const statusId = useId();
+  const frameBoxRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined');
 
+  // Once the frame box has entered the viewport it stays "seen": the lazy
+  // frame has been requested by then, so later scrolling never restarts or
+  // pauses the slow clock.
+  useEffect(() => {
+    if (!frameSrc || inView) return;
+    const el = frameBoxRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setInView(true);
+        observer.disconnect();
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [frameSrc, inView]);
+
+  // A new source or a Retry starts a fresh attempt.
   useEffect(() => {
     if (!frameSrc) return;
     setState('loading');
+  }, [frameSrc, attempt]);
+
+  // The slow clock runs only while the frame has been seen and is still loading;
+  // it never resets a frame that already loaded.
+  useEffect(() => {
+    if (!frameSrc || !inView) return;
     const timer = window.setTimeout(() => {
       setState((current) => (current === 'loading' ? 'slow' : current));
     }, FRAME_SLOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [frameSrc, attempt]);
+  }, [frameSrc, attempt, inView]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
@@ -97,7 +131,7 @@ export function EmbeddedVideoPlayer({
 
   return (
     <div className={cn('my-4 w-full max-w-full', className)} data-video-state={state} data-video-provider={resolved.provider}>
-      <div className="relative w-full overflow-hidden rounded-md bg-muted" style={{ aspectRatio: '16 / 9' }}>
+      <div ref={frameBoxRef} className="relative w-full overflow-hidden rounded-md bg-muted" style={{ aspectRatio: '16 / 9' }}>
         <iframe
           key={attempt}
           src={resolved.frameSrc}

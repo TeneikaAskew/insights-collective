@@ -6,9 +6,38 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EmbeddedVideoPlayer, FRAME_SLOW_AFTER_MS } from '../EmbeddedVideoPlayer';
 
+/** Controllable IntersectionObserver: nothing intersects until a test calls enterViewport(). */
+let observers: Array<{ cb: IntersectionObserverCallback; targets: Element[]; self: IntersectionObserver }> = [];
+class ControlledObserver {
+  private entry: { cb: IntersectionObserverCallback; targets: Element[]; self: IntersectionObserver };
+  constructor(cb: IntersectionObserverCallback) {
+    this.entry = { cb, targets: [], self: this as unknown as IntersectionObserver };
+    observers.push(this.entry);
+  }
+  observe(el: Element) { this.entry.targets.push(el); }
+  unobserve() {}
+  disconnect() { observers = observers.filter((o) => o !== this.entry); }
+  takeRecords() { return []; }
+}
+function enterViewport() {
+  act(() => {
+    for (const o of [...observers]) {
+      o.cb(o.targets.map((target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry), o.self);
+    }
+  });
+}
+
 describe('EmbeddedVideoPlayer', () => {
-  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
-  afterEach(() => vi.useRealTimers());
+  const realObserver = globalThis.IntersectionObserver;
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    observers = [];
+    globalThis.IntersectionObserver = ControlledObserver as unknown as typeof IntersectionObserver;
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    globalThis.IntersectionObserver = realObserver;
+  });
 
   it('renders a named, responsive frame with provider controls allowed', () => {
     const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
@@ -48,6 +77,7 @@ describe('EmbeddedVideoPlayer', () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
     const firstFrame = screen.getByTitle('YouTube video');
+    enterViewport();
     act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS + 1); });
     expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'slow');
     expect(screen.getByRole('status')).toHaveTextContent('taking longer than expected');
@@ -66,6 +96,41 @@ describe('EmbeddedVideoPlayer', () => {
     const secondFrame = screen.getByTitle('YouTube video');
     expect(secondFrame).not.toBe(firstFrame);
     expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'loading');
+  });
+
+  it('does not call a frame slow while it has never entered the viewport (lazy frame not yet requested)', () => {
+    const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 4); });
+    expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'loading');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading YouTube player');
+    expect(screen.queryByRole('button', { name: 'Retry loading video' })).toBeNull();
+  });
+
+  it('starts the slow clock when the frame first enters the viewport', () => {
+    const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 2); });
+    enterViewport();
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS - 1); });
+    expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'loading');
+    act(() => { vi.advanceTimersByTime(2); });
+    expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'slow');
+    expect(screen.getByRole('status')).toHaveTextContent('taking longer than expected');
+  });
+
+  it('keeps a frame that loaded before it was seen as loaded when it later enters the viewport', () => {
+    const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
+    fireEvent.load(screen.getByTitle('YouTube video'));
+    enterViewport();
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS * 2); });
+    expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'loaded');
+  });
+
+  it('falls back to timing from mount when IntersectionObserver is unavailable', () => {
+    // @ts-expect-error simulate an environment without IntersectionObserver
+    delete globalThis.IntersectionObserver;
+    const { container } = render(<EmbeddedVideoPlayer src="https://www.youtube.com/embed/dQw4w9WgXcQ" />);
+    act(() => { vi.advanceTimersByTime(FRAME_SLOW_AFTER_MS + 1); });
+    expect(container.querySelector('[data-video-state]')).toHaveAttribute('data-video-state', 'slow');
   });
 
   it('never frames an unsupported source and says so', () => {
