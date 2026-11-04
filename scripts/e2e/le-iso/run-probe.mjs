@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd, stopOutputCategory, tmpfsSpec, HOST_DIAG_ORDER, INNER_DIAG_ORDER, daemonSecurity, hostDiagLine, sysctlClass } from './expect.mjs';
+import { CID, IMAGE_ID, IN, INNER_ORDER, LIMITS, absenceVerdict, configFieldLines, createdNeverStarted, classifyInner, compareInspect, exitStateOk, expectedConfig, parseLdd, SECCOMP_PROFILE_REL, SECCOMP_RAW_SHA256, BROWSER_PIN, BROWSER_PATH_RE, stopOutputCategory, tmpfsSpec, HOST_DIAG_ORDER, INNER_DIAG_ORDER, daemonSecurity, hostDiagLine, sysctlClass } from './expect.mjs';
 
 /**
  * A genuinely bounded client exec. At `timeout` the client gets SIGTERM, after `grace` SIGKILL, and after another `grace`
@@ -110,10 +110,10 @@ export async function buildImage(d, { ctl, node, shell }) {
 }
 
 /** The docker create argv for one sealed container. */
-export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, shell }) {
+export function createArgs({ cidfile, imageId, uid, gid, repo, sock, out, node, shell, seccompPath }) {
   return ['create', '--cidfile', cidfile,
     '--user', `${uid}:${gid}`, '--network', 'none', '--ipc', 'private', '--cgroupns', 'private',
-    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only',
+    '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--security-opt', `seccomp=${seccompPath}`, '--read-only',
     '--tmpfs', `/tmp:${tmpfsSpec(uid, gid)}`, '--restart', 'no', '--log-driver', 'none', '--init',
     '--cpus', String(LIMITS.NanoCpus / 1e9), '--memory', String(LIMITS.Memory), '--memory-swap', String(LIMITS.MemorySwap),
     '--pids-limit', String(LIMITS.PidsLimit), '--shm-size', String(LIMITS.ShmSize),
@@ -190,10 +190,26 @@ export async function runProbe(d, { repo, node, shell, temp }) {
   let hd = Object.fromEntries(HOST_DIAG_ORDER.map((k) => [k, 'UNKNOWN']));
   try {
     hd = await hostDiag(d, x, fsx, shell);
-    const b = await (d.buildImage ?? buildImage)({ ...d, exec: x }, { ctl: H, node, shell }); // ldd/build/inspect clients tracked too
-    if (typeof b === 'string') { fail(b); } else {
-      buildInvoked = true; imageId = b.id;
-      if (b.code === 'ISO_IMAGE_OK' && imageId) out(b.code); else fail(b.code === 'ISO_IMAGE_OK' ? 'ISO_E_IMAGE_BUILD' : b.code);
+    // r10 (REVIEW DIFF, unapplied): the committed profile must hash to the reviewed bytes before anything is built or created.
+    // Docker re-reads the file at create; the inspect check compares the compacted content against these same bytes.
+    const seccompPath = path.join(repo, SECCOMP_PROFILE_REL);
+    let seccompText = null;
+    try { const raw = fsx.readFileSync(seccompPath); if (crypto.createHash('sha256').update(raw).digest('hex') === SECCOMP_RAW_SHA256) seccompText = raw.toString('utf8'); } catch { seccompText = null; }
+    if (seccompText === null) fail('ISO_E_PROFILE');
+    // r10: the shell the container will launch must be the reviewed binary, by path layout and by digest, before any
+    // build or start. The digest is BROWSER_PIN.SHA256; d.browserSha256 is a unit-test seam that main() never sets
+    // (a test asserts that), because fakes cannot produce a preimage of the real digest.
+    const wantSha = d.browserSha256 ?? BROWSER_PIN.SHA256;
+    let shellOk = false;
+    try { shellOk = BROWSER_PATH_RE.test(shell) && sha(fsx, shell) === wantSha; } catch { shellOk = false; }
+    if (!shellOk) fail('ISO_E_BROWSER_PIN');
+
+    if (ok) {
+      const b = await (d.buildImage ?? buildImage)({ ...d, exec: x }, { ctl: H, node, shell }); // ldd/build/inspect clients tracked too
+      if (typeof b === 'string') { fail(b); } else {
+        buildInvoked = true; imageId = b.id;
+        if (b.code === 'ISO_IMAGE_OK' && imageId) out(b.code); else fail(b.code === 'ISO_IMAGE_OK' ? 'ISO_E_IMAGE_BUILD' : b.code);
+      }
     }
 
     if (ok) {
@@ -217,7 +233,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
     if (ok) {
       const cidfile = path.join(H, 'lane.cid');
       createTried = true;
-      const c = await x('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell }));
+      const c = await x('docker', createArgs({ cidfile, imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, node, shell, seccompPath }));
       let read = null;
       try { read = fsx.readFileSync(cidfile, 'utf8').trim(); } catch { read = null; }
       const said = c.stdout.trim();
@@ -234,7 +250,7 @@ export async function runProbe(d, { repo, node, shell, temp }) {
       let obj = null;
       try { obj = JSON.parse(i.stdout)[0]; } catch { obj = null; }
       const bad = !i.ok ? ['INSPECT_EXEC'] : !obj ? ['INSPECT_PARSE'] : obj.Id !== cid ? ['INSPECT_ID']
-        : compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O }));
+        : compareInspect(obj, expectedConfig({ imageId, uid: d.uid(), gid: d.gid(), repo, sock: S, out: O, seccompText }));
       // The check is unchanged; only the NAMES of the differing fields are printed (fixed list, never values).
       if (bad.length) { fail('ISO_E_CONFIG'); for (const l of configFieldLines(bad)) out(l); } else out('ISO_CONFIG_OK');
       const ap = obj && typeof obj.AppArmorProfile === 'string' ? obj.AppArmorProfile : null;

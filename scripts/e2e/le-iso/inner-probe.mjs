@@ -12,7 +12,7 @@ import dns from 'node:dns/promises';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import { IN, INNER_DIAG, INNER_DIAG_ORDER, INNER_ORDER, INNER_TESTS, apparmorLabel, dnsVerdict, launchErrorCode, mountsVerdict, sysctlClass } from './expect.mjs';
+import { IN, INNER_DIAG, INNER_DIAG_ORDER, INNER_ORDER, INNER_TESTS, apparmorGate, apparmorLabel, dnsVerdict, launchErrorCode, mountsVerdict, sysctlClass } from './expect.mjs';
 
 const FWD_PORT = 54321;
 const results = {};
@@ -121,7 +121,8 @@ export function formatResults(res, diag = {}) {
 }
 
 /**
- * r7 diagnostics (read-only; never pass/fail): seccomp filter count, the process's AppArmor label, and the user-namespace
+ * r7 diagnostics (read-only; never pass/fail, except that r10's classifier requires APPARMOR_LABEL to agree with the
+ * pre-launch APPARMOR gate): seccomp filter count, the process's AppArmor label, and the user-namespace
  * limit visible inside the container. readText(path) returns the file's text or throws. Returns closed codes only.
  */
 export function innerDiag(readText) {
@@ -134,6 +135,21 @@ export function innerDiag(readText) {
     APPARMOR_LABEL: apparmorLabel(label),
     MAX_USERNS: sysctlClass(read('/proc/sys/user/max_user_namespaces'), 'count'),
   };
+}
+
+/**
+ * r10 (REVIEW DIFF): the APPARMOR gate, then the browser. readLabel() returns the process's current AppArmor label (or
+ * throws); launch() runs the SANDBOX check and is called ONLY when the effective label is exactly docker-default (enforce).
+ * Returns { APPARMOR, SANDBOX } fixed codes; never throws.
+ */
+export async function gatedSandbox(readLabel, launch) {
+  let label; // no dead initial value (CodeQL js/useless-assignment-to-local): both branches assign it
+  try { label = readLabel(); } catch { label = null; }
+  const APPARMOR = apparmorGate(label);
+  if (APPARMOR !== INNER_TESTS.APPARMOR.expected) return { APPARMOR, SANDBOX: 'SANDBOX_E_APPARMOR_GATE' };
+  let SANDBOX; // CodeQL alert 636 lineage: no dead initial value, both branches assign it
+  try { SANDBOX = await launch(); } catch { SANDBOX = 'SANDBOX_E_LAUNCH'; }
+  return { APPARMOR, SANDBOX };
 }
 
 async function main() {
@@ -217,14 +233,15 @@ async function main() {
   catch { set('MOUNTS', 'MOUNTS_E_READ'); }
 
   // SANDBOX: see sandboxCheck. Reaches only the in-container forwarder.
-  if (!nonce || !shell || !repo || !fwd) set('SANDBOX', 'SANDBOX_E_INPUT');
+  // r10: APPARMOR gates the launch; playwright-core is not even loaded unless the gate passes.
+  const readLabel = () => { try { return readSmall('/proc/self/attr/apparmor/current', 4096); } catch { return readSmall('/proc/self/attr/current', 4096); } };
+  if (!nonce || !shell || !repo || !fwd) { set('APPARMOR', apparmorGate((() => { try { return readLabel(); } catch { return null; } })())); set('SANDBOX', 'SANDBOX_E_INPUT'); }
   else {
-    let code; // CodeQL alert 636 (js/useless-assignment-to-local): both branches below assign it
-    try {
+    const g = await gatedSandbox(readLabel, async () => {
       const { chromium } = createRequire(path.join(repo, 'package.json'))('playwright-core');
-      code = await sandboxCheck(chromium, { shell, url: `http://127.0.0.1:${FWD_PORT}/`, nonce, readCmdline: (pid) => fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8') });
-    } catch { code = 'SANDBOX_E_LAUNCH'; }
-    set('SANDBOX', code);
+      return sandboxCheck(chromium, { shell, url: `http://127.0.0.1:${FWD_PORT}/`, nonce, readCmdline: (pid) => fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8') });
+    });
+    set('APPARMOR', g.APPARMOR); set('SANDBOX', g.SANDBOX);
   }
   if (fwd) fwd.close();
 

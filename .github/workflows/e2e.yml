@@ -1829,6 +1829,8 @@ jobs:
         run: node scripts/ci/check-isolated-workflow.mjs --executed
       - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
         run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      - name: Early runner preflight (read-only, fixed codes; fails before the browser install and any build; metadata only, not a sandbox result)
+        run: scripts/e2e/le-iso/preflight.mjs "$GITHUB_WORKSPACE"
       - name: Install Chromium headless shell
         run: npx --no-install playwright install --with-deps --only-shell chromium
       - name: Pin the headless shell (the one browser the probe may launch)
@@ -1842,6 +1844,8 @@ jobs:
           PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
           cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
           cat "$R"
+          # r10 (REVIEW DIFF): enforce the reviewed chain, revision, version and binary digest; printing is not enough.
+          scripts/e2e/le-iso/browser-pin.mjs "$SHELL_PATH" "$GITHUB_WORKSPACE"
           echo "ISO_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
       - name: Run the probe once (fixed codes only; every teardown gate verified; no retry)
         run: scripts/e2e/le-iso/run-probe.mjs "$GITHUB_WORKSPACE" "$(command -v node)" "$ISO_SHELL_PATH"

@@ -6,7 +6,7 @@
 
 /** Every line the host side may print. */
 export const HOST_CODES = Object.freeze([
-  'ISO_INPUT_OK', 'ISO_E_INPUT', 'ISO_E_INPUT_ROLLBACK',
+  'ISO_INPUT_OK', 'ISO_E_INPUT', 'ISO_E_INPUT_ROLLBACK', 'ISO_E_PROFILE', 'ISO_E_BROWSER_PIN',
   'ISO_IMAGE_OK', 'ISO_E_IMAGE_BUILD', 'ISO_E_IMAGE_CONFIG', 'ISO_E_IMAGE_MANIFEST', 'ISO_E_IMAGE_CLOSURE',
   'ISO_ENDPOINT_OK', 'ISO_E_ENDPOINT_START', 'ISO_E_ENDPOINT_IDENTITY',
   'ISO_CREATE_OK', 'ISO_E_CREATE', 'ISO_E_CID', 'ISO_E_CID_UNKNOWN',
@@ -50,9 +50,14 @@ export const INNER_TESTS = Object.freeze({
   // r5: an unexpected mount point is reported by closed category only (never a path); MULTI = more than one category.
   MOUNTS: { expected: 'MOUNTS_EXACT', other: [...MOUNT_CATEGORIES.map((c) => `MOUNTS_E_UNEXPECTED_${c}`), 'MOUNTS_E_UNEXPECTED_MULTI',
     'MOUNTS_E_INIT_RW', 'MOUNTS_E_MISSING', 'MOUNTS_E_READ'] },
+  // r10 (REVIEW DIFF): the EFFECTIVE AppArmor confinement, read before any browser launch, and gating: only exactly
+  // "docker-default (enforce)" lets the browser start. This verifies the unchanged existing control; it changes no policy.
+  APPARMOR: { expected: 'APPARMOR_DOCKER_DEFAULT_ENFORCE', other: ['APPARMOR_E_UNKNOWN', 'APPARMOR_E_UNCONFINED',
+    'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE', 'APPARMOR_E_OTHER_PROFILE'] },
   // r5: a launch failure is classified (closed list) from the error in-process; the message itself is never printed.
+  // r10: SANDBOX_E_APPARMOR_GATE = the browser was NOT launched because the APPARMOR gate did not pass.
   SANDBOX: { expected: 'SANDBOX_ON_NONCE_MATCH', other: ['SANDBOX_E_LAUNCH', 'SANDBOX_E_LAUNCH_TMPDIR', 'SANDBOX_E_LAUNCH_NO_USABLE_SANDBOX',
-    'SANDBOX_E_LAUNCH_TIMEOUT', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT'] },
+    'SANDBOX_E_LAUNCH_TIMEOUT', 'SANDBOX_E_FLAG', 'SANDBOX_E_NONCE', 'SANDBOX_E_INPUT', 'SANDBOX_E_APPARMOR_GATE'] },
 });
 export const INNER_ORDER = Object.freeze(Object.keys(INNER_TESTS));
 
@@ -109,6 +114,13 @@ export function sysctlClass(text, kind) {
   return v === '0' ? 'OFF' : v === '1' ? 'ON' : 'UNKNOWN';
 }
 
+/** r10: the gating APPARMOR code for a raw label (same reduction as apparmorLabel; only exact enforce passes). */
+export function apparmorGate(text) {
+  const l = apparmorLabel(text);
+  return l === 'DOCKER_DEFAULT_ENFORCE' ? 'APPARMOR_DOCKER_DEFAULT_ENFORCE' : l === 'UNCONFINED' ? 'APPARMOR_E_UNCONFINED'
+    : l === 'DOCKER_DEFAULT_OTHER' ? 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE' : l === 'OTHER' ? 'APPARMOR_E_OTHER_PROFILE' : 'APPARMOR_E_UNKNOWN';
+}
+
 /** An AppArmor label (/proc/self/attr/...) to a closed code. */
 export function apparmorLabel(text) {
   const v = typeof text === 'string' ? text.replace(/\0/g, '').trim() : '';
@@ -162,13 +174,16 @@ export function tmpfsSpec(uid, gid) {
  * The exact config the host expects from `docker inspect <cid>`. repo = absolute repo path (bound read-only at the same
  * path), sock/out = host dirs, imageId = the locally built image id, uid/gid = the runner's ids.
  */
-export function expectedConfig({ imageId, uid, gid, repo, sock, out }) {
+export function expectedConfig({ imageId, uid, gid, repo, sock, out, seccompText }) {
   return {
     Image: imageId,
     User: `${uid}:${gid}`,
     NetworkMode: 'none', PidMode: '', IpcMode: 'private', UTSMode: '', UsernsMode: '', CgroupnsMode: 'private',
     Privileged: false, ReadonlyRootfs: true, PublishAllPorts: false,
-    CapAdd: [], CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges'],
+    CapAdd: [], CapDrop: ['ALL'],
+    // r10 (REVIEW DIFF, unapplied): the docker CLI json.Compact()s the profile file into `seccomp=<json>` (docker/cli v28.0.4
+    // cli/command/container/opts.go, parseSecurityOpts), so the expectation is the Go-compacted bytes of the pinned file.
+    SecurityOpt: ['no-new-privileges', `seccomp=${goCompact(seccompText)}`],
     Devices: [], DeviceCgroupRules: [], VolumesFrom: [], Links: [], ExtraHosts: [], Dns: [], DnsSearch: [], DnsOptions: [],
     RestartPolicy: { Name: 'no', MaximumRetryCount: 0 },
     LogConfig: { Type: 'none' },
@@ -185,6 +200,90 @@ export function expectedConfig({ imageId, uid, gid, repo, sock, out }) {
     ].sort((a, b) => a.Destination.localeCompare(b.Destination)),
   };
 }
+
+/**
+ * r10 (REVIEW DIFF, unapplied). The seccomp profile: Moby v28.0.4 profiles/seccomp/default.json, unchanged, plus five
+ * exact-equality rules for Chromium 147's namespace sandbox. RAW = the committed file; COMPACT = what the docker CLI sends
+ * and inspect returns after json.Compact. Both are pinned; any other bytes fail closed.
+ */
+export const SECCOMP_PROFILE_REL = 'scripts/e2e/le-iso/seccomp/chromium147.json';
+export const SECCOMP_RAW_SHA256 = 'e15422bbebcf05cda6c2db3d4ea4fe1eb8846fa3f4db439409a84b5dd8c82fe1';
+export const SECCOMP_COMPACT_SHA256 = 'f4c8fb3319aacc114816cabaf1707fb11bf2892907bd092fd4c26d794890a198';
+
+/** Go encoding/json Compact: elide space, tab, CR and LF outside strings. null unless `text` is exactly one JSON value. */
+export function goCompact(text) {
+  if (typeof text !== 'string') return null;
+  try { JSON.parse(text); } catch { return null; }
+  let o = '', inStr = false, esc = false;
+  for (const ch of text) {
+    if (inStr) { o += ch; if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; }
+    else if (ch === '"') { inStr = true; o += ch; }
+    else if (ch !== ' ' && ch !== '\t' && ch !== '\n' && ch !== '\r') o += ch;
+  }
+  return o;
+}
+
+/** true if any JSON object in `text` repeats a key (JSON.parse would silently keep the last one); null if malformed. */
+export function hasDuplicateKeys(text) {
+  if (typeof text !== 'string') return null;
+  let i = 0, dup = false;
+  const ws = () => { while (i < text.length && ' \t\n\r'.includes(text[i])) i++; };
+  const str = () => {
+    const st = i; if (text[i] !== '"') throw new Error('json'); i++;
+    while (text[i] !== '"') { if (i >= text.length) throw new Error('json'); if (text[i] === '\\') i++; i++; }
+    i++; return JSON.parse(text.slice(st, i));
+  };
+  const val = () => {
+    ws();
+    if (text[i] === '{') {
+      i++; const keys = new Set(); ws();
+      if (text[i] === '}') { i++; return; }
+      for (;;) { ws(); const k = str(); if (keys.has(k)) dup = true; keys.add(k); ws(); if (text[i++] !== ':') throw new Error('json'); val(); ws(); const c = text[i++]; if (c === '}') return; if (c !== ',') throw new Error('json'); }
+    }
+    if (text[i] === '[') {
+      i++; ws(); if (text[i] === ']') { i++; return; }
+      for (;;) { val(); ws(); const c = text[i++]; if (c === ']') return; if (c !== ',') throw new Error('json'); }
+    }
+    if (text[i] === '"') { str(); return; }
+    const m = /^(?:true|false|null|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/.exec(text.slice(i));
+    if (!m) throw new Error('json');
+    i += m[0].length;
+  };
+  try { JSON.parse(text); val(); ws(); if (i !== text.length) return null; } catch { return null; }
+  return dup;
+}
+
+const canonical = (v) => (Array.isArray(v) ? `[${v.map(canonical).join(',')}]`
+  : v && typeof v === 'object' ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(',')}}` : JSON.stringify(v));
+
+/**
+ * HostConfig.SecurityOpt must hold exactly the expected entries, once each, in any order, with nothing extra. The seccomp
+ * entry must be BOTH byte-identical to the expected compacted profile AND semantically equal to it (key-order-independent
+ * canonical form), with no duplicate key anywhere. Any doubt is a mismatch.
+ */
+export function securityOptOk(got, exp) {
+  if (!Array.isArray(got) || !Array.isArray(exp) || got.length !== exp.length) return false;
+  if (!got.every((g) => typeof g === 'string')) return false;
+  if (!same([...got].sort(), [...exp].sort())) return false;
+  const want = exp.filter((e) => e.startsWith('seccomp='));
+  const have = got.filter((g) => g.startsWith('seccomp='));
+  if (want.length !== 1 || have.length !== 1) return false;
+  const w = want[0].slice(8), h = have[0].slice(8);
+  if (w === 'null' || hasDuplicateKeys(h) !== false || hasDuplicateKeys(w) !== false) return false;
+  try { return h === w && canonical(JSON.parse(h)) === canonical(JSON.parse(w)); } catch { return false; }
+}
+
+/**
+ * r10 (REVIEW DIFF, unapplied). The ONE reviewed browser: Chrome Headless Shell 147.0.7727.15, Playwright revision 1217,
+ * as declared by playwright-core 1.59.1 resolved through @playwright/test 1.59.1 -> playwright 1.59.1. The digest is the
+ * one run 41738812920 printed for the installed linux64 binary; it is ENFORCED, not just printed.
+ */
+export const BROWSER_PIN = Object.freeze({
+  PLAYWRIGHT_TEST: '1.59.1', PLAYWRIGHT: '1.59.1', PLAYWRIGHT_CORE: '1.59.1',
+  REVISION: '1217', BROWSER_VERSION: '147.0.7727.15', VERSION_LINE: 'Google Chrome for Testing 147.0.7727.15',
+  SHA256: '22d72b589f908111fa29ff4e61ead8a0601e925177f59c70e2e851c22e9b1886',
+});
+export const BROWSER_PATH_RE = /^\/[^\0]*\/chromium_headless_shell-1217\/chrome-headless-shell-linux64\/chrome-headless-shell$/;
 
 const arr = (v) => (Array.isArray(v) ? v : v == null ? [] : null);
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -204,7 +303,8 @@ export function compareInspect(inspect, exp) {
   if (cfg.ExposedPorts != null && Object.keys(cfg.ExposedPorts).length) bad.push('ExposedPorts');
   for (const k of ['NetworkMode', 'PidMode', 'IpcMode', 'UTSMode', 'UsernsMode', 'CgroupnsMode', 'Privileged', 'ReadonlyRootfs',
     'PublishAllPorts', 'AutoRemove', 'Init']) if ((hc[k] ?? (typeof exp[k] === 'boolean' ? false : '')) !== exp[k]) bad.push(k);
-  for (const k of ['CapAdd', 'CapDrop', 'SecurityOpt', 'Devices', 'DeviceCgroupRules', 'VolumesFrom', 'Links', 'ExtraHosts', 'Dns',
+  if (!securityOptOk(arr(hc.SecurityOpt), exp.SecurityOpt)) bad.push('SecurityOpt');
+  for (const k of ['CapAdd', 'CapDrop', 'Devices', 'DeviceCgroupRules', 'VolumesFrom', 'Links', 'ExtraHosts', 'Dns',
     'DnsSearch', 'DnsOptions']) {
     const v = arr(hc[k]);
     if (v === null || !same(v, exp[k])) bad.push(k);
@@ -311,7 +411,9 @@ export function classifyInner(stdout) {
     if (!m || m[1] !== key || !INNER_DIAG[key].includes(m[2])) return { ok: false };
     diag[key] = m[2];
   }
-  return { ok: true, pass: INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected), results, diag };
+  // r10: the post-run diagnostic label must agree with the pre-launch gate; any disagreement fails closed.
+  const agree = results.APPARMOR !== INNER_TESTS.APPARMOR.expected || diag.APPARMOR_LABEL === 'DOCKER_DEFAULT_ENFORCE';
+  return { ok: true, pass: agree && INNER_ORDER.every((t) => results[t] === INNER_TESTS[t].expected), results, diag };
 }
 
 /** The closed category of a mount point that is not allowed (never the path itself). */

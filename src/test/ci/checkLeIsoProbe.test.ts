@@ -9,9 +9,13 @@ import type { Browser, BrowserServer, BrowserType } from 'playwright-core';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import YAML from 'yaml';
 import { checkWorkflowText } from '../../../scripts/ci/check-isolated-workflow.mjs';
-import { apparmorLabel, daemonSecurity, HOST_DIAG, HOST_DIAG_ORDER, hostDiagLine, INNER_DIAG, INNER_DIAG_ORDER, sysctlClass, absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
-import { formatResults, innerDiag, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
+import { apparmorGate, BROWSER_PATH_RE, BROWSER_PIN, goCompact, hasDuplicateKeys, SECCOMP_COMPACT_SHA256, SECCOMP_PROFILE_REL, SECCOMP_RAW_SHA256, securityOptOk, apparmorLabel, daemonSecurity, HOST_DIAG, HOST_DIAG_ORDER, hostDiagLine, INNER_DIAG, INNER_DIAG_ORDER, sysctlClass, absenceVerdict, classifyInner, CONFIG_FIELDS, configFieldLines, createdNeverStarted, dnsVerdict, compareInspect, exitStateOk, expectedConfig, HOST_CODES, IN, INIT_PATH, INNER_ORDER, INNER_TESTS, launchErrorCode, mountsVerdict, parseLdd, stopOutputCategory, tmpfsSpec } from '../../../scripts/e2e/le-iso/expect.mjs';
+import { formatResults, gatedSandbox, innerDiag, sandboxCheck, tmpVerdict } from '../../../scripts/e2e/le-iso/inner-probe.mjs';
 import { buildImage, createArgs, hostDiag, makeExec, runProbe } from '../../../scripts/e2e/le-iso/run-probe.mjs';
+import { buildProfile, DELTA_SPEC, OUTPUT_SHA256, UPSTREAM_SHA256 } from '../../../scripts/e2e/le-iso/seccomp-profile.mjs';
+import { CHECK_ORDER, evaluate, gather, PINS, profileOk } from '../../../scripts/e2e/le-iso/preflight.mjs';
+import { createHash } from 'node:crypto';
+import { BPIN_ORDER, probeCoreDir, resolvedChain, verdict as bpinVerdict } from '../../../scripts/e2e/le-iso/browser-pin.mjs';
 
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
@@ -19,14 +23,20 @@ const DOC = YAML.parse(WF);
 const JOB = DOC.jobs['le-isolation-probe'];
 
 const CIDV = 'c'.repeat(64);
+// r10 (REVIEW DIFF): the real committed profile bytes, and what the docker CLI would place in SecurityOpt (Go json.Compact).
+const PROFILE_RAW = readFileSync(path.join(ROOT, SECCOMP_PROFILE_REL));
+const PROFILE_TEXT = PROFILE_RAW.toString('utf8');
+const securityOptArgs = (a: string[]) => a.flatMap((x, i) => (x === '--security-opt' ? [a[i + 1]] : []));
 const IMG = `sha256:${'a'.repeat(64)}`;
-const REPO = '/w/repo', TEMP = '/rt', NODE = '/n/bin/node', SHELL = '/s/chrome-headless-shell';
+const REPO = '/w/repo', TEMP = '/rt', NODE = '/n/bin/node', SHELL = '/s/chromium_headless_shell-1217/chrome-headless-shell-linux64/chrome-headless-shell';
+const SHELL_BYTES = Buffer.from('fake headless shell bytes');
+const SECCOMP_PATH = `${REPO}/${SECCOMP_PROFILE_REL}`;
 const H = `${TEMP}/le-iso-host`, S = `${TEMP}/le-iso-sock`, O = `${TEMP}/le-iso-out`;
-const passLines = () => `${[...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} UNKNOWN`)].join('\n')}\nLE-ISO END\n`;
+const passLines = () => `${[...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} ${k === 'APPARMOR_LABEL' ? 'DOCKER_DEFAULT_ENFORCE' : 'UNKNOWN'}`)].join('\n')}\nLE-ISO END\n`;
 const stat = (start: string) => `9 (node) S 1 1 1 0 -1 0 0 0 0 0 0 0 0 0 20 0 1 0 ${start} 0 0`;
 
 function goodInspect(over: Record<string, unknown> = {}) {
-  const e = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+  const e = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT });
   const { Image, User, EffectiveMounts, ...hc } = e;
   return { Id: CIDV, Image, Config: { User }, HostConfig: { ...hc, Mounts: [] }, Mounts: [...EffectiveMounts].reverse().map((m) => ({ ...m, Mode: 'ro', Name: '' })),
     State: { Status: 'exited', Running: false, Restarting: false, Pid: 0, Dead: false }, ...over };
@@ -34,11 +44,11 @@ function goodInspect(over: Record<string, unknown> = {}) {
 
 type Opt = { inner?: string; startOk?: boolean; readyPid?: number; startNow?: string; lsC?: [boolean, string]; final?: string;
   exitCode?: number; ignoreTerm?: boolean; ignoreKill?: boolean; inspectOver?: Record<string, unknown>; images?: string;
-  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean; unreapedOn?: string; stopTimeout?: boolean; inspectFails?: boolean; inspectGarbage?: boolean; rmFails?: boolean; imagesOk?: boolean; createdState?: Record<string, unknown>; stopOut?: string; final0?: string };
+  createCid?: string; createOut?: string; hangs?: boolean; stopFails?: boolean; unreapedOn?: string; stopTimeout?: boolean; inspectFails?: boolean; inspectGarbage?: boolean; rmFails?: boolean; imagesOk?: boolean; createdState?: Record<string, unknown>; stopOut?: string; final0?: string; profile?: Buffer; shellBytes?: Buffer };
 const RUNNING = { Status: 'running', Running: true, Paused: false, Restarting: false, Pid: 77, Dead: false, StartedAt: '2026-11-03T21:04:40Z' };
 const CREATED_STATE = { Status: 'created', Running: false, Paused: false, Restarting: false, Pid: 0, Dead: false, StartedAt: '0001-01-01T00:00:00Z' };
 function fake(o: Opt = {}) {
-  const files = new Map<string, string>();
+  const files = new Map<string, string | Buffer>([[SECCOMP_PATH, o.profile ?? PROFILE_RAW], [SHELL, o.shellBytes ?? SHELL_BYTES]]);
   const dirs = new Set<string>([REPO, NODE, SHELL, TEMP]);
   const calls: string[][] = [];
   const procs = new Map<string, string>();
@@ -86,6 +96,7 @@ function fake(o: Opt = {}) {
   };
   const d = {
     exec, fs, sleep: () => new Promise<void>((r) => setTimeout(r, 5)), uid: () => 1001, gid: () => 118,
+    browserSha256: createHash('sha256').update(SHELL_BYTES).digest('hex') as string | undefined,
     buildImage: () => ({ code: 'ISO_IMAGE_OK', id: IMG }),
     spawnEndpoint: () => {
       dirs.add('/proc/4242');
@@ -128,15 +139,15 @@ describe('le-iso pure rules', () => {
     expect(parseLdd('\tstatically linked\n')).toBeNull();
   });
   it('the create argv and the expected inspect agree, and a drifted inspect names the field only', () => {
-    const a = createArgs({ cidfile: `${H}/lane.cid`, imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL });
+    const a = createArgs({ cidfile: `${H}/lane.cid`, imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH });
     for (const f of ['--network', 'none', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--read-only', '--restart', 'no', '--log-driver', '--init'])
       expect(a).toContain(f);
     expect(a).toContain(`${S}:${IN.sock}:ro,rprivate`);
     expect(a).not.toContain('--privileged');
     expect(a.join(' ')).not.toMatch(/--network\s+(host|bridge)|-p\s|--publish|docker\.sock|--pid[ =]|--userns|--cap-add/);
-    expect(compareInspect(goodInspect(), expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O }))).toEqual([]);
+    expect(compareInspect(goodInspect(), expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT }))).toEqual([]);
     const drift = goodInspect(); (drift.HostConfig as Record<string, unknown>).NetworkMode = 'bridge';
-    expect(compareInspect(drift, expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O }))).toEqual(['NetworkMode']);
+    expect(compareInspect(drift, expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT }))).toEqual(['NetworkMode']);
     expect(exitStateOk(goodInspect())).toBe(true);
     expect(exitStateOk({ State: { Status: 'running', Running: true, Restarting: false, Pid: 9, Dead: false } })).toBe(false);
   });
@@ -149,7 +160,7 @@ describe('le-iso pure rules', () => {
   });
   it('the image builder refuses an unresolvable closure before writing anything', async () => {
     const d = { exec: () => ({ ok: true, stdout: '\tlibx.so => not found\n' }), fs: {}, uid: () => 1, gid: () => 1 };
-    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toBe('ISO_E_IMAGE_CLOSURE');
+    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH })).toBe('ISO_E_IMAGE_CLOSURE');
   });
 });
 
@@ -158,7 +169,7 @@ describe('le-iso host orchestrator (fakes only)', () => {
     const r = await run();
     expect(r.say.filter((l) => l.startsWith('ISO_E_'))).toEqual([]);
     expect(r.ok).toBe(true);
-    const fixed = new Set([...HOST_CODES, ...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} UNKNOWN`)]);
+    const fixed = new Set([...HOST_CODES, ...INNER_ORDER.map((t) => `LE-ISO ${t} ${INNER_TESTS[t].expected}`), ...INNER_DIAG_ORDER.map((k) => `LE-ISO-DIAG ${k} ${k === 'APPARMOR_LABEL' ? 'DOCKER_DEFAULT_ENFORCE' : 'UNKNOWN'}`)]);
     for (const l of r.say.filter((x) => !x.startsWith('ISO_DIAG '))) expect(fixed.has(l), l).toBe(true);
     expect(r.say.slice(0, 6)).toEqual(['ISO_INPUT_OK', 'ISO_IMAGE_OK', 'ISO_ENDPOINT_OK', 'ISO_CREATE_OK', 'ISO_CONFIG_OK', 'ISO_RUN_DONE']);
     expect(r.say.slice(-8)).toEqual(['ISO_STOP_OK', 'ISO_EXIT_OK', 'ISO_RM_OK', 'ISO_ABSENT', 'ISO_ENDPOINT_STOPPED', 'ISO_IMAGE_REMOVED', 'ISO_DIRS_REMOVED', 'ISO_INNER_PASS']);
@@ -234,7 +245,7 @@ describe('le-iso host orchestrator (fakes only)', () => {
     expect((await runProbe(g.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP })).say).toEqual(['ISO_E_INPUT', 'ISO_E_INPUT_ROLLBACK']);
   });
   it('drifted mount source, destination, RW, propagation or resource bounds refuse before start', async () => {
-    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT });
     const base = goodInspect();
     const withMount = (i: number, over: Record<string, unknown>) => ({ ...base, Mounts: base.Mounts.map((m, j) => (j === i ? { ...m, ...over } : m)) });
     for (const over of [{ Source: '/' }, { Destination: '/iso/other' }, { RW: true }, { Propagation: 'rshared' }, { Type: 'volume' }])
@@ -411,7 +422,7 @@ describe('run 41718226106 follow-up (r4): observed sequence, created-never-start
   it('field names only: fixed list, de-duplicated, unknown names masked; inspect read failures named', async () => {
     expect(configFieldLines(['Tmpfs', 'Tmpfs', 'EffectiveMounts'])).toEqual(['ISO_CONFIG_FIELD Tmpfs', 'ISO_CONFIG_FIELD EffectiveMounts']);
     expect(configFieldLines(['/home/runner/secret'])).toEqual(['ISO_CONFIG_FIELD UNKNOWN']);
-    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT });
     const all = compareInspect({ Id: 'x', Mounts: 'bad', HostConfig: { Binds: 'bad', CapAdd: 'bad' }, Config: { Volumes: { a: 1 }, ExposedPorts: { b: 1 } } }, exp);
     for (const n of all) expect(CONFIG_FIELDS).toContain(n);
     expect((await run({ inspectFails: true })).say).toEqual(expect.arrayContaining(['ISO_E_CONFIG', 'ISO_CONFIG_FIELD INSPECT_EXEC']));
@@ -440,7 +451,10 @@ describe('run 41718226106 follow-up (r4): observed sequence, created-never-start
   it('CodeQL alert 636 (js/useless-assignment-to-local, inner-probe.mjs SANDBOX branch): no dead initial value', () => {
     const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
     expect(inner).not.toMatch(/let code = 'SANDBOX_E_LAUNCH'/);
-    expect(inner).toMatch(/let code; \/\/ CodeQL alert 636/);
+    // r10 (REVIEW DIFF): the SANDBOX branch moved into gatedSandbox; still no dead initial value on either local.
+    expect(inner).toMatch(/let SANDBOX; \/\/ CodeQL alert 636/);
+    expect(inner).toMatch(/let label; \/\/ no dead initial value/);
+    expect(inner).not.toMatch(/let (label|SANDBOX) = /);
   });
 });
 
@@ -489,16 +503,16 @@ describe('le-iso image builder (stub fs: unknown methods are in-memory no-ops; n
       return { ok: false, stdout: '' };
     };
     const d = { exec, fs: fsStub, uid: () => 1001, gid: () => 118 };
-    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_IMAGE_OK', id: IMG });
+    expect(await buildImage(d as never, { ctl: H, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH })).toEqual({ code: 'ISO_IMAGE_OK', id: IMG });
     expect(calls.find((c) => c[1] === 'build')).toEqual(expect.arrayContaining(['--pull=false', '--network', 'none']));
     const wrongUser = (bin: string, args: string[]) => (args[0] === 'image' ? { ok: true, stdout: JSON.stringify([{ Id: IMG, Os: 'linux', Config: { User: '0:0' }, RootFS: { Layers: ['x'] } }]) } : exec(bin, args));
-    expect(await buildImage({ ...d, exec: wrongUser } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_CONFIG', id: IMG });
+    expect(await buildImage({ ...d, exec: wrongUser } as never, { ctl: H, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH })).toEqual({ code: 'ISO_E_IMAGE_CONFIG', id: IMG });
     // build reports failure but wrote a valid iidfile: the id is kept so the image can be removed.
     const buildFails = (bin: string, args: string[]) => (args[0] === 'build' ? { ok: false, stdout: '' } : exec(bin, args));
-    expect(await buildImage({ ...d, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: IMG });
+    expect(await buildImage({ ...d, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: IMG });
     // build invoked, no readable id: identity unknown (null), never a plain "nothing was built" string.
     const noId = new Proxy({ ...base, readFileSync: (p: string) => { if (p.endsWith('image.id')) throw new Error('ENOENT'); return Buffer.from('same'); } }, { get: (t, k: string) => (t as Record<string, unknown>)[k] ?? (() => undefined) });
-    expect(await buildImage({ ...d, fs: noId, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: null });
+    expect(await buildImage({ ...d, fs: noId, exec: buildFails } as never, { ctl: H, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH })).toEqual({ code: 'ISO_E_IMAGE_BUILD', id: null });
   });
 });
 
@@ -552,9 +566,12 @@ describe('le-iso sandbox check against the pinned Playwright API (fake chromium;
   });
   it('the inner probe output format is exactly what the host classifier accepts', () => {
     const all = Object.fromEntries(INNER_ORDER.map((t) => [t, INNER_TESTS[t].expected]));
-    expect(classifyInner(formatResults(all))).toMatchObject({ ok: true, pass: true });
+    const enforce = { APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE' };
+    expect(classifyInner(formatResults(all, enforce))).toMatchObject({ ok: true, pass: true });
+    // r10 (REVIEW DIFF): the post-run label diagnostic must agree with the pre-launch APPARMOR gate.
+    expect(classifyInner(formatResults(all))).toMatchObject({ ok: true, pass: false });
     const { SANDBOX, ...missing } = all;
-    expect(classifyInner(formatResults(missing))).toMatchObject({ ok: true, pass: false, results: { SANDBOX: 'SANDBOX_E_LAUNCH' } });
+    expect(classifyInner(formatResults(missing, enforce))).toMatchObject({ ok: true, pass: false, results: { SANDBOX: 'SANDBOX_E_LAUNCH' } });
   });
 });
 
@@ -565,17 +582,19 @@ describe('le-iso r5 corrections for run 41724586201 (fakes only)', () => {
   it('TMP: the tmpfs states mode 0700 and the probe uid:gid explicitly, in create AND in the inspect expectation', () => {
     expect(tmpfsSpec(1001, 118)).toBe('rw,nosuid,nodev,size=64m,mode=0700,uid=1001,gid=118');
     expect(() => tmpfsSpec(-1, 118)).toThrow(); expect(() => tmpfsSpec(1001, Number.NaN)).toThrow();
-    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL });
+    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH });
     expect(a[a.indexOf('--tmpfs') + 1]).toBe('/tmp:rw,nosuid,nodev,size=64m,mode=0700,uid=1001,gid=118');
     expect(a.filter((x) => x === '--tmpfs')).toHaveLength(1);
-    expect(expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O }).Tmpfs).toEqual({ '/tmp': tmpfsSpec(1001, 118) });
+    expect(expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT }).Tmpfs).toEqual({ '/tmp': tmpfsSpec(1001, 118) });
     // every other security flag is still present, unchanged
     for (const f of ['--read-only', '--init']) expect(a).toContain(f);
     expect(a.slice(a.indexOf('--cap-drop'), a.indexOf('--cap-drop') + 2)).toEqual(['--cap-drop', 'ALL']);
     expect(a.slice(a.indexOf('--security-opt'), a.indexOf('--security-opt') + 2)).toEqual(['--security-opt', 'no-new-privileges']);
     expect(a.slice(a.indexOf('--network'), a.indexOf('--network') + 2)).toEqual(['--network', 'none']);
     expect(a).not.toContain('--cap-add'); expect(a).not.toContain('--privileged');
-    expect(a.join(' ')).not.toMatch(/seccomp|apparmor|unconfined|mode=1777/);
+    expect(a.join(' ')).not.toMatch(/apparmor|unconfined|mode=1777/);
+    // r10 (REVIEW DIFF): exactly two --security-opt pairs: no-new-privileges and the pinned profile path, nothing else.
+    expect(securityOptArgs(a)).toEqual(['no-new-privileges', `seccomp=${SECCOMP_PATH}`]);
   });
   it('TMP: the in-container verdict requires 0700 owned by this uid:gid, then a write; errno is classed', () => {
     const dir = (mode: number, uid = process.getuid!(), gid = process.getgid!(), isDir = true) => ({ lstatSync: () => ({ isDirectory: () => isDir, mode, uid, gid }) });
@@ -647,7 +666,7 @@ describe('le-iso r5 corrections for run 41724586201 (fakes only)', () => {
 });
 
 describe('le-iso r6: Binds order from the docker CLI is not significant (fakes only)', () => {
-  const exp = () => expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O });
+  const exp = () => expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT });
   const withBinds = (b: unknown) => { const g = goodInspect(); return { ...g, HostConfig: { ...g.HostConfig, Binds: b } }; };
   it('every permutation of the exact three binds passes; the run-3 shape (reordered binds) no longer refuses', () => {
     const [a, b, c] = exp().Binds;
@@ -699,10 +718,13 @@ describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed cod
     expect(new Set(seen)).toEqual(new Set(Object.keys(files)));
     expect(innerDiag(() => { throw new Error('x'); })).toEqual({ SECCOMP_FILTERS: 'UNKNOWN', APPARMOR_LABEL: 'UNKNOWN', MAX_USERNS: 'UNKNOWN' });
   });
-  it('inner diagnostic lines are strictly classified and never change pass', () => {
+  it('inner diagnostic lines are strictly classified and never change pass, except the r10 APPARMOR_LABEL agreement', () => {
     const all = Object.fromEntries(INNER_ORDER.map((t) => [t, INNER_TESTS[t].expected]));
-    const ok = classifyInner(formatResults(all, { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'UNCONFINED', MAX_USERNS: 'ZERO' }));
-    expect(ok).toMatchObject({ ok: true, pass: true, diag: { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'UNCONFINED', MAX_USERNS: 'ZERO' } });
+    const ok = classifyInner(formatResults(all, { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE', MAX_USERNS: 'ZERO' }));
+    expect(ok).toMatchObject({ ok: true, pass: true, diag: { SECCOMP_FILTERS: 'MANY', APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE', MAX_USERNS: 'ZERO' } });
+    // r10 (REVIEW DIFF): an UNCONFINED (or any non-enforce) label no longer passes, even with every test line expected.
+    for (const lbl of ['UNCONFINED', 'DOCKER_DEFAULT_OTHER', 'OTHER', 'UNKNOWN'])
+      expect(classifyInner(formatResults(all, { APPARMOR_LABEL: lbl })), lbl).toMatchObject({ ok: true, pass: false });
     expect(formatResults(all, { MAX_USERNS: 'lots' })).toContain('LE-ISO-DIAG MAX_USERNS UNKNOWN');
     expect(classifyInner(passLines().replace('LE-ISO-DIAG MAX_USERNS UNKNOWN', 'LE-ISO-DIAG MAX_USERNS 12'))).toEqual({ ok: false });
     expect(classifyInner(passLines().replace('LE-ISO-DIAG MAX_USERNS UNKNOWN\n', ''))).toEqual({ ok: false });
@@ -715,8 +737,9 @@ describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed cod
     expect(r.say.filter((l) => l.startsWith('ISO_DIAG ')).map((l) => l.split(' ')[1])).toEqual([...HOST_DIAG_ORDER]);
     expect(r.say.filter((l) => l.startsWith('LE-ISO-DIAG ')).map((l) => l.split(' ')[1])).toEqual([...INNER_DIAG_ORDER]);
     expect(r.ok).toBe(true);
-    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL });
-    expect(a.join(' ')).not.toMatch(/seccomp|apparmor|unconfined|--cap-add|--privileged|userns/);
+    const a = createArgs({ cidfile: '/c', imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, node: NODE, shell: SHELL, seccompPath: SECCOMP_PATH });
+    expect(a.join(' ')).not.toMatch(/apparmor|unconfined|--cap-add|--privileged|userns/);
+    expect(securityOptArgs(a)).toEqual(['no-new-privileges', `seccomp=${SECCOMP_PATH}`]);
     const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
     expect(inner).toMatch(/chromiumSandbox: true/);
   });
@@ -751,7 +774,7 @@ describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed cod
     expect(calls).toEqual([['docker', 'version', '--format', '{{json .}}'], ['docker', 'info', '--format', '{{json .SecurityOptions}}']]);
     expect(r).toMatchObject({ DOCKER_CLIENT: '28.0.4', DOCKER_SERVER: '28.0.4', RUNC: '1.2.5', KERNEL: '6.8', DAEMON_SECCOMP: 'BUILTIN', DAEMON_APPARMOR: 'PRESENT',
       HOST_MAX_USERNS: 'POSITIVE', HOST_AA_RESTRICT_USERNS: 'ON', HOST_USERNS_CLONE: 'ABSENT', CHROME_SANDBOX_FILE: 'EXISTS', CONTAINER_APPARMOR: 'UNKNOWN' });
-    expect(statted).toEqual(['/s/chrome-sandbox']);
+    expect(statted).toEqual([path.join(path.dirname(SHELL), 'chrome-sandbox')]);
     expect(lines).toContain('ISO_DIAG RUNC 1.2.5');
     const v = JSON.parse(VERSION_JSON); v.Server.Components[2].Version = 'v1.2.5';
     expect((await hd({ version: { ok: true, stdout: JSON.stringify(v) } })).r.RUNC).toBe('1.2.5');
@@ -810,6 +833,216 @@ describe('le-iso r7: sandbox launch-constraint diagnostics (read-only, fixed cod
   });
 });
 
+describe('r10 seccomp profile (REVIEW DIFF, unapplied)', () => {
+  const DIR = path.join(ROOT, 'scripts/e2e/le-iso/seccomp');
+  const UP = readFileSync(path.join(DIR, 'moby-28.0.4-default.json'));
+  const DELTA = readFileSync(path.join(DIR, 'chromium147-delta.json'), 'utf8');
+  const h = (b: string | Buffer) => createHash('sha256').update(b).digest('hex');
+  const code = (f: () => unknown) => { try { f(); return 'NO_THROW'; } catch (e) { return (e as { code?: string }).code ?? 'OTHER'; } };
+  const withDelta = (mut: (d: Record<string, unknown>[]) => unknown) => { const d = JSON.parse(DELTA); const r = mut(d); return JSON.stringify(r === undefined ? d : r); };
+
+  it('the strict builder reproduces the committed profile byte for byte, and every hash is pinned', () => {
+    expect(h(UP)).toBe(UPSTREAM_SHA256);
+    expect(buildProfile(UP, DELTA)).toBe(PROFILE_TEXT);
+    expect(h(PROFILE_RAW)).toBe(SECCOMP_RAW_SHA256);
+    expect(OUTPUT_SHA256).toBe(SECCOMP_RAW_SHA256);
+    expect(h(goCompact(PROFILE_TEXT) as string)).toBe(SECCOMP_COMPACT_SHA256);
+    expect(SECCOMP_COMPACT_SHA256).toBe('f4c8fb3319aacc114816cabaf1707fb11bf2892907bd092fd4c26d794890a198');
+    const out = JSON.parse(PROFILE_TEXT), up = JSON.parse(UP.toString('utf8'));
+    expect(out.syscalls.slice(0, up.syscalls.length)).toEqual(up.syscalls);
+    expect(out.syscalls).toHaveLength(up.syscalls.length + 5);
+    expect({ ...out, syscalls: [] }).toEqual({ ...up, syscalls: [] });
+  });
+  it('the delta values are Chromium 147 flag constants, and nothing else is opened', () => {
+    expect(DELTA_SPEC.map((r) => [r.name, r.value === null ? null : r.value.toString(16), r.exclCap])).toEqual([
+      ['clone', '10000011', 'CAP_SYS_ADMIN'], ['clone', '70000011', 'CAP_SYS_ADMIN'], ['clone', '20000011', 'CAP_SYS_ADMIN'],
+      ['unshare', '10000000', 'CAP_SYS_ADMIN'], ['chroot', null, 'CAP_SYS_CHROOT']]);
+    const names = JSON.parse(DELTA).flatMap((r: { names: string[] }) => r.names);
+    for (const n of ['setns', 'clone3', 'mount', 'umount2', 'pivot_root', 'io_uring_setup', 'bpf', 'keyctl', 'ptrace']) expect(names).not.toContain(n);
+    expect(DELTA).not.toMatch(/MASKED_EQ|SCMP_CMP_(NE|LT|LE|GT|GE)|SCMP_ACT_(LOG|TRACE|NOTIFY|ERRNO)|unconfined/);
+  });
+  it('adversarial builder mutations each fail closed with a fixed code', () => {
+    const up2 = Buffer.from(UP); up2[up2.length - 2] ^= 1;
+    expect(code(() => buildProfile(up2, DELTA))).toBe('PROFILE_E_UPSTREAM');
+    const cases: [string, string][] = [
+      ['PROFILE_E_DELTA', '[]'], ['PROFILE_E_DELTA', 'not json'], ['PROFILE_E_DELTA', '{}'],
+      ['PROFILE_E_DELTA', withDelta((d) => d.slice(0, 4))],
+      ['PROFILE_E_DELTA', withDelta((d) => [...d, d[0]])],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => [d[0], d[1], d[2], d[3], d[0]])],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => [d[1], d[0], d[2], d[3], d[4]])],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { (d[0].args as { value: number }[])[0].value = 0x10020011; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { (d[1].args as { op: string }[])[0].op = 'SCMP_CMP_MASKED_EQ'; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { (d[2].args as { valueTwo: number }[])[0].valueTwo = 1; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { (d[3].args as { index: number }[])[0].index = 1; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { (d[0].args as unknown[]).push({ index: 1, value: 0, valueTwo: 0, op: 'SCMP_CMP_EQ' }); })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[4].args = [{ index: 0, value: 0, valueTwo: 0, op: 'SCMP_CMP_EQ' }]; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[0].errnoRet = 1; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { delete d[0].excludes; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[4].excludes = { caps: ['CAP_SYS_ADMIN'] }; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[0].includes = { arches: ['amd64', 's390x'] }; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[0].names = ['clone', 'setns']; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[3].names = ['setns']; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[0].action = 'SCMP_ACT_LOG'; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[0].comment = 'anything'; })],
+      ['PROFILE_E_DELTA_RULE', withDelta((d) => { d[2] = null as unknown as Record<string, unknown>; })],
+      // A shape-valid change still fails on the pinned output hash.
+      ['PROFILE_E_OUTPUT', withDelta((d) => { d[0].comment = `${d[0].comment} (edited)`; })],
+    ];
+    for (const [want, delta] of cases) expect(code(() => buildProfile(UP, delta)), delta.slice(0, 80)).toBe(want);
+  });
+  it('goCompact follows Go json.Compact (whitespace outside strings only) and rejects non-JSON', () => {
+    expect(goCompact('{ "a" : [1, 2],\n\t"b c": "x \\" y" }\r\n')).toBe('{"a":[1,2],"b c":"x \\" y"}');
+    expect(goCompact('{"a":1} {"b":2}')).toBeNull();
+    expect(goCompact('')).toBeNull();
+    expect(goCompact(null as unknown as string)).toBeNull();
+  });
+  it('hasDuplicateKeys finds repeats JSON.parse would hide, at any depth and after unescaping', () => {
+    expect(hasDuplicateKeys(PROFILE_TEXT)).toBe(false);
+    expect(hasDuplicateKeys('{"a":1,"a":2}')).toBe(true);
+    expect(hasDuplicateKeys('{"x":[{"a":1,"b":{"c":1,"c":1}}]}')).toBe(true);
+    expect(hasDuplicateKeys('{"a":1,"\\u0061":2}')).toBe(true);
+    expect(hasDuplicateKeys('{"a":1,')).toBeNull();
+    expect(hasDuplicateKeys('[1,2,{"a":"}"}]')).toBe(false);
+  });
+  it('inspect contract: exactly the compacted profile once plus no-new-privileges, nothing extra, no variant', () => {
+    const exp = expectedConfig({ imageId: IMG, uid: 1001, gid: 118, repo: REPO, sock: S, out: O, seccompText: PROFILE_TEXT });
+    const C = `seccomp=${goCompact(PROFILE_TEXT)}`;
+    const with_ = (so: unknown) => compareInspect(goodInspect({ HostConfig: { ...goodInspect().HostConfig, SecurityOpt: so } }), exp);
+    expect(exp.SecurityOpt).toEqual(['no-new-privileges', C]);
+    expect(with_(['no-new-privileges', C])).toEqual([]);
+    expect(with_([C, 'no-new-privileges'])).toEqual([]);
+    const reordered = (() => { const o = JSON.parse(PROFILE_TEXT); return `seccomp=${JSON.stringify({ syscalls: o.syscalls, archMap: o.archMap, defaultErrnoRet: o.defaultErrnoRet, defaultAction: o.defaultAction })}`; })();
+    const dupKey = C.replace('"defaultAction":"SCMP_ACT_ERRNO"', '"defaultAction":"SCMP_ACT_ALLOW","defaultAction":"SCMP_ACT_ERRNO"');
+    const oneLess = (() => { const o = JSON.parse(PROFILE_TEXT); o.syscalls.pop(); return `seccomp=${JSON.stringify(o)}`; })();
+    for (const bad of [
+      ['no-new-privileges', `seccomp=${PROFILE_TEXT}`], // not compacted
+      ['no-new-privileges', reordered], ['no-new-privileges', dupKey], ['no-new-privileges', oneLess],
+      ['no-new-privileges', C, 'label=disable'], ['no-new-privileges', C, C], ['no-new-privileges', 'no-new-privileges', C],
+      ['no-new-privileges'], [C], ['no-new-privileges', 'seccomp=unconfined'], ['no-new-privileges', 'seccomp=null'],
+      ['no-new-privileges', 7], null, 'no-new-privileges', [],
+    ]) expect(with_(bad), JSON.stringify(bad).slice(0, 60)).toEqual(['SecurityOpt']);
+    expect(securityOptOk(exp.SecurityOpt, ['no-new-privileges', 'seccomp=null'])).toBe(false);
+    expect(securityOptOk(undefined as unknown as string[], exp.SecurityOpt)).toBe(false);
+  });
+  it('a profile that is not the reviewed bytes stops the run before build or create; owned dirs are cleaned', async () => {
+    for (const profile of [Buffer.concat([PROFILE_RAW, Buffer.from(' ')]), Buffer.from('{}')]) {
+      let built = false;
+      const f = fake({ profile });
+      f.d.buildImage = () => { built = true; return { code: 'ISO_IMAGE_OK', id: IMG }; };
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.ok).toBe(false);
+      expect(r.say).toContain('ISO_E_PROFILE');
+      expect(built).toBe(false);
+      expect(f.calls.some((c) => c[1] === 'create' || c[1] === 'build')).toBe(false);
+      expect(r.say).toEqual(expect.arrayContaining(['ISO_DIRS_REMOVED', 'ISO_INNER_FAIL']));
+      expect(f.dirs.has(H)).toBe(false);
+    }
+    const g = fake(); g.files.delete(SECCOMP_PATH);
+    expect((await runProbe(g.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP })).say).toContain('ISO_E_PROFILE');
+  });
+  it('create passes the pinned path; the run passes only with the compacted profile in inspect', async () => {
+    const r = await run();
+    const create = r.calls.find((c) => c[1] === 'create') as string[];
+    expect(securityOptArgs(create.slice(1))).toEqual(['no-new-privileges', `seccomp=${SECCOMP_PATH}`]);
+    expect(r.ok).toBe(true);
+    const bad = await run({ inspectOver: { HostConfig: { ...goodInspect().HostConfig, SecurityOpt: ['no-new-privileges'] } } });
+    expect(bad.say).toEqual(expect.arrayContaining(['ISO_E_CONFIG', 'ISO_CONFIG_FIELD SecurityOpt']));
+  });
+});
+
+describe('r10 early runner preflight (REVIEW DIFF, unapplied)', () => {
+  const good = () => ({ ...PINS, PROFILE: true } as Record<string, unknown>);
+  it('all pins pass; any single drift or unknown fails with that fixed code only', () => {
+    expect(evaluate(good())).toEqual({ ok: true, lines: [...CHECK_ORDER.map((k) => `PRE_${k} OK`), 'PRE_OK'] });
+    for (const k of CHECK_ORDER) {
+      for (const v of k === 'PROFILE' ? [false, undefined, 'true'] : ['drifted', undefined, 'UNKNOWN', `${PINS[k as keyof typeof PINS]}\n`]) {
+        const f = good(); f[k] = v;
+        const r = evaluate(f);
+        expect(r.ok, `${k}=${String(v)}`).toBe(false);
+        expect(r.lines.filter((l) => l.startsWith('PRE_E_'))).toEqual([`PRE_E_${k}`]);
+        expect(r.lines.at(-1)).toBe('PRE_FAIL');
+      }
+    }
+    expect(Object.values(PINS)).not.toContain('UNKNOWN');
+  });
+  const SERVER = { Version: '28.0.4', Os: 'linux', Arch: 'amd64', Components: [{ Name: 'Engine', Version: '28.0.4' }, { Name: 'runc', Version: '1.5.2' }] };
+  const VERSION = JSON.stringify({ Client: { Version: '28.0.4' }, Server: SERVER });
+  const INFO = JSON.stringify(['name=apparmor', 'name=seccomp,profile=builtin', 'name=cgroupns']);
+  const LOCK = (o: Record<string, string> = {}) => JSON.stringify({ packages: Object.fromEntries(['@playwright/test', 'playwright', 'playwright-core'].map((n) => [`node_modules/${n}`, { version: o[n] ?? '1.59.1' }])) });
+  const fsFor = (over: Record<string, string | Buffer | Error> = {}) => {
+    const dir = path.join(ROOT, 'scripts/e2e/le-iso/seccomp');
+    const files: Record<string, string | Buffer | Error> = {
+      '/proc/sys/kernel/osrelease': '7.0.0-1009-azure\n', '/proc/sys/user/max_user_namespaces': '63229\n',
+      '/proc/sys/kernel/apparmor_restrict_unprivileged_userns': '1\n', '/proc/sys/kernel/unprivileged_userns_clone': '1\n',
+      [`${REPO}/package-lock.json`]: LOCK(),
+      [SECCOMP_PATH]: PROFILE_RAW,
+      [`${REPO}/scripts/e2e/le-iso/seccomp/moby-28.0.4-default.json`]: readFileSync(path.join(dir, 'moby-28.0.4-default.json')),
+      [`${REPO}/scripts/e2e/le-iso/seccomp/chromium147-delta.json`]: readFileSync(path.join(dir, 'chromium147-delta.json')),
+      ...over };
+    return { readFileSync: (p: string, enc?: string) => { const v = files[p]; if (v === undefined) throw Object.assign(new Error('x'), { code: 'ENOENT' }); if (v instanceof Error) throw v; return enc && Buffer.isBuffer(v) ? v.toString(enc as BufferEncoding) : v; },
+      statSync: () => { throw Object.assign(new Error('x'), { code: 'ENOENT' }); } };
+  };
+  const exec = (ans: Record<string, unknown> = {}) => async (_b: string, args: string[]) => {
+    const server = args[0] === 'version' && args[2] === '{{json .Server}}';
+    const a = server ? (ans.server ?? { ok: true, stdout: JSON.stringify(SERVER) }) : (ans[args[0]] ?? { ok: true, stdout: args[0] === 'version' ? VERSION : INFO });
+    if (a instanceof Error) throw a;
+    return a;
+  };
+  const env = { ImageOS: 'ubuntu24' };
+  it('gather reads real-shaped facts and passes on the reviewed runner', async () => {
+    const f = await gather({ exec: exec(), fsx: fsFor(), env, arch: 'x64', repo: REPO });
+    expect(evaluate(f)).toMatchObject({ ok: true });
+  });
+  it('gather fails closed on Docker, runc, kernel, AppArmor, arch, image, browser pin and profile drift', async () => {
+    const vj = (m: (v: { Client: { Version: string }; Server: { Version: string; Components: { Name: string; Version: string }[] } }) => void) => { const v = JSON.parse(VERSION); m(v); return { ok: true, stdout: JSON.stringify(v) }; };
+    const cases: [string, Parameters<typeof gather>[0]][] = [
+      ['DOCKER_SERVER', { exec: exec({ version: vj((v) => { v.Server.Version = '28.0.5'; }) }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['DOCKER_CLIENT', { exec: exec({ version: vj((v) => { v.Client.Version = '29.0.0'; }) }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['RUNC', { exec: exec({ version: vj((v) => { v.Server.Components[1].Version = '1.5.3'; }) }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['KERNEL', { exec: exec(), fsx: fsFor({ '/proc/sys/kernel/osrelease': '7.1.0-1001-azure\n' }), env, arch: 'x64', repo: REPO }],
+      ['HOST_AA_RESTRICT_USERNS', { exec: exec(), fsx: fsFor({ '/proc/sys/kernel/apparmor_restrict_unprivileged_userns': '0\n' }), env, arch: 'x64', repo: REPO }],
+      ['DAEMON_APPARMOR', { exec: exec({ info: { ok: true, stdout: JSON.stringify(['name=seccomp,profile=builtin']) } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['DAEMON_SECCOMP', { exec: exec({ info: { ok: true, stdout: JSON.stringify(['name=apparmor', 'name=seccomp,profile=unconfined']) } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['NODE_ARCH', { exec: exec(), fsx: fsFor(), env, arch: 'arm64', repo: REPO }],
+      // The daemon's platform is read from the daemon, never inferred from Node's process.arch.
+      ['DAEMON_ARCH', { exec: exec({ server: { ok: true, stdout: JSON.stringify({ ...SERVER, Arch: 'arm64' }) } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['DAEMON_ARCH', { exec: exec({ server: { ok: true, stdout: JSON.stringify({ ...SERVER, Arch: undefined }) } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['DAEMON_OS', { exec: exec({ server: { ok: true, stdout: JSON.stringify({ ...SERVER, Os: 'windows' }) } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }],
+      ['IMAGE_OS', { exec: exec(), fsx: fsFor(), env: { ImageOS: 'ubuntu26' }, arch: 'x64', repo: REPO }],
+      ['LOCK_PLAYWRIGHT_CORE', { exec: exec(), fsx: fsFor({ [`${REPO}/package-lock.json`]: LOCK({ 'playwright-core': '1.60.0' }) }), env, arch: 'x64', repo: REPO }],
+      ['LOCK_PLAYWRIGHT', { exec: exec(), fsx: fsFor({ [`${REPO}/package-lock.json`]: LOCK({ playwright: '1.60.0' }) }), env, arch: 'x64', repo: REPO }],
+      ['LOCK_PLAYWRIGHT_TEST', { exec: exec(), fsx: fsFor({ [`${REPO}/package-lock.json`]: LOCK({ '@playwright/test': '1.58.0' }) }), env, arch: 'x64', repo: REPO }],
+      ['PROFILE', { exec: exec(), fsx: fsFor({ [SECCOMP_PATH]: Buffer.concat([PROFILE_RAW, Buffer.from('\n')]) }), env, arch: 'x64', repo: REPO }],
+      ['PROFILE', { exec: exec(), fsx: fsFor({ [`${REPO}/scripts/e2e/le-iso/seccomp/chromium147-delta.json`]: '[]' }), env, arch: 'x64', repo: REPO }],
+    ];
+    for (const [k, args] of cases) {
+      const r = evaluate(await gather(args));
+      expect(r.ok, k).toBe(false);
+      expect(r.lines.filter((l) => l.startsWith('PRE_E_')), k).toEqual([`PRE_E_${k}`]);
+    }
+  });
+  it('rejected or failed queries and unreadable files fail closed, never pass', async () => {
+    const boom = new Error('spawn EACCES');
+    const r = evaluate(await gather({ exec: exec({ version: boom, info: boom }), fsx: fsFor({ '/proc/sys/kernel/osrelease': Object.assign(new Error('x'), { code: 'EACCES' }) }), env: {}, arch: 'x64', repo: REPO }));
+    expect(r.ok).toBe(false);
+    expect(r.lines).toEqual(expect.arrayContaining(['PRE_E_DOCKER_SERVER', 'PRE_E_RUNC', 'PRE_E_KERNEL', 'PRE_E_DAEMON_SECCOMP', 'PRE_E_IMAGE_OS']));
+    const rej = evaluate(await gather({ exec: exec({ server: boom }), fsx: fsFor(), env, arch: 'x64', repo: REPO }));
+    expect(rej.lines.filter((l) => l.startsWith('PRE_E_'))).toEqual(['PRE_E_DAEMON_OS', 'PRE_E_DAEMON_ARCH']);
+    const notJson = evaluate(await gather({ exec: exec({ server: { ok: true, stdout: 'amd64' } }), fsx: fsFor(), env, arch: 'x64', repo: REPO }));
+    expect(notJson.lines.filter((l) => l.startsWith('PRE_E_'))).toEqual(['PRE_E_DAEMON_OS', 'PRE_E_DAEMON_ARCH']);
+    expect(profileOk({ readFileSync: () => { throw new Error('x'); } }, REPO)).toBe(false);
+  });
+  it('preflight is metadata only: the probe never imports it, and the sandbox inner result stays the verdict', () => {
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/run-probe.mjs'), 'utf8');
+    expect(src).not.toMatch(/preflight/);
+    expect(INNER_TESTS.SANDBOX.expected).toBe('SANDBOX_ON_NONCE_MATCH');
+    const pf = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/preflight.mjs'), 'utf8');
+    // Read-only: the only filesystem calls are reads, and nothing asks for privilege or reads audit logs.
+    expect(new Set([...pf.matchAll(/\bfsx?\.(\w+)\(/g)].map((m) => m[1]))).toEqual(new Set(['readFileSync']));
+    expect(pf).not.toMatch(/sudo|journalctl|dmesg|auditctl|ausearch/);
+  });
+});
+
 describe('le-isolation-probe job', () => {
   it('passes the shared policy, is its own option, and carries no stack, secret, upload or retry', async () => {
     expect(await checkWorkflowText(WF)).toEqual([]);
@@ -827,5 +1060,219 @@ describe('le-isolation-probe job', () => {
     const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
     expect(inner).toMatch(/chromiumSandbox: true/);
     expect(inner).not.toMatch(/chromiumSandbox: false|ignoreDefaultArgs|args: \[/);
+  });
+});
+
+describe('r10 mandatory browser pin (REVIEW DIFF, unapplied; fakes plus the real local resolution only)', () => {
+  const CORE = '/w/repo/node_modules/playwright-core';
+  const goodR = () => ({ path: SHELL, revision: '1217', browserVersion: '147.0.7727.15', playwrightCore: '1.59.1', browsersJson: `${CORE}/browsers.json`,
+    version: BROWSER_PIN.VERSION_LINE, sha256: BROWSER_PIN.SHA256, testOverride: false } as Record<string, unknown>);
+  const goodChain = () => ({ test: '1.59.1', playwright: '1.59.1', core: '1.59.1', coreDir: CORE } as Record<string, unknown>);
+  it('the reviewed digest, revision, version and version line are literals in source, not computed', () => {
+    expect(BROWSER_PIN).toMatchObject({ PLAYWRIGHT_TEST: '1.59.1', PLAYWRIGHT: '1.59.1', PLAYWRIGHT_CORE: '1.59.1', REVISION: '1217',
+      BROWSER_VERSION: '147.0.7727.15', VERSION_LINE: 'Google Chrome for Testing 147.0.7727.15',
+      SHA256: '22d72b589f908111fa29ff4e61ead8a0601e925177f59c70e2e851c22e9b1886' });
+    expect(Object.isFrozen(BROWSER_PIN)).toBe(true);
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/expect.mjs'), 'utf8');
+    expect(src).toContain("'22d72b589f908111fa29ff4e61ead8a0601e925177f59c70e2e851c22e9b1886'");
+  });
+  it('verdict passes only the exact reviewed browser and chain; each single drift fails with its own code', () => {
+    expect(bpinVerdict(goodR(), goodChain(), SHELL, CORE)).toEqual({ ok: true, lines: [...BPIN_ORDER.map((k) => `BPIN_${k} OK`), 'BPIN_OK'] });
+    const cases: [string, (r: Record<string, unknown>, c: Record<string, unknown>) => void, string?][] = [
+      ['PLAYWRIGHT_TEST', (_r, c) => { c.test = '1.59.2'; }],
+      ['PLAYWRIGHT', (_r, c) => { c.playwright = '1.60.0'; }],
+      ['PLAYWRIGHT_CORE', (_r, c) => { c.core = '1.60.0'; }],
+      ['PLAYWRIGHT_CORE', (r) => { r.playwrightCore = 'test-override'; }],
+      ['CORE_SAME', (r) => { r.browsersJson = '/elsewhere/playwright-core/browsers.json'; }],
+      ['REVISION', (r) => { r.revision = '1243'; }],
+      ['BROWSER_VERSION', (r) => { r.browserVersion = '148.0.0.0'; }],
+      ['VERSION_LINE', (r) => { r.version = 'Google Chrome for Testing 148.0.0.0'; }],
+      ['VERSION_LINE', (r) => { r.version = `${BROWSER_PIN.VERSION_LINE} `; }],
+      ['SHA256', (r) => { r.sha256 = 'f'.repeat(64); }],
+      ['SHA256', (r) => { r.sha256 = undefined; }],
+      ['TEST_OVERRIDE', (r) => { r.testOverride = true; }],
+      ['TEST_OVERRIDE', (r) => { r.testOverride = undefined; }],
+    ];
+    for (const [k, m] of cases) {
+      const r = goodR(), c = goodChain(); m(r, c);
+      const v = bpinVerdict(r, c, SHELL, CORE);
+      expect(v.ok, k).toBe(false);
+      expect(v.lines.filter((l) => l.startsWith('BPIN_E_')), k).toEqual([`BPIN_E_${k}`]);
+      expect(v.lines.at(-1)).toBe('BPIN_FAIL');
+    }
+    // the path must equal the pinned step's path AND have the reviewed revision layout
+    for (const [rp, ep] of [[SHELL, '/other/path'], ['/s/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell', '/s/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'], ['rel/chromium_headless_shell-1217/chrome-headless-shell-linux64/chrome-headless-shell', 'rel/chromium_headless_shell-1217/chrome-headless-shell-linux64/chrome-headless-shell']]) {
+      const r = goodR(); r.path = rp;
+      expect(bpinVerdict(r, goodChain(), ep, CORE).lines.filter((l) => l.startsWith('BPIN_E_'))).toEqual(['BPIN_E_PATH']);
+    }
+    expect(bpinVerdict(goodR(), goodChain(), undefined as unknown as string, CORE).ok).toBe(false);
+    // the core the in-container probe loads must be the same install as the @playwright/test chain
+    for (const pd of ['/w/repo/node_modules/other/node_modules/playwright-core', undefined, null])
+      expect(bpinVerdict(goodR(), goodChain(), SHELL, pd as unknown as string).lines.filter((l) => l.startsWith('BPIN_E_'))).toEqual(['BPIN_E_PROBE_CORE']);
+    // a refused resolution or unresolvable chain fails every dependent check, never passes
+    expect(bpinVerdict(null, goodChain(), SHELL, CORE).ok).toBe(false);
+    expect(bpinVerdict(goodR(), null, SHELL, CORE).lines).toEqual(expect.arrayContaining(['BPIN_E_RESOLVE', 'BPIN_E_PLAYWRIGHT_TEST', 'BPIN_E_CORE_SAME', 'BPIN_E_PROBE_CORE', 'BPIN_FAIL']));
+  });
+  it('resolvedChain follows @playwright/test -> playwright -> playwright-core from where each one resolves', () => {
+    const map: Record<string, Record<string, string>> = {
+      '/w/repo/x.mjs': { '@playwright/test/package.json': '/n/@playwright/test/package.json' },
+      '/n/@playwright/test/package.json': { 'playwright/package.json': '/n/@playwright/test/node_modules/playwright/package.json' },
+      '/n/@playwright/test/node_modules/playwright/package.json': { 'playwright-core/package.json': '/n/pc-nested/package.json' },
+    };
+    const mk = (from: string) => ({ resolve: (id: string) => { const v = map[from]?.[id]; if (!v) throw new Error('MODULE_NOT_FOUND'); return v; } });
+    const versions: Record<string, string> = { '/n/@playwright/test/package.json': '1.59.1', '/n/@playwright/test/node_modules/playwright/package.json': '1.59.1', '/n/pc-nested/package.json': '1.60.0' };
+    const c = resolvedChain('/w/repo/x.mjs', (p: string) => ({ version: versions[p] }), mk as never);
+    expect(c).toEqual({ test: '1.59.1', playwright: '1.59.1', core: '1.60.0', coreDir: '/n/pc-nested' });
+    expect(bpinVerdict(goodR(), c, SHELL, CORE).ok).toBe(false);
+    expect(() => resolvedChain('/nowhere.mjs', () => ({}), mk as never)).toThrow();
+    expect(probeCoreDir('/w/repo', ((f: string) => ({ resolve: (id: string) => { expect(f).toBe('/w/repo/package.json'); expect(id).toBe('playwright-core/package.json'); return `${CORE}/package.json`; } })) as never)).toBe(CORE);
+  });
+  it('the real local install resolves one 1.59.1 chain, and the probe loads that same playwright-core', () => {
+    const c = resolvedChain(path.join(ROOT, 'scripts/local-stack/quiz-lifecycle/headless-shell.mjs'));
+    expect(c).toMatchObject({ test: '1.59.1', playwright: '1.59.1', core: '1.59.1' });
+    expect(probeCoreDir(ROOT)).toBe(c.coreDir);
+  });
+  it('run-probe refuses an unpinned binary before build or create; owned dirs are cleaned', async () => {
+    for (const o of [{ shellBytes: Buffer.from('tampered headless shell bytes') }]) {
+      let built = false;
+      const f = fake(o);
+      f.d.buildImage = () => { built = true; return { code: 'ISO_IMAGE_OK', id: IMG }; };
+      const r = await runProbe(f.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP });
+      expect(r.ok).toBe(false);
+      expect(r.say).toContain('ISO_E_BROWSER_PIN');
+      expect(built).toBe(false);
+      expect(f.calls.some((c) => c[1] === 'create' || c[1] === 'build' || c[1] === 'start')).toBe(false);
+      expect(f.dirs.has(H)).toBe(false);
+    }
+    // the reviewed digest itself is the default: without the test seam, fake bytes never pass
+    const g = fake(); delete (g.d as { browserSha256?: string }).browserSha256;
+    expect((await runProbe(g.d, { repo: REPO, node: NODE, shell: SHELL, temp: TEMP })).say).toContain('ISO_E_BROWSER_PIN');
+    // a correct digest at an unreviewed path layout is refused too
+    const BAD = '/s/chrome-headless-shell';
+    const h = fake(); h.files.set(BAD, SHELL_BYTES); h.dirs.add(BAD);
+    const rb = await runProbe(h.d, { repo: REPO, node: NODE, shell: BAD, temp: TEMP });
+    expect(rb.say).toContain('ISO_E_BROWSER_PIN');
+    expect(h.calls.some((c) => c[1] === 'create' || c[1] === 'build')).toBe(false);
+  });
+  it('the digest test seam is never set by run-probe itself', () => {
+    const src = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/run-probe.mjs'), 'utf8');
+    const code = src.split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
+    expect([...code.matchAll(/browserSha256/g)]).toHaveLength(1);
+    expect(src).toContain('d.browserSha256 ?? BROWSER_PIN.SHA256');
+    expect(BROWSER_PATH_RE.test(SHELL)).toBe(true);
+  });
+});
+
+describe('r10 mandatory effective AppArmor gate before any browser launch (REVIEW DIFF, unapplied; fakes only)', () => {
+  it('only the exact docker-default (enforce) label reaches the launch', async () => {
+    for (const label of ['docker-default (enforce)', 'docker-default (enforce)\n', 'docker-default (enforce)\0']) {
+      let launched = 0;
+      const g = await gatedSandbox(() => label, async () => { launched++; return 'SANDBOX_ON_NONCE_MATCH'; });
+      expect(g, JSON.stringify(label)).toEqual({ APPARMOR: 'APPARMOR_DOCKER_DEFAULT_ENFORCE', SANDBOX: 'SANDBOX_ON_NONCE_MATCH' });
+      expect(launched).toBe(1);
+    }
+  });
+  it('unknown, unconfined, complain, another mode or another profile never launch', async () => {
+    const cases: [unknown, string][] = [
+      ['unconfined', 'APPARMOR_E_UNCONFINED'],
+      ['docker-default (complain)', 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE'],
+      ['docker-default (kill)', 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE'],
+      ['docker-default', 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE'],
+      ['docker-default-extra (enforce)', 'APPARMOR_E_DOCKER_DEFAULT_NOT_ENFORCE'],
+      ['le-iso-custom (enforce)', 'APPARMOR_E_OTHER_PROFILE'],
+      ['unconfined (enforce)', 'APPARMOR_E_OTHER_PROFILE'],
+      ['', 'APPARMOR_E_UNKNOWN'], [null, 'APPARMOR_E_UNKNOWN'], [undefined, 'APPARMOR_E_UNKNOWN'], [42, 'APPARMOR_E_UNKNOWN'],
+    ];
+    for (const [label, code] of cases) {
+      let launched = 0;
+      const g = await gatedSandbox(() => label, async () => { launched++; return 'SANDBOX_ON_NONCE_MATCH'; });
+      expect(g, String(label)).toEqual({ APPARMOR: code, SANDBOX: 'SANDBOX_E_APPARMOR_GATE' });
+      expect(launched, String(label)).toBe(0);
+      expect(INNER_TESTS.APPARMOR.other).toContain(code);
+    }
+    let launched = 0;
+    const thrown = await gatedSandbox(() => { throw Object.assign(new Error('x'), { code: 'EACCES' }); }, async () => { launched++; return 'SANDBOX_ON_NONCE_MATCH'; });
+    expect(thrown).toEqual({ APPARMOR: 'APPARMOR_E_UNKNOWN', SANDBOX: 'SANDBOX_E_APPARMOR_GATE' });
+    expect(launched).toBe(0);
+  });
+  it('a launch failure after a passing gate is a launch failure, and the gate code is unchanged', async () => {
+    expect(await gatedSandbox(() => 'docker-default (enforce)', async () => { throw new Error('boom'); })).toEqual({ APPARMOR: 'APPARMOR_DOCKER_DEFAULT_ENFORCE', SANDBOX: 'SANDBOX_E_LAUNCH' });
+  });
+  it('APPARMOR is ordered before SANDBOX, gate codes are closed, and the gate never changes host AppArmor', () => {
+    expect(INNER_ORDER.indexOf('APPARMOR')).toBeGreaterThanOrEqual(0);
+    expect(INNER_ORDER.indexOf('APPARMOR')).toBeLessThan(INNER_ORDER.indexOf('SANDBOX'));
+    expect(INNER_TESTS.SANDBOX.other).toContain('SANDBOX_E_APPARMOR_GATE');
+    expect(apparmorGate('docker-default (enforce)')).toBe(INNER_TESTS.APPARMOR.expected);
+    const inner = readFileSync(path.join(ROOT, 'scripts/e2e/le-iso/inner-probe.mjs'), 'utf8');
+    // playwright-core is loaded only inside the gated launch callback
+    const req = inner.indexOf("('playwright-core')"), gate = inner.indexOf('await gatedSandbox(readLabel, async () => {');
+    expect(gate).toBeGreaterThan(0); expect(req).toBeGreaterThan(gate);
+    expect([...inner.matchAll(/'playwright-core'/g)]).toHaveLength(1);
+    const all = ['run-probe.mjs', 'inner-probe.mjs', 'expect.mjs', 'preflight.mjs', 'browser-pin.mjs'].map((f) => readFileSync(path.join(ROOT, 'scripts/e2e/le-iso', f), 'utf8')).join('\n');
+    expect(all).not.toMatch(/apparmor_parser|aa-complain|aa-disable|aa-enforce|apparmor=unconfined|apparmor:unconfined/);
+  });
+  it('the classifier fails when the gate passed but the post-run label disagrees, and when the gate failed', () => {
+    const all = Object.fromEntries(INNER_ORDER.map((t) => [t, INNER_TESTS[t].expected]));
+    expect(classifyInner(formatResults(all, { APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE' }))).toMatchObject({ ok: true, pass: true });
+    expect(classifyInner(formatResults(all, { APPARMOR_LABEL: 'UNCONFINED' }))).toMatchObject({ ok: true, pass: false });
+    const gated = { ...all, APPARMOR: 'APPARMOR_E_UNCONFINED', SANDBOX: 'SANDBOX_E_APPARMOR_GATE' };
+    expect(classifyInner(formatResults(gated, { APPARMOR_LABEL: 'UNCONFINED' }))).toMatchObject({ ok: true, pass: false, results: { APPARMOR: 'APPARMOR_E_UNCONFINED', SANDBOX: 'SANDBOX_E_APPARMOR_GATE' } });
+    expect(classifyInner(formatResults({ ...all, APPARMOR: 'APPARMOR_E_UNCONFINED' }, { APPARMOR_LABEL: 'DOCKER_DEFAULT_ENFORCE' }))).toMatchObject({ ok: true, pass: false });
+  });
+});
+
+describe('r10 mandatory le-iso workflow order (REVIEW DIFF, unapplied)', () => {
+  type Step = { name?: string; run?: string; uses?: string; 'continue-on-error'?: unknown; if?: unknown };
+  const PRE = 'scripts/e2e/le-iso/preflight.mjs "$GITHUB_WORKSPACE"';
+  const BPIN = 'scripts/e2e/le-iso/browser-pin.mjs "$SHELL_PATH" "$GITHUB_WORKSPACE"';
+  /** Fixed-code order check over the job's steps; [] means the mandatory gates are present, unconditional and in order. */
+  const orderErrors = (steps: Step[]): string[] => {
+    const e: string[] = [];
+    const idx = (p: (s: Step) => boolean) => { const all = steps.map((s, i) => (p(s) ? i : -1)).filter((i) => i >= 0); return all.length === 1 ? all[0] : -1; };
+    const runs = (s: Step) => (typeof s.run === 'string' ? s.run : '');
+    const npmci = idx((s) => /^npm ci --ignore-scripts\b/.test(runs(s).trim()));
+    const policy = idx((s) => runs(s).includes('check-isolated-workflow.mjs --executed'));
+    const modes = idx((s) => runs(s).includes('check-invoked-modes.mjs'));
+    const pre = idx((s) => runs(s).includes('le-iso/preflight.mjs'));
+    const install = idx((s) => runs(s).includes('playwright install'));
+    const pin = idx((s) => runs(s).includes('le-iso/browser-pin.mjs'));
+    const probe = idx((s) => runs(s).includes('le-iso/run-probe.mjs'));
+    for (const [k, v] of Object.entries({ npmci, policy, modes, pre, install, pin, probe })) if (v < 0) e.push(`MISSING_OR_DUPLICATE_${k}`);
+    if (e.length) return e;
+    if (!(npmci < policy && policy < modes && modes < pre)) e.push('PRE_BEFORE_CHECKS');
+    if (!(pre < install)) e.push('PRE_AFTER_INSTALL');
+    if (!(install < pin && pin < probe)) e.push('PIN_ORDER');
+    if (runs(steps[pre]).trim() !== PRE) e.push('PRE_RUN_ALTERED');
+    const pinLines = runs(steps[pin]).split('\n').map((l) => l.trim());
+    const b = pinLines.indexOf(BPIN), exp = pinLines.findIndex((l) => l.startsWith('echo "ISO_SHELL_PATH='));
+    if (b < 0 || exp < 0 || b > exp) e.push('PIN_NOT_BEFORE_EXPORT');
+    for (const i of [pre, pin, probe]) if (steps[i]['continue-on-error'] !== undefined || steps[i].if !== undefined) e.push(`CONDITIONAL_${i}`);
+    for (const s of steps.slice(0, pre)) if (/le-iso\/|docker |playwright install/.test(runs(s))) e.push('PROBE_WORK_BEFORE_PRE');
+    return e;
+  };
+  const steps = (): Step[] => structuredClone(JOB.steps as Step[]);
+  const find = (st: Step[], needle: string) => st.findIndex((s) => typeof s.run === 'string' && s.run.includes(needle));
+  const move = (st: Step[], from: number, to: number) => { const [x] = st.splice(from, 1); st.splice(to, 0, x); return st; };
+  it('the committed job has the preflight, then the browser install, then the enforced pin, then the probe', () => {
+    expect(orderErrors(steps())).toEqual([]);
+  });
+  it('removing, moving, duplicating, softening or conditioning a gate is rejected', () => {
+    const muts: [string, (st: Step[]) => Step[]][] = [
+      ['remove preflight', (st) => { st.splice(find(st, 'preflight.mjs'), 1); return st; }],
+      ['preflight after install', (st) => move(st, find(st, 'preflight.mjs'), find(st, 'playwright install'))],
+      ['preflight after probe', (st) => move(st, find(st, 'preflight.mjs'), st.length - 1)],
+      ['preflight before policy', (st) => move(st, find(st, 'preflight.mjs'), find(st, 'check-isolated-workflow'))],
+      ['preflight duplicated', (st) => { st.push({ ...st[find(st, 'preflight.mjs')] }); return st; }],
+      ['preflight softened', (st) => { st[find(st, 'preflight.mjs')].run = `${PRE} || true`; return st; }],
+      ['preflight continue-on-error', (st) => { st[find(st, 'preflight.mjs')]['continue-on-error'] = true; return st; }],
+      ['preflight conditional', (st) => { st[find(st, 'preflight.mjs')].if = 'false'; return st; }],
+      ['remove browser pin line', (st) => { const i = find(st, 'browser-pin.mjs'); st[i].run = st[i].run!.split('\n').filter((l) => !l.includes('browser-pin.mjs')).join('\n'); return st; }],
+      ['browser pin after export', (st) => { const i = find(st, 'browser-pin.mjs'); const l = st[i].run!.split('\n'); const b = l.findIndex((x) => x.includes('browser-pin.mjs')); const [x] = l.splice(b, 1); l.push(x); st[i].run = l.join('\n'); return st; }],
+      ['browser pin softened', (st) => { const i = find(st, 'browser-pin.mjs'); st[i].run = st[i].run!.replace(BPIN, `${BPIN} || true`); return st; }],
+      ['pin step after probe', (st) => move(st, find(st, 'browser-pin.mjs'), st.length - 1)],
+      ['pin step continue-on-error', (st) => { st[find(st, 'browser-pin.mjs')]['continue-on-error'] = true; return st; }],
+      ['probe before install', (st) => move(st, find(st, 'le-iso/run-probe.mjs'), find(st, 'playwright install'))],
+    ];
+    for (const [name, m] of muts) expect(orderErrors(m(steps())).length, name).toBeGreaterThan(0);
   });
 });
