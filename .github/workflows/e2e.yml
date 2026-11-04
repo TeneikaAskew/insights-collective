@@ -1525,7 +1525,7 @@ jobs:
           if [ -e "$O/screenshots" ] || [ -L "$O/screenshots" ]; then
             S="$O/screenshots"
             [ -d "$S" ] && [ ! -L "$S" ] && [ -f "$O/screenshots.txt" ] && [ ! -L "$O/screenshots.txt" ] || { echo "screenshots refused: not a real dir with a manifest"; exit 1; }
-            NAMES="PC-catalog-desktop-1440x900 PC-catalog-tablet-834x1112 PC-catalog-mobile-390x844 PC-rail-desktop-1180x757"
+            NAMES="PC-catalog-desktop-1440x900 PC-catalog-tablet-768x1024 PC-catalog-mobile-390x844 PC-rail-desktop-1180x757"
             grep -vE '^(SHOT [A-Za-z0-9x-]+ [0-9a-f]{64}|WITHHELD [A-Za-z0-9x-]+ [A-Z_]+)$' "$O/screenshots.txt" | grep -q . && { echo "screenshots refused: malformed manifest line"; exit 1; }
             for n in $(sed -n 's/^\(SHOT\|WITHHELD\) \([A-Za-z0-9x-]*\) .*/\2/p' "$O/screenshots.txt"); do
               case " $NAMES " in *" $n "*) ;; *) echo "screenshots refused: name not in the fixed list"; exit 1 ;; esac

@@ -15,7 +15,7 @@ const at = (re: RegExp) => { const i = S.findIndex((s) => re.test(s.name ?? ''))
 const run = (re: RegExp) => S[at(re)].run ?? '';
 const LANE_EVIDENCE = ['STEPS.txt', 'pre-stack-inventory.txt', 'W0.txt', 'W1.txt', 'W2.txt', 'W3.txt', 'MANIFEST.json', 'playwright.exit',
   'playwright-summary.txt', 'anon-probe.exit', 'anon-probe-summary.txt', 'screenshots.txt', 'screenshots.exit'];
-const SHOT_NAMES = ['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-834x1112', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757'];
+const SHOT_NAMES = ['PC-catalog-desktop-1440x900', 'PC-catalog-tablet-768x1024', 'PC-catalog-mobile-390x844', 'PC-rail-desktop-1180x757'];
 
 describe('public-catalog job (static)', () => {
   it('is dispatch-only, read-only token, and offered as a specs choice', () => {
@@ -67,7 +67,7 @@ describe('public-catalog job (static)', () => {
     expect(copy).toContain('= 89504e470d0a1a0a ]');
     expect(copy).toContain('grep -qx "SHOT ${p%.png} $(sha256sum < "$S/$p" | cut -d\' \' -f1)" "$O/screenshots.txt"');
     expect(copy).toContain('echo "screenshots refused: duplicate name"; exit 1');
-    expect(copy).not.toMatch(/tablet-768|768x/);
+    expect(copy).not.toMatch(/834x1112/); // the tablet shot is the required 768x1024 viewport, not the old 834x1112
   });
   it('removes every private output, including the lane OUT, TMPDIR, pgpass dir and served copies, under always()', () => {
     const rm = run(/Remove private outputs/);
