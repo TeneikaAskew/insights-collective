@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import CanvasContentService from '@/services/canvasContentService';
-import { assignmentPointsPossible, assertGradeSaved, toStoredGrade } from '@/lib/assignmentGrading';
+import { assignmentPointsPossible, assertGradeSaved, parseGradeInput } from '@/lib/assignmentGrading';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { withCoursePermission } from '@/components/course/withCoursePermission';
 import { SubmissionComments } from '@/components/course/grading/SubmissionComments';
@@ -163,8 +163,8 @@ function CanvasGradingInterface() {
   const handleGradeSubmit = useCallback(
     async (advance = true) => {
       if (!selectedSubmission || !contentItem?.assignment) return;
-      const gradeNum = toStoredGrade(parseFloat(grade));
-      if (isNaN(gradeNum) || gradeNum < 0 || gradeNum > pointsPossible) {
+      const parsed = parseGradeInput(grade, pointsPossible);
+      if (!parsed.ok) {
         toast({
           title: 'Invalid grade',
           description: `Enter a value between 0 and ${pointsPossible}.`,
@@ -172,6 +172,7 @@ function CanvasGradingInterface() {
         });
         return;
       }
+      const gradeNum = parsed.value;
       try {
         setSaving(true);
         // assignment_submissions has no grader_id column; grader attribution
