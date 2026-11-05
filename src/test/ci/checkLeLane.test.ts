@@ -32,6 +32,7 @@ import {
   EXIT_OBSERVATIONS, READ_OUTCOMES, exitObserver, postrunAppArmorObserved, readErrorOutcome, readLabelAttempts, readTextOutcome,
   BODY_END_PAGES, EXIT_CHECKPOINTS, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState, pageTeardownRecord, sampleExitShape,
   BROWSER_LOG_CODES as SL_LOG_CODES, BROWSER_LOG_LIMITS, browserLogClassifier, browserLogLine, browserLogRecorder,
+  BROWSER_LOG_COMPONENTS as SL_COMPONENTS, browserLogComponentLine, browserLogComponentOf,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
@@ -2684,10 +2685,11 @@ describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no
 
 describe('E1 browser-log r1.3: reviewed-source regression pin for sandbox-launch.mjs', () => {
   // REVIEWED-SOURCE REGRESSION PIN. sha256 of the whole e2e/lesson-editor/sandbox-launch.mjs. r1.3 pinned af66b7eb (reviewed at
-  // 8a473229); r1.4 pins the grammar-corrected module, valid only once its exact delta is reviewed. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
+  // 8a473229); r1.4 pinned 2026f141 (the grammar-corrected module); r1.5 pins the component-code module, valid only once its exact
+  // delta is reviewed. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
   // digest only after that review. It is not a semantic purity proof and not a runtime sandbox, and it does not replace the
   // repository's filesystem-write gate in security.yml, which is unchanged.
-  const REVIEWED_SANDBOX_LAUNCH_SHA256 = '2026f141db5b78c38c4e59bca48b60f412cc2355f5e9665bbfab0a3cd0f31b31'; // r1.4: corrected grammar module, pending its exact delta review
+  const REVIEWED_SANDBOX_LAUNCH_SHA256 = '03d09f3113beb5f6f70dcacf860569b1ab27e4d34f0c843abc09bf7ecd7c7c2f'; // r1.5: component-code module, pending its exact delta review
   const FILE = path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs');
   const isReviewed = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex') === REVIEWED_SANDBOX_LAUNCH_SHA256;
 
@@ -2769,8 +2771,116 @@ describe('E1 browser-log r1.4: grammar derived from the pinned Chromium 147 prod
     const src = readFileSync(path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs'), 'utf8');
     expect(src).toContain("const LOG_FATAL_PREFIX = String.raw`^\\[(?:(\\d{1,10}):\\d{1,10}:)?\\d{4}/\\d{6}\\.\\d{6}:FATAL:`;");
     expect(src).toContain("gpu_data_manager_impl_private\\\\.cc:417\\\\] GPU process isn't usable\\\\. Goodbye\\\\.$`);");
-    expect(src).toContain('const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\\\]]{1,512}:\\\\d{1,6}\\\\] `);');
+    // r1.5: the path is captured as group 2 (read only by browserLogComponentOf); the matched language is unchanged.
+    expect(src).toContain('const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}([^\\\\]]{1,512}):\\\\d{1,6}\\\\] `);');
     expect(src).not.toMatch(/\\\\\(417\\\\\)|\\\\\(\\\\d\{1,6\}\\\\\)/);
     expect(BROWSER_LOG_LIMITS).toEqual({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
+  });
+});
+
+describe('browser-log component r1 (r1.5): one closed component code for OTHER_FATAL_REPORTED, never any stderr byte', () => {
+  const PID = 4242;
+  const STAMP = '1104/180140.123456';
+  const rec = (file: string, msg = 'x') => `[${STAMP}:FATAL:${file}:12] ${msg}`;
+  const GPU = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`;
+  const run = (lines: string[], pid = PID) => { const c = browserLogClassifier(pid); c.push(Buffer.from(lines.map((l) => `${l}\n`).join(''))); return { log: c.sample(), comp: c.component() }; };
+  const TABLE: [string, string][] = [
+    ['content/browser/renderer_host/render_process_host_impl.cc', 'RENDERER_HOST'], ['content/browser/zygote_host/zygote_host_impl_linux.cc', 'ZYGOTE'],
+    ['content/browser/gpu/gpu_process_host.cc', 'GPU_BROWSER'], ['sandbox/policy/linux/sandbox_linux.cc', 'SANDBOX_LINUX'],
+    ['services/network/network_service.cc', 'NETWORK'], ['content/renderer/render_thread_impl.cc', 'RENDERER'],
+    ['third_party/blink/renderer/core/frame/local_frame.cc', 'RENDERER'], ['content/browser/browser_main_loop.cc', 'CONTENT_BROWSER'],
+    ['content/zygote/zygote_main_linux.cc', 'ZYGOTE'], ['sandbox/linux/services/credentials.cc', 'SANDBOX_LINUX'],
+    ['components/viz/service/main/viz_main_impl.cc', 'COMPONENTS'], ['headless/lib/browser/headless_browser_impl.cc', 'HEADLESS'],
+    ['content/gpu/gpu_main.cc', 'CONTENT_OTHER'], ['ui/ozone/platform/headless/ozone_platform_headless.cc', 'UI_GRAPHICS'],
+    ['ui/gfx/x/connection.cc', 'UI_GRAPHICS'], ['ui/gl/init/gl_factory.cc', 'UI_GRAPHICS'], ['mojo/core/node_controller.cc', 'MOJO'],
+    ['base/process/launch_posix.cc', 'BASE'], ['gpu/ipc/service/gpu_init.cc', 'GPU'], ['ipc/ipc_channel_mojo.cc', 'IPC'],
+    ['net/socket/tcp_socket_posix.cc', 'NETWORK'], ['chrome/browser/x.cc', 'OTHER_PATH'], ['v8/src/api/api.h', 'OTHER_PATH'], ['base/mac/x.mm', 'BASE'],
+  ];
+  it('the code set is closed and frozen; every table row maps exactly, longest prefix first, leading ../ runs stripped', () => {
+    expect(Object.isFrozen(SL_COMPONENTS)).toBe(true);
+    expect(new Set(SL_COMPONENTS).size).toBe(SL_COMPONENTS.length);
+    for (const c of SL_COMPONENTS) expect(c).toMatch(/^[A-Z_]+$/);
+    for (const [f, code] of TABLE) {
+      expect(browserLogComponentOf(f), f).toBe(code);
+      expect(browserLogComponentOf(`../../${f}`), f).toBe(code);
+      expect(run([rec(f)]), f).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: code });
+    }
+    expect(new Set(TABLE.map((t) => t[1]))).toEqual(new Set(SL_COMPONENTS.filter((c) => !['UNPARSED', 'NONE'].includes(c))));
+  });
+  it('UNPARSED: absolute, dot segments, upper case, spaces, NUL, more than 16 segments, wrong extension, empty, non-string', () => {
+    const deep = `${Array.from({ length: 16 }, (_, i) => `d${i}`).join('/')}/x.cc`;
+    expect(browserLogComponentOf(`${Array.from({ length: 15 }, (_, i) => `d${i}`).join('/')}/x.cc`)).toBe('OTHER_PATH');
+    for (const bad of ['/abs/base/x.cc', 'base/../x.cc', 'base/./x.cc', './base/x.cc', '../', 'Base/x.cc', 'base/X.cc', 'base/a b.cc', 'base/x\u0000.cc',
+      deep, 'base/x.c', 'base/x.cpp', 'base/x', '', 'base//x.cc', 'base/x.cc ', '..\\base\\x.cc', 'base/x.cc/'])
+      expect(browserLogComponentOf(bad), JSON.stringify(bad)).toBe('UNPARSED');
+    for (const v of [undefined, null, 1, {}, ['base/x.cc']]) expect(browserLogComponentOf(v as never)).toBe('UNPARSED');
+    expect(run([rec('/abs/base/x.cc')])).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: 'UNPARSED' });
+    expect(run([rec('Base/X.cc')])).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: 'UNPARSED' });
+  });
+  it('every non-OTHER log code has component NONE, including the pinned GPU record, MULTIPLE, TRUNCATED, UNAVAILABLE and NO_MATCH', () => {
+    expect(run([GPU])).toEqual({ log: 'GPU_UNUSABLE_REPORTED', comp: 'NONE' });
+    expect(run([rec('base/a.cc'), rec('content/renderer/b.cc')])).toEqual({ log: 'MULTIPLE', comp: 'NONE' });
+    expect(run([GPU, rec('base/a.cc')])).toEqual({ log: 'MULTIPLE', comp: 'NONE' });
+    expect(run(['plain line', `[${STAMP}:ERROR:base/a.cc:1] not fatal`])).toEqual({ log: 'NO_MATCH', comp: 'NONE' });
+    expect(run([`[999:1:${STAMP}:FATAL:base/a.cc:1] other pid`])).toEqual({ log: 'NO_MATCH', comp: 'NONE' });
+    const t = browserLogClassifier(PID, { MAX_BYTES: 64, MAX_LINE: 4096 });
+    t.push(Buffer.from(`${rec('base/a.cc')}\n${'y'.repeat(100)}\n`));
+    expect([t.sample(), t.component()]).toEqual(['TRUNCATED', 'NONE']);
+    const u = browserLogClassifier(PID);
+    u.push(Buffer.from(`${rec('base/a.cc')}\n`));
+    u.push('not a buffer' as unknown as Buffer);
+    expect([u.sample(), u.component()]).toEqual(['UNAVAILABLE', 'NONE']);
+  });
+  it('component() takes the SAME sample: called first it freezes, later records change neither code', () => {
+    const c = browserLogClassifier(PID);
+    c.push(Buffer.from(`${rec('content/renderer/a.cc')}\n`));
+    expect(c.component()).toBe('RENDERER');
+    c.push(Buffer.from(`${rec('base/b.cc')}\n`));
+    expect([c.sample(), c.component()]).toEqual(['OTHER_FATAL_REPORTED', 'RENDERER']);
+    const p = browserLogClassifier(PID);
+    p.push(Buffer.from(rec('base/partial.cc'))); // no newline: discarded unread at the sample
+    expect([p.component(), p.sample()]).toEqual(['NONE', 'NO_MATCH']);
+  });
+  it('no path, message, pid, stamp or secret ever leaves: only a closed code from every surface', async () => {
+    const SECRET = 'token=eyJhbGciOi.secret https://u:p@h.example/x?k=v /tmp/le-private/keys/anon';
+    const stderr = new PassThrough();
+    stderr.on('data', () => {}); // already flowing, as under Playwright's readline consumer
+    const read = browserLogRecorder({ pid: PID, stderr });
+    stderr.write(`${rec('content/browser/zygote_host/zygote_host_impl_linux.cc', `No usable sandbox! ${SECRET}`)}\n`);
+    await new Promise((r) => setImmediate(r));
+    expect(read()).toBe('OTHER_FATAL_REPORTED');
+    expect((read as unknown as { component: () => string }).component()).toBe('ZYGOTE');
+    const state = { browserLog: read };
+    expect(browserLogLine(state)).toBe('OTHER_FATAL_REPORTED');
+    expect(browserLogComponentLine(state)).toBe('ZYGOTE');
+    for (const v of [read(), (read as unknown as { component: () => string }).component(), browserLogComponentLine(state)])
+      expect([...SL_LOG_CODES, ...SL_COMPONENTS]).toContain(v);
+    for (const f of [rec(`base/${'a'.repeat(40)}.cc`, SECRET), rec('https://h.example/x.cc', SECRET), rec('base/eyJhbGciOi.secret.cc', SECRET)]) {
+      const r = run([f]);
+      expect([...SL_LOG_CODES, ...SL_COMPONENTS]).toContain(r.comp);
+      expect(JSON.stringify(r)).not.toMatch(/secret|eyJ|https|example|tmp|4242|1104/);
+    }
+  });
+  it('recorder and line accessor: E1 read() codes unchanged; a missing, throwing or out-of-set accessor is UNPARSED; non-OTHER is NONE', () => {
+    expect(browserLogRecorder(null)()).toBe('UNAVAILABLE');
+    expect((browserLogRecorder(null) as unknown as { component: () => string }).component()).toBe('NONE');
+    const of = (log: unknown, comp?: unknown) => browserLogComponentLine({ browserLog: comp === undefined ? log : Object.assign(log as object, { component: comp }) });
+    expect(of(() => 'OTHER_FATAL_REPORTED')).toBe('UNPARSED');
+    expect(of(() => 'OTHER_FATAL_REPORTED', () => { throw new Error('secret'); })).toBe('UNPARSED');
+    expect(of(() => 'OTHER_FATAL_REPORTED', () => 'base/x.cc')).toBe('UNPARSED');
+    expect(of(() => 'OTHER_FATAL_REPORTED', () => 'NONE')).toBe('UNPARSED');
+    expect(of(() => 'OTHER_FATAL_REPORTED', 'BASE')).toBe('UNPARSED');
+    expect(of(() => 'OTHER_FATAL_REPORTED', () => 'BASE')).toBe('BASE');
+    for (const code of SL_LOG_CODES.filter((c) => c !== 'OTHER_FATAL_REPORTED')) expect(of(() => code, () => 'BASE'), code).toBe('NONE');
+    expect(of(() => { throw new Error('x'); }, () => 'BASE')).toBe('NONE');
+    expect(browserLogComponentLine({})).toBe('NONE');
+    expect(browserLogComponentLine(null)).toBe('NONE');
+  });
+  it('E1 is unchanged: no E1 producer, annotation or lane line reads the component', () => {
+    for (const f of ['scripts/e2e/le-lane/lane-entry.mjs', 'scripts/e2e/le-lane/gates.mjs', 'scripts/e2e/le-e1-summary.mjs', 'scripts/e2e/le-lane/run-lane.mjs'])
+      expect(readFileSync(path.join(ROOT, f), 'utf8'), f).not.toMatch(/LOG_COMPONENT|browserLogComponent|\.component\(/);
+    const c = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
+    expect(c.match(/\bLOG_COMPONENT\b/g)?.length).toBe(5); // grammar comment, ARM_RE, unknownArm, coherence comment, LE-SYN DETAIL; never an LE-E1 line
+    expect(c).not.toMatch(/LE-E1[^\n]*LOG_COMPONENT|LANE E1[^\n]*LOG_COMPONENT/);
   });
 });

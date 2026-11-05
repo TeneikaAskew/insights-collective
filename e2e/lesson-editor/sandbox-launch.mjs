@@ -334,13 +334,45 @@ export function browserExitLine(state, pageTeardown) {
  * The omitted form and the pid:tid form are recognized; other prefix combinations are not (they count as NO_MATCH).
  */
 export const BROWSER_LOG_CODES = Object.freeze(['GPU_UNUSABLE_REPORTED', 'OTHER_FATAL_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']);
+/**
+ * Browser-log component r1 (SYNTHETIC lane only; E1's lines and annotations are unchanged). ONE closed code naming the source-path
+ * prefix of the single record behind OTHER_FATAL_REPORTED. Only the code leaves the classifier: never the path, file, line,
+ * message, pid, stamp or any other stderr byte. DIAGNOSTIC ONLY: no gate, refusal, acceptance or cleanup decision reads it.
+ * Every other log code (GPU_UNUSABLE_REPORTED, NO_MATCH, MULTIPLE, TRUNCATED, UNAVAILABLE) has component NONE; a path outside the
+ * closed grammar is UNPARSED; a valid path outside the table is OTHER_PATH.
+ */
+export const BROWSER_LOG_COMPONENTS = Object.freeze(['GPU_BROWSER', 'GPU', 'ZYGOTE', 'SANDBOX_LINUX', 'RENDERER_HOST', 'RENDERER',
+  'CONTENT_BROWSER', 'CONTENT_OTHER', 'MOJO', 'IPC', 'BASE', 'COMPONENTS', 'HEADLESS', 'UI_GRAPHICS', 'NETWORK', 'OTHER_PATH',
+  'UNPARSED', 'NONE']);
+// Longest prefix first, so content/browser/gpu/ wins over content/browser/ and content/.
+const COMPONENT_PREFIXES = Object.freeze([
+  ['content/browser/renderer_host/', 'RENDERER_HOST'], ['content/browser/zygote_host/', 'ZYGOTE'], ['content/browser/gpu/', 'GPU_BROWSER'],
+  ['sandbox/policy/linux/', 'SANDBOX_LINUX'], ['services/network/', 'NETWORK'], ['content/renderer/', 'RENDERER'],
+  ['third_party/blink/', 'RENDERER'], ['content/browser/', 'CONTENT_BROWSER'], ['content/zygote/', 'ZYGOTE'],
+  ['sandbox/linux/', 'SANDBOX_LINUX'], ['components/', 'COMPONENTS'], ['headless/', 'HEADLESS'], ['content/', 'CONTENT_OTHER'],
+  ['ui/ozone/', 'UI_GRAPHICS'], ['ui/gfx/', 'UI_GRAPHICS'], ['ui/gl/', 'UI_GRAPHICS'], ['mojo/', 'MOJO'], ['base/', 'BASE'],
+  ['gpu/', 'GPU'], ['ipc/', 'IPC'], ['net/', 'NETWORK'],
+].sort((a, b) => b[0].length - a[0].length));
+// 1 to 16 segments, each starting [a-z0-9_] (so `.` and `..` segments, absolute paths, upper case, spaces and NUL never match),
+// ending .cc, .h or .mm.
+const COMPONENT_PATH = /^[a-z0-9_][a-z0-9_.-]*(?:\/[a-z0-9_][a-z0-9_.-]*){0,15}$/;
+const COMPONENT_EXT = /\.(?:cc|h|mm)$/;
+/** Pure: the closed component code of a FATAL record's path text (leading `../` runs stripped). Exported for the fake controls. */
+export function browserLogComponentOf(raw) {
+  if (typeof raw !== 'string') return 'UNPARSED';
+  const p = raw.replace(/^(?:\.\.\/)+/, '');
+  if (!COMPONENT_PATH.test(p) || !COMPONENT_EXT.test(p)) return 'UNPARSED';
+  for (const [prefix, code] of COMPONENT_PREFIXES) if (p.startsWith(prefix)) return code;
+  return 'OTHER_PATH';
+}
 export const BROWSER_LOG_LIMITS = Object.freeze({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
 const LOG_FATAL_PREFIX = String.raw`^\[(?:(\d{1,10}):\d{1,10}:)?\d{4}/\d{6}\.\d{6}:FATAL:`;
 const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/gpu_data_manager_impl_private\\.cc:417\\] GPU process isn't usable\\. Goodbye\\.$`);
-const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}[^\\]]{1,512}:\\d{1,6}\\] `);
+const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}([^\\]]{1,512}):\\d{1,6}\\] `); // group 1 stays the pid; group 2 is the path, read only by browserLogComponentOf
 /** The pure, bounded classifier: push(Buffer) per chunk, sample() once. Exported for the fake controls. */
 export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   let bytes = 0, pend = null, lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;
+  let component = 'NONE', frozenComponent = 'NONE'; // only a closed code is kept, never the path text
   const judge = (buf) => {
     let s = buf.toString('latin1');
     if (s.endsWith('\r')) s = s.slice(0, -1);
@@ -348,7 +380,7 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
     const f = g ?? FATAL_RECORD.exec(s);
     if (!f) return;
     if (f[1] !== undefined && Number(f[1]) !== browserPid) return;
-    if (g) gpu += 1; else other += 1;
+    if (g) gpu += 1; else { other += 1; component = browserLogComponentOf(f[2]); }
   };
   const piece = (b) => {
     if (skipping) return;
@@ -359,7 +391,7 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   const endLine = () => { if (!skipping && lineLen) judge(pend.subarray(0, lineLen)); lineLen = 0; skipping = false; };
   const release = () => { pend = null; lineLen = 0; skipping = false; };
   const result = (n) => (broken ? 'UNAVAILABLE' : n > 1 ? 'MULTIPLE' : truncated ? 'TRUNCATED' : gpu === 1 ? 'GPU_UNUSABLE_REPORTED' : other === 1 ? 'OTHER_FATAL_REPORTED' : 'NO_MATCH');
-  return {
+  const api = {
     push(chunk) {
       if (frozen !== null || broken) return;
       if (!Buffer.isBuffer(chunk)) { broken = true; release(); return; }
@@ -377,9 +409,16 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
       // The sample is a checkpoint, not EOF: only newline-complete records count; the unfinished suffix is discarded unread.
       release();
       frozen = result(gpu + other);
+      frozenComponent = frozen === 'OTHER_FATAL_REPORTED' ? component : 'NONE';
       return frozen;
     },
+    /** The component fixed by the SAME sample (taking it first if needed): a code only with OTHER_FATAL_REPORTED, else NONE. */
+    component() {
+      if (frozen === null) api.sample();
+      return frozenComponent;
+    },
   };
+  return api;
 }
 /** A passive 'data' listener on the owned ChildProcess's stderr (already flowing: Playwright's readline consumes it). */
 export function browserLogRecorder(child) {
@@ -393,7 +432,7 @@ export function browserLogRecorder(child) {
       attached = true;
     }
   } catch { attached = false; }
-  return () => {
+  const read = () => {
     try {
       if (!attached) return 'UNAVAILABLE';
       if (stream.errored) { c.fail(); }
@@ -401,6 +440,24 @@ export function browserLogRecorder(child) {
       return BROWSER_LOG_CODES.includes(v) ? v : 'UNAVAILABLE';
     } catch { return 'UNAVAILABLE'; }
   };
+  // Separate accessor (the code `read` returns is unchanged for E1): the component of the same frozen sample.
+  read.component = () => {
+    if (read() !== 'OTHER_FATAL_REPORTED') return 'NONE';
+    try { const k = c.component(); return BROWSER_LOG_COMPONENTS.includes(k) && k !== 'NONE' ? k : 'UNPARSED'; } catch { return 'UNPARSED'; }
+  };
+  return read;
+}
+/** The synthetic arm's LOG_COMPONENT: a component code iff browserLogLine is OTHER_FATAL_REPORTED (UNPARSED when the accessor is
+ *  missing, throws or answers outside the set), otherwise NONE. */
+export function browserLogComponentLine(state) {
+  let log;
+  try { log = browserLogLine(state); } catch { return 'NONE'; }
+  if (log !== 'OTHER_FATAL_REPORTED') return 'NONE';
+  try {
+    const f = state.browserLog.component;
+    const k = typeof f === 'function' ? f() : 'UNPARSED';
+    return BROWSER_LOG_COMPONENTS.includes(k) && k !== 'NONE' ? k : 'UNPARSED';
+  } catch { return 'UNPARSED'; }
 }
 /** The test-scoped gate's `lane-browser-log` annotation: one BROWSER_LOG_CODES code; a missing or throwing sampler is UNAVAILABLE. */
 export function browserLogLine(state) {

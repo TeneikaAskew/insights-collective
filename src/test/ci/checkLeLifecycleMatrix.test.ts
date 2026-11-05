@@ -283,7 +283,7 @@ function memFs(o: { failMkdir?: (p: string) => boolean; failLstatBig?: (p: strin
 }
 
 const CLEAN = 'CLEANUP JOIN SETTLED CONTEXT CLOSED BROWSER CLOSED DUMMY CLOSED PROXY CLOSED';
-const armBody = (a: string, status = 'DONE', m = 'DONE') => `ARM ${a} STATUS ${status} M ${m} BROWSER_EXIT_OBSERVED SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH`;
+const armBody = (a: string, status = 'DONE', m = 'DONE') => `ARM ${a} STATUS ${status} M ${m} BROWSER_EXIT_OBSERVED SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH LOG_COMPONENT NONE`;
 const synReport = (anns: [string, string][], o: { title?: string; retry?: number; tests?: number } = {}) => {
   const test = { projectName: 'lifecycle-matrix-chromium', annotations: [], results: [{ retry: o.retry ?? 0, status: 'passed', annotations: anns.map(([type, description]) => ({ type, description })) }] };
   return JSON.stringify({ suites: [{ title: 'lifecycle-matrix.spec.ts', file: 'lifecycle-matrix.spec.ts',
@@ -754,7 +754,7 @@ describe('effective context options: the 1.59.1 defaults merge, reproduced, with
 // ---------------------------------------------------------------------------------------------------------------------
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function deferred() { let release!: (v?: unknown) => void; const promise = new Promise((r) => { release = r; }); return { promise, release }; }
-type FW = { fail?: string; hold?: Record<string, { promise: Promise<unknown> }>; exit?: string; violations?: string[]; noState?: boolean; browserDelayMs?: number;
+type FW = { fail?: string; hold?: Record<string, { promise: Promise<unknown> }>; exit?: string; violations?: string[]; noState?: boolean; browserDelayMs?: number; browserLog?: unknown;
   ms?: Partial<Record<'timeoutMs' | 'joinMs' | 'closeMs' | 'outerMs', number>> };
 /** Fake Browser/Context/Page recorder. `fail` throws FAKE_FAIL at the named step; `hold` keeps a step pending until released;
  *  `exit` is the shape the owned browser shows once closed ('CODE_0' default). `calls` = what guard() let through (onCall). */
@@ -791,7 +791,7 @@ function fakeWorld(o: FW = {}) {
     },
     close: async () => { log.push('browser.close'); exited = true; },
   };
-  const state = { exitShape: () => (exited ? o.exit ?? 'CODE_0' : 'NONE'), browserLog: () => 'NO_MATCH' };
+  const state = { exitShape: () => (exited ? o.exit ?? 'CODE_0' : 'NONE'), browserLog: 'browserLog' in o ? o.browserLog : () => 'NO_MATCH' };
   const withBrowser = async (onState: (s: unknown) => void, armBody: (b: unknown) => Promise<unknown>) => {
     log.push('launch');
     if (o.browserDelayMs) await sleep(o.browserDelayMs);
@@ -963,7 +963,7 @@ describe('per-container dummy and proxy: tri-state closes from their own complet
     expect(r.primary).toBe('FAKE_FAIL');
     expect(r.cleanupLine).toBe('CLEANUP JOIN SETTLED CONTEXT CLOSED BROWSER CLOSED DUMMY TIMEOUT PROXY CLOSED');
     const s = await run({ dummyStartFails: true });
-    expect(s).toEqual({ armLine: 'ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN', cleanupLine: 'CLEANUP JOIN SETTLED CONTEXT NONE BROWSER NONE DUMMY NONE PROXY NONE', primary: 'SYN_E_DUMMY_LISTEN', done: false });
+    expect(s).toEqual({ armLine: 'ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN', cleanupLine: 'CLEANUP JOIN SETTLED CONTEXT NONE BROWSER NONE DUMMY NONE PROXY NONE', primary: 'SYN_E_DUMMY_LISTEN', done: false });
     expect((await runContainerArm('E', {} as never)).primary).toBe('SYN_E_ARM_SELECT');
   });
   it('bounds nest: body < outer; outer + dummy and proxy closes <= test backstop < in-lane child bound < container wait', () => {
@@ -1059,9 +1059,9 @@ describe('finding 5: verdicts are derived on the host, never trusted; contradict
     expect(parseSynOut(RAN('A', { report: 'PARSED', pw: '1', armText: unknownArm('A'), cleanup: CLEAN }))).toEqual({ ok: false });
     expect(parseSynOut(RAN('A', { report: 'PARSED', pw: '1', armText: armBody('A', 'FAILED', 'TYPED'), cleanup: UNKNOWN_CLEANUP }))).toEqual({ ok: false });
     expect(parseSynOut(RAN('A', { report: 'MISSING', pw: '1', armText: unknownArm('A'), cleanup: CLEAN }))).toEqual({ ok: false });
-    expect(parseSynArm('ARM A STATUS UNKNOWN M DONE BROWSER_EXIT_OBSERVED UNKNOWN BROWSER_LOG UNKNOWN')).toBeNull();
-    expect(parseSynArm('ARM A STATUS NOT_RUN M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN')).toBeNull();
-    expect(parseSynArm('ARM A STATUS DONE M DONE REAP PROVEN BROWSER_EXIT SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH')).toBeNull();
+    expect(parseSynArm('ARM A STATUS UNKNOWN M DONE BROWSER_EXIT_OBSERVED UNKNOWN BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN')).toBeNull();
+    expect(parseSynArm('ARM A STATUS NOT_RUN M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN')).toBeNull();
+    expect(parseSynArm('ARM A STATUS DONE M DONE REAP PROVEN BROWSER_EXIT SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH LOG_COMPONENT NONE')).toBeNull();
     expect(parseSynCleanup('CLEANUP JOIN SETTLED CONTEXT CLOSED BROWSER CLOSED DUMMY CLOSED PROXY UNKNOWN')).toBeNull();
     expect(parseSynCleanup('CLEANUP JOIN DONE CONTEXT CLOSED BROWSER CLOSED DUMMY CLOSED PROXY CLOSED')).toBeNull();
   });
@@ -1167,5 +1167,79 @@ describe('workflow: the synthetic job exists alone, with no authentic step; clea
     expect(body).not.toMatch(/rm -rf -- "\$P"|syn-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT"\s*(\||;|&&)?\s*$/m);
     expect(body.match(/rm -rf/g)).toHaveLength(1); // the control dir only, under the three-way condition
     expect(last.run).not.toMatch(/le-private|le-lane-ctl|test-results|playwright-report|syn-\$GITHUB_RUN_ID/);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only, closed coherence, diagnostic only', () => {
+  const fatal = (code: string) => Object.assign(() => 'OTHER_FATAL_REPORTED', { component: () => code });
+  const armOf = (log: string, comp: string, exit = 'SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN') =>
+    `ARM A STATUS DONE M DONE BROWSER_EXIT_OBSERVED ${exit} BROWSER_LOG ${log} LOG_COMPONENT ${comp}`;
+  it('the contract copy of the component codes equals the source set exactly', async () => {
+    const sl = await import('../../../e2e/lesson-editor/sandbox-launch.mjs');
+    const ct = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    expect([...ct.BROWSER_LOG_COMPONENTS]).toEqual([...sl.BROWSER_LOG_COMPONENTS]);
+    expect(Object.isFrozen(ct.BROWSER_LOG_COMPONENTS)).toBe(true);
+  });
+  it('parseSynArm: a component code iff OTHER_FATAL_REPORTED; NOT_RUN iff NOT_RUN; UNKNOWN iff UNKNOWN; NONE otherwise', async () => {
+    const { BROWSER_LOG_COMPONENTS: COMPS } = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    const codes = COMPS.filter((c: string) => c !== 'NONE');
+    for (const c of codes) expect(parseSynArm(armOf('OTHER_FATAL_REPORTED', c)), c).toMatchObject({ log: 'OTHER_FATAL_REPORTED', component: c });
+    expect(parseSynArm(armOf('OTHER_FATAL_REPORTED', 'NONE'))).toBeNull();
+    for (const log of ['GPU_UNUSABLE_REPORTED', 'NO_MATCH', 'UNAVAILABLE', 'TRUNCATED', 'MULTIPLE']) {
+      expect(parseSynArm(armOf(log, 'NONE')), log).toMatchObject({ log, component: 'NONE' });
+      for (const bad of [...codes, 'NOT_RUN', 'UNKNOWN']) expect(parseSynArm(armOf(log, bad)), `${log} ${bad}`).toBeNull();
+    }
+    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN')).toMatchObject({ component: 'NOT_RUN' });
+    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NONE')).toBeNull();
+    expect(parseSynArm(unknownArm('A'))).toMatchObject({ status: 'UNKNOWN', log: 'UNKNOWN', component: 'UNKNOWN' });
+    expect(parseSynArm(unknownArm('A').replace('LOG_COMPONENT UNKNOWN', 'LOG_COMPONENT NONE'))).toBeNull();
+    for (const bad of ['BASE x', 'base', 'BAS', 'content/browser/gpu/x.cc', '', 'OTHER', 'UNPARSED_X'])
+      expect(parseSynArm(armOf('OTHER_FATAL_REPORTED', bad)), bad).toBeNull();
+    expect(parseSynArm(armOf('NO_MATCH', 'NONE').replace(' LOG_COMPONENT NONE', ''))).toBeNull();
+    expect(parseSynArm(`${armOf('NO_MATCH', 'NONE')} LOG_COMPONENT NONE`)).toBeNull();
+  });
+  it('runArm and runContainerArm emit the component from the same state; a throwing accessor is UNPARSED; no sampler is UNAVAILABLE/NONE', async () => {
+    const cases: [unknown, string, string][] = [
+      [fatal('RENDERER'), 'OTHER_FATAL_REPORTED', 'RENDERER'],
+      [fatal('NONE'), 'OTHER_FATAL_REPORTED', 'UNPARSED'],
+      [fatal('secret-token'), 'OTHER_FATAL_REPORTED', 'UNPARSED'],
+      [Object.assign(() => 'OTHER_FATAL_REPORTED', { component: () => { throw new Error('secret /tmp/x'); } }), 'OTHER_FATAL_REPORTED', 'UNPARSED'],
+      [() => 'OTHER_FATAL_REPORTED', 'OTHER_FATAL_REPORTED', 'UNPARSED'],
+      [Object.assign(() => 'NO_MATCH', { component: () => 'BASE' }), 'NO_MATCH', 'NONE'],
+      [Object.assign(() => 'GPU_UNUSABLE_REPORTED', { component: () => 'GPU_BROWSER' }), 'GPU_UNUSABLE_REPORTED', 'NONE'],
+      [() => { throw new Error('boom'); }, 'UNAVAILABLE', 'NONE'],
+      [undefined, 'UNAVAILABLE', 'NONE'],
+    ];
+    for (const [browserLog, log, comp] of cases) {
+      const w = fakeWorld({ browserLog: browserLog === undefined ? null : browserLog });
+      const r = await runArm('A', w.d as never);
+      expect(r.line, comp).toMatch(new RegExp(` BROWSER_LOG ${log} LOG_COMPONENT ${comp}$`));
+      expect(parseSynArm(r.line), comp).toMatchObject({ log, component: comp, status: 'DONE' });
+      expect(r.line).not.toMatch(/secret|\/tmp|boom/);
+    }
+    const ns = await runArm('A', fakeWorld({ noState: true }).d as never);
+    expect(ns.line).toMatch(/ BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN$/);
+  });
+  it('no decision reads LOG_COMPONENT: status, results, matrix and summary RESULT lines are identical across every legal component', async () => {
+    const { BROWSER_LOG_COMPONENTS: COMPS } = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    const decide = (comp: string) => {
+      const arms = SYN_ARMS.map((arm) => synArmResult({ arm, verdict: V_ABSENT, laneText: RAN(arm, { armText: armOf('OTHER_FATAL_REPORTED', comp).replace('ARM A', `ARM ${arm}`) }), exit: 'ZERO' }));
+      const s = synSummaryLines({ rootVerdict: ROOT_OK, arms });
+      return { results: arms.map((a: Obj) => [a.result, a.container, a.record]), matrix: synMatrix({ rootVerdict: ROOT_OK, arms }), ok: s.ok,
+        lines: s.lines.filter((l: string) => !/ DETAIL /.test(l)), detail: s.lines.filter((l: string) => / DETAIL /.test(l)) };
+    };
+    const base = decide('BASE');
+    expect(base.detail).toHaveLength(4);
+    for (const d of base.detail) expect(d).toMatch(/ BROWSER_LOG OTHER_FATAL_REPORTED LOG_COMPONENT BASE$/);
+    for (const c of COMPS.filter((x: string) => x !== 'NONE')) {
+      const d = decide(c);
+      expect({ ...d, detail: undefined }, c).toEqual({ ...base, detail: undefined });
+    }
+    for (const f of ['scripts/e2e/le-lane/run-lane.mjs', 'scripts/e2e/le-lane/lane-entry.mjs', 'scripts/e2e/le-lane/synthetic.mjs', 'scripts/e2e/le-lane/gates.mjs'])
+      expect(read(f), f).not.toMatch(/LOG_COMPONENT|\.component\b/);
+    const lm = read('e2e/lesson-editor/lifecycle-matrix.mjs');
+    expect(lm.match(/\bcomponent\b/g)?.length).toBe(4); // declared, returned, and printed twice: never compared
+    expect(lm).not.toMatch(/component\s*[!=]==|===\s*component|\.component\s*[!=]==/);
   });
 });
