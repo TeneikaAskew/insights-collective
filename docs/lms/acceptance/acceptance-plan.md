@@ -1,6 +1,6 @@
 # Insights Collective: independent cross-role, cross-device, release acceptance plan
 
-Revision 4 (2026-11-04 18:15 UTC): section 9 records the seven dispositions adopted at 18:11 UTC with their gates and owners, and 9b lists the outward steps this lane does not take and why. Revision 3 (17:50 UTC) folded in the 17:36 to 17:47 update (#172 c1c5e856, run 10, #146 535d33e6, gradebook d6dcb5bb), the direct read-only identity comparisons with their scope and timestamps, and the verified spec triage count. Revision 2 (after the 15:31 UTC review): evidence-tier corrections for the site marker, the ledger, the PR file pagination and E1 run 41839316072; retained requirements restated; R0 reworded as a coordinator proposal; owner deltas added in section 2.4.
+Revision 5 (2026-11-05 12:00 UTC): new section 2.5 records the state after the eight November migrations were applied, the post-apply identity comparison, the merges and closes since revision 4, and what remains. Sections 2.1 to 10 are unchanged and stay true as of their own times. Revision 4 (2026-11-04 18:15 UTC): section 9 records the seven dispositions adopted at 18:11 UTC with their gates and owners, and 9b lists the outward steps this lane does not take and why. Revision 3 (17:50 UTC) folded in the 17:36 to 17:47 update (#172 c1c5e856, run 10, #146 535d33e6, gradebook d6dcb5bb), the direct read-only identity comparisons with their scope and timestamps, and the verified spec triage count. Revision 2 (after the 15:31 UTC review): evidence-tier corrections for the site marker, the ledger, the PR file pagination and E1 run 41839316072; retained requirements restated; R0 reworded as a coordinator proposal; owner deltas added in section 2.4.
 
 Planning-only. Nothing in this document was executed: no source or configuration edit, push, merge, deployment, migration, database write, browser or provider run, security or access change, schedule, publication, or message to another agent. Read-only inspection only (repository at `main` 82a97196, GitHub REST through the MCP read tools, one read of the Supabase migration ledger, one HTTPS GET of the public site index). Stop point: this plan waits for the owner's approval before any run is dispatched.
 
@@ -58,6 +58,24 @@ Consequence of the last two rows, within the scope and times stated in preparati
 ### 2.3 Evidence tiers used below
 
 `SRC` source present on a named head. `UNIT` jsdom/mocked unit test. `CI` exact-head GitHub check green. `SQL` isolated PG15 SQL/API tier on the loopback stack. `BROWSER` authentic rendered Playwright run on the isolated stack with uploaded, hash-manifested evidence. `MERGED` on `main`. `LIVE` observed on the published site against the production backend. `ACCEPTED` whole requirement at required roles and devices with PASS rows. A green wrapper, a skipped lane, a retry, or a synthetic sandbox probe never promotes a tier.
+
+### 2.5 State after the November apply (2026-11-05; supersedes the "not applied" facts above as current state)
+
+**Applied.** The eight November migrations were applied to the live project through `db-migrate.yml`, one file per run, on `main` `c5f8ab61`, between 00:07 and 00:20 UTC: runs 41938935595, 41939209620, 41939420060, 41939614516, 41939798904, 41939990505, 41940189723 and 41940370735, all success. The ledger now ends `20261101000000` to `20261101000600`, then `20261102000000`. The applying session verified each effect in the live catalog before the next dispatch and reported identical row counts before and after (its report; not re-counted here).
+
+**Post-apply identity comparison (this lane, read-only, about 04:25 UTC).** The prep-1 procedure was run after the apply: the live `public` identities were compared with a local PostgreSQL 16 copy built from `scripts/local-stack/schema` plus the same eight files from `main`, applied in order. 1,136 lines on each side (the three `quiz_analytics` grants excluded as in the snapshot). Functions (121), policies (345), RLS flags (120), table grants (376) and triggers (53) match exactly. Function grants differ in 2 lines only: live keeps `service_role` EXECUTE on `pin_quiz_submission_identity()` and `pin_assignment_submission_identity()` because of the live project's default privileges; the migrations revoke from PUBLIC, anon and authenticated only. Both are trigger functions, so this is an environment difference, not a migration difference. `start_quiz_attempt(uuid)` is granted to authenticated and service_role, with anon removed as `20261101000100` intends. The SQL tier for these files (#181, `c48b5713`) passes 212 of 212 on an isolated copy.
+
+**Merged since revision 4.** #141 (quiz lifecycle, 2026-11-04 22:26:54Z), #142, #149, #178, #177, #179, #181, #180 and #169 (which also carries #165's content). `main` is `9ac5dffc` with all eight check kinds green.
+
+**Closed unmerged.** #170, #161, #150 and #148 (11:38Z, at the owner's direction), and #165 (nothing left to merge; its head is an ancestor of `main`).
+
+**Still open (16 at 11:45Z).** Carriers #155, #157, #166 and #167 need re-composing on the runner base R0 before they can merge, because they carry an older #141 commit (merged into today's `main` they give a duplicate `retryRefusedStart` and an `e2e.yml` clash). #162 and #173 stay held (secrets and runner security; after #172). #172 stays with its owner. #182 is a draft stacked on its own base. #164 needs the owner's call on its reserved migration. #152 and #154 wait for R0. #153 and #140 are soft-close candidates. #183 (tracker reconciliation of WP-02 to WP-05), #184 and #185 are the owner's. #186 is the read-only token for `db-migrate.yml`.
+
+**Served UI.** Not re-read in this revision. The T-08 quiz-start fix is source on `main` since #141; learners get it only from a Lovable publish made after 2026-11-04 22:26:54Z. Until that is confirmed, T-08 stays open at the deployment tier.
+
+**Remaining before any future apply.** #186 (read-only token) and, as an owner setting, a protected GitHub environment with a required reviewer for the apply job.
+
+No WP is accepted by this revision. Nothing in it authorizes a run, apply, merge or publish.
 
 ## 3. Ownership and collision map
 
