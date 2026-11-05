@@ -574,7 +574,7 @@ test.describe('REAL-BACKEND + ACCESS-REVOKED', () => {
   for (const c of T62) {
     test.describe(`viewport interaction ${c.viewport.width}x${c.viewport.height}`, () => {
       test.use({ viewport: c.viewport });
-      test(`T62 ${c.viewport.width}: denied first start blocks honestly, Retry re-asks, Continue only navigates, nothing persisted`, async ({ learner: page, net }) => {
+      test(`T62 ${c.viewport.width}: denied first start blocks honestly, Retry re-asks, Continue only navigates, nothing persisted`, async ({ learner: page, net, expectedDenials }) => {
         const s = scenario(c.gg);
         await gotoReady(page, t62Url(c.gg, c.gg), `T62-${c.gg}`);
         await expect(radio(page, 'Four')).toBeVisible();
@@ -586,6 +586,9 @@ test.describe('REAL-BACKEND + ACCESS-REVOKED', () => {
         expect(readLedger(s.quiz, `T62-${c.gg}-revoked`).course.enrollments).toBe(0);
 
         const startAt = Date.now();
+        // The two refusals this case provokes (first start, then Retry), exactly, after the revoke: nothing else.
+        expectedDenials.declare({ method: 'POST', target: 'rpc/start_quiz_attempt', status: 403, code: '42501',
+          message: 'You do not have access to this quiz.', route: t62Url(c.gg, c.gg), count: 2, after: startAt });
         await choose(page, 'Four');
         const blocked = page.getByText("Couldn't start this quiz");
         await expect(blocked).toBeVisible({ timeout: 30000 });
