@@ -45,7 +45,7 @@ describe('t09-runtime job under the unchanged isolated-workflow checker', () => 
   it('control: the job is dispatch-only, scoped to its own input, read-only, and the isolated job stays on the course specs', () => {
     const doc = YAML.parse(WF);
     expect(Object.keys(doc.on)).toEqual(['workflow_dispatch']);
-    expect(doc.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 'lms-courses', 'lms-courses-migrated', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
+    expect(doc.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 'lms-courses', 'lms-courses-migrated', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'roster-reports', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
     expect(doc.permissions).toEqual({});
     expect(doc.jobs[JOB].if).toBe("inputs.specs == 't09-runtime'");
     expect(doc.jobs[JOB].permissions).toEqual({ contents: 'read' });
