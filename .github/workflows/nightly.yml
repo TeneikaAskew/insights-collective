@@ -20,6 +20,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        # Full history, as in test.yml: src/test/ci tests compare against named earlier commits
+        # (git show <sha>:path). A shallow clone lacks them. Contract: checkFullHistoryCheckout.test.ts.
+        fetch-depth: 0
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
@@ -72,6 +76,10 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        # Full history, as in test.yml: src/test/ci tests compare against named earlier commits
+        # (git show <sha>:path). A shallow clone lacks them. Contract: checkFullHistoryCheckout.test.ts.
+        fetch-depth: 0
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
@@ -106,6 +114,10 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        # Full history, as in test.yml: src/test/ci tests compare against named earlier commits
+        # (git show <sha>:path). A shallow clone lacks them. Contract: checkFullHistoryCheckout.test.ts.
+        fetch-depth: 0
     
     - name: Use Node.js 20.x
       uses: actions/setup-node@v4
