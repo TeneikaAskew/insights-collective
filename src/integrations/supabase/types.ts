@@ -6303,6 +6303,10 @@ export type Database = {
         Args: { course_id_param: string; user_id_param: string }
         Returns: boolean
       }
+      is_final_assignment_submission: {
+        Args: { p_submitted_at: string; p_workflow_state: string }
+        Returns: boolean
+      }
       is_grading_staff: { Args: never; Returns: boolean }
       log_audit_event: {
         Args: {
