@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Definition of done and autonomy (owner directive)
+
+Done means: merged to main, deployed where the change ships, and verified. Verified means tests pass, Playwright covers any UI flow the change touches, and real queries against the Supabase project show the expected result. Record that evidence on the PR.
+
+Within your assigned scope, make reversible calls yourself and take your own recommendations. Commit, push, open PRs and iterate on review without waiting. Record the choices you made in the PR instead of batching decisions back to the owner.
+
+Stop for the owner only for: irreversible or production-destructive steps (applying migrations to the live Supabase project, deleting data, production config), spending money, or contacting people outside the project. Ask one specific question, not a list.
+
+The owner's latest instruction in a session supersedes earlier holds in it.
+
+If another lane blocks you, open a small PR for the blocking piece or coordinate with that lane's owner instead of waiting.
+
 ## Common Commands
 ```bash
 npm install # Install dependencies (including Vite)
