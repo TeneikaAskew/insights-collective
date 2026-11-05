@@ -178,7 +178,7 @@ export async function runCreationPlan({ plan, result: r, instructorId, client, r
   if (!instructorId || plan.ownerId !== instructorId) throw new CreationOwnerMismatchError();
 
   // 1) Thumbnail: a fixed object path per plan, so a retry overwrites rather than adds a file.
-  if (r.thumbnailFile && instructorId && !plan.thumbnail.settled) {
+  if (r.thumbnailFile && !plan.thumbnail.settled) {
     report.step('thumbnail', 'running');
     const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
     const path = `course-thumbnails/${instructorId}-${plan.thumbnailNonce}.${ext}`;
