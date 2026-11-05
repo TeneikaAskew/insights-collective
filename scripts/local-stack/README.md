@@ -44,3 +44,13 @@ against something that is not production. Loopback only; no hosted project; no s
 
 Not yet done, by design: no GitHub Actions workflow dispatches this; no `supabase start` has been run
 (no Docker daemon in the authoring container). See the plan for PR-B and PR-C.
+
+## Known limitation: published-port binding of the `isolated` (readonly-courses) job
+
+`supabase start` publishes its host ports with Docker's default binding, which is all interfaces (`0.0.0.0` and `[::]`).
+Run 41317521050 recorded this for the CLI pinned in package-lock (2.109.1): Kong 54321, Postgres 54322 and Inbucket 54324 were
+published on all interfaces. The `isolated` job uses the same `supabase start` and has no ports guard. "Loopback" in its evidence
+label describes the URLs it uses, NOT where the ports are published. This is documented here and not changed.
+The t09-runtime job instead starts on its own per-mode network with `com.docker.network.bridge.host_binding_ipv4=127.0.0.1`
+(`scripts/local-stack/t09/stack-net.mjs`, the Supabase docs' `--network-id` method). Extending that to the `isolated` job would be
+a separate, reviewed change.

@@ -1,0 +1,414 @@
+// ABOUTME: Purpose-scoped fixtures for the learner quiz lifecycle mode: in-memory learner sign-in, a context-wide egress
+// ABOUTME: gate on exact approved origins, validated forwarding for fault handlers, a strict read-only DB ledger, shots.
+//
+// Egress, in layers (any violation fails the test):
+//   1. Browser level: every context gets a proxy that is a REFUSAL listener owned by this worker (answers 403, never
+//      forwards, records the destination), with bypass "<-loopback>" plus ONLY the exact approved scheme://host:port
+//      (browser-egress.mjs). So redirects, new pages, other loopback ports and link-local all go to the refusal proxy;
+//      ordinary redirect hops, which route interception does not see, are confined here. Service workers are blocked.
+//   2. Context level (this file): every request from every page of the context must have an EXACT approved origin
+//      (scheme + host + port of the app and of the API); anything else is aborted and recorded.
+//   3. Observers: any redirect hop (request.redirectedFrom()), any 3xx response, and any second page are violations.
+//   4. Fault handlers that forward a request themselves must use forwardApproved(): it re-checks the exact origin BEFORE
+//      sending, sends from this process with redirect 'manual' (never followed) and refuses a 3xx. It does not use
+//      route.fetch(), whose node-side proxy matching is domain-only and would send approved traffic to the refusal proxy.
+// Nothing is written to disk except evidence under QLC_EVIDENCE_DIR (unset: a private per-process mkdtemp directory,
+// never a fixed shared temp path). No storage state, no password change, no cleanup.
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import net from 'node:net';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { Page, Request, Route } from '@playwright/test';
+import { test as base, expect } from '../fixtures/console-errors.fixture';
+import { splitLocalDsn } from '../../scripts/local-stack/quiz-lifecycle/local-dsn.mjs';
+import { BROWSER_EGRESS_ARGS, exactBypassList } from '../../scripts/local-stack/quiz-lifecycle/browser-egress.mjs';
+// The confined modes launch ONLY the pinned Playwright headless shell; no system-browser fallback (run 41344646821).
+import { resolveHeadlessShell } from '../../scripts/local-stack/quiz-lifecycle/headless-shell.mjs';
+import {
+  captureLoginFailure, createGrantRecorder,
+} from '../../scripts/local-stack/quiz-lifecycle/login-diagnostics.mjs';
+import { captureCaseFailure, createCaseRecorder } from '../../scripts/local-stack/quiz-lifecycle/case-diagnostics.mjs';
+import { evidenceRootResolver } from './evidence-root';
+
+export const LEARNER_ID = '9c000000-0000-4000-8000-0000000000a1';
+export const COURSE_ID = '9c000000-0000-4000-8000-000000000001';
+export const MODULE_ID = '9c000000-0000-4000-8000-000000000002';
+const LEARNER_EMAIL = 'qlc-learner@insightscollective.local';
+// QLC_EVIDENCE_DIR when set (the job); otherwise one private mkdtemp directory per process, created on first write.
+const evidenceRoot = evidenceRootResolver({ env: process.env, tmpdir: os.tmpdir, mkdtemp: (prefix) => fs.mkdtempSync(prefix) });
+const SHA = (process.env.E2E_EVIDENCE_COMMIT || 'local').slice(0, 12);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const LEDGER_SQL = path.resolve(HERE, '../../scripts/local-stack/quiz-lifecycle/ledger.sql');
+const REVOKE_SH = path.resolve(HERE, '../../scripts/local-stack/quiz-lifecycle/revoke-access.sh');
+
+function originOf(value: string | undefined, name: string): string {
+  if (!value) throw new Error(`${name} is required`);
+  const u = new URL(value);
+  if (!['127.0.0.1', 'localhost'].includes(u.hostname)) throw new Error(`${name} must be loopback`);
+  return u.origin;
+}
+export const APPROVED_ORIGINS = new Set([
+  originOf(process.env.E2E_BASE_URL, 'E2E_BASE_URL'),
+  originOf(process.env.VITE_SUPABASE_URL, 'VITE_SUPABASE_URL'),
+]);
+const NON_NETWORK = /^(data|blob):/;
+/** No-Edge subset (QLC_NO_EDGE=1): fixed for the process, read once. */
+const NO_EDGE = process.env.QLC_NO_EDGE === '1';
+const READ_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/**
+ * The ONE no-Edge predicate, shared by the context route (before any forwarding) and forwardApproved (before its fetch).
+ * Returns a refusal reason or null. The path is percent-decoded, lower-cased, with repeated and trailing slashes collapsed,
+ * so /functions/v1, /functions/v1/, /FUNCTIONS//v1/x and /rest/v1/quiz%5Fsubmissions/ are all caught. Refused:
+ *   - every method on /functions/v1 and below (the no-Edge job serves no Edge runtime);
+ *   - every method other than GET, HEAD, OPTIONS on /rest/v1/quiz_submissions (starts go through rpc/start_quiz_attempt;
+ *     OPTIONS is a CORS preflight, not a write).
+ * An unparsable URL is refused.
+ */
+export function noEdgeRefusal(method: string, url: string): string | null {
+  let p: string;
+  try { p = decodeURIComponent(new URL(url).pathname); } catch { return 'unparsable URL refused in no-Edge mode'; }
+  p = p.toLowerCase().replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  if (p === '/functions/v1' || p.startsWith('/functions/v1/')) return 'Edge Function request refused in no-Edge mode';
+  if (p === '/rest/v1/quiz_submissions' && !READ_METHODS.has(method.toUpperCase())) return `direct quiz_submissions ${method.toUpperCase()} refused in no-Edge mode`;
+  return null;
+}
+function approved(url: string): boolean {
+  if (NON_NETWORK.test(url)) return true;
+  try { return APPROVED_ORIGINS.has(new URL(url).origin); } catch { return false; }
+}
+
+/** Scenario NN -> ids, mirroring fixture.sql. Option ids: four and blue are the keyed answers (1 point each). */
+export function scenario(nn: string) {
+  const s = {
+    item: `9c00${nn}01-0000-4000-8000-000000000000`,
+    quiz: `9c00${nn}02-0000-4000-8000-000000000000`,
+    q1: `9c00${nn}03-0000-4000-8000-000000000000`,
+    q2: `9c00${nn}04-0000-4000-8000-000000000000`,
+    four: `qlc-${nn}-four`, three: `qlc-${nn}-three`, red: `qlc-${nn}-red`, blue: `qlc-${nn}-blue`,
+    url: `/courses/${COURSE_ID}/learn/${MODULE_ID}/9c00${nn}01-0000-4000-8000-000000000000`,
+  };
+  return s;
+}
+export type Scenario = ReturnType<typeof scenario>;
+
+export type Attempt = { attempt: number; id: string; state: string; score: string; startedAt: string; finishedAt: string; answers: number };
+export type AnswerRow = { attempt: number; question: string; answer: unknown; correct: string; points: string };
+export type Ledger = {
+  attempts: Attempt[]; answers: AnswerRow[]; progress: string[]; raw: string[];
+  /** Course-level counts for the quiz's course (learner only): enrollments, progression rows, certificates. */
+  course: { enrollments: number; progressions: number; certificates: number };
+};
+
+/**
+ * Read-only ledger over loopback psql. The DSN is validated by splitLocalDsn (assert-local-dsn, then URI-only, exact
+ * loopback host and port) BEFORE psql runs; psql gets a password-free URI in argv and the password via PGPASSWORD in its
+ * own environment. psql's stderr is withheld (byte count only).
+ */
+export function readLedger(quizId: string, label: string): Ledger {
+  const dsn = splitLocalDsn(process.env.SUPABASE_DB_URL ?? '', process.env);
+  if (!dsn.ok) throw new Error(`ledger: SUPABASE_DB_URL refused (${dsn.reason})`);
+  if (!/^[0-9a-f-]{36}$/.test(quizId)) throw new Error('ledger: quiz id is not a uuid');
+  const env: NodeJS.ProcessEnv = { ...process.env, PGPASSWORD: dsn.password };
+  for (const k of ['PGHOST', 'PGHOSTADDR', 'PGSERVICE', 'PGSERVICEFILE', 'PGPORT', 'PGPASSFILE']) delete env[k];
+  let out: string;
+  try {
+    out = execFileSync('psql', [dsn.uri, '-X', '-At', '-F', '\t', '-v', 'ON_ERROR_STOP=1', '-v', `quiz=${quizId}`, '-f', LEDGER_SQL],
+      { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+  } catch (e: any) {
+    throw new Error(`ledger: psql failed (status ${e?.status ?? 'none'}, stderr withheld: ${String(e?.stderr ?? '').length} bytes)`);
+  }
+  const lines = out.split('\n').filter((l) => /^[AWPEGC]\t/.test(l));
+  fs.mkdirSync(path.join(evidenceRoot(), 'ledger'), { recursive: true });
+  fs.writeFileSync(path.join(evidenceRoot(), 'ledger', `${label}.tsv`), lines.join('\n') + '\n');
+  const ledger: Ledger = { attempts: [], answers: [], progress: [], raw: lines, course: { enrollments: -1, progressions: -1, certificates: -1 } };
+  for (const l of lines) {
+    const c = l.split('\t');
+    if (c[0] === 'A') ledger.attempts.push({ attempt: Number(c[1]), id: c[2], state: c[3], score: c[4], startedAt: c[5], finishedAt: c[6], answers: Number(c[7]) });
+    else if (c[0] === 'W') ledger.answers.push({ attempt: Number(c[1]), question: c[2], answer: c[3] ? JSON.parse(c[3]) : null, correct: c[4], points: c[5] });
+    else if (c[0] === 'P') ledger.progress.push(c[2]);
+    else if (c[0] === 'E') ledger.course.enrollments = Number(c[1]);
+    else if (c[0] === 'G') ledger.course.progressions = Number(c[1]);
+    else if (c[0] === 'C') ledger.course.certificates = Number(c[1]);
+  }
+  return ledger;
+}
+
+/**
+ * Central persisted invariants for FINALIZED attempts: exactly these attempt numbers, distinct ids, state 'complete' with
+ * a finished_at, the fixture score, and exactly two answer rows per attempt with the graded correct/points the fixture
+ * key implies (four and blue correct, 1 point each). No other attempt and no other answer row.
+ */
+export function expectFinalized(l: Ledger, s: Scenario, expected: Array<{ attempt: number; q1: string; q2: string }>) {
+  expect(l.attempts.map((a) => a.attempt)).toEqual(expected.map((e) => e.attempt));
+  expect(new Set(l.attempts.map((a) => a.id)).size).toBe(expected.length);
+  const keyed = new Set([s.four, s.blue]);
+  const rows: AnswerRow[] = [];
+  for (const e of expected) {
+    const a = l.attempts.find((x) => x.attempt === e.attempt)!;
+    const score = [e.q1, e.q2].filter((v) => keyed.has(v)).length;
+    expect(a.state).toBe('complete');
+    expect(a.finishedAt).not.toBe('');
+    expect(a.score).toBe(String(score));
+    expect(a.answers).toBe(2);
+    for (const [q, v] of [[s.q1, e.q1], [s.q2, e.q2]] as const) {
+      rows.push({ attempt: e.attempt, question: q, answer: v, correct: String(keyed.has(v)), points: keyed.has(v) ? '1.00' : '0.00' });
+    }
+  }
+  const sort = (r: AnswerRow[]) => [...r].sort((x, y) => x.attempt - y.attempt || x.question.localeCompare(y.question));
+  expect(sort(l.answers)).toEqual(sort(rows));
+}
+
+/**
+ * Full persisted history of one attempt: its ledger row (id, state, score, started_at, finished_at, answer count) and
+ * every answer row verbatim (answer, correct, points, row timestamp). Used to prove a retake leaves attempt n untouched.
+ */
+export function attemptHistory(l: Ledger, attempt: number): string[] {
+  return l.raw.filter((line) => line.startsWith(`A\t${attempt}\t`) || line.startsWith(`W\t${attempt}\t`));
+}
+
+/**
+ * T-62: removes the synthetic learner's enrollment in synthetic course gg (20, 22 or 24) through revoke-access.sh
+ * (strict local DSN, mutating target guard, exactly one synthetic row, fixed output). Only the scenario key is an
+ * argument; the DSN stays in the environment. Throws with the script's fixed line on any refusal.
+ */
+export function revokeAccess(gg: '20' | '22' | '24') {
+  try {
+    const out = execFileSync('bash', [REVOKE_SH, gg], { encoding: 'utf8', env: process.env, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30000 });
+    fs.mkdirSync(path.join(evidenceRoot(), 'checks'), { recursive: true });
+    fs.appendFileSync(path.join(evidenceRoot(), 'checks', 'revoke-access.txt'), out);
+  } catch (e: any) {
+    throw new Error(`revoke-access ${gg} failed: ${String(e?.stdout ?? '').trim().split('\n').pop()}`);
+  }
+}
+
+/** Polls until the item's progression row is exactly ['read'] (the app's contract: content_item_progressions). */
+export async function expectProgressRead(s: Scenario, label: string) {
+  await expect.poll(() => readLedger(s.quiz, label).progress, { timeout: 20000 }).toEqual(['read']);
+}
+
+/** Ordered browser-side events for the quiz endpoints. */
+export type NetEvent = { kind: 'start' | 'score' | 'write' | 'progress'; phase: 'sent' | 'done' | 'failed'; at: number; status?: number; req: Request };
+function kindOf(req: Request): NetEvent['kind'] | null {
+  const u = req.url();
+  if (u.includes('/rest/v1/rpc/start_quiz_attempt')) return 'start';
+  if (u.includes('/functions/v1/score-quiz') && req.method() === 'POST') return 'score';
+  if (u.includes('/rest/v1/quiz_submission_answers') && req.method() === 'POST') return 'write';
+  if (u.includes('/rest/v1/content_item_progressions') && req.method() !== 'GET') return 'progress';
+  return null;
+}
+export const sent = (net: NetEvent[], k: NetEvent['kind']) => net.filter((e) => e.kind === k && e.phase === 'sent');
+/** Every request of kind k that was sent has finished or failed. */
+export function settledAll(net: NetEvent[], k: NetEvent['kind']) {
+  return net.filter((e) => e.kind === k && e.phase !== 'sent').length === sent(net, k).length;
+}
+
+type Egress = { violations: string[] };
+export type Forwarded = { status: number; headers: Record<string, string>; body: Buffer };
+/** The worker's refusal proxy: every connection is recorded (destination host:port only) and answered 403. */
+export type RefusalProxy = { server: string; destinations: string[]; onHit: ((dest: string) => void) | null };
+type ShotCheck = () => Promise<void>;
+type Fixtures = {
+  egress: Egress;
+  net: NetEvent[];
+  learner: Page;
+  /** Responsive snapshot: the SAME state resized to each viewport, with `check` asserted at every viewport. */
+  snapshot: (name: string, tier: string, check: ShotCheck) => Promise<void>;
+  /** Sends the routed request to its exact approved origin and returns the response WITHOUT fulfilling the route; null if refused. */
+  forwardApproved: (route: Route) => Promise<Forwarded | null>;
+};
+
+export const test = base.extend<Fixtures & { egressGate: void }, { refusalProxy: RefusalProxy }>({
+  refusalProxy: [
+    async ({ browserName: _b }, use) => {
+      const rp: RefusalProxy = { server: '', destinations: [], onHit: null };
+      const srv = net.createServer((sock) => {
+        let buf = '';
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          const m = buf.slice(0, Math.max(0, buf.indexOf('\r\n'))).match(/^([A-Z]+) (\S+)/);
+          let dest = 'unparsed';
+          if (m) { if (m[1] === 'CONNECT') dest = m[2]; else { try { dest = new URL(m[2]).host; } catch { /* keep */ } } }
+          dest = dest.slice(0, 100);
+          rp.destinations.push(dest);
+          rp.onHit?.(dest);
+          sock.end('HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n');
+        };
+        sock.setTimeout(5000, finish);
+        sock.on('data', (d) => { buf += d.toString('latin1'); if (buf.includes('\r\n') || buf.length > 8192) finish(); });
+        sock.on('end', finish);
+        sock.on('error', () => undefined);
+      });
+      await new Promise<void>((res) => srv.listen(0, '127.0.0.1', () => res()));
+      rp.server = `http://127.0.0.1:${(srv.address() as net.AddressInfo).port}`;
+      await use(rp);
+      await new Promise<void>((res) => srv.close(() => res()));
+    },
+    { scope: 'worker' },
+  ],
+
+  // The WHOLE browser is confined: without a launch-level proxy, Chromium's own background traffic would follow the
+  // process environment's proxy settings (measured: HTTPS_PROXY was used). With it, nothing leaves except the exact
+  // approved origins; everything else, browser-internal or page, reaches only the refusal listener.
+  launchOptions: [
+    async ({ refusalProxy }, use) => {
+      // Throws (refuses) before any browser starts when the pinned shell is missing, tampered or not the declared build.
+      const shell = resolveHeadlessShell();
+      await use({
+        executablePath: shell.path,
+        headless: true,
+        args: [...BROWSER_EGRESS_ARGS],
+        proxy: { server: refusalProxy.server, bypass: exactBypassList(APPROVED_ORIGINS) },
+      });
+    },
+    { scope: 'worker' },
+  ],
+
+  // Every context of every test is confined the same way, explicitly.
+  proxy: async ({ refusalProxy }, use) => {
+    await use({ server: refusalProxy.server, bypass: exactBypassList(APPROVED_ORIGINS) });
+  },
+
+  // Playwright requires a destructured first argument; `page` is named only to avoid an empty pattern.
+  egress: async ({ page: _page }, use) => { await use({ violations: [] }); },
+
+  egressGate: [
+    async ({ context, page, egress, refusalProxy }, use, testInfo) => {
+      refusalProxy.onHit = (dest) => egress.violations.push(`refusal proxy received a request for ${dest}`);
+      await context.route('**/*', (route) => {
+        const url = route.request().url();
+        // PREVENTIVE: refused here, before the request can be forwarded to any origin (approved or not).
+        const why = NO_EDGE ? noEdgeRefusal(route.request().method(), url) : null;
+        if (why) { egress.violations.push(why); return route.abort('blockedbyclient'); }
+        if (approved(url)) return route.fallback();
+        egress.violations.push(`blocked ${route.request().method()} to a non-approved origin`);
+        return route.abort('failed');
+      });
+      // No-Edge subset: the context route above and forwardApproved REFUSE before forwarding; this observer is defence in depth
+      // only (it also sees requests a page handler fulfilled locally).
+      context.on('request', (r) => {
+        if (NO_EDGE) { const why = noEdgeRefusal(r.method(), r.url()); if (why) egress.violations.push(`observed: ${why}`); }
+        if (r.redirectedFrom()) egress.violations.push('redirect hop observed');
+        if (!approved(r.url())) egress.violations.push('request to a non-approved origin observed');
+      });
+      context.on('response', (r) => { if (r.status() >= 300 && r.status() < 400) egress.violations.push(`3xx response (${r.status()})`); });
+      context.on('page', (p) => { if (p !== page) egress.violations.push('an additional page was opened'); });
+      // serviceWorkers: 'block' (config) makes register() a stub that never creates a worker (measured in the egress
+      // self-test); any worker that still starts is a violation.
+      context.on('serviceworker', () => egress.violations.push('a service worker started'));
+      await use();
+      refusalProxy.onHit = null;
+      fs.mkdirSync(evidenceRoot(), { recursive: true });
+      fs.appendFileSync(path.join(evidenceRoot(), 'egress.txt'), `${testInfo.title}\t${egress.violations.length}\n`);
+      expect(egress.violations, 'egress violations').toEqual([]);
+    },
+    { auto: true },
+  ],
+
+  forwardApproved: async ({ egress }, use) => {
+    await use(async (route) => {
+      const req = route.request();
+      const url = req.url();
+      if (!approved(url) || NON_NETWORK.test(url)) {
+        egress.violations.push('fault handler asked to forward to a non-approved origin');
+        await route.abort('failed');
+        return null;
+      }
+      // PREVENTIVE, same predicate as the context route: refused before the fetch below is made.
+      const why = NO_EDGE ? noEdgeRefusal(req.method(), url) : null;
+      if (why) { egress.violations.push(`forwardApproved: ${why}`); await route.abort('blockedbyclient'); return null; }
+      const headers = await req.allHeaders();
+      for (const h of ['host', 'connection', 'content-length', 'keep-alive', 'transfer-encoding', 'proxy-connection']) delete headers[h];
+      for (const h of Object.keys(headers)) if (h.startsWith(':')) delete headers[h];
+      // Node's fetch does not read proxy settings from the environment; the destination is the exact approved origin.
+      const res = await fetch(url, { method: req.method(), headers, body: req.postDataBuffer() ?? undefined, redirect: 'manual' });
+      if (res.status >= 300 && res.status < 400) {
+        egress.violations.push(`forwarded request answered ${res.status} (redirects refused)`);
+        await route.abort('failed');
+        return null;
+      }
+      const out: Record<string, string> = {};
+      res.headers.forEach((v, k) => { if (!['content-encoding', 'content-length', 'transfer-encoding', 'connection'].includes(k)) out[k] = v; });
+      return { status: res.status, headers: out, body: Buffer.from(await res.arrayBuffer()) };
+    });
+  },
+
+  net: async ({ page }, use) => {
+    const events: NetEvent[] = [];
+    page.on('request', (r) => { const k = kindOf(r); if (k) events.push({ kind: k, phase: 'sent', at: Date.now(), req: r }); });
+    page.on('requestfinished', async (r) => {
+      const k = kindOf(r); if (!k) return;
+      const resp = await r.response().catch(() => null);
+      events.push({ kind: k, phase: 'done', at: Date.now(), status: resp?.status(), req: r });
+    });
+    page.on('requestfailed', (r) => { const k = kindOf(r); if (k) events.push({ kind: k, phase: 'failed', at: Date.now(), req: r }); });
+    await use(events);
+  },
+
+  learner: async ({ page }, use, testInfo) => {
+    const password = process.env.E2E_TEST_PASSWORD;
+    if (!password) throw new Error('learner: E2E_TEST_PASSWORD is unset');
+    // Sign-in diagnostics (run 41353483766): only fixed fields of the password-grant response are kept (status, an
+    // allowlisted error code, user-id PRESENCE); every pending reduction is awaited (bounded) before any capture.
+    const recorder = createGrantRecorder(page);
+    // Case diagnostics (run 41359219343): after sign-in, a failed case records ONE allowlisted line (player state,
+    // fixed heading, route shape, API status/code/row counts). No screenshot, DOM text, body or id.
+    const caseRecorder = createCaseRecorder(page);
+    // The case recorder's listeners are released on EVERY path out of this fixture, including a failed sign-in or
+    // setup step (safety review 23:34Z): the whole setup and use path sits inside this try/finally.
+    let signedIn = false;
+    try {
+      await page.addInitScript(() => { try { window.localStorage.setItem('e2e:disable-tours', '1'); } catch { /* ignore */ } });
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
+      await page.locator('#email').fill(LEARNER_EMAIL);
+      await page.locator('#password').fill(password);
+      await page.locator('button[type="submit"]:has-text("Sign In")').click();
+      try {
+        await expect(page).not.toHaveURL(/\/login/, { timeout: 30000 });
+      } catch (err) {
+        await captureLoginFailure(page, { out: evidenceRoot(), sha: SHA, title: testInfo.title, recorder, appOrigin: new URL(String(process.env.E2E_BASE_URL)).origin });
+        throw err;
+      } finally {
+        recorder.detach();
+      }
+      signedIn = true;
+      await use(page);
+    } finally {
+      // Post-sign-in case failures only (the login capture owns /login). captureCaseFailure never throws; a failure
+      // inside it is written as the fixed diagnostic-failed marker, never swallowed.
+      if (signedIn && testInfo.status !== testInfo.expectedStatus) {
+        await captureCaseFailure(page, { out: evidenceRoot(), title: testInfo.title, recorder: caseRecorder });
+      }
+      caseRecorder.detach();
+      recorder.detach(); // idempotent; also covers a throw before the sign-in wait (addInitScript, goto, fill)
+    }
+  },
+
+  snapshot: async ({ page }, use) => {
+    await use(async (name, tier, check) => {
+      const original = page.viewportSize();
+      for (const [w, h] of [[1440, 900], [768, 1024], [390, 844]] as const) {
+        await page.setViewportSize({ width: w, height: h });
+        await check();
+        const dir = path.join(evidenceRoot(), 'screens', 'responsive-snapshot', tier);
+        fs.mkdirSync(dir, { recursive: true });
+        await page.screenshot({ path: path.join(dir, `${name}-${w}x${h}-${SHA}.png`), fullPage: true });
+      }
+      if (original) await page.setViewportSize(original);
+      await check();
+    });
+  },
+});
+
+/** Screenshot of a state reached by interacting AT this viewport (not a resize of another viewport's state). */
+export async function interactionShot(page: Page, name: string) {
+  const vp = page.viewportSize();
+  const dir = path.join(evidenceRoot(), 'screens', 'viewport-interaction');
+  fs.mkdirSync(dir, { recursive: true });
+  await page.screenshot({ path: path.join(dir, `${name}-${vp?.width}x${vp?.height}-${SHA}.png`), fullPage: true });
+}
+
+export { expect };

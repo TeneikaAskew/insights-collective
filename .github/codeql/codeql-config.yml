@@ -33,17 +33,29 @@ query-filters:
   # by default, and writes to a fixed path, but it is covered by this exclusion and
   # should be named rather than discovered later.
   #
-  # The write-location gate below also allows one exact test file,
-  # src/test/ci/checkLocalTarget.test.ts, which writes fixed synthetic fixture
-  # strings into a fresh mkdtemp directory. It reads no network data, so it is not a
-  # flow this exclusion is about; it is listed only because the gate matches every
-  # write call. This adds no query suppression.
+  # The write-location gate below also allows exact fixture-only test files that
+  # write fixed synthetic strings into fresh mkdtemp directories and read no network
+  # data: src/test/ci/checkLocalTarget.test.ts, caseDiagnostics.test.ts,
+  # checkLearnerAuthGate.test.ts, checkT09StageContract.test.ts, gbJobHolds.test.ts and
+  # checkGradebookJourneyJob.test.ts (six files). They are not flows this exclusion is about; they are listed only
+  # because the gate matches every write call.
+  #
+  # It also allows one explicit local-DB-to-disk writer,
+  # e2e/quiz-lifecycle/session.fixture.ts: isolated-run evidence from a fixed
+  # read-only SQL ledger scoped to one synthetic learner and quiz on the run-owned
+  # loopback stack, kept by a /^[AWPEGC]\t/ prefix filter (not a full grammar; answer
+  # JSON stays DB-derived), plus fixed script output and counts, under
+  # QLC_EVIDENCE_DIR. It is not network-response sanitization.
+  #
+  # None of these adds a query suppression; the query filter below is unchanged and
+  # remains reviewed debt.
   #
   # The reviewed network-to-disk writes are those two: the crawler cache under
   # scripts/ and the opt-in console-errors audit log. The "Filesystem writes stay in
   # reviewed locations" step in security.yml keeps the set closed: it enumerates
   # every tracked source file, subtracts its ALLOWED list (scripts/, the
-  # console-errors fixture, and the one fixture-only test file above), and fails
+  # console-errors fixture, the six fixture-only test files and the local-DB
+  # evidence writer above), and fails
   # the build on any other write call. That gate limits where writes may appear; it
   # does not make this repo-wide exclusion safe, which remains reviewed debt.
   # Remove that step and this exclusion stops being narrow.
