@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CanvasContentService, DeleteNotAppliedError } from '../canvasContentService';
 import { mockSupabaseClient, supabaseError, getQueryBuilder } from '@/test/mocks/supabase';
+import DB_FUNCTIONS from '@/test/fixtures/db-functions.json';
 
 describe('CanvasContentService', () => {
   beforeEach(() => {
@@ -151,24 +152,49 @@ describe('CanvasContentService', () => {
       });
     });
 
-    it('should reorder content items through the reorder_content_items RPC', async () => {
-      (mockSupabaseClient.rpc as any).mockResolvedValue({ data: null, error: null });
+    // Reorder contract (unit-contract proof only; the RPC's own transaction and constraint handling are not exercised).
+    // The old test stubbed an `upsert` the implementation never calls, and the shared mock's default rpc returns success
+    // for any known name, so it passed for a no-op or a wrong payload. Each test here installs its own rpc, records
+    // every call, and asserts the exact name, module, ordered ids and call count, with no table access at all.
+    describe('reorderContentItems contract', () => {
+      const rpc = mockSupabaseClient.rpc as ReturnType<typeof vi.fn>;
+      const from = mockSupabaseClient.from as ReturnType<typeof vi.fn>;
+      const ORDER = ['i3', 'i1', 'i2']; // deliberately not sorted, so a sorted or reversed payload is caught
+      const strict = (result: () => Promise<unknown>) => {
+        rpc.mockReset();
+        rpc.mockImplementation(async (..._args: unknown[]) => result());
+        // Any table access is forbidden for a reorder: fail at once with a named diagnostic, never wait on a default builder.
+        from.mockReset();
+        from.mockImplementation((table: string) => {
+          throw new Error(`forbidden table access in reorderContentItems: from('${table}')`);
+        });
+      };
 
-      await expect(
-        CanvasContentService.reorderContentItems('m1', ['i1', 'i2', 'i3'])
-      ).resolves.toBeUndefined();
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('reorder_content_items', {
-        p_module_id: 'm1',
-        p_item_ids: ['i1', 'i2', 'i3'],
+      it('names a function that exists in the database fixture', () => {
+        expect(DB_FUNCTIONS as string[]).toContain('reorder_content_items');
       });
-    });
 
-    it('rejects when the reorder RPC fails', async () => {
-      (mockSupabaseClient.rpc as any).mockResolvedValue(supabaseError('permission denied'));
+      it('makes exactly one reorder_content_items call with the module and the ids in order, and no table access', async () => {
+        strict(async () => ({ data: null, error: null }));
+        await expect(CanvasContentService.reorderContentItems('m1', ORDER)).resolves.toBeUndefined();
+        expect(rpc).toHaveBeenCalledTimes(1);
+        expect(rpc.mock.calls[0]).toEqual(['reorder_content_items', { p_module_id: 'm1', p_item_ids: ['i3', 'i1', 'i2'] }]);
+        expect(from).not.toHaveBeenCalled(); // no upsert, no per-row PATCH
+      });
 
-      await expect(
-        CanvasContentService.reorderContentItems('m1', ['i1'])
-      ).rejects.toMatchObject({ message: 'permission denied' });
+      it('rejects with the RPC error itself when the database reports one', async () => {
+        const dbError = { message: 'duplicate key value violates unique constraint', code: '23505', details: null, hint: null };
+        strict(async () => ({ data: null, error: dbError }));
+        await expect(CanvasContentService.reorderContentItems('m1', ORDER)).rejects.toBe(dbError);
+        expect(rpc).toHaveBeenCalledTimes(1);
+      });
+
+      it('rejects with the transport failure when the request itself throws', async () => {
+        const transport = new TypeError('Failed to fetch');
+        strict(async () => { throw transport; });
+        await expect(CanvasContentService.reorderContentItems('m1', ORDER)).rejects.toBe(transport);
+        expect(rpc).toHaveBeenCalledTimes(1);
+      });
     });
   });
 

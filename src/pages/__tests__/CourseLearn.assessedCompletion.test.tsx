@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 import CanvasContentService from '@/services/canvasContentService';
 import { useCourseProgress } from '@/hooks/useCourseProgress';
+import { fakeCourseProgress } from '@/test/mocks/courseProgressFake';
 import CourseLearn from '@/pages/CourseLearn';
 
 const { mockParams, mockNavigate, mockMarkItemComplete, viewerProps } = vi.hoisted(() => ({
@@ -56,11 +57,11 @@ describe('CourseLearn — assessed content completion', () => {
     mockNavigate.mockReset();
     mockMarkItemComplete.mockReset().mockResolvedValue(undefined);
     viewerProps.current = null;
-    vi.mocked(useCourseProgress).mockReturnValue({
-      data: { modules: [], totalItems: 3, completedItems: 0, percent: 0 },
-      isLoading: false, error: null, refetch: vi.fn(),
-      markItemComplete: mockMarkItemComplete, getModulePercent: () => 0,
-    } as any);
+    // The page reads completion only from the read model (T-10); the fake marks an item done only after
+    // markItemComplete resolves, like the real hook's re-read.
+    vi.mocked(useCourseProgress).mockImplementation(
+      fakeCourseProgress({ eligible: ['a1', 'q1', 'p1'], done: [], mark: mockMarkItemComplete }) as any,
+    );
     vi.mocked(CanvasContentService.getModules).mockResolvedValue([{ id: 'm1', title: 'M', published: true }] as any);
     vi.mocked(CanvasContentService.getContentItems).mockResolvedValue([
       { id: 'a1', title: 'Essay', type: 'assignment', published: true },

@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { assignmentPointsPossible, submissionEarnedPoints } from '@/lib/assignmentGrading';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -304,6 +305,9 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
   }
 
   const rubricScores: Record<string, RubricScore> = (submission?.rubric_scores as any) || {};
+  // grade is what instructors save; score is the older column, shown only when no grade exists. 0 is a real grade.
+  const earnedPoints = submissionEarnedPoints(submission);
+  const pointsPossible = assignmentPointsPossible(assignment as any);
 
   return (
     <div className="space-y-4">
@@ -313,8 +317,8 @@ export function InlineAssignmentSubmit({ item, assignment, onCompleted }: Props)
           <AlertDescription>
             {isGraded ? 'Graded' : 'Submitted'}
             {maxAttempts != null ? <> · Attempt {attemptsUsed} of {maxAttempts}</> : <> · Attempt {attemptsUsed}</>}
-            {typeof submission.score === 'number' && (
-              <> · Score {submission.score}{assignment.points_possible ? ` / ${assignment.points_possible}` : ''}</>
+            {earnedPoints !== null && (
+              <> · Score {earnedPoints}{pointsPossible !== null ? ` / ${pointsPossible}` : ''}</>
             )}
           </AlertDescription>
         </Alert>
