@@ -130,15 +130,14 @@ select pg_temp.learner(:'stud', format('update public.quiz_submissions set quiz_
 select pg_temp.check('X2 a finalized attempt cannot be moved to a hidden quiz in another enrolled course (stays on A, H has none)',
   pg_temp.submitted(:'stud', :'quizA') = 1 and (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizH') = 0,
   format('submittedA=%s attemptsH=%s', pg_temp.submitted(:'stud', :'quizA'), (select count(*) from public.quiz_submissions where user_id = :'stud' and quiz_id = :'quizH')));
+-- Execute each mutation before checking state; Boolean expressions may skip side effects.
+select pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemX', :'stud', :'itemA'));
 select pg_temp.check('X3 the done row on A cannot be moved onto quiz X in an unenrolled course',
-  (pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemX', :'stud', :'itemA')) like 'REFUSED%'
-   or pg_temp.state(:'stud', :'itemX') = 'none')
-  and pg_temp.state(:'stud', :'itemX') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
+  pg_temp.state(:'stud', :'itemX') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
   format('X=%s A=%s', pg_temp.state(:'stud', :'itemX'), pg_temp.state(:'stud', :'itemA')));
+select pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemH', :'stud', :'itemA'));
 select pg_temp.check('X4 the done row on A cannot be moved onto the hidden quiz H of an enrolled course',
-  (pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemH', :'stud', :'itemA')) like 'REFUSED%'
-   or pg_temp.state(:'stud', :'itemH') = 'none')
-  and pg_temp.state(:'stud', :'itemH') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
+  pg_temp.state(:'stud', :'itemH') = 'none' and pg_temp.state(:'stud', :'itemA') = 'completed',
   format('H=%s A=%s', pg_temp.state(:'stud', :'itemH'), pg_temp.state(:'stud', :'itemA')));
 select pg_temp.check('X5 marking quiz X complete directly is REFUSED (no attempt, no enrollment)',
   pg_temp.mark(:'stud', :'itemX', 'completed') like 'REFUSED%', format('X=%s', pg_temp.state(:'stud', :'itemX')));
