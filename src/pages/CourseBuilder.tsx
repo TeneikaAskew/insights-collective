@@ -247,6 +247,13 @@ const CourseBuilder = () => {
           }),
         );
 
+        const unassigned = (await CanvasContentService.getContentItems(null, courseId)).filter((i) => i.module_id === null);
+        if (unassigned.length) withItems.push({
+          id: `unassigned:${courseId}`, course_id: courseId, title: 'Unassigned lessons',
+          unassigned: true, items: unassigned, position: rawModules.length,
+          description: null, week: 0, requirements: [], completion_requirements: [], prerequisite_module_ids: [],
+          publish_final_grade: false, published: false, created_at: '', updated_at: '',
+        });
         if (cancelled) return;
         setCourse(courseData as BuilderCourse);
         setModules(withItems);
@@ -523,13 +530,13 @@ const CourseBuilder = () => {
     try {
       const created = (await CanvasContentService.createModule(
         courseId,
-        `Section ${modules.length + 1}`,
+        `Section ${modules.filter((m) => !m.unassigned).length + 1}`,
       )) as Module;
-      setModules((prev) => [...prev, { ...created, items: [] }]);
+      setModules((prev) => [...prev.filter((m) => !m.unassigned), { ...created, items: [] }, ...prev.filter((m) => m.unassigned)]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-  }, [courseId, modules.length, toast]);
+  }, [courseId, modules, toast]);
 
   const renameSection = useCallback(
     async (id: string, title: string) => {
@@ -577,7 +584,7 @@ const CourseBuilder = () => {
       if (!courseId) return;
       setModules((prev) => {
         const byId = new Map(prev.map((m) => [m.id, m] as const));
-        return ordered.map((id) => byId.get(id) as BuilderModule);
+        return [...ordered.map((id) => byId.get(id) as BuilderModule), ...prev.filter((m) => m.unassigned)];
       });
       try {
         await CanvasContentService.reorderModules(courseId, ordered);
@@ -599,7 +606,7 @@ const CourseBuilder = () => {
       try {
         const created = await CanvasContentService.createContentItem({
           course_id: courseId,
-          module_id: moduleId,
+          module_id: modules.find((m) => m.id === moduleId)?.unassigned ? null : moduleId,
           type,
           title,
           content,
@@ -613,7 +620,7 @@ const CourseBuilder = () => {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [courseId, toast],
+    [courseId, modules, toast],
   );
 
   // Rename is a title edit saved on the lesson's own ordered queue: it can't race the editor's save,
@@ -674,6 +681,10 @@ const CourseBuilder = () => {
 
   const reorderLessons = useCallback(
     async (moduleId: string, ordered: string[]) => {
+      if (modules.find((m) => m.id === moduleId)?.unassigned) {
+        toast({ title: 'Saved order kept', description: 'Unassigned lesson ordering is not available yet.' });
+        return;
+      }
       setModules((prev) =>
         prev.map((m) => {
           if (m.id !== moduleId) return m;
@@ -687,7 +698,7 @@ const CourseBuilder = () => {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [toast],
+    [modules, toast],
   );
 
   const handleAddContentTile = useCallback(

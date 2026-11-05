@@ -102,6 +102,9 @@ export function LessonEditView({
             </div>
 
             <div className="p-6">
+              {currentItem?.module_id === null && <p className="mb-4 text-sm text-muted-foreground">
+                This lesson is outside sections and is not shown in the student curriculum, even when marked published.
+              </p>}
               {currentItem ? (
                 (() => {
                   const parentModule = modules.find((m) =>

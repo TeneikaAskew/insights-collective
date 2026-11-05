@@ -696,12 +696,26 @@ describe('CourseBuilder lesson persistence: save-state correction batch', () => 
     await settle(30);
     expect(mirroredTitles()).toEqual(['v2']);
 
+    // v1 completing starts the queued v2 send; resetting the registry does not settle its gate.
+    await waitFor(() => expect(g.count()).toBe(1));
+    expect(inFlight).toBe(1);
     second.unmount();
+    epoch += 1; // The old document cannot receive callbacks after this simulated full reload.
     simulatePageReload();
     gate = () => undefined;
     renderBuilder('/courses/course-1/builder?view=lesson&lesson=A');
     await waitFor(() => expect(titleInput().value).toBe('v2'));
     await waitFor(() => expect(db.get('A')!.title).toBe('v2'), { timeout: 2500 });
+
+    // End the old synthetic transport explicitly instead of leaking it into the next test.
+    // Its lost-document rejection must not alter the replacement document's data or mirror.
+    const savedRow = JSON.stringify(db.get('A'));
+    const savedMirrors = mirroredTitles();
+    await act(async () => g.rejectFirst(rejected('Synthetic old-document connection closed')));
+    await waitFor(() => expect(inFlight).toBe(0));
+    expect(g.count()).toBe(0);
+    expect(JSON.stringify(db.get('A'))).toBe(savedRow);
+    expect(mirroredTitles()).toEqual(savedMirrors);
   });
 
   it('R2b: an old save that FAILS after remount and a newer edit never overwrites the newer mirror', async () => {

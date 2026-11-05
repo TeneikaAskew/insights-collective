@@ -3,11 +3,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@/test/utils/test-utils';
 import CourseBuilder from '../CourseBuilder';
+import { act, fireEvent } from '@testing-library/react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import CanvasContentService from '@/services/canvasContentService';
 import { mockSupabaseClient } from '@/test/mocks/supabase';
 
 const toastSpy = vi.hoisted(() => vi.fn());
+const captured = vi.hoisted(() => ({ curriculum: null as any }));
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();
@@ -43,8 +45,9 @@ vi.mock('@/services/canvasContentService', () => ({
 
 // Stub every heavy builder view — these have their own tests.
 vi.mock('@/components/course/builder/teachable/TeachableShell', () => ({
-  TeachableShell: ({ courseTitle, published, children }: any) => (
+  TeachableShell: ({ courseTitle, published, children, onNavigate }: any) => (
     <div data-testid="teachable-shell">
+      <button onClick={() => onNavigate('curriculum')}>Open curriculum</button>
       <span data-testid="shell-title">{courseTitle}</span>
       <span data-testid="shell-published">{String(published)}</span>
       {children}
@@ -59,7 +62,7 @@ vi.mock('@/components/course/builder/teachable/SetupGuideView', () => ({
   ),
 }));
 vi.mock('@/components/course/builder/teachable/CurriculumView', () => ({
-  CurriculumView: () => <div data-testid="curriculum-view" />,
+  CurriculumView: (props: any) => { captured.curriculum = props; return <div data-testid="curriculum-view" />; },
 }));
 vi.mock('@/components/course/builder/teachable/LessonEditView', () => ({
   LessonEditView: () => <div data-testid="lesson-edit-view" />,
@@ -215,4 +218,61 @@ describe('CourseBuilder', () => {
     );
     expect(screen.queryByTestId('teachable-shell')).not.toBeInTheDocument();
   });
+  it('stops direct unassigned reorder callbacks and retries before service calls or optimistic changes', async () => {
+    wireTables({ courses: tableResult({ data: courseRow, error: null }) });
+    const items = [{ id: 'loose-a', module_id: null, title: 'A' }, { id: 'loose-b', module_id: null, title: 'B' }];
+    vi.mocked(CanvasContentService.getContentItems).mockResolvedValue(items as any);
+    render(<CourseBuilder />);
+    fireEvent.click(await screen.findByText('Open curriculum'));
+    await screen.findByTestId('curriculum-view');
+    const groupId = 'unassigned:course-1';
+    await act(async () => {
+      await captured.curriculum.onReorderLessons(groupId, ['loose-b', 'loose-a']);
+      await captured.curriculum.onReorderLessons(groupId, ['loose-b', 'loose-a']);
+    });
+    expect(CanvasContentService.reorderContentItems).not.toHaveBeenCalled();
+    expect(captured.curriculum.modules[0].items.map((i: any) => i.id)).toEqual(['loose-a', 'loose-b']);
+  });
+
+  it('keeps the unassigned group after real sections during normal section reorder', async () => {
+    wireTables({ courses: tableResult({ data: courseRow, error: null }) });
+    vi.mocked(CanvasContentService.getModules).mockResolvedValue([{ id: 'm1' }, { id: 'm2' }] as any);
+    vi.mocked(CanvasContentService.getContentItems).mockImplementation(async (id) => id === null ? [{ id: 'loose', module_id: null }] as any : []);
+    render(<CourseBuilder />);
+    fireEvent.click(await screen.findByText('Open curriculum'));
+    await screen.findByTestId('curriculum-view');
+    await act(async () => { await captured.curriculum.onReorderModules(['m2', 'm1']); });
+    expect(CanvasContentService.reorderModules).toHaveBeenCalledWith('course-1', ['m2', 'm1']);
+    expect(captured.curriculum.modules.map((m: any) => m.id)).toEqual(['m2', 'm1', 'unassigned:course-1']);
+  });
+
+  it('fails loading explicitly if the unassigned read fails instead of showing incomplete content', async () => {
+    wireTables({ courses: tableResult({ data: courseRow, error: null }) });
+    vi.mocked(CanvasContentService.getContentItems).mockRejectedValue(new Error('synthetic unassigned read failure'));
+    render(<CourseBuilder />);
+    await screen.findByText('Course not found');
+    expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ description: 'synthetic unassigned read failure' }));
+    expect(screen.queryByTestId('teachable-shell')).not.toBeInTheDocument();
+  });
+
+  it('adds a lesson to the display group with a null association and retains ordinary lesson reorder', async () => {
+    wireTables({ courses: tableResult({ data: courseRow, error: null }) });
+    vi.mocked(CanvasContentService.getModules).mockResolvedValue([{ id: 'm1' }] as any);
+    vi.mocked(CanvasContentService.getContentItems).mockImplementation(async (id) => id === null
+      ? [{ id: 'loose', module_id: null }] as any
+      : [{ id: 'a', module_id: 'm1' }, { id: 'b', module_id: 'm1' }] as any);
+    vi.mocked(CanvasContentService.createContentItem).mockResolvedValue({ id: 'new-loose', module_id: null } as any);
+    render(<CourseBuilder />);
+    fireEvent.click(await screen.findByText('Open curriculum'));
+    await screen.findByTestId('curriculum-view');
+    await act(async () => { await captured.curriculum.onAddLesson('unassigned:course-1'); });
+    expect(CanvasContentService.createContentItem).toHaveBeenCalledWith({
+      course_id: 'course-1', module_id: null, type: 'page', title: 'New lesson', content: '',
+    });
+    expect(captured.curriculum.modules[1].items.map((i: any) => i.id)).toEqual(['loose', 'new-loose']);
+    await act(async () => { await captured.curriculum.onReorderLessons('m1', ['b', 'a']); });
+    expect(CanvasContentService.reorderContentItems).toHaveBeenCalledWith('m1', ['b', 'a']);
+    expect(captured.curriculum.modules[0].items.map((i: any) => i.id)).toEqual(['b', 'a']);
+  });
+
 });
