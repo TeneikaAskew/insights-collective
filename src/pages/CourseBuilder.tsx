@@ -256,6 +256,13 @@ const CourseBuilder = () => {
           }),
         );
 
+        const unassigned = (await CanvasContentService.getContentItems(null, courseId)).filter((i) => i.module_id === null);
+        if (unassigned.length) withItems.push({
+          id: `unassigned:${courseId}`, course_id: courseId, title: 'Unassigned lessons',
+          unassigned: true, items: unassigned, position: rawModules.length,
+          description: null, week: 0, requirements: [], completion_requirements: [], prerequisite_module_ids: [],
+          publish_final_grade: false, published: false, created_at: '', updated_at: '',
+        });
         if (cancelled) return;
         setCourse(courseData as BuilderCourse);
         setModules(withItems);
@@ -481,13 +488,13 @@ const CourseBuilder = () => {
     try {
       const created = (await CanvasContentService.createModule(
         courseId,
-        `Section ${modules.length + 1}`,
+        `Section ${modules.filter((m) => !m.unassigned).length + 1}`,
       )) as Module;
-      setModules((prev) => [...prev, { ...created, items: [] }]);
+      setModules((prev) => [...prev.filter((m) => !m.unassigned), { ...created, items: [] }, ...prev.filter((m) => m.unassigned)]);
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
     }
-  }, [courseId, modules.length, toast]);
+  }, [courseId, modules, toast]);
 
   const renameSection = useCallback(
     async (id: string, title: string) => {
@@ -552,9 +559,13 @@ const CourseBuilder = () => {
     async (ordered: string[]) => {
       if (!courseId) return;
       // Scope per course: a reorder for another course never shares this queue or its send.
-      await reorders.request(`sections:${courseId}`, ordered, {
-        current: () => modulesRef.current.map((m) => m.id),
-        apply: (order) => setModules((prev) => applyIdOrder(prev, order)),
+      const realIds = new Set(modulesRef.current.filter((m) => !m.unassigned).map((m) => m.id));
+      await reorders.request(`sections:${courseId}`, ordered.filter((id) => realIds.has(id)), {
+        current: () => modulesRef.current.filter((m) => !m.unassigned).map((m) => m.id),
+        apply: (order) => setModules((prev) => [
+          ...applyIdOrder(prev.filter((m) => !m.unassigned), order),
+          ...prev.filter((m) => m.unassigned),
+        ]),
         send: (order) => CanvasContentService.reorderModules(courseId, order),
         reload: async () => (await CanvasContentService.getModules(courseId)).map((m) => m.id),
         onFailed: (err, restored) => reorderFailedToast('Sections', err, restored),
@@ -574,7 +585,7 @@ const CourseBuilder = () => {
       try {
         const created = await CanvasContentService.createContentItem({
           course_id: courseId,
-          module_id: moduleId,
+          module_id: modules.find((m) => m.id === moduleId)?.unassigned ? null : moduleId,
           type,
           title,
           content,
@@ -588,7 +599,7 @@ const CourseBuilder = () => {
         toast({ title: 'Error', description: err.message, variant: 'destructive' });
       }
     },
-    [courseId, toast],
+    [courseId, modules, toast],
   );
 
   // Rename is a title edit saved on the lesson's own ordered queue: it can't race the editor's save,
@@ -651,6 +662,10 @@ const CourseBuilder = () => {
   // Same rule as reorderSections, scoped to one section's lessons.
   const reorderLessons = useCallback(
     async (moduleId: string, ordered: string[]) => {
+      if (modulesRef.current.find((m) => m.id === moduleId)?.unassigned) {
+        toast({ title: 'Saved order kept', description: 'Unassigned lesson ordering is not available yet.' });
+        return;
+      }
       await reorders.request(`lessons:${moduleId}`, ordered, {
         current: () => (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id),
         apply: (order) =>
@@ -662,7 +677,7 @@ const CourseBuilder = () => {
         onFailed: (err, restored) => reorderFailedToast('Lessons', err, restored),
       });
     },
-    [reorders, reorderFailedToast],
+    [reorders, reorderFailedToast, toast],
   );
 
   const handleAddContentTile = useCallback(

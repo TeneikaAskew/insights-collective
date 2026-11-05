@@ -86,7 +86,7 @@ export function CurriculumView(props: CurriculumViewProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const moduleIds = useMemo(() => modules.map((m) => m.id), [modules]);
+  const moduleIds = useMemo(() => modules.filter((m) => !m.unassigned).map((m) => m.id), [modules]);
 
   const handleDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
@@ -188,6 +188,7 @@ function SectionCard({
 }: SectionCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: module.id,
+    disabled: module.unassigned,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -255,7 +256,7 @@ function SectionCard({
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const handleItemsDragEnd = (e: DragEndEvent) => {
     const { active, over } = e;
-    if (!over || active.id === over.id) return;
+    if (module.unassigned || !over || active.id === over.id) return;
     const oldIndex = itemIds.indexOf(String(active.id));
     const newIndex = itemIds.indexOf(String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
@@ -270,7 +271,7 @@ function SectionCard({
       className="rounded-xl bg-card border border-border"
     >
       <div className="flex items-center gap-3 px-5 py-4 rounded-t-xl bg-muted/50 border-b border-border">
-        <Hint label="Drag to reorder sections">
+        {!module.unassigned && <Hint label="Drag to reorder sections">
           <button
             type="button"
             className="cursor-grab text-muted-foreground/60 hover:text-foreground"
@@ -280,7 +281,7 @@ function SectionCard({
           >
             <GripVertical className="h-5 w-5" />
           </button>
-        </Hint>
+        </Hint>}
         {editing ? (
           <input
             autoFocus
@@ -299,13 +300,13 @@ function SectionCard({
         ) : (
           <h3
             className="flex-1 font-display text-2xl truncate cursor-text"
-            onDoubleClick={() => setEditing(true)}
+            onDoubleClick={() => !module.unassigned && setEditing(true)}
             title={module.title}
           >
             {module.title || 'Untitled section'}
           </h3>
         )}
-        <Hint label="Rename or delete this section">
+        {!module.unassigned && <Hint label="Rename or delete this section">
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
@@ -345,11 +346,11 @@ function SectionCard({
             </div>
           )}
           </button>
-        </Hint>
+        </Hint>}
       </div>
 
       {/* Section summary (shown to students on the course page) */}
-      {onUpdateModuleDescription && (
+      {onUpdateModuleDescription && !module.unassigned && (
         <div className="px-5 py-3 border-b border-border">
           {descEditing ? (
             <textarea
@@ -386,6 +387,9 @@ function SectionCard({
         </div>
       )}
 
+      {module.unassigned && <p className="px-5 py-3 text-sm text-muted-foreground">
+        These lessons are preserved outside sections and are not shown in the student curriculum. Their saved order is kept; reordering is not available yet.
+      </p>}
       {/* Lessons */}
 
       {module.items.length === 0 ? (
@@ -400,6 +404,7 @@ function SectionCard({
                 <LessonRow
                   key={it.id}
                   item={it}
+                  unassigned={module.unassigned}
                   onRename={onRenameLesson}
                   onDelete={onDeleteLesson}
                   onTogglePublish={onTogglePublishLesson}
@@ -433,7 +438,7 @@ function SectionCard({
         <button
           type="button"
           onClick={handleGenerateSummary}
-          disabled={generatingSummary || !onUpdateModuleDescription}
+          disabled={generatingSummary || !onUpdateModuleDescription || module.unassigned}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 disabled:opacity-60 disabled:cursor-not-allowed"
           title="Generate a short section summary with AI"
         >
@@ -463,6 +468,7 @@ function SectionCard({
 
 // --- Lesson row ---
 interface LessonRowProps {
+  unassigned?: boolean;
   item: ContentItem;
   onRename: (id: string, title: string) => void;
   onDelete: (id: string) => void;
@@ -470,9 +476,10 @@ interface LessonRowProps {
   onSelect: (id: string) => void;
 }
 
-function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: LessonRowProps) {
+function LessonRow({ item, unassigned, onRename, onDelete, onTogglePublish, onSelect }: LessonRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    disabled: unassigned,
   });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -502,6 +509,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         {...attributes}
         {...listeners}
         aria-label="Reorder lesson"
+        disabled={unassigned}
       >
         <GripVertical className="h-4 w-4" />
       </button>
@@ -534,7 +542,7 @@ function LessonRow({ item, onRename, onDelete, onTogglePublish, onSelect }: Less
         <div className="text-[11px] text-muted-foreground mt-0.5">1 {contentLabel(item.type)}</div>
       </div>
 
-      <Hint label={item.published ? 'Hide this lesson from students' : 'Make this lesson visible to students'}>
+      <Hint label={unassigned ? 'Change publication status; this lesson remains outside the student curriculum' : item.published ? 'Hide this lesson from students' : 'Make this lesson visible to students'}>
         <button
           type="button"
           onClick={() => onTogglePublish(item.id, !item.published)}
