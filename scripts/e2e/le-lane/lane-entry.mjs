@@ -25,7 +25,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { apparmorGate } from '../le-iso/expect.mjs';
 import { ENV_KEYS, LANE_APPARMOR, LANE_NODE, PSQL_REAL, PG_MAJOR, TOOLS, laneEnv, lanePaths, lanePorts, workerAppArmorEvidence, e1ResultClass, reportedErrorCode, postObservedEvidence, attemptStatusToken, failedStepToken, browserExitEvidence, BROWSER_LOG_CODES } from './contract.mjs';
-import { SYN_ARMS, SYN_ENV_KEYS, UNKNOWN_CLEANUP, laneTarget, parseSynArm, parseSynCleanup, parseSynOut, synEnv, unknownArm } from './contract.mjs';
+import { SYN_ENV_KEYS, UNKNOWN_CLEANUP, laneTarget, parseSynArm, parseSynCleanup, parseSynOut, synEnv, unknownArm } from './contract.mjs';
 import { E1_IDENTITY } from '../le-e1-summary.mjs';
 import { failedStep } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { PAIRING_COURSE_ID, PAIRING_PREFIX, assertLivePairing, assertPairingProof } from '../../../e2e/gradebook-roles/journey/pairing-proof.mjs';
