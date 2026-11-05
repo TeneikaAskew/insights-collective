@@ -33,6 +33,7 @@ import {
   BODY_END_PAGES, EXIT_CHECKPOINTS, EXIT_SIGNALS, browserExitLine, exitRecorder, exitShape, pageEndState, pageTeardownRecord, sampleExitShape,
   BROWSER_LOG_CODES as SL_LOG_CODES, BROWSER_LOG_LIMITS, browserLogClassifier, browserLogLine, browserLogRecorder,
   BROWSER_LOG_COMPONENTS as SL_COMPONENTS, browserLogComponentLine, browserLogComponentOf,
+  BROWSER_LOG_PATH_EXTS as SL_PATH_EXTS, BROWSER_LOG_PATH_REASONS as SL_PATH_REASONS, browserLogPathExtOf, browserLogPathLine, browserLogPathReasonOf,
 } from '../../../e2e/lesson-editor/sandbox-launch.mjs';
 import { E1_STEPS } from '../../../e2e/lesson-editor/step-codes.mjs';
 import { E1_IDENTITY } from '../../../scripts/e2e/le-e1-summary.mjs';
@@ -2685,11 +2686,11 @@ describe('E1 browser-log r1.1: sample is a checkpoint, owned bounded storage, no
 
 describe('E1 browser-log r1.3: reviewed-source regression pin for sandbox-launch.mjs', () => {
   // REVIEWED-SOURCE REGRESSION PIN. sha256 of the whole e2e/lesson-editor/sandbox-launch.mjs. r1.3 pinned af66b7eb (reviewed at
-  // 8a473229); r1.4 pinned 2026f141 (the grammar-corrected module); r1.5 pins the component-code module, valid only once its exact
-  // delta is reviewed. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
+  // 8a473229); r1.4 pinned 2026f141 (the grammar-corrected module); r1.5 pinned 03d09f31 (the component-code module, reviewed);
+  // r1.6 pins the path-reason module, valid only once its exact delta is reviewed. Any byte change (classifier, imports, globals, helpers) fails here until the new bytes are reviewed; update the
   // digest only after that review. It is not a semantic purity proof and not a runtime sandbox, and it does not replace the
   // repository's filesystem-write gate in security.yml, which is unchanged.
-  const REVIEWED_SANDBOX_LAUNCH_SHA256 = '03d09f3113beb5f6f70dcacf860569b1ab27e4d34f0c843abc09bf7ecd7c7c2f'; // r1.5: component-code module, pending its exact delta review
+  const REVIEWED_SANDBOX_LAUNCH_SHA256 = 'f07e29b39d04ad671110178e09290249a4f08af2304cc4b42eb94d99a4adf43c'; // r1.6: path-reason module, pending its exact delta review
   const FILE = path.join(ROOT, 'e2e/lesson-editor/sandbox-launch.mjs');
   const isReviewed = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex') === REVIEWED_SANDBOX_LAUNCH_SHA256;
 
@@ -2882,5 +2883,101 @@ describe('browser-log component r1 (r1.5): one closed component code for OTHER_F
     const c = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
     expect(c.match(/\bLOG_COMPONENT\b/g)?.length).toBe(5); // grammar comment, ARM_RE, unknownArm, coherence comment, LE-SYN DETAIL; never an LE-E1 line
     expect(c).not.toMatch(/LE-E1[^\n]*LOG_COMPONENT|LANE E1[^\n]*LOG_COMPONENT/);
+  });
+});
+
+describe('browser-log path reason r1 (r1.6): closed first-failing-rule and extension class for an UNPARSED path, grammar unchanged', () => {
+  const PID = 4242;
+  const STAMP = '1104/180140.123456';
+  const rec = (file: string, msg = 'x') => `[${STAMP}:FATAL:${file}:12] ${msg}`;
+  const run = (lines: string[]) => { const c = browserLogClassifier(PID); c.push(Buffer.from(lines.map((l) => `${l}\n`).join(''), 'latin1')); return { log: c.sample(), comp: c.component(), path: c.pathDiag() }; };
+  const TABLE: [string, string, string][] = [
+    ['base/x.cc', 'NONE', 'CC'], ['../../content/browser/a.cc', 'NONE', 'CC'], ['v8/src/api/api.h', 'NONE', 'H'], ['base/mac/x.mm', 'NONE', 'MM'],
+    ['', 'EMPTY', 'NO_EXT'], ['../../', 'EMPTY', 'NO_EXT'], ['/abs/base/x.cc', 'ABSOLUTE', 'CC'], ['..\\base\\x.cc', 'BACKSLASH', 'CC'],
+    ['base/x\u0000.cc', 'CONTROL', 'CC'], ['base/x\t.cc', 'CONTROL', 'CC'], ['base/x\u007f.cc', 'CONTROL', 'CC'], ['base/a b.cc', 'SPACE', 'CC'],
+    ['base/é.cc', 'NON_ASCII', 'CC'], ['base/X.cc', 'UPPER', 'CC'], ['third_party/lib/Src/Foo.cpp', 'UPPER', 'CPP'], ['base/x+y.cc', 'OTHER_CHAR', 'CC'],
+    ['base/a:b.cc', 'OTHER_CHAR', 'CC'], ['base//x.cc', 'EMPTY_SEGMENT', 'CC'], ['base/x.cc/', 'EMPTY_SEGMENT', 'NO_EXT'], ['base/../x.cc', 'DOT_SEGMENT', 'CC'],
+    ['base/./x.cc', 'DOT_SEGMENT', 'CC'], ['./base/x.cc', 'DOT_SEGMENT', 'CC'], ['base/.hidden.cc', 'SEGMENT_START', 'CC'], ['base/-x.cc', 'SEGMENT_START', 'CC'],
+    [`${Array.from({ length: 16 }, (_, i) => `d${i}`).join('/')}/x.cc`, 'DEPTH', 'CC'], ['base/x.cpp', 'EXTENSION', 'CPP'], ['base/x.c', 'EXTENSION', 'C'],
+    ['base/x.cxx', 'EXTENSION', 'CXX'], ['base/x.hpp', 'EXTENSION', 'HPP'], ['base/x.hh', 'EXTENSION', 'HH'], ['base/x.inc', 'EXTENSION', 'INC'],
+    ['base/x.m', 'EXTENSION', 'M'], ['base/x', 'EXTENSION', 'NO_EXT'], ['base/x.rs', 'EXTENSION', 'OTHER'], ['base/x.', 'EXTENSION', 'NO_EXT'],
+    ['base/.cc', 'SEGMENT_START', 'NO_EXT'], ['base/x.__proto__', 'EXTENSION', 'OTHER'], ['base/x.constructor', 'EXTENSION', 'OTHER'],
+  ];
+  it('sets are closed and frozen; every table row gives its reason and extension class', () => {
+    for (const set of [SL_PATH_REASONS, SL_PATH_EXTS]) { expect(Object.isFrozen(set)).toBe(true); expect(new Set(set).size).toBe(set.length); for (const c of set) expect(c).toMatch(/^[A-Z_]+$/); }
+    for (const [p, r, e] of TABLE) { expect(browserLogPathReasonOf(p), JSON.stringify(p)).toBe(r); expect(browserLogPathExtOf(p), JSON.stringify(p)).toBe(e); }
+    for (const v of [undefined, null, 1, {}, ['base/x.cc']]) { expect(browserLogPathReasonOf(v as never)).toBe('NOT_STRING'); expect(browserLogPathExtOf(v as never)).toBe('OTHER'); }
+    const used = new Set([...TABLE.map((t) => t[1]), 'NOT_STRING', 'UNAVAILABLE']);
+    expect(used).toEqual(new Set(SL_PATH_REASONS));
+  });
+  it('the accepted grammar is unchanged: reason NONE exactly when browserLogComponentOf is not UNPARSED (table and an exhaustive corpus)', () => {
+    for (const [p] of TABLE) expect(browserLogPathReasonOf(p) === 'NONE', JSON.stringify(p)).toBe(browserLogComponentOf(p) !== 'UNPARSED');
+    const A = ['a', 'Z', '0', '_', '-', '.', '/', ' ', '\\', '+', 'é', '\u0000'];
+    let n = 0;
+    const gen = (len: number, pre: string): void => {
+      if (len === 0) { for (const e of ['', '.cc', '.cpp', '.h']) { const p = pre + e; expect(browserLogPathReasonOf(p) === 'NONE').toBe(browserLogComponentOf(p) !== 'UNPARSED'); n++; } return; }
+      for (const c of A) gen(len - 1, pre + c);
+    };
+    for (let L = 0; L <= 3; L++) gen(L, '');
+    expect(n).toBe(4 * (1 + 12 + 144 + 1728));
+  });
+  it('classifier: codes only when the one OTHER record is UNPARSED, from the SAME frozen sample; NONE for every other outcome', () => {
+    expect(run([rec('../../third_party/lib/Src/Foo.cpp')])).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: 'UNPARSED', path: { reason: 'UPPER', ext: 'CPP' } });
+    expect(run([rec('/abs/x.cc')])).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: 'UNPARSED', path: { reason: 'ABSOLUTE', ext: 'CC' } });
+    expect(run([rec('base/x.cc')])).toEqual({ log: 'OTHER_FATAL_REPORTED', comp: 'BASE', path: { reason: 'NONE', ext: 'NONE' } });
+    expect(run([rec('Base/X.cpp'), rec('Base/Y.cpp')]).path).toEqual({ reason: 'NONE', ext: 'NONE' }); // MULTIPLE
+    expect(run(['plain']).path).toEqual({ reason: 'NONE', ext: 'NONE' });
+    const g = `[${STAMP}:FATAL:content/browser/gpu/gpu_data_manager_impl_private.cc:417] GPU process isn't usable. Goodbye.`;
+    expect(run([g]).path).toEqual({ reason: 'NONE', ext: 'NONE' });
+    const t = browserLogClassifier(PID, { MAX_BYTES: 64, MAX_LINE: 4096 });
+    t.push(Buffer.from(`${rec('Base/X.cpp')}\n${'y'.repeat(100)}\n`));
+    expect([t.sample(), t.pathDiag()]).toEqual(['TRUNCATED', { reason: 'NONE', ext: 'NONE' }]);
+    const u = browserLogClassifier(PID);
+    u.push(Buffer.from(`${rec('Base/X.cpp')}\n`)); u.push('x' as unknown as Buffer);
+    expect([u.sample(), u.pathDiag()]).toEqual(['UNAVAILABLE', { reason: 'NONE', ext: 'NONE' }]);
+    const f = browserLogClassifier(PID);
+    f.push(Buffer.from(`${rec('Base/X.cpp')}\n`));
+    expect(f.pathDiag()).toEqual({ reason: 'UPPER', ext: 'CPP' }); // freezes
+    f.push(Buffer.from(`${rec('/abs/y.cc')}\n`));
+    expect([f.sample(), f.component(), f.pathDiag()]).toEqual(['OTHER_FATAL_REPORTED', 'UNPARSED', { reason: 'UPPER', ext: 'CPP' }]);
+    const d = f.pathDiag(); d.reason = 'EMPTY';
+    expect(f.pathDiag()).toEqual({ reason: 'UPPER', ext: 'CPP' }); // a returned copy cannot change the frozen codes
+  });
+  it('recorder and line accessor: only closed codes from every surface; no path, message, pid or stamp leaves', async () => {
+    const SECRET = 'token=eyJhbGciOi.secret https://u:p@h.example/x?k=v /tmp/le-private/keys/anon';
+    const stderr = new PassThrough();
+    stderr.on('data', () => {});
+    const read = browserLogRecorder({ pid: PID, stderr });
+    stderr.write(`${rec('../../Third_Party/eyJhbGciOi/Secret.cpp', `boom ${SECRET}`)}\n`);
+    await new Promise((r) => setImmediate(r));
+    const state = { browserLog: read };
+    expect([read(), browserLogComponentLine(state)]).toEqual(['OTHER_FATAL_REPORTED', 'UNPARSED']);
+    expect((read as unknown as { pathDiag: () => unknown }).pathDiag()).toEqual({ reason: 'UPPER', ext: 'CPP' });
+    expect(browserLogPathLine(state)).toEqual({ reason: 'UPPER', ext: 'CPP' });
+    expect(JSON.stringify(browserLogPathLine(state))).not.toMatch(/secret|eyJ|https|example|tmp|4242|1104|Third/i);
+    expect(browserLogRecorder(null)()).toBe('UNAVAILABLE');
+    expect((browserLogRecorder(null) as unknown as { pathDiag: () => unknown }).pathDiag()).toEqual({ reason: 'NONE', ext: 'NONE' });
+    const of = (comp: unknown, d: unknown, log = 'OTHER_FATAL_REPORTED') => browserLogPathLine({ browserLog: Object.assign(() => log, { component: comp, pathDiag: d }) });
+    const UN = { reason: 'UNAVAILABLE', ext: 'UNAVAILABLE' }, NO = { reason: 'NONE', ext: 'NONE' };
+    expect(of(() => 'UNPARSED', () => ({ reason: 'DEPTH', ext: 'CC' }))).toEqual({ reason: 'DEPTH', ext: 'CC' });
+    expect(of(() => 'UNPARSED', undefined)).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => { throw new Error('secret'); })).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => ({ reason: 'NONE', ext: 'CC' }))).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => ({ reason: 'UNAVAILABLE', ext: 'UNAVAILABLE' }))).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => ({ reason: 'DEPTH', ext: 'NONE' }))).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => ({ reason: 'base/x', ext: 'CC' }))).toEqual(UN);
+    expect(of(() => 'UNPARSED', () => null)).toEqual(UN);
+    expect(of(undefined, () => ({ reason: 'DEPTH', ext: 'CC' }))).toEqual(UN); // component line UNPARSED via a missing accessor
+    expect(of(() => 'NONE', () => ({ reason: 'DEPTH', ext: 'CC' }))).toEqual(UN); // component line UNPARSED via an incoherent accessor
+    expect(of(() => 'BASE', () => ({ reason: 'DEPTH', ext: 'CC' }))).toEqual(NO);
+    for (const code of SL_LOG_CODES.filter((c) => c !== 'OTHER_FATAL_REPORTED')) expect(of(() => 'UNPARSED', () => ({ reason: 'DEPTH', ext: 'CC' }), code), code).toEqual(NO);
+    expect(browserLogPathLine({})).toEqual(NO);
+    expect(browserLogPathLine(null)).toEqual(NO);
+  });
+  it('E1 is unchanged: no E1 producer, annotation or lane line reads the path fields', () => {
+    for (const f of ['scripts/e2e/le-lane/lane-entry.mjs', 'scripts/e2e/le-lane/gates.mjs', 'scripts/e2e/le-e1-summary.mjs', 'scripts/e2e/le-lane/run-lane.mjs'])
+      expect(readFileSync(path.join(ROOT, f), 'utf8'), f).not.toMatch(/LOG_PATH|browserLogPath|pathDiag/);
+    const c = readFileSync(path.join(ROOT, 'scripts/e2e/le-lane/contract.mjs'), 'utf8');
+    expect(c).not.toMatch(/LE-E1[^\n]*LOG_PATH|LANE E1[^\n]*LOG_PATH/);
   });
 });

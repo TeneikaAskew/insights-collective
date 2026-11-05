@@ -365,6 +365,45 @@ export function browserLogComponentOf(raw) {
   for (const [prefix, code] of COMPONENT_PREFIXES) if (p.startsWith(prefix)) return code;
   return 'OTHER_PATH';
 }
+/**
+ * Browser-log path reason r1 (SYNTHETIC lane only, diagnostic only). For a path browserLogComponentOf marks UNPARSED: the FIRST
+ * failing rule in this fixed order, and the closed class of the last segment's extension. Only these codes leave: never the path,
+ * a segment, a character, a length or a count. The accepted grammar above is unchanged: browserLogPathReasonOf is NONE exactly
+ * when browserLogComponentOf is not UNPARSED (a static control pins the agreement). UNAVAILABLE: the accessor failed.
+ */
+export const BROWSER_LOG_PATH_REASONS = Object.freeze(['NONE', 'NOT_STRING', 'EMPTY', 'ABSOLUTE', 'BACKSLASH', 'CONTROL', 'SPACE',
+  'NON_ASCII', 'UPPER', 'OTHER_CHAR', 'EMPTY_SEGMENT', 'DOT_SEGMENT', 'SEGMENT_START', 'DEPTH', 'EXTENSION', 'UNAVAILABLE']);
+export const BROWSER_LOG_PATH_EXTS = Object.freeze(['NONE', 'CC', 'H', 'MM', 'C', 'CPP', 'CXX', 'HPP', 'HH', 'INC', 'M', 'NO_EXT',
+  'OTHER', 'UNAVAILABLE']);
+const PATH_EXT_MAP = Object.freeze({ cc: 'CC', h: 'H', mm: 'MM', c: 'C', cpp: 'CPP', cxx: 'CXX', hpp: 'HPP', hh: 'HH', inc: 'INC', m: 'M' });
+/** Pure: the first failing grammar rule of a FATAL record's path text (after the same leading `../` strip), or NONE. */
+export function browserLogPathReasonOf(raw) {
+  if (typeof raw !== 'string') return 'NOT_STRING';
+  const p = raw.replace(/^(?:\.\.\/)+/, '');
+  if (p.length === 0) return 'EMPTY';
+  if (p[0] === '/') return 'ABSOLUTE';
+  if (p.includes('\\')) return 'BACKSLASH';
+  if (/[\x00-\x1f\x7f]/.test(p)) return 'CONTROL';
+  if (p.includes(' ')) return 'SPACE';
+  if (/[^\x00-\x7f]/.test(p)) return 'NON_ASCII';
+  if (/[A-Z]/.test(p)) return 'UPPER';
+  if (/[^a-z0-9_.\-/]/.test(p)) return 'OTHER_CHAR';
+  const segs = p.split('/');
+  if (segs.some((x) => x === '')) return 'EMPTY_SEGMENT';
+  if (segs.some((x) => x === '.' || x === '..')) return 'DOT_SEGMENT';
+  if (segs.some((x) => !/^[a-z0-9_]/.test(x))) return 'SEGMENT_START';
+  if (segs.length > 16) return 'DEPTH';
+  if (!COMPONENT_EXT.test(p)) return 'EXTENSION';
+  return 'NONE';
+}
+/** Pure: the closed class of the last segment's extension (case-insensitive), never the extension text. */
+export function browserLogPathExtOf(raw) {
+  if (typeof raw !== 'string') return 'OTHER';
+  const last = raw.split(/[\\/]/).pop() ?? '';
+  const i = last.lastIndexOf('.');
+  if (i <= 0 || i === last.length - 1) return 'NO_EXT';
+  return Object.prototype.hasOwnProperty.call(PATH_EXT_MAP, last.slice(i + 1).toLowerCase()) ? PATH_EXT_MAP[last.slice(i + 1).toLowerCase()] : 'OTHER';
+}
 export const BROWSER_LOG_LIMITS = Object.freeze({ MAX_BYTES: 1_048_576, MAX_LINE: 4096 });
 const LOG_FATAL_PREFIX = String.raw`^\[(?:(\d{1,10}):\d{1,10}:)?\d{4}/\d{6}\.\d{6}:FATAL:`;
 const GPU_UNUSABLE_RECORD = new RegExp(`${LOG_FATAL_PREFIX}content/browser/gpu/gpu_data_manager_impl_private\\.cc:417\\] GPU process isn't usable\\. Goodbye\\.$`);
@@ -373,6 +412,7 @@ const FATAL_RECORD = new RegExp(`${LOG_FATAL_PREFIX}([^\\]]{1,512}):\\d{1,6}\\] 
 export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
   let bytes = 0, pend = null, lineLen = 0, skipping = false, truncated = false, broken = false, frozen = null, gpu = 0, other = 0;
   let component = 'NONE', frozenComponent = 'NONE'; // only a closed code is kept, never the path text
+  let pathReason = 'NONE', pathExt = 'NONE', frozenPath = { reason: 'NONE', ext: 'NONE' }; // closed codes only
   const judge = (buf) => {
     let s = buf.toString('latin1');
     if (s.endsWith('\r')) s = s.slice(0, -1);
@@ -380,7 +420,10 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
     const f = g ?? FATAL_RECORD.exec(s);
     if (!f) return;
     if (f[1] !== undefined && Number(f[1]) !== browserPid) return;
-    if (g) gpu += 1; else { other += 1; component = browserLogComponentOf(f[2]); }
+    if (g) gpu += 1; else {
+      other += 1; component = browserLogComponentOf(f[2]);
+      if (component === 'UNPARSED') { pathReason = browserLogPathReasonOf(f[2]); pathExt = browserLogPathExtOf(f[2]); } else { pathReason = 'NONE'; pathExt = 'NONE'; }
+    }
   };
   const piece = (b) => {
     if (skipping) return;
@@ -410,12 +453,18 @@ export function browserLogClassifier(browserPid, limits = BROWSER_LOG_LIMITS) {
       release();
       frozen = result(gpu + other);
       frozenComponent = frozen === 'OTHER_FATAL_REPORTED' ? component : 'NONE';
+      frozenPath = frozenComponent === 'UNPARSED' ? { reason: pathReason, ext: pathExt } : { reason: 'NONE', ext: 'NONE' };
       return frozen;
     },
     /** The component fixed by the SAME sample (taking it first if needed): a code only with OTHER_FATAL_REPORTED, else NONE. */
     component() {
       if (frozen === null) api.sample();
       return frozenComponent;
+    },
+    /** The path reason and extension class fixed by the SAME sample: codes only when the component is UNPARSED, else NONE. */
+    pathDiag() {
+      if (frozen === null) api.sample();
+      return { reason: frozenPath.reason, ext: frozenPath.ext };
     },
   };
   return api;
@@ -445,6 +494,9 @@ export function browserLogRecorder(child) {
     if (read() !== 'OTHER_FATAL_REPORTED') return 'NONE';
     try { const k = c.component(); return BROWSER_LOG_COMPONENTS.includes(k) && k !== 'NONE' ? k : 'UNPARSED'; } catch { return 'UNPARSED'; }
   };
+  read.pathDiag = () => {
+    try { return read.component() === 'UNPARSED' ? c.pathDiag() : { reason: 'NONE', ext: 'NONE' }; } catch { return { reason: 'UNAVAILABLE', ext: 'UNAVAILABLE' }; }
+  };
   return read;
 }
 /** The synthetic arm's LOG_COMPONENT: a component code iff browserLogLine is OTHER_FATAL_REPORTED (UNPARSED when the accessor is
@@ -458,6 +510,23 @@ export function browserLogComponentLine(state) {
     const k = typeof f === 'function' ? f() : 'UNPARSED';
     return BROWSER_LOG_COMPONENTS.includes(k) && k !== 'NONE' ? k : 'UNPARSED';
   } catch { return 'UNPARSED'; }
+}
+/** The synthetic arm's LOG_PATH_REASON and LOG_PATH_EXT: NONE/NONE unless browserLogComponentLine is UNPARSED; then the sampled
+ *  codes, or UNAVAILABLE/UNAVAILABLE when the accessor is missing, throws, answers outside the sets or answers incoherently. */
+export function browserLogPathLine(state) {
+  const none = { reason: 'NONE', ext: 'NONE' }, unavailable = { reason: 'UNAVAILABLE', ext: 'UNAVAILABLE' };
+  if (browserLogComponentLine(state) !== 'UNPARSED') return none;
+  try {
+    // The codes must come from the accessor that itself reported UNPARSED (not an UNPARSED caused by a missing component accessor).
+    const k = typeof state.browserLog.component === 'function' ? state.browserLog.component() : null;
+    if (k !== 'UNPARSED') return unavailable;
+    const f = state.browserLog.pathDiag;
+    const d = typeof f === 'function' ? f() : null;
+    const reason = d?.reason, ext = d?.ext;
+    if (!BROWSER_LOG_PATH_REASONS.includes(reason) || ['NONE', 'UNAVAILABLE'].includes(reason)) return unavailable;
+    if (!BROWSER_LOG_PATH_EXTS.includes(ext) || ['NONE', 'UNAVAILABLE'].includes(ext)) return unavailable;
+    return { reason, ext };
+  } catch { return unavailable; }
 }
 /** The test-scoped gate's `lane-browser-log` annotation: one BROWSER_LOG_CODES code; a missing or throwing sampler is UNAVAILABLE. */
 export function browserLogLine(state) {

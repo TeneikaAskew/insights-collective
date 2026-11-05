@@ -12,7 +12,7 @@
 // Cleanup is never guarded. A bound that fires aborts, closes, then JOINS the pending work for at most JOIN_MS and records
 // JOIN SETTLED or UNRESOLVED. BROWSER_EXIT_OBSERVED is Node seeing the owned browser process exit: NOT a reap of its
 // descendants. Per arm, "nothing left" is the host's proof that the container is absent (DESIGN-r3 section 1).
-import { CLOSE_TIMEOUT_MS, browserExitLine, browserLogComponentLine, browserLogLine, pageTeardownRecord } from './sandbox-launch.mjs';
+import { CLOSE_TIMEOUT_MS, browserExitLine, browserLogComponentLine, browserLogLine, browserLogPathLine, pageTeardownRecord } from './sandbox-launch.mjs';
 
 export const SYN_ARMS = Object.freeze(['A', 'B', 'C', 'D']);
 /** Body bound: E1's test timeout (playwright.lesson-editor.config.ts `timeout: 120_000`). */
@@ -239,10 +239,11 @@ export async function runArm(arm, d) {
   const exit = state ? browserExitLine(state, pageTeardown) : 'UNKNOWN';
   const log = state ? browserLogLine(state) : 'UNKNOWN';
   const component = state ? browserLogComponentLine(state) : 'UNKNOWN';
+  const logPath = state ? browserLogPathLine(state) : { reason: 'UNKNOWN', ext: 'UNKNOWN' };
   const seen = /^SHAPE (CODE_\d+|SIG[A-Z_]+) /.test(exit);
   const status = !primary && bodyDone && join === 'SETTLED' && contextState === 'CLOSED' && browserState === 'CLOSED' && seen ? 'DONE' : 'FAILED';
-  return { arm, status, milestone, exit, log, component, join, context: contextState, browser: browserState, primary,
-    line: `ARM ${arm} STATUS ${status} M ${milestone} BROWSER_EXIT_OBSERVED ${exit} BROWSER_LOG ${log} LOG_COMPONENT ${component}` };
+  return { arm, status, milestone, exit, log, component, pathReason: logPath.reason, pathExt: logPath.ext, join, context: contextState, browser: browserState, primary,
+    line: `ARM ${arm} STATUS ${status} M ${milestone} BROWSER_EXIT_OBSERVED ${exit} BROWSER_LOG ${log} LOG_COMPONENT ${component} LOG_PATH_REASON ${logPath.reason} LOG_PATH_EXT ${logPath.ext}` };
 }
 
 /**
@@ -272,8 +273,8 @@ export async function runContainerArm(arm, d) {
   const done = !!r && r.status === 'DONE' && clean && !primary;
   if (!primary && !clean) primary = 'SYN_E_CLEANUP';
   const status = done ? 'DONE' : 'FAILED';
-  const armLine = r ? `ARM ${arm} STATUS ${status} M ${r.milestone} BROWSER_EXIT_OBSERVED ${r.exit} BROWSER_LOG ${r.log} LOG_COMPONENT ${r.component}`
-    : `ARM ${arm} STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN`;
+  const armLine = r ? `ARM ${arm} STATUS ${status} M ${r.milestone} BROWSER_EXIT_OBSERVED ${r.exit} BROWSER_LOG ${r.log} LOG_COMPONENT ${r.component} LOG_PATH_REASON ${r.pathReason} LOG_PATH_EXT ${r.pathExt}`
+    : `ARM ${arm} STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN LOG_PATH_REASON NOT_RUN LOG_PATH_EXT NOT_RUN`;
   const cleanupLine = `CLEANUP JOIN ${cleanups.join} CONTEXT ${cleanups.context} BROWSER ${cleanups.browser} DUMMY ${cleanups.dummy} PROXY ${cleanups.proxy}`;
   return { armLine, cleanupLine, primary, done };
 }

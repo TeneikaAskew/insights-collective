@@ -283,7 +283,7 @@ function memFs(o: { failMkdir?: (p: string) => boolean; failLstatBig?: (p: strin
 }
 
 const CLEAN = 'CLEANUP JOIN SETTLED CONTEXT CLOSED BROWSER CLOSED DUMMY CLOSED PROXY CLOSED';
-const armBody = (a: string, status = 'DONE', m = 'DONE') => `ARM ${a} STATUS ${status} M ${m} BROWSER_EXIT_OBSERVED SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH LOG_COMPONENT NONE`;
+const armBody = (a: string, status = 'DONE', m = 'DONE') => `ARM ${a} STATUS ${status} M ${m} BROWSER_EXIT_OBSERVED SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG NO_MATCH LOG_COMPONENT NONE LOG_PATH_REASON NONE LOG_PATH_EXT NONE`;
 const synReport = (anns: [string, string][], o: { title?: string; retry?: number; tests?: number } = {}) => {
   const test = { projectName: 'lifecycle-matrix-chromium', annotations: [], results: [{ retry: o.retry ?? 0, status: 'passed', annotations: anns.map(([type, description]) => ({ type, description })) }] };
   return JSON.stringify({ suites: [{ title: 'lifecycle-matrix.spec.ts', file: 'lifecycle-matrix.spec.ts',
@@ -963,7 +963,7 @@ describe('per-container dummy and proxy: tri-state closes from their own complet
     expect(r.primary).toBe('FAKE_FAIL');
     expect(r.cleanupLine).toBe('CLEANUP JOIN SETTLED CONTEXT CLOSED BROWSER CLOSED DUMMY TIMEOUT PROXY CLOSED');
     const s = await run({ dummyStartFails: true });
-    expect(s).toEqual({ armLine: 'ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN', cleanupLine: 'CLEANUP JOIN SETTLED CONTEXT NONE BROWSER NONE DUMMY NONE PROXY NONE', primary: 'SYN_E_DUMMY_LISTEN', done: false });
+    expect(s).toEqual({ armLine: 'ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN LOG_PATH_REASON NOT_RUN LOG_PATH_EXT NOT_RUN', cleanupLine: 'CLEANUP JOIN SETTLED CONTEXT NONE BROWSER NONE DUMMY NONE PROXY NONE', primary: 'SYN_E_DUMMY_LISTEN', done: false });
     expect((await runContainerArm('E', {} as never)).primary).toBe('SYN_E_ARM_SELECT');
   });
   it('bounds nest: body < outer; outer + dummy and proxy closes <= test backstop < in-lane child bound < container wait', () => {
@@ -1173,8 +1173,10 @@ describe('workflow: the synthetic job exists alone, with no authentic step; clea
 // ---------------------------------------------------------------------------------------------------------------------
 describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only, closed coherence, diagnostic only', () => {
   const fatal = (code: string) => Object.assign(() => 'OTHER_FATAL_REPORTED', { component: () => code });
+  const tailOf = (comp: string) => (comp === 'UNPARSED' ? ' LOG_PATH_REASON UPPER LOG_PATH_EXT CPP' : ['NOT_RUN', 'UNKNOWN'].includes(comp)
+    ? ` LOG_PATH_REASON ${comp} LOG_PATH_EXT ${comp}` : ' LOG_PATH_REASON NONE LOG_PATH_EXT NONE');
   const armOf = (log: string, comp: string, exit = 'SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN') =>
-    `ARM A STATUS DONE M DONE BROWSER_EXIT_OBSERVED ${exit} BROWSER_LOG ${log} LOG_COMPONENT ${comp}`;
+    `ARM A STATUS DONE M DONE BROWSER_EXIT_OBSERVED ${exit} BROWSER_LOG ${log} LOG_COMPONENT ${comp}${tailOf(comp)}`;
   it('the contract copy of the component codes equals the source set exactly', async () => {
     const sl = await import('../../../e2e/lesson-editor/sandbox-launch.mjs');
     const ct = await import('../../../scripts/e2e/le-lane/contract.mjs');
@@ -1190,14 +1192,14 @@ describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only
       expect(parseSynArm(armOf(log, 'NONE')), log).toMatchObject({ log, component: 'NONE' });
       for (const bad of [...codes, 'NOT_RUN', 'UNKNOWN']) expect(parseSynArm(armOf(log, bad)), `${log} ${bad}`).toBeNull();
     }
-    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN')).toMatchObject({ component: 'NOT_RUN' });
-    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NONE')).toBeNull();
+    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN LOG_PATH_REASON NOT_RUN LOG_PATH_EXT NOT_RUN')).toMatchObject({ component: 'NOT_RUN' });
+    expect(parseSynArm('ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NONE LOG_PATH_REASON NONE LOG_PATH_EXT NONE')).toBeNull();
     expect(parseSynArm(unknownArm('A'))).toMatchObject({ status: 'UNKNOWN', log: 'UNKNOWN', component: 'UNKNOWN' });
     expect(parseSynArm(unknownArm('A').replace('LOG_COMPONENT UNKNOWN', 'LOG_COMPONENT NONE'))).toBeNull();
     for (const bad of ['BASE x', 'base', 'BAS', 'content/browser/gpu/x.cc', '', 'OTHER', 'UNPARSED_X'])
       expect(parseSynArm(armOf('OTHER_FATAL_REPORTED', bad)), bad).toBeNull();
     expect(parseSynArm(armOf('NO_MATCH', 'NONE').replace(' LOG_COMPONENT NONE', ''))).toBeNull();
-    expect(parseSynArm(`${armOf('NO_MATCH', 'NONE')} LOG_COMPONENT NONE`)).toBeNull();
+    expect(parseSynArm(armOf('NO_MATCH', 'NONE').replace(' LOG_COMPONENT NONE', ' LOG_COMPONENT NONE LOG_COMPONENT NONE'))).toBeNull();
   });
   // Coverage limit: this test drives runArm only. runContainerArm copies runArm's r.component into its arm line; that path is
   // exercised elsewhere only with NONE (fake NO_MATCH) and NOT_RUN, so an uncommon component through runContainerArm is untested.
@@ -1216,12 +1218,12 @@ describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only
     for (const [browserLog, log, comp] of cases) {
       const w = fakeWorld({ browserLog: browserLog === undefined ? null : browserLog });
       const r = await runArm('A', w.d as never);
-      expect(r.line, comp).toMatch(new RegExp(` BROWSER_LOG ${log} LOG_COMPONENT ${comp}$`));
+      expect(r.line, comp).toMatch(new RegExp(` BROWSER_LOG ${log} LOG_COMPONENT ${comp} LOG_PATH_REASON (NONE|UNAVAILABLE) LOG_PATH_EXT (NONE|UNAVAILABLE)$`));
       expect(parseSynArm(r.line), comp).toMatchObject({ log, component: comp, status: 'DONE' });
       expect(r.line).not.toMatch(/secret|\/tmp|boom/);
     }
     const ns = await runArm('A', fakeWorld({ noState: true }).d as never);
-    expect(ns.line).toMatch(/ BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN$/);
+    expect(ns.line).toMatch(/ BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN LOG_PATH_REASON UNKNOWN LOG_PATH_EXT UNKNOWN$/);
   });
   it('no decision reads LOG_COMPONENT: status, results, matrix and summary RESULT lines are identical across every legal component', async () => {
     const { BROWSER_LOG_COMPONENTS: COMPS } = await import('../../../scripts/e2e/le-lane/contract.mjs');
@@ -1233,7 +1235,7 @@ describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only
     };
     const base = decide('BASE');
     expect(base.detail).toHaveLength(4);
-    for (const d of base.detail) expect(d).toMatch(/ BROWSER_LOG OTHER_FATAL_REPORTED LOG_COMPONENT BASE$/);
+    for (const d of base.detail) expect(d).toMatch(/ BROWSER_LOG OTHER_FATAL_REPORTED LOG_COMPONENT BASE LOG_PATH_REASON NONE LOG_PATH_EXT NONE$/);
     for (const c of COMPS.filter((x: string) => x !== 'NONE')) {
       const d = decide(c);
       expect({ ...d, detail: undefined }, c).toEqual({ ...base, detail: undefined });
@@ -1243,5 +1245,89 @@ describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only
     const lm = read('e2e/lesson-editor/lifecycle-matrix.mjs');
     expect(lm.match(/\bcomponent\b/g)?.length).toBe(4); // declared, returned, and printed twice: never compared
     expect(lm).not.toMatch(/component\s*[!=]==|===\s*component|\.component\s*[!=]==/);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+describe('browser-log path reason r1: LOG_PATH_REASON and LOG_PATH_EXT forwarded on the synthetic arm line only, closed, diagnostic only', () => {
+  const diag = (comp: string, d: unknown) => Object.assign(() => 'OTHER_FATAL_REPORTED', { component: () => comp, pathDiag: d });
+  const line = (comp: string, r: string, e: string) =>
+    `ARM A STATUS DONE M DONE BROWSER_EXIT_OBSERVED SHAPE CODE_0 FIRST_SEEN GATE_POST BODY_END_PAGE OPEN BROWSER_LOG OTHER_FATAL_REPORTED LOG_COMPONENT ${comp} LOG_PATH_REASON ${r} LOG_PATH_EXT ${e}`;
+  it('the contract copies equal the source sets exactly', async () => {
+    const sl = await import('../../../e2e/lesson-editor/sandbox-launch.mjs');
+    const ct = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    expect([...ct.BROWSER_LOG_PATH_REASONS]).toEqual([...sl.BROWSER_LOG_PATH_REASONS]);
+    expect([...ct.BROWSER_LOG_PATH_EXTS]).toEqual([...sl.BROWSER_LOG_PATH_EXTS]);
+    expect(Object.isFrozen(ct.BROWSER_LOG_PATH_REASONS) && Object.isFrozen(ct.BROWSER_LOG_PATH_EXTS)).toBe(true);
+  });
+  it('parseSynArm: every reason x ext pair is accepted exactly when coherent with the component', async () => {
+    const { BROWSER_LOG_PATH_REASONS: RS, BROWSER_LOG_PATH_EXTS: ES } = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    const classes = ES.filter((e: string) => !['NONE', 'UNAVAILABLE'].includes(e));
+    for (const comp of ['UNPARSED', 'BASE', 'OTHER_PATH']) for (const r of [...RS, 'NOT_RUN', 'UNKNOWN']) for (const e of [...ES, 'NOT_RUN', 'UNKNOWN']) {
+      const ok = comp === 'UNPARSED'
+        ? r !== 'NONE' && RS.includes(r) && (r === 'UNAVAILABLE' ? e === 'UNAVAILABLE' : classes.includes(e))
+        : r === 'NONE' && e === 'NONE';
+      const p = parseSynArm(line(comp, r, e));
+      expect(p !== null, `${comp} ${r} ${e}`).toBe(ok);
+      if (ok) expect(p).toMatchObject({ component: comp, pathReason: r, pathExt: e });
+    }
+    const nr = 'ARM A STATUS FAILED M NONE BROWSER_EXIT_OBSERVED NOT_RUN BROWSER_LOG NOT_RUN LOG_COMPONENT NOT_RUN';
+    expect(parseSynArm(`${nr} LOG_PATH_REASON NOT_RUN LOG_PATH_EXT NOT_RUN`)).toMatchObject({ pathReason: 'NOT_RUN', pathExt: 'NOT_RUN' });
+    for (const t of ['NONE NOT_RUN', 'NOT_RUN NONE', 'NONE NONE', 'UNKNOWN UNKNOWN'])
+      expect(parseSynArm(`${nr} LOG_PATH_REASON ${t.split(' ')[0]} LOG_PATH_EXT ${t.split(' ')[1]}`), t).toBeNull();
+    expect(parseSynArm(unknownArm('A'))).toMatchObject({ pathReason: 'UNKNOWN', pathExt: 'UNKNOWN' });
+    expect(parseSynArm(unknownArm('A').replace('LOG_PATH_EXT UNKNOWN', 'LOG_PATH_EXT NONE'))).toBeNull();
+    for (const bad of ['upper', 'UPPER x', 'base/x.cc', '', 'CPP_X']) expect(parseSynArm(line('UNPARSED', bad, 'CPP')), bad).toBeNull();
+    expect(parseSynArm(line('UNPARSED', 'UPPER', 'CPP').replace(' LOG_PATH_EXT CPP', ''))).toBeNull();
+  });
+  it('runArm and runContainerArm forward the sampled codes; a missing, throwing, incoherent or out-of-set accessor is UNAVAILABLE', async () => {
+    const cases: [unknown, string][] = [
+      [diag('UNPARSED', () => ({ reason: 'UPPER', ext: 'CPP' })), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UPPER LOG_PATH_EXT CPP'],
+      [diag('UNPARSED', () => ({ reason: 'DEPTH', ext: 'NO_EXT' })), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON DEPTH LOG_PATH_EXT NO_EXT'],
+      [diag('UNPARSED', () => { throw new Error('secret /tmp/x'); }), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('UNPARSED', undefined), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('UNPARSED', () => ({ reason: 'NONE', ext: 'CC' })), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('UNPARSED', () => ({ reason: 'UPPER', ext: 'NONE' })), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('UNPARSED', () => ({ reason: 'UPPER', ext: 'base/X.cpp' })), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('UNPARSED', () => 'UPPER'), 'LOG_COMPONENT UNPARSED LOG_PATH_REASON UNAVAILABLE LOG_PATH_EXT UNAVAILABLE'],
+      [diag('BASE', () => ({ reason: 'UPPER', ext: 'CPP' })), 'LOG_COMPONENT BASE LOG_PATH_REASON NONE LOG_PATH_EXT NONE'],
+      [Object.assign(() => 'NO_MATCH', { component: () => 'UNPARSED', pathDiag: () => ({ reason: 'UPPER', ext: 'CPP' }) }), 'LOG_COMPONENT NONE LOG_PATH_REASON NONE LOG_PATH_EXT NONE'],
+    ];
+    for (const [browserLog, tail] of cases) {
+      const r = await runArm('A', fakeWorld({ browserLog }).d as never);
+      expect(r.line.endsWith(` ${tail}`), tail).toBe(true);
+      expect(parseSynArm(r.line), tail).not.toBeNull();
+      expect(r.line).not.toMatch(/secret|\/tmp|base\//);
+      const w = fakeWorld({ browserLog });
+      const http = fakeHttp('ok');
+      const c = await runContainerArm('A', {
+        startDummy: () => startDummyServer(http, 60), allowedOrigins, installBoundary: w.d.installBoundary,
+        startProxy: async () => ({ url: 'http://127.0.0.1:5000', close: () => Promise.resolve() }), withBrowser: () => w.d.withBrowser,
+        timeoutMs: 60, joinMs: 200, closeMs: 60, outerMs: 2000,
+      } as never);
+      expect(c.armLine.endsWith(` ${tail}`), `container ${tail}`).toBe(true);
+      expect(parseSynArm(c.armLine)).not.toBeNull();
+    }
+  });
+  it('no decision reads the path fields: results, matrix and non-DETAIL summary lines are identical across every legal pair', async () => {
+    const { BROWSER_LOG_PATH_REASONS: RS, BROWSER_LOG_PATH_EXTS: ES } = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    const decide = (r: string, e: string) => {
+      const arms = SYN_ARMS.map((arm) => synArmResult({ arm, verdict: V_ABSENT, laneText: RAN(arm, { armText: line('UNPARSED', r, e).replace('ARM A', `ARM ${arm}`) }), exit: 'ZERO' }));
+      const s = synSummaryLines({ rootVerdict: ROOT_OK, arms });
+      return { results: arms.map((a: Obj) => [a.result, a.container, a.record]), matrix: synMatrix({ rootVerdict: ROOT_OK, arms }), ok: s.ok,
+        lines: s.lines.filter((l: string) => !/ DETAIL /.test(l)), detail: s.lines.filter((l: string) => / DETAIL /.test(l)) };
+    };
+    const base = decide('UPPER', 'CPP');
+    for (const d of base.detail) expect(d).toMatch(/ LOG_COMPONENT UNPARSED LOG_PATH_REASON UPPER LOG_PATH_EXT CPP$/);
+    const classes = ES.filter((e: string) => !['NONE', 'UNAVAILABLE'].includes(e));
+    for (const r of RS.filter((x: string) => x !== 'NONE')) for (const e of r === 'UNAVAILABLE' ? ['UNAVAILABLE'] : classes) {
+      const d = decide(r, e);
+      expect(d.detail).toHaveLength(4);
+      expect({ ...d, detail: undefined }, `${r} ${e}`).toEqual({ ...base, detail: undefined });
+    }
+    for (const f of ['scripts/e2e/le-lane/run-lane.mjs', 'scripts/e2e/le-lane/lane-entry.mjs', 'scripts/e2e/le-lane/synthetic.mjs', 'scripts/e2e/le-lane/gates.mjs'])
+      expect(read(f), f).not.toMatch(/LOG_PATH|pathReason|pathExt|pathDiag|browserLogPath/);
+    const lm = read('e2e/lesson-editor/lifecycle-matrix.mjs');
+    expect(lm).not.toMatch(/logPath\.(reason|ext)\s*[!=]==|pathReason\s*[!=]==|pathExt\s*[!=]==/);
   });
 });

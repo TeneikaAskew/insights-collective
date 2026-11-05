@@ -397,6 +397,11 @@ export const BROWSER_LOG_CODES = Object.freeze(['GPU_UNUSABLE_REPORTED', 'OTHER_
 export const BROWSER_LOG_COMPONENTS = Object.freeze(['GPU_BROWSER', 'GPU', 'ZYGOTE', 'SANDBOX_LINUX', 'RENDERER_HOST', 'RENDERER',
   'CONTENT_BROWSER', 'CONTENT_OTHER', 'MOJO', 'IPC', 'BASE', 'COMPONENTS', 'HEADLESS', 'UI_GRAPHICS', 'NETWORK', 'OTHER_PATH',
   'UNPARSED', 'NONE']);
+// Browser-log path reason r1 (synthetic only): copies of sandbox-launch.mjs BROWSER_LOG_PATH_REASONS / _EXTS (a static test pins them).
+export const BROWSER_LOG_PATH_REASONS = Object.freeze(['NONE', 'NOT_STRING', 'EMPTY', 'ABSOLUTE', 'BACKSLASH', 'CONTROL', 'SPACE',
+  'NON_ASCII', 'UPPER', 'OTHER_CHAR', 'EMPTY_SEGMENT', 'DOT_SEGMENT', 'SEGMENT_START', 'DEPTH', 'EXTENSION', 'UNAVAILABLE']);
+export const BROWSER_LOG_PATH_EXTS = Object.freeze(['NONE', 'CC', 'H', 'MM', 'C', 'CPP', 'CXX', 'HPP', 'HH', 'INC', 'M', 'NO_EXT',
+  'OTHER', 'UNAVAILABLE']);
 /** The test-scoped gate's `lane-browser-exit` annotation (sandbox-launch.mjs browserExitLine) to { shape, firstSeen, page } or
  *  null. Consistent pairs only: an exit shape needs a checkpoint or UNKNOWN; NONE needs NOT_SEEN; UNKNOWN needs UNKNOWN. */
 export function browserExitEvidence(text) {
@@ -748,7 +753,8 @@ export function refusalDetail({ verdict, laneText, pwExit }) {
 //   LANE SYN END
 // Arm body (the spec's `syn-arm` annotation, re-validated in-lane):
 //   ARM <A-D> STATUS <DONE|FAILED|UNKNOWN> M <milestone> BROWSER_EXIT_OBSERVED <NOT_RUN|UNKNOWN|SHAPE .. FIRST_SEEN .. BODY_END_PAGE ..>
-//     BROWSER_LOG <BROWSER_LOG_CODES|NOT_RUN|UNKNOWN> LOG_COMPONENT <BROWSER_LOG_COMPONENTS|NOT_RUN|UNKNOWN> (diagnostic only)
+//     BROWSER_LOG <BROWSER_LOG_CODES|NOT_RUN|UNKNOWN> LOG_COMPONENT <BROWSER_LOG_COMPONENTS|NOT_RUN|UNKNOWN>
+//     LOG_PATH_REASON <BROWSER_LOG_PATH_REASONS|NOT_RUN|UNKNOWN> LOG_PATH_EXT <BROWSER_LOG_PATH_EXTS|NOT_RUN|UNKNOWN> (all diagnostic only)
 // BROWSER_EXIT_OBSERVED records that Node saw the owned browser process exit. It is NOT a reap of its descendants (playwright-core
 // 1.59.1 processLauncher skips the kill once processClosed is set); per arm, "nothing left" is the host's container absence.
 // Cleanup body (the spec's `syn-cleanup` annotation): CLEANUP JOIN <SETTLED|UNRESOLVED> CONTEXT <s> BROWSER <s> DUMMY <s> PROXY <s>,
@@ -762,9 +768,9 @@ export const SYN_JOIN_STATES = Object.freeze(['SETTLED', 'UNRESOLVED']);
 export const SYN_PRECHECK_CODES = Object.freeze(['LANE_E_APPARMOR', 'LANE_E_UMASK', 'LANE_E_ENV', 'LANE_E_CLOSURE', 'LANE_E_DIRS']);
 export const SYN_MATRIX = Object.freeze(['PASS', 'FAIL', 'UNRESOLVED']);
 
-const ARM_RE = /^ARM ([A-D]) STATUS ([A-Z_]+) M ([A-Z_]+) BROWSER_EXIT_OBSERVED (NOT_RUN|UNKNOWN|SHAPE [A-Z0-9_]+ FIRST_SEEN [A-Z_]+ BODY_END_PAGE [A-Z_]+) BROWSER_LOG ([A-Z_]+) LOG_COMPONENT ([A-Z_]+)$/;
+const ARM_RE = /^ARM ([A-D]) STATUS ([A-Z_]+) M ([A-Z_]+) BROWSER_EXIT_OBSERVED (NOT_RUN|UNKNOWN|SHAPE [A-Z0-9_]+ FIRST_SEEN [A-Z_]+ BODY_END_PAGE [A-Z_]+) BROWSER_LOG ([A-Z_]+) LOG_COMPONENT ([A-Z_]+) LOG_PATH_REASON ([A-Z_]+) LOG_PATH_EXT ([A-Z_]+)$/;
 /** The fixed arm body for an arm the report does not establish. */
-export const unknownArm = (arm) => `ARM ${arm} STATUS UNKNOWN M UNKNOWN BROWSER_EXIT_OBSERVED UNKNOWN BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN`;
+export const unknownArm = (arm) => `ARM ${arm} STATUS UNKNOWN M UNKNOWN BROWSER_EXIT_OBSERVED UNKNOWN BROWSER_LOG UNKNOWN LOG_COMPONENT UNKNOWN LOG_PATH_REASON UNKNOWN LOG_PATH_EXT UNKNOWN`;
 /** The fixed cleanup body when the report does not establish it. */
 export const UNKNOWN_CLEANUP = 'CLEANUP JOIN UNKNOWN CONTEXT UNKNOWN BROWSER UNKNOWN DUMMY UNKNOWN PROXY UNKNOWN';
 /** An exit Node actually observed (an exit code or a signal), never NONE or UNKNOWN. */
@@ -776,7 +782,7 @@ const exitSeen = (exit) => /^SHAPE (CODE_\d+|SIG[A-Z_]+) /.test(exit);
 export function parseSynArm(text) {
   const m = typeof text === 'string' ? ARM_RE.exec(text) : null;
   if (!m) return null;
-  const [, arm, status, milestone, exit, log, component] = m;
+  const [, arm, status, milestone, exit, log, component, pathReason, pathExt] = m;
   if (!SYN_STATUSES.includes(status) || !SYN_MILESTONES.includes(milestone)) return null;
   if (!['NOT_RUN', 'UNKNOWN'].includes(exit) && !browserExitEvidence(exit)) return null;
   if (![...BROWSER_LOG_CODES, 'NOT_RUN', 'UNKNOWN'].includes(log)) return null;
@@ -786,11 +792,22 @@ export function parseSynArm(text) {
   const wantComponent = log === 'NOT_RUN' ? ['NOT_RUN'] : log === 'UNKNOWN' ? ['UNKNOWN'] : log === 'OTHER_FATAL_REPORTED'
     ? BROWSER_LOG_COMPONENTS.filter((c) => c !== 'NONE') : ['NONE'];
   if (!wantComponent.includes(component)) return null;
+  // Path reason/ext coherence (closed): NOT_RUN and UNKNOWN mirror the component; a reason other than NONE iff UNPARSED; the ext
+  // is UNAVAILABLE iff the reason is, a class iff a rule reason, NONE otherwise. Diagnostic only.
+  if (![...BROWSER_LOG_PATH_REASONS, 'NOT_RUN', 'UNKNOWN'].includes(pathReason) || ![...BROWSER_LOG_PATH_EXTS, 'NOT_RUN', 'UNKNOWN'].includes(pathExt)) return null;
+  const mirror = ['NOT_RUN', 'UNKNOWN'].includes(component) ? component : null;
+  if (mirror ? pathReason !== mirror || pathExt !== mirror : ['NOT_RUN', 'UNKNOWN'].includes(pathReason) || ['NOT_RUN', 'UNKNOWN'].includes(pathExt)) return null;
+  if (!mirror) {
+    if ((component === 'UNPARSED') !== (pathReason !== 'NONE')) return null;
+    const wantExt = pathReason === 'NONE' ? ['NONE'] : pathReason === 'UNAVAILABLE' ? ['UNAVAILABLE']
+      : BROWSER_LOG_PATH_EXTS.filter((e) => !['NONE', 'UNAVAILABLE'].includes(e));
+    if (!wantExt.includes(pathExt)) return null;
+  }
   if ((status === 'UNKNOWN') !== (text === unknownArm(arm))) return null;
   if ((exit === 'NOT_RUN') !== (log === 'NOT_RUN') || (exit === 'NOT_RUN' && milestone !== 'NONE')) return null;
   if (status === 'DONE' && (milestone !== 'DONE' || !exitSeen(exit))) return null;
   if (status !== 'UNKNOWN' && milestone === 'UNKNOWN') return null;
-  return { arm, status, milestone, exit, log, component };
+  return { arm, status, milestone, exit, log, component, pathReason, pathExt };
 }
 const CLEANUP_RE = /^CLEANUP JOIN ([A-Z_]+) CONTEXT ([A-Z_]+) BROWSER ([A-Z_]+) DUMMY ([A-Z_]+) PROXY ([A-Z_]+)$/;
 /** One cleanup body to its fields, or null. UNKNOWN only as the exact all-UNKNOWN body. */
@@ -935,7 +952,7 @@ export function synSummaryLines({ rootVerdict, arms }) {
     out.push(`LE-SYN ARM ${a.arm} RESULT ${a.result} CONTAINER ${a.container} RECORD ${a.record}`);
     if (a.parsed?.arm) {
       const x = a.parsed;
-      out.push(`LE-SYN ARM ${a.arm} DETAIL STATUS ${x.arm.status} M ${x.arm.milestone} PW_CODE ${x.pwCode ?? 'NONE'} REPORT ${x.report} BROWSER_EXIT_OBSERVED ${x.arm.exit} BROWSER_LOG ${x.arm.log} LOG_COMPONENT ${x.arm.component}`);
+      out.push(`LE-SYN ARM ${a.arm} DETAIL STATUS ${x.arm.status} M ${x.arm.milestone} PW_CODE ${x.pwCode ?? 'NONE'} REPORT ${x.report} BROWSER_EXIT_OBSERVED ${x.arm.exit} BROWSER_LOG ${x.arm.log} LOG_COMPONENT ${x.arm.component} LOG_PATH_REASON ${x.arm.pathReason} LOG_PATH_EXT ${x.arm.pathExt}`);
       const c = x.cleanup;
       out.push(`LE-SYN ARM ${a.arm} CLEANUP JOIN ${c.join} CONTEXT ${c.context} BROWSER ${c.browser} DUMMY ${c.dummy} PROXY ${c.proxy}`);
     }
