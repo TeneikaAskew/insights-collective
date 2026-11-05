@@ -52,6 +52,13 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     count; genuinely finalized zero-score attempts still do. Live-equivalent 5/11; with `20261101000300` 11/11.
   - With `20261101000000`, `000100` and `000200` all applied: 01 54/54, 02 16/16, 03 10/10, 04 17/17. 02's started-only
     checks now assert the required refusal (14/16 on the live-equivalent schema).
+  - Added for the November release and run on 2026-11-04 on a throwaway loopback PostgreSQL 16 built from the
+    snapshot: 03 gains an assigned co-instructor (published and unpublished, allowed) and an instructor enrolled only
+    in another course (refused); 05 gains X1 to X6 (finalized attempt or done row moved onto an unenrolled course's
+    quiz or a hidden quiz); 08 gains T0 to T8 (old target lost by unenrolment or unpublish: no edit, no move onto a
+    reachable target); `07_narrow_reads.sql` is the behavioural test of `20261102000000`. Baseline / all eight
+    applied: 01 51/54 → 54/54, 02 14/16 → 16/16, 03 8/14 → 14/14, 04 8/17 → 17/17, 05 6/17 → 17/17,
+    06 9/15 → 15/15, 07 14/23 → 23/23, 08 19/35 → 35/35, 09 10/21 → 21/21.
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
   exist in production (reference course, modules, the three `e2e-*` accounts) so the seed can be
   rehearsed offline: `psql <url> -f scripts/local-db/local-preseed.sql` then
