@@ -87,15 +87,15 @@ select pg_temp.check('P3 a done row may still change state on its OWN item (comp
 -- ===== R1. progression retarget: a done row's content_item_id moved to the never-attempted quiz B =====
 select pg_temp.finalize_zero(:'stud', :'quizA');
 select pg_temp.mark(:'stud', :'page', 'read'); select pg_temp.mark(:'stud', :'itemA', 'completed');
+select pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemB', :'stud', :'page'));
 select pg_temp.check('R1a retargeting the READ page row onto unattempted quiz B is not accepted as completion of B',
-  pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemB', :'stud', :'page')) like 'REFUSED%'
-  or pg_temp.state(:'stud', :'itemB') = 'none', format('B=%s submittedB=%s', pg_temp.state(:'stud', :'itemB'), pg_temp.submitted(:'stud', :'quizB')));
+  pg_temp.state(:'stud', :'itemB') = 'none', format('B=%s submittedB=%s', pg_temp.state(:'stud', :'itemB'), pg_temp.submitted(:'stud', :'quizB')));
 select pg_temp.mark(:'stud', :'page', 'read');   -- re-read the page (allowed for a page)
 select pg_temp.check('R1b ...and no certificate follows without a submitted attempt on B', pg_temp.certs(:'stud') = 0, format('certificates=%s', pg_temp.certs(:'stud')));
 delete from public.certificates where user_id = :'stud'; delete from public.content_item_progressions where user_id = :'stud' and content_item_id = :'itemB';
+select pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemB', :'stud', :'itemA'));
 select pg_temp.check('R1c retargeting the genuinely COMPLETED quiz A row onto unattempted quiz B is not accepted as completion of B',
-  pg_temp.learner(:'stud', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'itemB', :'stud', :'itemA')) like 'REFUSED%'
-  or pg_temp.state(:'stud', :'itemB') = 'none', format('B=%s', pg_temp.state(:'stud', :'itemB')));
+  pg_temp.state(:'stud', :'itemB') = 'none', format('B=%s', pg_temp.state(:'stud', :'itemB')));
 delete from public.certificates where user_id = :'stud'; delete from public.content_item_progressions where user_id = :'stud';
 delete from public.quiz_submissions where user_id = :'stud';
 
