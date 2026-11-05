@@ -1199,7 +1199,9 @@ describe('browser-log component r1: LOG_COMPONENT on the synthetic arm line only
     expect(parseSynArm(armOf('NO_MATCH', 'NONE').replace(' LOG_COMPONENT NONE', ''))).toBeNull();
     expect(parseSynArm(`${armOf('NO_MATCH', 'NONE')} LOG_COMPONENT NONE`)).toBeNull();
   });
-  it('runArm and runContainerArm emit the component from the same state; a throwing accessor is UNPARSED; no sampler is UNAVAILABLE/NONE', async () => {
+  // Coverage limit: this test drives runArm only. runContainerArm copies runArm's r.component into its arm line; that path is
+  // exercised elsewhere only with NONE (fake NO_MATCH) and NOT_RUN, so an uncommon component through runContainerArm is untested.
+  it('runArm emits the component from the same state; a throwing accessor is UNPARSED; no sampler is UNAVAILABLE/NONE', async () => {
     const cases: [unknown, string, string][] = [
       [fatal('RENDERER'), 'OTHER_FATAL_REPORTED', 'RENDERER'],
       [fatal('NONE'), 'OTHER_FATAL_REPORTED', 'UNPARSED'],
