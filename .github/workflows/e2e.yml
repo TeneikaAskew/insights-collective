@@ -52,7 +52,7 @@ jobs:
   isolated:
     name: Isolated stack (PG15, loopback)
     # Narrowed, not broadened: this job runs only for its own scope, so a t09-runtime dispatch never starts it.
-    if: inputs.specs == 'readonly-courses'
+    if: inputs.specs == 'readonly-courses' || inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
