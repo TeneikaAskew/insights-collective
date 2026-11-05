@@ -25,14 +25,14 @@ describe('learner-quiz job', () => {
   });
 
   it('is dispatch-only, scoped to its own input, read-only, with no secrets, services or containers', () => {
-    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
+    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 'lms-courses', 'lms-courses-migrated', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
     expect(JOB.if).toBe("inputs.specs == 'learner-quiz'");
     expect(JOB.permissions).toEqual({ contents: 'read' });
     expect(JOB.secrets).toBeUndefined();
     expect(JOB.services).toBeUndefined();
     expect(JOB.container).toBeUndefined();
     expect(DOC.jobs['t09-runtime'].if).toBe("inputs.specs == 't09-runtime'");
-    expect(DOC.jobs.isolated.if).toBe("inputs.specs == 'readonly-courses'");
+    expect(DOC.jobs.isolated.if).toBe("inputs.specs == 'readonly-courses' || inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'");
   });
 
   it('includes the edge runtime only here: the T09 starts still exclude it, and this start differs only by that', () => {
