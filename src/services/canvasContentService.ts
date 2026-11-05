@@ -27,6 +27,24 @@ export interface LessonDraftRow {
   updated_at: string | null;
 }
 
+/** Raised when a delete returned success but did not remove the requested row (RLS-hidden or already gone). */
+export class DeleteNotAppliedError extends Error {
+  readonly code = 'DELETE_NOT_APPLIED';
+  constructor(readonly kind: 'lesson' | 'section', readonly id: string) {
+    super(
+      kind === 'lesson'
+        ? 'The lesson was not deleted. It may already be gone, or you may not have permission to delete it.'
+        : 'The section was not deleted. It may already be gone, or you may not have permission to delete it.',
+    );
+    this.name = 'DeleteNotAppliedError';
+  }
+}
+
+function assertDeleted(data: unknown, id: string, kind: 'lesson' | 'section'): void {
+  const rows = Array.isArray(data) ? (data as Array<{ id?: unknown }>) : [];
+  if (rows.length !== 1 || rows[0]?.id !== id) throw new DeleteNotAppliedError(kind, id);
+}
+
 /** Raised when a conditional lesson write finds the row changed since it was read. */
 export class LessonSaveConflictError extends Error {
   readonly current: LessonDraftRow;
@@ -324,13 +342,18 @@ export class CanvasContentService {
     return (data as unknown as LessonDraftRow) ?? null;
   }
 
+  // A delete that matches no row is not an error to PostgREST: a row hidden by RLS, or already gone,
+  // returns 200 with nothing deleted. Ask for the deleted ids back and refuse unless exactly this row
+  // went, so the builder never drops an item from its list that is still stored.
   static async deleteContentItem(id: string): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('content_items')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) throw error;
+    assertDeleted(data, id, 'lesson');
   }
 
   static async reorderContentItems(
@@ -415,9 +438,11 @@ export class CanvasContentService {
     return data as unknown as Module;
   }
 
+  // Same zero-row rule as deleteContentItem.
   static async deleteModule(id: string): Promise<void> {
-    const { error } = await supabase.from('modules').delete().eq('id', id);
+    const { data, error } = await supabase.from('modules').delete().eq('id', id).select('id');
     if (error) throw error;
+    assertDeleted(data, id, 'section');
   }
 
   // Assignments

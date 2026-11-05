@@ -2,7 +2,7 @@
 // ABOUTME: Tests CRUD operations for content items, assignments, quizzes, and progress tracking
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CanvasContentService } from '../canvasContentService';
+import { CanvasContentService, DeleteNotAppliedError } from '../canvasContentService';
 import { mockSupabaseClient, supabaseError, getQueryBuilder } from '@/test/mocks/supabase';
 import DB_FUNCTIONS from '@/test/fixtures/db-functions.json';
 
@@ -125,14 +125,31 @@ describe('CanvasContentService', () => {
       expect(result.title).toBe('Updated Title');
     });
 
-    it('should delete a content item', async () => {
-      mockSupabaseClient.from().delete().eq.mockResolvedValue({
+    it('should delete a content item, asking for the deleted id back', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({
+        data: [{ id: '1' }],
         error: null
       });
 
       await expect(
         CanvasContentService.deleteContentItem('1')
-      ).resolves.not.toThrow();
+      ).resolves.toBeUndefined();
+      expect(mockSupabaseClient.from().select).toHaveBeenCalledWith('id');
+    });
+
+    it('rejects a content item delete that removed no row (RLS-hidden or already gone)', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({ data: [], error: null });
+
+      await expect(CanvasContentService.deleteContentItem('1')).rejects.toBeInstanceOf(DeleteNotAppliedError);
+    });
+
+    it('rejects a module delete that removed no row', async () => {
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue({ data: [], error: null });
+
+      await expect(CanvasContentService.deleteModule('m1')).rejects.toMatchObject({
+        code: 'DELETE_NOT_APPLIED',
+        kind: 'section',
+      });
     });
 
     // Reorder contract (unit-contract proof only; the RPC's own transaction and constraint handling are not exercised).
@@ -428,7 +445,7 @@ describe('CanvasContentService', () => {
     });
 
     it('deleteContentItem rejects when the delete fails', async () => {
-      mockSupabaseClient.from().delete().eq.mockResolvedValue(
+      mockSupabaseClient.from().delete().eq().select.mockResolvedValue(
         supabaseError('db down')
       );
 
