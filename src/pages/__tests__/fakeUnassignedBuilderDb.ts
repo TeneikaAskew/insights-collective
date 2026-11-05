@@ -7,12 +7,12 @@ export function createBuilderDb() {
   let seq = 0;
   const from = (table: string) => {
     const filters: [string, unknown][] = [];
-    let insert: any; let update: any; let order: string; let ascending = true; let limit: number;
+    let insert: any; let update: any; const orders: [string, boolean][] = []; let limit: number;
     const b: any = {};
     b.select = vi.fn(() => b);
     b.eq = vi.fn((key, value) => { filters.push([key, value]); return b; });
     b.is = b.eq;
-    b.order = vi.fn((key, options?: { ascending?: boolean }) => { order = key; ascending = options?.ascending !== false; return b; });
+    b.order = vi.fn((key, options?: { ascending?: boolean }) => { orders.push([key, options?.ascending !== false]); return b; });
     b.limit = vi.fn((value) => { limit = value; return b; });
     b.insert = vi.fn((value) => { insert = value; return b; });
     b.update = vi.fn((value) => { update = value; return b; });
@@ -25,7 +25,14 @@ export function createBuilderDb() {
       }
       let rows = [...store.values()].filter((r) => filters.every(([k, v]) => r[k] === v));
       if (update) rows.forEach((row) => Object.assign(row, update));
-      if (order) rows.sort((a, b) => (a[order] - b[order]) * (ascending ? 1 : -1));
+      rows.sort((a, b) => {
+        for (const [key, ascending] of orders) {
+          const cmp = typeof a[key] === 'number' && typeof b[key] === 'number'
+            ? a[key] - b[key] : a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0;
+          if (cmp) return cmp * (ascending ? 1 : -1);
+        }
+        return 0;
+      });
       if (limit !== undefined) rows = rows.slice(0, limit);
       rows = rows.map((row) => ({ ...row, ...(table === 'content_items' ? {
         quiz: [...tables.quizzes.values()].find((q) => q.content_item_id === row.id) ?? null,

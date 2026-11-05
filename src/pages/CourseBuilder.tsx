@@ -31,6 +31,9 @@ import {
 } from '@/components/course/builder/teachable/NewCourseWizard';
 import type { BuilderCourse, BuilderModule } from '@/components/course/builder/teachable/types';
 import { ConfirmDialog } from '@/components/course/builder/teachable/ConfirmDialog';
+import { applyIdOrder, createReorderCoordinator } from '@/components/course/builder/reorderReconcile';
+import { planFor, runCreationPlan, type CreationPlan } from '@/components/course/builder/courseCreation';
+import { assertCopyHandoff } from '@/components/course/builder/copyCourseOutline';
 import {
   LessonSaveQueue,
   getSharedLessonSaveQueue,
@@ -101,6 +104,12 @@ const CourseBuilder = () => {
 
   const [course, setCourse] = useState<BuilderCourse | null>(null);
   const [modules, setModules] = useState<BuilderModule[]>([]);
+  // Latest committed modules, read by the reorder coordinator for the idle (confirmed) order.
+  const modulesRef = useRef(modules);
+  modulesRef.current = modules;
+  const reorders = useRef(createReorderCoordinator()).current;
+  // The in-flight or failed wizard creation, kept so a retry resumes it (T-56).
+  const creationPlanRef = useRef<CreationPlan | null>(null);
   const [loading, setLoading] = useState(!isNew);
   const [showWizard, setShowWizard] = useState(isNew);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
@@ -337,78 +346,27 @@ const CourseBuilder = () => {
         const { data: userData } = await supabase.auth.getUser();
         const instructorId = userData.user?.id ?? null;
 
-        // 1) Upload thumbnail first (if provided)
-        let thumbnailUrl: string | null = null;
-        if (r.thumbnailFile && instructorId) {
-          setStep('thumbnail', 'running');
-          const ext = r.thumbnailFile.name.split('.').pop() || 'jpg';
-          const path = `course-thumbnails/${instructorId}-${Date.now()}.${ext}`;
-          const { error: uploadError } = await supabase.storage
-            .from('course-materials')
-            .upload(path, r.thumbnailFile, {
-              upsert: true,
-              contentType: r.thumbnailFile.type,
-            });
-          if (uploadError) {
-            logger.error('Thumbnail upload failed', uploadError);
-            // Do not block course creation on thumbnail failure — surface it
-            // as a non-fatal step error so the user sees what happened.
-            setStep(
-              'thumbnail',
-              'error',
-              `${uploadError.message || 'Upload failed'} — continuing without a thumbnail. You can add one later in Setup.`,
-            );
-          } else {
-            const { data: pub } = supabase.storage
-              .from('course-materials')
-              .getPublicUrl(path);
-            thumbnailUrl = pub.publicUrl;
-            setStep('thumbnail', 'done');
-          }
+        // A copy is created only for the account that adopted it, from a source it still owns (T-18). This
+        // runs before any upload or insert; a refusal writes nothing.
+        if (r.outlineMethod === 'copy') {
+          await assertCopyHandoff(supabase as any, supabase.auth as any, r.copySource, outline, instructorId);
         }
 
-        // 2) Create the course
-        setStep('course', 'running');
-        const { data: created, error } = await supabase
-          .from('courses')
-          .insert({
-            title: r.title,
-            description: r.description || '',
-            category: 'General',
-            level: 'beginner',
-            published: false,
-            status: 'draft',
-            instructor_id: instructorId,
-            ...(thumbnailUrl ? { image_url: thumbnailUrl, thumbnail: thumbnailUrl } : {}),
-          })
-          .select('id')
-          .single();
-        if (error) {
-          setStep('course', 'error', error.message);
-          throw error;
-        }
-        setStep('course', 'done');
-
-        // 3) Seed curriculum from the wizard outline
-        if (outline.length > 0) {
-          setStep('curriculum', 'running', '0 of ' + totalLessons + ' lessons');
-          let done = 0;
-          for (const section of outline) {
-            const mod = await CanvasContentService.createModule(created.id, section.title);
-            for (const lesson of section.lessons) {
-              await CanvasContentService.createContentItem({
-                course_id: created.id,
-                module_id: mod.id,
-                type: lesson.type,
-                title: lesson.title,
-                content: '',
-              });
-              done += 1;
-              setStep('curriculum', 'running', `${done} of ${totalLessons} lessons`);
-            }
-          }
-          setStep('curriculum', 'done', `${totalLessons} lesson${totalLessons === 1 ? '' : 's'} created`);
-        }
+        // Same input as a failed attempt resumes that attempt's plan (same ids), so a retry finishes the
+        // same course instead of creating another one.
+        // The plan is bound to the signed-in user; another (or no) account cannot resume it.
+        const plan = planFor(creationPlanRef.current, r, instructorId);
+        creationPlanRef.current = plan;
+        const courseId = await runCreationPlan({
+          plan,
+          result: r,
+          instructorId,
+          client: supabase as any,
+          report: { step: setStep },
+          onThumbnailError: (e) => logger.error('Thumbnail upload failed', e),
+        });
+        creationPlanRef.current = null;
+        const created = { id: courseId };
 
         toast({ title: 'Course created', description: `“${r.title}” is ready to build.` });
         navigate(`/courses/${created.id}/builder`, { replace: true });
@@ -562,6 +520,8 @@ const CourseBuilder = () => {
     [toast],
   );
 
+  // The section leaves the list only after the service confirmed that exactly this row was deleted;
+  // a zero-row delete (RLS-hidden or already gone) throws and the section stays.
   const deleteSection = useCallback(
     async (id: string) => {
       try {
@@ -573,26 +533,45 @@ const CourseBuilder = () => {
         setModules((prev) => prev.filter((m) => m.id !== id));
         if (selectedLessonId && childIds.includes(selectedLessonId)) setSelectedLessonId(null);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Section not deleted', description: err.message, variant: 'destructive' });
       }
     },
     [modules, selectedLessonId, toast, saveQueue],
   );
 
+  // Optimistic reorder, one request in flight per scope (see createReorderCoordinator): if the last
+  // request fails, the saved order is reloaded, or the last accepted order is shown if that read fails.
+  const reorderFailedToast = useCallback(
+    (what: 'Sections' | 'Lessons', err: any, restored: 'server' | 'last-confirmed') =>
+      toast({
+        title: `${what} not reordered`,
+        description: `${err?.message ?? 'The new order was not saved.'} ${
+          restored === 'server'
+            ? 'The saved order was reloaded.'
+            : 'The last saved order was restored; reload to check it.'
+        }`,
+        variant: 'destructive',
+      }),
+    [toast],
+  );
+
   const reorderSections = useCallback(
     async (ordered: string[]) => {
       if (!courseId) return;
-      setModules((prev) => {
-        const byId = new Map(prev.map((m) => [m.id, m] as const));
-        return [...ordered.map((id) => byId.get(id) as BuilderModule), ...prev.filter((m) => m.unassigned)];
+      // Scope per course: a reorder for another course never shares this queue or its send.
+      const realIds = new Set(modulesRef.current.filter((m) => !m.unassigned).map((m) => m.id));
+      await reorders.request(`sections:${courseId}`, ordered.filter((id) => realIds.has(id)), {
+        current: () => modulesRef.current.filter((m) => !m.unassigned).map((m) => m.id),
+        apply: (order) => setModules((prev) => [
+          ...applyIdOrder(prev.filter((m) => !m.unassigned), order),
+          ...prev.filter((m) => m.unassigned),
+        ]),
+        send: (order) => CanvasContentService.reorderModules(courseId, order),
+        reload: async () => (await CanvasContentService.getModules(courseId)).map((m) => m.id),
+        onFailed: (err, restored) => reorderFailedToast('Sections', err, restored),
       });
-      try {
-        await CanvasContentService.reorderModules(courseId, ordered);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
     },
-    [courseId, toast],
+    [courseId, reorders, reorderFailedToast],
   );
 
   const addLesson = useCallback(
@@ -636,6 +615,7 @@ const CourseBuilder = () => {
   const deleteLesson = useCallback(
     async (id: string) => {
       try {
+        // Throws on a zero-row delete, so a lesson that is still stored keeps its place and its draft.
         await CanvasContentService.deleteContentItem(id);
         saveQueue.forget(id);
         setModules((prev) =>
@@ -643,7 +623,7 @@ const CourseBuilder = () => {
         );
         if (selectedLessonId === id) setSelectedLessonId(null);
       } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+        toast({ title: 'Lesson not deleted', description: err.message, variant: 'destructive' });
       }
     },
     [selectedLessonId, toast, saveQueue],
@@ -679,26 +659,25 @@ const CourseBuilder = () => {
     [toast, saveQueue],
   );
 
+  // Same rule as reorderSections, scoped to one section's lessons.
   const reorderLessons = useCallback(
     async (moduleId: string, ordered: string[]) => {
-      if (modules.find((m) => m.id === moduleId)?.unassigned) {
+      if (modulesRef.current.find((m) => m.id === moduleId)?.unassigned) {
         toast({ title: 'Saved order kept', description: 'Unassigned lesson ordering is not available yet.' });
         return;
       }
-      setModules((prev) =>
-        prev.map((m) => {
-          if (m.id !== moduleId) return m;
-          const byId = new Map(m.items.map((i) => [i.id, i] as const));
-          return { ...m, items: ordered.map((id) => byId.get(id) as ContentItem) };
-        }),
-      );
-      try {
-        await CanvasContentService.reorderContentItems(moduleId, ordered);
-      } catch (err: any) {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-      }
+      await reorders.request(`lessons:${moduleId}`, ordered, {
+        current: () => (modulesRef.current.find((m) => m.id === moduleId)?.items ?? []).map((i) => i.id),
+        apply: (order) =>
+          setModules((prev) =>
+            prev.map((m) => (m.id === moduleId ? { ...m, items: applyIdOrder(m.items, order) } : m)),
+          ),
+        send: (order) => CanvasContentService.reorderContentItems(moduleId, order),
+        reload: async () => (await CanvasContentService.getContentItems(moduleId)).map((i) => i.id),
+        onFailed: (err, restored) => reorderFailedToast('Lessons', err, restored),
+      });
     },
-    [modules, toast],
+    [reorders, reorderFailedToast, toast],
   );
 
   const handleAddContentTile = useCallback(

@@ -30,6 +30,12 @@ on:
         required: false
         type: string
 
+# The job only checks out the repository and talks to the database through
+# SUPABASE_DB_URL. Without this block GITHUB_TOKEN gets the repository default,
+# which can include write access this job never needs.
+permissions:
+  contents: read
+
 concurrency:
   group: db-migrate
   cancel-in-progress: false
