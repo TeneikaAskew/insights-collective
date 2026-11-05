@@ -23,6 +23,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import CourseErrorState from '@/components/course/CourseErrorState';
 import { CourseImage } from '@/components/common/CourseImage';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -51,6 +52,7 @@ export default function EnrolledCoursesDashboard() {
   const [loading, setLoading] = useState(true);
   const [coursesError, setCoursesError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const { isPageVisible } = usePageVisibility();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -246,10 +248,16 @@ export default function EnrolledCoursesDashboard() {
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              <Button variant="outline" size="sm">
-                <Bell className="h-4 w-4 mr-2" />
-                Notifications
-              </Button>
+              {/* Links to the existing notification center, and only when that page is visible to this
+                  user (same rule as the sidebar). It used to be a button with no handler. */}
+              {isPageVisible('/notifications') && (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/notifications">
+                    <Bell className="h-4 w-4 mr-2" />
+                    Notifications
+                  </Link>
+                </Button>
+              )}
               <Button asChild size="sm">
                 <Link to="/courses">
                   <Search className="h-4 w-4 mr-2" />
@@ -264,6 +272,7 @@ export default function EnrolledCoursesDashboard() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search your courses..."
+              aria-label="Search your courses"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -280,6 +289,20 @@ export default function EnrolledCoursesDashboard() {
                 error={coursesError}
                 onRetry={() => void fetchEnrolledCourses()}
               />
+            ) : courses.length > 0 && filteredCourses.length === 0 ? (
+              // Enrolled, but the search matches nothing: say that, not "No Enrolled Courses".
+              <Card>
+                <CardContent className="text-center py-12" role="status">
+                  <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No courses match "{searchQuery}"</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Try a different title or category.
+                  </p>
+                  <Button variant="outline" onClick={() => setSearchQuery('')}>
+                    Clear search
+                  </Button>
+                </CardContent>
+              </Card>
             ) : filteredCourses.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-12">

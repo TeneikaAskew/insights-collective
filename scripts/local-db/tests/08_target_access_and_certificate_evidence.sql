@@ -6,6 +6,11 @@
 -- unlinked assignment U (no content item). Course D (owner J): page PD, assignment Z. S and S2 are 'student' only;
 -- S is enrolled in C only. Course E (S2 enrolled): page EP, assignment EA, quiz EQ with legacy-invalid done rows.
 -- Course F (S2 enrolled): page FP, assignment FA with a legacy done row backed by a genuine submission.
+-- T (target access lost): S3 is enrolled in C, G and K, with a progress row and a submission in G and a progress row
+-- on page PH of K. Access to G is then lost (unenrolled) and PH is unpublished. K is separate from C so the C
+-- certificate cases above keep their item set. 20261101000600 makes the update policies'
+-- USING clause check the OLD target, so the learner can neither edit a row whose target they lost nor move it onto a
+-- target they can still reach (P, A in C; PK in K); fresh writes to the accessible targets keep working.
 -- No grading rule, threshold or historical correction. Synthetic rows, one transaction, rolled back. Any FAIL makes
 -- psql exit non-zero.
 \set ON_ERROR_STOP on
@@ -36,15 +41,25 @@ begin;
 \set aEA 'f0000000-0000-4000-8000-0000000001e2'
 \set qEQ 'f0000000-0000-4000-8000-0000000002e3'
 \set aFA 'f0000000-0000-4000-8000-0000000001f2'
-insert into auth.users (id, email) values (:'I','t-i@local.test'), (:'J','t-j@local.test'), (:'S','t-s@local.test'), (:'S2','t-s2@local.test');
-insert into public.profiles (id) select id from auth.users where id in (:'I', :'J', :'S', :'S2') on conflict (id) do nothing;
-insert into public.user_roles (user_id, role) values (:'I','instructor'), (:'J','instructor'), (:'S','student'), (:'S2','student') on conflict do nothing;
+\set S3  '65555555-5555-4555-8555-555555555555'
+\set G   'f0000000-0000-4000-8000-0000000000b0'
+\set PG  'f0000000-0000-4000-8000-0000000000b1'
+\set iG  'f0000000-0000-4000-8000-0000000000b2'
+\set aG  'f0000000-0000-4000-8000-0000000001b2'
+\set K   'f0000000-0000-4000-8000-0000000000a0'
+\set PH  'f0000000-0000-4000-8000-0000000000a1'
+\set PK  'f0000000-0000-4000-8000-0000000000a2'
+insert into auth.users (id, email) values (:'I','t-i@local.test'), (:'J','t-j@local.test'), (:'S','t-s@local.test'), (:'S2','t-s2@local.test'), (:'S3','t-s3@local.test');
+insert into public.profiles (id) select id from auth.users where id in (:'I', :'J', :'S', :'S2', :'S3') on conflict (id) do nothing;
+insert into public.user_roles (user_id, role) values (:'I','instructor'), (:'J','instructor'), (:'S','student'), (:'S2','student'), (:'S3','student') on conflict do nothing;
 insert into public.courses (id, title, description, category, level, instructor_id, published) values
   (:'C','Course C','s','General','beginner', :'I', true), (:'D','Course D','s','General','beginner', :'J', true),
-  (:'E','Course E','s','General','beginner', :'I', true), (:'F','Course F','s','General','beginner', :'I', true);
+  (:'E','Course E','s','General','beginner', :'I', true), (:'F','Course F','s','General','beginner', :'I', true),
+  (:'G','Course G','s','General','beginner', :'I', true), (:'K','Course K','s','General','beginner', :'I', true);
 insert into public.modules (id, course_id, title, position, published) values
   ('f0000000-0000-4000-8000-0000000000ca', :'C', 'MC', 1, true), ('f0000000-0000-4000-8000-0000000000da', :'D', 'MD', 1, true),
-  ('f0000000-0000-4000-8000-0000000000ea', :'E', 'ME', 1, true), ('f0000000-0000-4000-8000-0000000000fa', :'F', 'MF', 1, true);
+  ('f0000000-0000-4000-8000-0000000000ea', :'E', 'ME', 1, true), ('f0000000-0000-4000-8000-0000000000fa', :'F', 'MF', 1, true),
+  ('f0000000-0000-4000-8000-0000000000ba', :'G', 'MG', 1, true), ('f0000000-0000-4000-8000-0000000000aa', :'K', 'MK', 1, true);
 insert into public.content_items (id, course_id, module_id, type, title, position, published) values
   (:'P',  :'C', 'f0000000-0000-4000-8000-0000000000ca', 'page', 'P', 1, true),
   (:'iA', :'C', 'f0000000-0000-4000-8000-0000000000ca', 'assignment', 'A', 2, true),
@@ -55,12 +70,16 @@ insert into public.content_items (id, course_id, module_id, type, title, positio
   (:'iEA',:'E', 'f0000000-0000-4000-8000-0000000000ea', 'assignment', 'EA', 2, true),
   (:'iEQ',:'E', 'f0000000-0000-4000-8000-0000000000ea', 'quiz', 'EQ', 3, true),
   (:'FP', :'F', 'f0000000-0000-4000-8000-0000000000fa', 'page', 'FP', 1, true),
-  (:'iFA',:'F', 'f0000000-0000-4000-8000-0000000000fa', 'assignment', 'FA', 2, true);
+  (:'iFA',:'F', 'f0000000-0000-4000-8000-0000000000fa', 'assignment', 'FA', 2, true),
+  (:'PH', :'K', 'f0000000-0000-4000-8000-0000000000aa', 'page', 'PH later hidden', 1, true),
+  (:'PK', :'K', 'f0000000-0000-4000-8000-0000000000aa', 'page', 'PK', 2, true),
+  (:'PG', :'G', 'f0000000-0000-4000-8000-0000000000ba', 'page', 'PG', 1, true),
+  (:'iG', :'G', 'f0000000-0000-4000-8000-0000000000ba', 'assignment', 'AG', 2, true);
 insert into public.assignments (id, content_item_id, course_id, title) values
   (:'aA', :'iA', :'C', 'A'), (:'aH', :'iH', :'C', 'H'), (:'aU', null, :'C', 'U unlinked'), (:'aW', null, :'C', 'W unlinked'), (:'aZ', :'iZ', :'D', 'Z'),
-  (:'aEA', :'iEA', :'E', 'EA'), (:'aFA', :'iFA', :'F', 'FA');
+  (:'aEA', :'iEA', :'E', 'EA'), (:'aFA', :'iFA', :'F', 'FA'), (:'aG', :'iG', :'G', 'AG');
 insert into public.quizzes (id, content_item_id, title, allowed_attempts) values (:'qEQ', :'iEQ', 'EQ', 0);
-insert into public.enrollments (user_id, course_id) values (:'S', :'C'), (:'S2', :'C'), (:'S2', :'E'), (:'S2', :'F');
+insert into public.enrollments (user_id, course_id) values (:'S', :'C'), (:'S2', :'C'), (:'S2', :'E'), (:'S2', :'F'), (:'S3', :'C'), (:'S3', :'G'), (:'S3', :'K');
 
 create temp table results (name text, pass boolean, detail text); grant all on results to public;
 create or replace function pg_temp.as_user(p_uid uuid, p_role text) returns void language plpgsql as $$
@@ -162,6 +181,43 @@ select pg_temp.check('L4 legacy row with genuine historical evidence still compl
 -- L5 an existing certificate is never touched (revocation is out of scope)
 insert into public.certificates (user_id, course_id, certificate_type, certificate_data, verification_code, issued_at) values (:'S', :'E', 'completion', '{}'::jsonb, 'LEGACYCERT01', now() - interval '300 days');
 select pg_temp.check('L5 an existing (historical) certificate is left as is', pg_temp.certs(:'S', :'E') = 1, '');
+
+-- ===== T. old target lost vs newly accessible target (S3 only, so no earlier case is disturbed) =====
+create temp table t0 as select pg_temp.mark_as(:'S3', :'S3', :'PG', 'read') || ' | ' || pg_temp.submit_as(:'S3', :'S3', :'aG', 'G work') || ' | ' || pg_temp.mark_as(:'S3', :'S3', :'PH', 'read') as r;
+select pg_temp.check('T0 precondition: while enrolled, S3 has a progress row on PG, a submission on AG and a progress row on PH',
+  pg_temp.nprog(:'S3', :'PG') = 1 and pg_temp.nsub(:'S3', :'aG') = 1 and pg_temp.nprog(:'S3', :'PH') = 1, (select r from t0));
+-- access is lost through ordinary administration (postgres, no claims): unenrolled from G, PH unpublished
+delete from public.enrollments where user_id = :'S3' and course_id = :'G';
+update public.content_items set published = false where id = :'PH';
+select pg_temp.check('T0b losing access does not itself delete the learner''s rows (so the T cases are not vacuous)',
+  pg_temp.nprog(:'S3', :'PG') = 1 and pg_temp.nsub(:'S3', :'aG') = 1 and pg_temp.nprog(:'S3', :'PH') = 1
+  and (select count(*) from public.enrollments where user_id = :'S3' and course_id = :'G') = 0, '');
+create temp table t1 as select pg_temp.api(:'S3', format('update public.content_item_progressions set workflow_state = %L where user_id = %L and content_item_id = %L', 'completed', :'S3', :'PG')) as r;
+select pg_temp.check('T1 a progress row in a course the learner was unenrolled from cannot be edited',
+  (select workflow_state from public.content_item_progressions where user_id = :'S3' and content_item_id = :'PG') = 'read', (select r from t1));
+create temp table t2 as select pg_temp.api(:'S3', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'P', :'S3', :'PG')) as r;
+select pg_temp.check('T2 that row cannot be moved onto page P of a course the learner can still reach',
+  pg_temp.nprog(:'S3', :'PG') = 1 and pg_temp.nprog(:'S3', :'P') = 0, (select r from t2));
+create temp table t3 as select pg_temp.api(:'S3', format('update public.assignment_submissions set body = %L, submitted_at = now() where user_id = %L and assignment_id = %L', 'edited after unenrol', :'S3', :'aG')) as r;
+select pg_temp.check('T3 a submission in a course the learner was unenrolled from cannot be edited',
+  (select body from public.assignment_submissions where user_id = :'S3' and assignment_id = :'aG') = 'G work', (select r from t3));
+create temp table t4 as select pg_temp.api(:'S3', format('update public.assignment_submissions set assignment_id = %L where user_id = %L and assignment_id = %L', :'aA', :'S3', :'aG')) as r;
+select pg_temp.check('T4 that submission cannot be moved onto assignment A of a course the learner can still reach',
+  pg_temp.nsub(:'S3', :'aG') = 1 and pg_temp.nsub(:'S3', :'aA') = 0, (select r from t4));
+create temp table t5 as select pg_temp.api(:'S3', format('update public.content_item_progressions set workflow_state = %L where user_id = %L and content_item_id = %L', 'completed', :'S3', :'PH')) as r;
+select pg_temp.check('T5 a progress row on an item unpublished after it was written cannot be edited',
+  (select workflow_state from public.content_item_progressions where user_id = :'S3' and content_item_id = :'PH') = 'read', (select r from t5));
+create temp table t6 as select pg_temp.api(:'S3', format('update public.content_item_progressions set content_item_id = %L where user_id = %L and content_item_id = %L', :'PK', :'S3', :'PH')) as r;
+select pg_temp.check('T6 nor moved from the now-hidden item onto visible page PK in the same course',
+  pg_temp.nprog(:'S3', :'PH') = 1 and pg_temp.nprog(:'S3', :'PK') = 0, (select r from t6));
+create temp table t7 as select pg_temp.mark_as(:'S3', :'S3', :'P', 'read') || ' | ' || pg_temp.submit_as(:'S3', :'S3', :'aA', 'C work') || ' | ' || pg_temp.mark_as(:'S3', :'S3', :'PK', 'read') as r;
+select pg_temp.check('T7 control: fresh writes to targets the learner can still reach keep working (P read, A submitted, PK read)',
+  pg_temp.nprog(:'S3', :'P') = 1 and pg_temp.nsub(:'S3', :'aA') = 1 and pg_temp.nprog(:'S3', :'PK') = 1, (select r from t7));
+-- T8 holds only once T2 and T4 are refused: without 20261101000600 those moves succeed, the rows leave G, and T8
+-- fails on the baseline as a consequence, not as an independent read regression.
+select pg_temp.check('T8 control: the course owner still reads the learner''s rows in G',
+  pg_temp.api_count(:'I', format('select count(*) from public.assignment_submissions where user_id = %L and assignment_id = %L', :'S3', :'aG')) = 1
+  and pg_temp.api_count(:'I', format('select count(*) from public.content_item_progressions where user_id = %L and content_item_id = %L', :'S3', :'PG')) = 1, '');
 
 select (case when pass then 'PASS ' else 'FAIL ' end) || name || case when detail <> '' then '  [' || detail || ']' else '' end from results order by name;
 select 'SUMMARY ' || count(*) filter (where pass) || '/' || count(*) || ' pass' from results;

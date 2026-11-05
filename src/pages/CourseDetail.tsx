@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { BookOpen, Clock, Users, Calendar, MessageSquare, Bell, FileText, BarChart3, Pin, PlusCircle, Trash2, ArrowRight, PlayCircle, Award, ClipboardCheck, LineChart } from 'lucide-react';
+import { formatEstimatedHours } from '@/lib/estimatedTime';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1380,9 +1381,9 @@ const CourseDetail = () => {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground mb-10 pb-8 border-b border-border">
-                  {course.duration && (
+                  {formatEstimatedHours((course as any).estimated_hours) && (
                     <span className="inline-flex items-center gap-2">
-                      <Clock className="h-4 w-4" /> {course.duration}
+                      <Clock className="h-4 w-4" aria-hidden="true" /> <span className="sr-only">Estimated time: </span>{formatEstimatedHours((course as any).estimated_hours)}
                     </span>
                   )}
                   <span className="inline-flex items-center gap-2">
@@ -1464,10 +1465,10 @@ const CourseDetail = () => {
                       <BookOpen className="h-4 w-4 text-muted-foreground" />
                       <span>{modules.length} modules</span>
                     </div>
-                    {course.duration && (
+                    {formatEstimatedHours((course as any).estimated_hours) && (
                       <div className="flex items-center gap-3">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{course.duration}</span>
+                        <span><span className="sr-only">Estimated time: </span>{formatEstimatedHours((course as any).estimated_hours)}</span>
                       </div>
                     )}
                     {course.enrollmentCount !== undefined && (

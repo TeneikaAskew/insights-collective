@@ -30,7 +30,7 @@ on:
         description: Playwright spec scope. Starts with the read-only course specs (evidence gate 1).
         type: choice
         default: readonly-courses
-        options: [readonly-courses]
+        options: [readonly-courses, lms-courses, lms-courses-migrated]
 
 permissions: {}
 
@@ -130,6 +130,16 @@ jobs:
       - name: Verify identities (live-verified + snapshot-derived)
         run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" | tee identities-report.txt
 
+      # 8b. lms-courses-migrated: apply the pending November migrations to the LOCAL stack only, oldest first,
+      #     so the browser run exercises the schema the live project will have after the apply.
+      - name: Apply pending November migrations (local stack only)
+        if: inputs.specs == 'lms-courses-migrated'
+        run: |
+          for f in supabase/migrations/202611*.sql; do
+            echo "applying $f"
+            psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+
       # 9. Synthetic fixtures, each behind the target guard.
       - name: Local pre-seed (synthetic accounts and reference course)
         run: |
@@ -209,6 +219,19 @@ jobs:
           E2E_EVIDENCE_COMMIT: ${{ github.sha }}
           E2E_EVIDENCE_ENVIRONMENT: isolated local Supabase stack (supabase start, loopback) + production build served by vite preview, GitHub-hosted ubuntu runner, chromium
         run: npx --no-install playwright test --project=chromium-member e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts e2e/evidence/frontend-evidence.spec.ts
+
+      - name: Playwright (LMS course specs, member and instructor sessions, built app)
+        if: inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'
+        env:
+          E2E_EVIDENCE_COMMIT: ${{ github.sha }}
+          E2E_EVIDENCE_ENVIRONMENT: isolated local Supabase stack (supabase start, loopback) + production build served by vite preview, GitHub-hosted ubuntu runner, chromium
+        run: |
+          npx --no-install playwright test --project=chromium-member \
+            e2e/courses/course-list.spec.ts e2e/courses/course-detail.spec.ts e2e/courses/enrolled-courses.spec.ts \
+            e2e/courses/course-learn.spec.ts e2e/courses/course-progress.spec.ts e2e/courses/course-certificate.spec.ts \
+            e2e/evidence/frontend-evidence.spec.ts \
+            --project=chromium-instructor e2e/courses/course-builder.spec.ts e2e/courses/course-gradebook.spec.ts \
+            e2e/instructor/grade-entry-precision.spec.ts
 
       - name: Upload evidence
         if: always()

@@ -622,6 +622,93 @@ ON CONFLICT (id) DO NOTHING;
 
 
 
+-- Grade-entry precision fixtures for e2e/instructor/grade-entry-precision.spec.ts.
+--
+-- Three assignments on the reference course, each with exactly ONE submission
+-- from the shared member, so the SpeedGrader selects it on load:
+--   acce…0001  20 points, submitted and ungraded. The spec saves 10.075 and
+--              expects 10.08 back (numeric(10,2), ties away from zero).
+--   acce…0002  10 points, already graded 5.00. The spec enters -0.004 and
+--              expects a refusal before any write.
+--   acce…0003  10 points, already graded 5.00. Same refusal for 10.004.
+--
+-- These are separate from cccc5555 on purpose: that submission must stay
+-- ungraded for grading-interface.spec.ts, and a grade written here must never
+-- leak into it. Every run resets the three rows (DO UPDATE), so the 10.075 save
+-- from the previous run does not turn the next run's "ungraded" start into a
+-- graded one. The resets write grade columns, which pin_assignment_grade_columns
+-- silently reverts for non-staff, so they run under the fixture instructor's
+-- claims, exactly like the quiz fixture above.
+INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
+VALUES
+  ('acce1111-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Grade Precision Exercise (20 pts)',
+   '<p>Fixture for the grade-entry precision spec.</p>', 101, true),
+  ('acce1111-0000-0000-0000-000000000002', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Grade Range Exercise Low (10 pts)',
+   '<p>Fixture for the grade-entry precision spec.</p>', 102, true),
+  ('acce1111-0000-0000-0000-000000000003', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Grade Range Exercise High (10 pts)',
+   '<p>Fixture for the grade-entry precision spec.</p>', 103, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assignments (id, course_id, module_id, content_item_id, title, description,
+                                instructions, points, submission_types, is_published)
+VALUES
+  ('acce2222-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acce1111-0000-0000-0000-000000000001',
+   'Grade Precision Exercise (20 pts)', 'Fixture.', 'Submit any text.', 20,
+   ARRAY['online_text_entry'], true),
+  ('acce2222-0000-0000-0000-000000000002', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acce1111-0000-0000-0000-000000000002',
+   'Grade Range Exercise Low (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true),
+  ('acce2222-0000-0000-0000-000000000003', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acce1111-0000-0000-0000-000000000003',
+   'Grade Range Exercise High (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true)
+ON CONFLICT (id) DO UPDATE SET points = EXCLUDED.points;
+
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_instructor_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = 'e2e-instructor@insightscollective.org';
+
+  IF v_member_id IS NOT NULL AND v_instructor_id IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claims',
+                       json_build_object('sub', v_instructor_id, 'role', 'authenticated')::text,
+                       true);
+
+    INSERT INTO public.assignment_submissions
+      (id, assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt,
+       grade, graded_at, grader_comments)
+    VALUES
+      ('acce3333-0000-0000-0000-000000000001', 'acce2222-0000-0000-0000-000000000001', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'submitted', 1,
+       NULL, NULL, NULL),
+      ('acce3333-0000-0000-0000-000000000002', 'acce2222-0000-0000-0000-000000000002', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL),
+      ('acce3333-0000-0000-0000-000000000003', 'acce2222-0000-0000-0000-000000000003', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL)
+    ON CONFLICT (id) DO UPDATE
+      SET user_id = EXCLUDED.user_id,
+          workflow_state = EXCLUDED.workflow_state,
+          grade = EXCLUDED.grade,
+          graded_at = EXCLUDED.graded_at,
+          grader_comments = EXCLUDED.grader_comments;
+
+    PERFORM set_config('request.jwt.claims', '', true);
+  END IF;
+END $$;
+
+
 -- The survey the survey specs deep-link to.
 --
 -- /survey/e2e-fixture-survey rendered "Form Not Found", and the reason was not
@@ -784,6 +871,19 @@ BEGIN
   ) INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: fixture submission cccc5555-...5555 missing or already graded; grading-interface.spec.ts would assert against an empty SpeedGrader';
+  END IF;
+
+  -- The grade-entry precision spec needs one ungraded and two graded-at-5
+  -- submissions; anything else and its assertions start from the wrong state.
+  SELECT (SELECT count(*) FROM public.assignment_submissions
+           WHERE id = 'acce3333-0000-0000-0000-000000000001'
+             AND workflow_state = 'submitted' AND grade IS NULL) = 1
+     AND (SELECT count(*) FROM public.assignment_submissions
+           WHERE id IN ('acce3333-0000-0000-0000-000000000002', 'acce3333-0000-0000-0000-000000000003')
+             AND workflow_state = 'graded' AND grade = 5.00) = 2
+    INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: grade precision fixtures acce3333-... missing or not reset; grade-entry-precision.spec.ts would start from the wrong grades';
   END IF;
 
   -- A quiz nobody can start is a quiz no spec can test.

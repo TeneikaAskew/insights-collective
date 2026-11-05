@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { assertGradeSaved, assignmentPointsPossible, parseGradeInput } from '@/lib/assignmentGrading';
 import { useAssignments } from '@/hooks/useAssignments';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,19 +30,34 @@ interface GradeUpdatePayload {
 // `graded_by` and `status` — columns that do not exist — and ignored the
 // resulting error, so grading silently did nothing. Throws on failure so
 // callers can surface the error.
-async function updateSubmissionGrade(submissionId: string, grade: number) {
-  const { error } = await supabase
+//
+// The range is checked here, before any write, on the value as given and against the assignment's own points
+// (the SpeedGrader contract in parseGradeInput), so neither the inline cell nor a bulk caller can store an
+// out-of-range, empty or non-finite grade. Only an accepted value is rounded to storage scale.
+async function updateSubmissionGrade(submissionId: string, grade: number, pointsPossible: number | null | undefined) {
+  if (typeof pointsPossible !== 'number' || !Number.isFinite(pointsPossible)) {
+    throw new Error('This assignment has no points possible set, so the grade cannot be checked.');
+  }
+  const parsed = parseGradeInput(typeof grade === 'number' ? String(grade) : '', pointsPossible);
+  if (!parsed.ok) {
+    throw new Error(`Enter a value between 0 and ${pointsPossible}.`);
+  }
+  const written = {
+    grade: parsed.value,
+    graded_at: new Date().toISOString(),
+    workflow_state: 'graded',
+  };
+  const { data, error } = await supabase
     .from('assignment_submissions')
-    .update({
-      grade,
-      graded_at: new Date().toISOString(),
-      workflow_state: 'graded',
-    })
-    .eq('id', submissionId);
+    .update(written)
+    .eq('id', submissionId)
+    .select('id, grade, graded_at, workflow_state');
 
   if (error) {
     throw new Error(error.message || 'Failed to save grade');
   }
+  // A zero-row (RLS) or pin-reverted update is not a saved grade: every written field must read back.
+  assertGradeSaved(data as any, submissionId, written);
 }
 
 // Applies a batch of grade updates as per-submission assignment_submissions
@@ -62,7 +78,7 @@ export async function applyBulkSubmissionGrades(
         return { update, reason: 'The student has not submitted this assignment yet.' };
       }
       try {
-        await updateSubmissionGrade(update.submissionId, update.grade);
+        await updateSubmissionGrade(update.submissionId, update.grade, update.pointsPossible);
         return null;
       } catch (error) {
         return {
@@ -287,6 +303,13 @@ const CourseGradebook = () => {
   const refreshSubmissions = () =>
     queryClient.invalidateQueries({ queryKey: ['course-submissions', courseId] });
 
+  // The denominator comes from the loaded assignment row, never from the caller's payload: SpeedGrader semantics,
+  // the assignment's points or 100 when unset. undefined (assignment not loaded) refuses the write.
+  const assignmentRangeMax = (itemId: string): number | undefined => {
+    const assignment = assignments.find(a => a.id === itemId);
+    return assignment ? assignmentPointsPossible(assignment as any) ?? 100 : undefined;
+  };
+
   const handleGradeUpdate = async (gradeData: GradeUpdatePayload) => {
     if (!courseId || !user?.id) return;
 
@@ -299,7 +322,7 @@ const CourseGradebook = () => {
 
     // Throws on failure; the Gradebook component shows the success /
     // destructive toast based on whether this resolves or rejects.
-    await updateSubmissionGrade(gradeData.submissionId, gradeData.grade);
+    await updateSubmissionGrade(gradeData.submissionId, gradeData.grade, assignmentRangeMax(gradeData.itemId));
     await refreshSubmissions();
   };
 
@@ -309,6 +332,7 @@ const CourseGradebook = () => {
     // Resolve submission ids for updates that only carry student/item ids.
     const resolved = updates.map(update => ({
       ...update,
+      pointsPossible: assignmentRangeMax(update.itemId),
       submissionId:
         update.submissionId ??
         submissions.find(

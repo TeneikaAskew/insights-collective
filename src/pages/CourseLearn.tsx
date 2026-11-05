@@ -92,6 +92,10 @@ interface CourseShell {
   settings?: { discussions?: { enabled?: boolean } } | null;
 }
 
+/** known: a settled stored-progress snapshot for this learner; unknown: loading, refreshing, failed or signed out;
+ *  editing: the edit outline (drafts included), where no completion is shown on any surface. */
+type CompletionState = 'known' | 'unknown' | 'editing';
+
 interface CurriculumModule {
   id: string;
   title: string;
@@ -118,14 +122,37 @@ const CourseLearn = () => {
   // Load ERROR (backend failure) — distinct from "no such course".
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [completed, setCompleted] = useState<Set<string>>(new Set());
-  // The progress fetch failed: completion state is unknown, so completion
-  // views must not render fabricated "0 of N" numbers.
-  const [progressError, setProgressError] = useState(false);
-  const [progressReloadKey, setProgressReloadKey] = useState(0);
   const [mobileRailOpen, setMobileRailOpen] = useState(false);
 
-  const { data: progress, markItemComplete } = useCourseProgress(courseId);
+  // T-10: one stored-progress read model. Every completion surface on this page (header, home, sidebar,
+  // checkmarks, end-of-course) reads the same done set and the same eligible universe from useCourseProgress.
+  // While it loads, after it fails, or without a signed-in user, completion is UNKNOWN: no number, no checkmark.
+  // A same-key refresh (after a save, a retry or a refocus) keeps the previous numbers in the hook; they are NOT the
+  // current answer, so while any read is in flight completion is unknown here too (T-10 A).
+  // Edit mode lists drafts, so its outline is not the learner universe: every surface hides completion (T-10 C).
+  const {
+    data: progress,
+    error: progressLoadError,
+    isLoading: progressLoading,
+    markItemComplete,
+    refetch: refetchProgress,
+  } = useCourseProgress(courseId);
+  const progressKnown = Boolean(user?.id && progress && !progressLoadError && !progressLoading);
+  // A FAILED read (or no signed-in learner) shows the error notice; an in-flight read is only "unknown", not an error.
+  const progressFailed = Boolean(!user?.id || progressLoadError);
+  const completionState: CompletionState = effectiveEdit ? 'editing' : progressKnown ? 'known' : 'unknown';
+  const completed = useMemo(
+    () => (completionState === 'known' ? new Set(progress!.doneItemIds) : new Set<string>()),
+    [completionState, progress],
+  );
+  // Per-module figures come from the SAME snapshot as the course figures (eligible subset of that module), never
+  // from the outline's m.items.length, which is a navigation list and may hold items the snapshot does not (T-10 B).
+  const moduleCounts = useMemo(() => {
+    const map = new Map<string, { done: number; total: number }>();
+    if (completionState !== 'known') return map;
+    for (const m of progress!.modules) map.set(m.moduleId, { done: m.completedItems, total: m.totalItems });
+    return map;
+  }, [completionState, progress]);
 
   const flatItems = useMemo(
     () => modules.flatMap((m) => m.items.map((i) => ({ module: m, item: i }))),
@@ -163,11 +190,13 @@ const CourseLearn = () => {
         }
 
         const rawModules = await CanvasContentService.getModules(courseId);
-        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published);
+        // Learner universe = published === true modules and items (null and false both excluded), the same
+        // universe the progress read model counts. Edit mode shows everything but shows no completion numbers.
+        const visible = effectiveEdit ? rawModules : rawModules.filter((m) => m.published === true);
         const withItems = await Promise.all(
           visible.map(async (m) => {
             const items = await CanvasContentService.getContentItems(m.id);
-            const filtered = effectiveEdit ? items : items.filter((i) => i.published !== false);
+            const filtered = effectiveEdit ? items : items.filter((i) => i.published === true);
             return { id: m.id, title: m.title, items: filtered } as CurriculumModule;
           }),
         );
@@ -194,46 +223,6 @@ const CourseLearn = () => {
     };
   }, [courseId, effectiveEdit, toast, reloadKey]);
 
-  // --- Progress fetch ---
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      if (!user?.id || flatItems.length === 0) {
-        if (!cancelled) {
-          setCompleted(new Set());
-          setProgressError(false);
-        }
-        return;
-      }
-      const { data, error } = await supabase
-        .from('content_item_progressions')
-        .select('content_item_id, workflow_state')
-        .eq('user_id', user.id)
-        .in('content_item_id', flatItems.map((fi) => fi.item.id));
-      if (cancelled) return;
-      if (error) {
-        // Don't blank the checkmarks with fabricated zero-progress — keep
-        // whatever we last knew and surface a visible notice instead.
-        logger.error('Failed to load lesson progress', error);
-        setProgressError(true);
-        return;
-      }
-      setProgressError(false);
-      setCompleted(
-        new Set(
-          (data || [])
-            .filter(
-              (p: any) => p.workflow_state === 'read' || p.workflow_state === 'completed',
-            )
-            .map((p: any) => p.content_item_id),
-        ),
-      );
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, flatItems, progress?.completedItems, progressReloadKey]);
 
   const currentIndex = selected
     ? flatItems.findIndex((fi) => fi.item.id === selected.item.id)
@@ -244,13 +233,45 @@ const CourseLearn = () => {
       ? flatItems[currentIndex + 1]
       : null;
   const isSelectedComplete = selected ? completed.has(selected.item.id) : false;
-  const percent = progress?.percent ?? 0;
+  // Display-only percent (capped at 99 until every eligible item is done). Completion tests use exact counts.
+  const percent = progressKnown ? progress!.percent : null;
+  // Edit mode lists drafts too, so its outline is not the learner universe: say so instead of showing numbers.
+  const completionText = effectiveEdit
+    ? 'Course completion is not shown while editing'
+    : percent === null
+      ? 'Course completion unavailable'
+      : `Course completion ${percent}%`;
+
+  // Certificate availability is its own fact (an issued row this user can read), never inferred from progress.
+  const [certificate, setCertificate] = useState<'unknown' | 'issued' | 'none'>('unknown');
+  useEffect(() => {
+    setCertificate('unknown');
+    if (!isCompletionRoute || !courseId || !user?.id) return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id)
+        .limit(1);
+      if (cancelled) return;
+      setCertificate(error ? 'unknown' : (data?.length ?? 0) > 0 ? 'issued' : 'none');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isCompletionRoute, courseId, user?.id, progress?.completedItems]);
 
   // Resume target: first unfinished lesson, else first lesson.
   const resumeItem = useMemo(() => {
     if (flatItems.length === 0) return null;
+    if (completionState !== 'known') return flatItems[0];
     return flatItems.find((fi) => !completed.has(fi.item.id)) ?? flatItems[0];
-  }, [flatItems, completed]);
+  }, [flatItems, completed, completionState]);
+  // Resume/start wording is a completion decision: only a settled snapshot may make it.
+  const hasProgress = completionState === 'known' && completed.size > 0;
+  const startWording = completionState === 'known' ? (hasProgress ? 'resume' : 'start') : 'neutral';
   const lessonNumber = currentIndex >= 0 ? currentIndex + 1 : 0;
   const totalLessons = flatItems.length;
 
@@ -276,7 +297,7 @@ const CourseLearn = () => {
     [courseId, navigate],
   );
 
-  const retryProgress = useCallback(() => setProgressReloadKey((k) => k + 1), []);
+  const retryProgress = useCallback(() => void refetchProgress(), [refetchProgress]);
 
   const toggleExpand = useCallback((mid: string) => {
     setExpanded((prev) => {
@@ -295,8 +316,8 @@ const CourseLearn = () => {
       const type = flatItems.find((fi) => fi.item.id === id)?.item.type;
       if (!canMarkComplete(type, source)) return false;
       try {
+        // Resolves after the read model has re-read stored progress; no optimistic local checkmark.
         await markItemComplete(id);
-        setCompleted((prev) => new Set(prev).add(id));
         return true;
       } catch (err: any) {
         toast({ title: 'Progress not saved', description: err.message, variant: 'destructive' });
@@ -305,6 +326,8 @@ const CourseLearn = () => {
     },
     [flatItems, markItemComplete, toast],
   );
+
+  const assessedSelected = isAssessedContentType(selected?.item.type);
 
   const handleContinue = useCallback(async () => {
     if (!selected) return;
@@ -382,11 +405,11 @@ const CourseLearn = () => {
 
   // --- Completion / end-of-course view ---
   if (isCompletionRoute) {
-    const totalItems = flatItems.length;
-    const completedCount = flatItems.filter((fi) => completed.has(fi.item.id)).length;
-    // When the progress fetch failed, the completed set may be stale — never
-    // assert "Course complete" (or offer the certificate) on unverifiable data.
-    const allComplete = !progressError && totalItems > 0 && completedCount === totalItems;
+    // Counts come from the read model's eligible universe, not the outline (edit mode lists drafts).
+    const totalItems = progressKnown ? progress!.totalItems : 0;
+    const completedCount = progressKnown ? progress!.completedItems : 0;
+    // Exact, never from a rounded percent; and only about stored progress, never about a certificate.
+    const allComplete = progressKnown && !effectiveEdit && progress!.isComplete;
     const firstItem = flatItems[0];
     return (
       <div className="fixed inset-0 flex flex-col bg-background text-foreground">
@@ -407,21 +430,36 @@ const CourseLearn = () => {
               {allComplete ? `Congratulations! You finished ${course.title}` : `You've reached the end of ${course.title}`}
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mb-8">
-              {progressError
-                ? 'We couldn’t load your progress right now, so your completion status is unavailable.'
-                : allComplete
-                  ? 'Every lesson is checked off. Download your certificate, revisit lessons anytime, or head back to your courses.'
-                  : `You've completed ${completedCount} of ${totalItems} lessons. Finish the remaining lessons to unlock your certificate.`}
+              {effectiveEdit
+                ? 'Course completion is not shown while editing.'
+                : progressFailed
+                  ? 'We couldn’t load your progress right now, so your completion status is unavailable.'
+                  : !progressKnown
+                    ? 'Loading your progress…'
+                  : allComplete
+                    ? 'Every lesson is checked off. A certificate depends on the course’s own requirements and appears once it has been issued.'
+                    : `You've completed ${completedCount} of ${totalItems} lessons.`}
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-10">
-              {allComplete && (
+              {/* Certificate access follows an ISSUED certificate row, never the progress percent: an issued
+                  certificate stays reachable whatever the checkmarks say, and 100% alone promises nothing. */}
+              {certificate === 'issued' && (
                 <Link
                   to={`/courses/${course.id}/certificate`}
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Award className="w-4 h-4" />
                   View certificate
+                </Link>
+              )}
+              {certificate === 'none' && allComplete && (
+                <Link
+                  to={`/courses/${course.id}/certificate`}
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold border border-primary text-primary hover:bg-primary/10"
+                >
+                  <Award className="w-4 h-4" />
+                  Check certificate status
                 </Link>
               )}
               <Link
@@ -442,7 +480,7 @@ const CourseLearn = () => {
               )}
             </div>
 
-            {progressError ? (
+            {effectiveEdit || (!progressKnown && !progressFailed) ? null : progressFailed ? (
               <div className="text-left">
                 <CourseErrorState
                   title="Couldn't load your progress"
@@ -458,7 +496,7 @@ const CourseLearn = () => {
                 <div className="h-2 w-full rounded-full bg-muted overflow-hidden mb-2">
                   <div
                     className="h-full bg-primary transition-all"
-                    style={{ width: `${totalItems ? Math.round((completedCount / totalItems) * 100) : 0}%` }}
+                    style={{ width: `${progress!.percent}%` }}
                   />
                 </div>
                 <div className="text-xs text-muted-foreground">
@@ -482,16 +520,16 @@ const CourseLearn = () => {
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 lg:gap-10">
               <div>
                 <div className="text-[11px] font-bold tracking-widest uppercase text-muted-foreground mb-2">
-                  {completed.size > 0 ? 'Pick up where you left off' : 'Start your journey'}
+                  {startWording === 'resume' ? 'Pick up where you left off' : startWording === 'start' ? 'Start your journey' : 'Course outline'}
                 </div>
                 <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl mb-3">{course.title}</h1>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {flatItems.length} lessons · {Math.round(percent)}% complete
+                  {flatItems.length} lessons · {completionText}
                 </p>
                 {resumeItem && (
                   <div className="mb-8">
                     <div className="text-xs text-muted-foreground mb-2">
-                      {completed.size > 0 ? 'Up next' : 'First lesson'} · {resumeItem.module.title}
+                      {startWording === 'resume' ? 'Up next' : 'First lesson'} · {resumeItem.module.title}
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <button
@@ -500,9 +538,9 @@ const CourseLearn = () => {
                         className="inline-flex items-center gap-2 px-6 py-3 rounded-full font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                       >
                         <Play className="w-4 h-4" />
-                        {completed.size > 0 ? 'Resume' : 'Start course'}: {resumeItem.item.title || 'Lesson 1'}
+                        {startWording === 'resume' ? 'Resume' : startWording === 'start' ? 'Start course' : 'Open course'}: {resumeItem.item.title || 'Lesson 1'}
                       </button>
-                      {completed.size > 0 && flatItems[0] && flatItems[0].item.id !== resumeItem.item.id && (
+                      {hasProgress && flatItems[0] && flatItems[0].item.id !== resumeItem.item.id && (
                         <button
                           type="button"
                           onClick={() => {
@@ -520,7 +558,7 @@ const CourseLearn = () => {
                 )}
 
                 <div className="mt-10 space-y-4">
-                  {progressError && (
+                  {progressFailed && !effectiveEdit && (
                     <CourseErrorState
                       title="Couldn't load your progress"
                       error="Lesson completion status is unavailable right now."
@@ -534,7 +572,8 @@ const CourseLearn = () => {
                       expanded={expanded.has(m.id)}
                       onToggle={() => toggleExpand(m.id)}
                       completed={completed}
-                      progressUnavailable={progressError}
+                      completion={completionState}
+                      counts={moduleCounts.get(m.id)}
                       onSelect={(iid) => goTo(m.id, iid)}
                     />
                   ))}
@@ -544,16 +583,18 @@ const CourseLearn = () => {
               <aside className="space-y-6">
                 <div className="text-center">
                   <div className="text-[11px] font-bold tracking-widest uppercase mb-3">
-                    {Math.round(percent)}% Complete
+                    {completionText}
                   </div>
-                  <div className="h-1.5 w-full rounded-full bg-ss-track overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, percent))}%`,
-                      }}
-                    />
-                  </div>
+                  {!effectiveEdit && percent !== null && (
+                    <div className="h-1.5 w-full rounded-full bg-ss-track overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${percent}%`,
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 pt-6 border-t border-border">
                   <div className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0 bg-primary text-primary-foreground">
@@ -620,15 +661,26 @@ const CourseLearn = () => {
               <span className="sm:hidden">Prev</span>
             </button>
           </Hint>
-          <Hint label={isSelectedComplete ? 'Move to the next lesson' : 'Mark this lesson done and continue'}>
+          {/* For quizzes and assignments this button only navigates (handleContinue never completes them), so its
+              label, hint and accessible name must not say "Complete" or "done" at any width. */}
+          <Hint
+            label={
+              isSelectedComplete
+                ? 'Move to the next lesson'
+                : assessedSelected
+                  ? 'Go to the next lesson. This does not submit or complete this one.'
+                  : 'Mark this lesson done and continue'
+            }
+          >
             <button
               data-onboarding="learn-continue"
               type="button"
               onClick={handleContinue}
+              aria-label={!isSelectedComplete && assessedSelected ? 'Continue to the next lesson without completing this one' : undefined}
               className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              <span className="hidden sm:inline">{isSelectedComplete || isAssessedContentType(selected?.item.type) ? 'Continue' : 'Complete and Continue'}</span>
-              <span className="sm:hidden">{isSelectedComplete ? 'Next' : 'Complete'}</span>
+              <span className="hidden sm:inline">{isSelectedComplete || assessedSelected ? 'Continue' : 'Complete and Continue'}</span>
+              <span className="sm:hidden">{isSelectedComplete || assessedSelected ? 'Next' : 'Complete'}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </Hint>
@@ -637,21 +689,19 @@ const CourseLearn = () => {
 
       {/* Slim progress strip: lesson counter + course completion */}
       <div data-onboarding="learn-progress" className="flex items-center gap-3 px-3 sm:px-6 py-2 flex-shrink-0 bg-card border-b border-border text-[11px] text-muted-foreground">
-        <span className="font-semibold tabular-nums text-foreground">
+        {/* Position in the outline, not completion: "Lesson 4 of 6" says nothing about how many are done. */}
+        <span className="font-semibold tabular-nums text-foreground" data-testid="learn-position">
           Lesson {lessonNumber} of {totalLessons}
         </span>
         <span className="hidden sm:inline">·</span>
         <span className="hidden sm:inline truncate">{selected.module.title || 'Section'}</span>
-        <div className="ml-auto flex items-center gap-2 min-w-[140px]">
-          <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
-            />
-          </div>
-          <span className="tabular-nums font-semibold text-foreground">
-            {Math.round(percent)}%
-          </span>
+        <div className="ml-auto flex items-center gap-2 min-w-[140px]" data-testid="learn-completion">
+          {!effectiveEdit && percent !== null && (
+            <div className="h-1 flex-1 rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all" style={{ width: `${percent}%` }} />
+            </div>
+          )}
+          <span className="tabular-nums font-semibold text-foreground">{completionText}</span>
         </div>
       </div>
 
@@ -690,7 +740,9 @@ const CourseLearn = () => {
                 selectedId={selected?.item.id}
                 completed={completed}
                 canEdit={canEdit}
-                progressUnavailable={progressError}
+                completion={completionState}
+                moduleCounts={moduleCounts}
+                progressFailed={progressFailed}
                 onRetryProgress={retryProgress}
                 onSelect={(mid, iid) => {
                   goTo(mid, iid);
@@ -714,7 +766,9 @@ const CourseLearn = () => {
             selectedId={selected?.item.id}
             completed={completed}
             canEdit={canEdit}
-            progressUnavailable={progressError}
+            completion={completionState}
+            moduleCounts={moduleCounts}
+            progressFailed={progressFailed}
             onRetryProgress={retryProgress}
             onSelect={goTo}
           />
@@ -763,7 +817,9 @@ function RailNav({
   selectedId,
   completed,
   canEdit,
-  progressUnavailable = false,
+  completion,
+  moduleCounts,
+  progressFailed = false,
   onRetryProgress,
   onSelect,
 }: {
@@ -771,7 +827,9 @@ function RailNav({
   selectedId?: string;
   completed: Set<string>;
   canEdit: boolean;
-  progressUnavailable?: boolean;
+  completion: CompletionState;
+  moduleCounts: Map<string, { done: number; total: number }>;
+  progressFailed?: boolean;
   onRetryProgress?: () => void;
   onSelect: (moduleId: string, itemId: string) => void;
 }) {
@@ -782,7 +840,7 @@ function RailNav({
 
   return (
     <nav className="p-3 space-y-5">
-      {progressUnavailable && (
+      {progressFailed && completion !== 'editing' && (
         <div className="px-1">
           <CourseErrorState
             title="Couldn't load your progress"
@@ -792,7 +850,8 @@ function RailNav({
         </div>
       )}
       {modules.map((m, mi) => {
-        const doneInModule = m.items.filter((i) => completed.has(i.id)).length;
+        const c = moduleCounts.get(m.id);
+        const countText = completion === 'editing' ? null : completion === 'known' && c ? `${c.done}/${c.total}` : '—';
         return (
           <div key={m.id}>
             <div className="flex items-baseline justify-between gap-2 px-3 py-2">
@@ -800,7 +859,7 @@ function RailNav({
                 {`Section ${mi + 1} · ${m.title || 'Untitled'}`}
               </div>
               <div className="text-[10px] tabular-nums text-muted-foreground/80">
-                {progressUnavailable ? '—' : `${doneInModule}/${m.items.length}`}
+                {countText}
               </div>
             </div>
             <ul className="space-y-1">
@@ -951,17 +1010,20 @@ function HomeSection({
   expanded,
   onToggle,
   completed,
-  progressUnavailable = false,
+  completion,
+  counts,
   onSelect,
 }: {
   module: CurriculumModule;
   expanded: boolean;
   onToggle: () => void;
   completed: Set<string>;
-  progressUnavailable?: boolean;
+  completion: CompletionState;
+  counts?: { done: number; total: number };
   onSelect: (itemId: string) => void;
 }) {
-  const doneCount = module.items.filter((i) => completed.has(i.id)).length;
+  const unknownLabel = completion === 'editing' ? 'Completion not shown while editing' : 'Progress unavailable';
+  const showCounts = completion === 'known' && Boolean(counts);
   return (
     <div className="rounded-xl bg-card overflow-hidden border border-border">
       <button
@@ -972,9 +1034,7 @@ function HomeSection({
         <div>
           <div className="font-bold text-base">{module.title || 'Untitled section'}</div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            {progressUnavailable
-              ? 'Progress unavailable'
-              : `${doneCount} / ${module.items.length} complete`}
+            {showCounts ? `${counts!.done} / ${counts!.total} complete` : unknownLabel}
           </div>
         </div>
         {expanded ? (
@@ -992,8 +1052,8 @@ function HomeSection({
             // know", not "not started". The header already says as much; saying
             // "Not started" here would fabricate the very zero-progress the visible
             // notice exists to avoid, only where sighted users cannot see it.
-            const markerLabel = progressUnavailable
-              ? 'Progress unavailable'
+            const markerLabel = completion !== 'known'
+              ? unknownLabel
               : done
                 ? 'Completed'
                 : 'Not started';
@@ -1038,7 +1098,7 @@ function HomeSection({
                       : 'bg-primary text-primary-foreground hover:bg-primary/90'
                   }`}
                 >
-                  {done ? 'Review' : 'Start'}
+                  {done ? 'Review' : completion === 'known' ? 'Start' : 'Open'}
                 </button>
               </li>
             );
