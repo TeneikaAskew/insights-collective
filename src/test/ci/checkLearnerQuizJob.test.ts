@@ -32,7 +32,7 @@ describe('learner-quiz job', () => {
     expect(JOB.services).toBeUndefined();
     expect(JOB.container).toBeUndefined();
     expect(DOC.jobs['t09-runtime'].if).toBe("inputs.specs == 't09-runtime'");
-    expect(DOC.jobs.isolated.if).toBe("inputs.specs == 'readonly-courses'");
+    expect(DOC.jobs.isolated.if).toBe("inputs.specs == 'readonly-courses' || inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'");
   });
 
   it('includes the edge runtime only here: the T09 starts still exclude it, and this start differs only by that', () => {
