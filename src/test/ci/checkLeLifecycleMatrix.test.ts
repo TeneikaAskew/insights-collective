@@ -325,8 +325,13 @@ function world(o: WO = {}) {
         f.ops.push(`run ${arm} ${[bin, ...args].join(' ')}`);
         const pw = (o.pw ?? goodPw)(arm);
         if (pw.report !== null) f.put(A.report, pw.report);
-        f.put(`${A.output}/.last-run.json`, '{}');
-        f.mkdirSync(`${A.output}/arm-${arm}`, { mode: 0o700 }); f.put(`${A.output}/arm-${arm}/x.txt`, 'x');
+        // @playwright/test 1.59.1 "clear output" (runner/tasks.js createRemoveOutputDirsTask): it REMOVES the configured outputDir
+        // recursively, then recreates it on first write, so the directory gets a new identity (run 41947840176, arm A MISMATCH).
+        const od = d.env.LE_OUTPUT_DIR;
+        for (const k of [...f.nodes.keys()]) if (k === od || k.startsWith(`${od}/`)) f.nodes.delete(k);
+        f.mkdirSync(od, { mode: 0o700 });
+        f.put(`${od}/.last-run.json`, '{}');
+        f.mkdirSync(`${od}/arm-${arm}`, { mode: 0o700 }); f.put(`${od}/arm-${arm}/x.txt`, 'x');
         return { code: pw.code };
       },
       fetch: () => { throw new Error('authentic call'); }, psql: () => { throw new Error('authentic call'); }, forward: () => { throw new Error('authentic call'); },
@@ -602,7 +607,7 @@ describe('constraint 1: the whole owned subtree is validated first; any refusal 
   it('foreign owner, another device, a hard link, or an unrecorded entry outside a content dir: refused and propagated', async () => {
     const cases: [string, (f: Obj) => void, string][] = [
       ['foreign uid', (f) => f.file(`${AP.A.out}/x`, 'x', 0o600, { uid: UID + 4242 }), 'SYN_CLEANUP PRESERVED FOREIGN P/A/out'],
-      ['other device', (f) => f.file(`${AP.A.output}/arm-A/y`, 'y', 0o600, { dev: 9 }), 'SYN_CLEANUP PRESERVED FOREIGN P/A/lane/evidence/pw-output'],
+      ['other device', (f) => f.file(`${AP.A.output}/run/arm-A/y`, 'y', 0o600, { dev: 9 }), 'SYN_CLEANUP PRESERVED FOREIGN P/A/lane/evidence/pw-output'],
       ['hard link', (f) => f.file(`${AP.A.work}/h`, 'h', 0o600, { nlink: 2 }), 'SYN_CLEANUP PRESERVED FOREIGN P/A/lane/work'],
       ['unrecorded under the arm dir', (f) => f.dir(`${AP.A.P}/extra`), 'SYN_CLEANUP PRESERVED UNRECORDED P/A'],
       ['unrecorded under P', (f) => f.file(`${P}/note`, 'n'), 'SYN_CLEANUP PRESERVED UNRECORDED P'],
@@ -629,12 +634,12 @@ describe('constraint 1: the whole owned subtree is validated first; any refusal 
   });
   it('identities are re-checked right before each removal: an entry swapped after validation is preserved as CHANGED', async () => {
     let swapped = false;
-    const w = await done({ onUnlink: (p, f) => { if (!swapped && p === `${AP.A.output}/.last-run.json`) { swapped = true; const n = f.nodes.get(`${AP.A.output}/arm-A/x.txt`); f.nodes.set(`${AP.A.output}/arm-A/x.txt`, { ...n, ino: 777777 }); } } });
+    const w = await done({ onUnlink: (p, f) => { if (!swapped && p === `${AP.A.output}/run/.last-run.json`) { swapped = true; const n = f.nodes.get(`${AP.A.output}/run/arm-A/x.txt`); f.nodes.set(`${AP.A.output}/run/arm-A/x.txt`, { ...n, ino: 777777 }); } } });
     // validation order is readdir order (sorted): .last-run.json is unlinked before arm-A/x.txt is re-checked
     const cl = w.clean();
     expect(swapped).toBe(true);
     expect(cl.lines).toContain('SYN_CLEANUP PRESERVED CHANGED P/A/lane/evidence/pw-output');
-    expect(w.f.nodes.has(`${AP.A.output}/arm-A/x.txt`)).toBe(true);
+    expect(w.f.nodes.has(`${AP.A.output}/run/arm-A/x.txt`)).toBe(true);
     expect(cl.ok).toBe(false);
   });
   it('composed: pw-output created but its identity unverifiable is RESERVED, never content; preserved with every ancestor', async () => {
@@ -650,7 +655,7 @@ describe('constraint 1: the whole owned subtree is validated first; any refusal 
   });
   it('composed: a recorded ancestor swapped AFTER validation stops removal beneath it; its unchanged file is never unlinked', async () => {
     let swapped = false;
-    const w = await done({ onUnlink: (p, f) => { if (!swapped && p === `${AP.A.output}/.last-run.json`) { swapped = true; f.nodes.set(AP.A.out, { ...f.nodes.get(AP.A.out), ino: 888888 }); } } });
+    const w = await done({ onUnlink: (p, f) => { if (!swapped && p === `${AP.A.output}/run/.last-run.json`) { swapped = true; f.nodes.set(AP.A.out, { ...f.nodes.get(AP.A.out), ino: 888888 }); } } });
     const cl = w.clean();
     expect(swapped).toBe(true);
     expect(cl.ok).toBe(false);

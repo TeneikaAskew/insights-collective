@@ -92,7 +92,9 @@ export function synEnv(L, { commit, shell, arm }) {
   if (!SYN_ARMS.includes(arm) || path.basename(L.P) !== arm || !/^syn-[1-9]\d{0,19}-[1-9]\d{0,4}$/.test(path.basename(path.dirname(L.P)))) throw new Error('synEnv: arm');
   const v = {
     HOME: '/tmp', TMPDIR: '/tmp', CI: 'true', LE_LANE_DIR: L.lane, LE_OUT_DIR: L.out, LE_WORK_DIR: L.work, LE_EVIDENCE_DIR: L.evidence,
-    LE_OUTPUT_DIR: L.output, LE_REPORT_JSON: L.report, E2E_EVIDENCE_COMMIT: commit, E2E_EVIDENCE_ENVIRONMENT: SYN_EVIDENCE_ENVIRONMENT,
+    // Playwright REMOVES its outputDir at start (1.59.1 "clear output") and recreates it, so it must never be a recorded dir:
+    // it is an unrecorded child of the recorded content dir pw-output (run 41947840176: arm A pw-output MISMATCH).
+    LE_OUTPUT_DIR: path.join(L.output, 'run'), LE_REPORT_JSON: L.report, E2E_EVIDENCE_COMMIT: commit, E2E_EVIDENCE_ENVIRONMENT: SYN_EVIDENCE_ENVIRONMENT,
     PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH: shell, LE_TARGET: 'SYNTHETIC', LE_SYN_ARM: arm,
   };
   return SYN_ENV_KEYS.map((k) => `${k}=${v[k]}`);
