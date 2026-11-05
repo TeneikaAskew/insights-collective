@@ -59,8 +59,10 @@ export function dummyHandler(req, res) {
 /**
  * Start the dummy server on 127.0.0.1:0. { origin, port, close() -> Promise<'CLOSED'|'TIMEOUT'|'ERROR'> }. close() destroys every
  * tracked socket, then decides from server.close's OWN completion callback (review finding 4), never from `listening`: CLOSED
- * when the callback ran without an error and no socket is still tracked; ERROR when it gave an error, threw, or a socket is still
- * tracked; TIMEOUT when the bound (its own timer) fired first.
+ * when the callback ran without an error and every still-tracked socket is destroyed; ERROR when it gave an error, threw, or a
+ * tracked socket is NOT destroyed; TIMEOUT when the bound (its own timer) fired first. Node 20 runs the callback before a destroyed
+ * socket's own 'close' listener untracks it (probe pr134/le-dummy-close-probe-r1: keep-alive and open-request cases 40 of 40), so
+ * set membership alone misread every clean close with a live client connection as ERROR.
  */
 export async function startDummyServer(http, ms = CLOSE_TIMEOUT_MS) {
   const server = http.createServer(dummyHandler);
@@ -73,7 +75,7 @@ export async function startDummyServer(http, ms = CLOSE_TIMEOUT_MS) {
     const fin = (v) => { if (!done) { done = true; clearTimeout(t); resolve(v); } };
     const t = setTimeout(() => fin('TIMEOUT'), ms);
     for (const s of sockets) { try { s.destroy(); } catch { /* still tracked: ERROR below */ } }
-    try { server.close((err) => fin(err ? 'ERROR' : sockets.size === 0 ? 'CLOSED' : 'ERROR')); } catch { fin('ERROR'); }
+    try { server.close((err) => fin(err ? 'ERROR' : [...sockets].every((s) => s.destroyed === true) ? 'CLOSED' : 'ERROR')); } catch { fin('ERROR'); }
   });
   return { origin: `http://127.0.0.1:${port}`, port, close };
 }

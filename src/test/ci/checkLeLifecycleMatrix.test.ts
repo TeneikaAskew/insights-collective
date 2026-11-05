@@ -912,7 +912,7 @@ describe('arm driver (fake browser): exact order, every browser-facing call guar
 });
 
 /** A fake node:http whose server.close behaves as told; `conn` hands a socket to the connection handler. */
-function fakeHttp(mode: 'ok' | 'hang' | 'error' | 'tracked') {
+function fakeHttp(mode: 'ok' | 'hang' | 'error' | 'tracked' | 'destroyed') {
   const h: Obj = {};
   h.createServer = () => {
     const s: Obj = { listening: true };
@@ -923,15 +923,17 @@ function fakeHttp(mode: 'ok' | 'hang' | 'error' | 'tracked') {
     s.close = (cb: (e?: Error) => void) => { s.listening = false; if (mode === 'hang') return; if (mode === 'error') cb(new Error('x')); else cb(); };
     return s;
   };
-  h.conn = () => { const sock: Obj = { on: () => sock, destroy: () => {} }; h.onConn(sock); };
+  // 'tracked': destroy() does nothing (a socket genuinely still open). 'destroyed': destroy() marks it destroyed but its own 'close'
+  // event has not fired when server.close calls back (the Node 20 order the probe observed), so it is still in the tracked set.
+  h.conn = () => { const sock: Obj = { on: () => sock, destroyed: false, destroy: () => { if (mode === 'destroyed') sock.destroyed = true; } }; h.onConn(sock); };
   return h;
 }
 describe('per-container dummy and proxy: tri-state closes from their own completion, primary failure preserved', () => {
-  const run = async (o: { dummy?: 'ok' | 'hang' | 'error' | 'tracked'; proxyHangs?: boolean; proxyFails?: boolean; fw?: FW; dummyStartFails?: boolean } = {}) => {
+  const run = async (o: { dummy?: 'ok' | 'hang' | 'error' | 'tracked' | 'destroyed'; proxyHangs?: boolean; proxyFails?: boolean; fw?: FW; dummyStartFails?: boolean } = {}) => {
     const w = fakeWorld(o.fw);
     const http = fakeHttp(o.dummy ?? 'ok');
     const r = await runContainerArm('A', {
-      startDummy: async () => { if (o.dummyStartFails) throw new Error('SYN_E_DUMMY_LISTEN'); const s = await startDummyServer(http, 60); if (o.dummy === 'tracked') http.conn(); return s; },
+      startDummy: async () => { if (o.dummyStartFails) throw new Error('SYN_E_DUMMY_LISTEN'); const s = await startDummyServer(http, 60); if (o.dummy === 'tracked' || o.dummy === 'destroyed') http.conn(); return s; },
       allowedOrigins, installBoundary: w.d.installBoundary,
       startProxy: async (allowed: Set<string>) => { expect([...allowed].sort()).toEqual(['http://127.0.0.1:40123', 'ws://127.0.0.1:40123']); return { url: 'http://127.0.0.1:5000', close: () => (o.proxyHangs ? new Promise(() => {}) : o.proxyFails ? Promise.reject(new Error('x')) : Promise.resolve()) }; },
       withBrowser: (proxyUrl: string) => { expect(proxyUrl).toBe('http://127.0.0.1:5000'); return w.d.withBrowser; },
@@ -943,6 +945,9 @@ describe('per-container dummy and proxy: tri-state closes from their own complet
   };
   it('all closes proven: DONE with the clean cleanup body', async () => {
     expect(await run()).toEqual({ armLine: armBody('A'), cleanupLine: CLEAN, primary: null, done: true });
+  });
+  it('a live client socket destroyed by close() but still tracked when the callback runs (Node 20 order) is CLOSED, not ERROR', async () => {
+    expect(await run({ dummy: 'destroyed' })).toEqual({ armLine: armBody('A'), cleanupLine: CLEAN, primary: null, done: true });
   });
   it('dummy close never calls back: TIMEOUT; calls back with an error: ERROR; a socket still tracked: ERROR; proxy never resolves: TIMEOUT', async () => {
     const cases: [Obj, string][] = [[{ dummy: 'hang' }, 'DUMMY TIMEOUT'], [{ dummy: 'error' }, 'DUMMY ERROR'], [{ dummy: 'tracked' }, 'DUMMY ERROR'], [{ proxyHangs: true }, 'PROXY TIMEOUT'], [{ proxyFails: true }, 'PROXY ERROR']];
