@@ -71,7 +71,7 @@ Consequence of the last two rows, within the scope and times stated in preparati
 
 **Still open (16 at 11:45Z).** Carriers #155, #157, #166 and #167 need re-composing on the runner base R0 before they can merge, because they carry an older #141 commit (merged into today's `main` they give a duplicate `retryRefusedStart` and an `e2e.yml` clash). #162 and #173 stay held (secrets and runner security; after #172). #172 stays with its owner. #182 is a draft stacked on its own base. #164 needs the owner's call on its reserved migration. #152 and #154 wait for R0. #153 and #140 are soft-close candidates. #183 (tracker reconciliation of WP-02 to WP-05), #184 and #185 are the owner's. #186 is the read-only token for `db-migrate.yml`.
 
-**Served UI.** Not re-read in this revision. The T-08 quiz-start fix is source on `main` since #141; learners get it only from a Lovable publish made after 2026-11-04 22:26:54Z. Until that is confirmed, T-08 stays open at the deployment tier.
+**Served UI.** Not re-read in this revision. The T-08 quiz-start fix is source on `main` since #141; learners get it only from a Lovable publish made after 2026-11-04 22:26:54Z. The owner reports publishing at about 11:48 UTC on 2026-11-05, after that merge (owner-reported; the served bundle was not re-read from this session). T-08 still needs a signed-in quiz start on the live site to count as accepted.
 
 **Remaining before any future apply.** #186 (read-only token) and, as an owner setting, a protected GitHub environment with a required reviewer for the apply job.
 
