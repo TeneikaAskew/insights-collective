@@ -64,7 +64,9 @@ async function capture(name, { before = S(), after = before, n = 0, nav = 0, tok
 }
 const N0 = 'PC-catalog-desktop-1440x900';
 const pos = await capture(N0);
-ok(pos.d.write === true && pos.order.join() === 'watch,arm,sample,screenshot,sample,read,unwatch', 'D1 positive: #148 window order watch,arm,sample,screenshot,sample,read,unwatch; write');
+// The pinned core also brackets the window with diagnostic phase marks (guard 'mark:S|A|F'); they are part of the order.
+const D1_ORDER = 'watch,arm,sample,mark:S,screenshot,mark:A,sample,mark:F,read,unwatch';
+ok(pos.d.write === true && pos.order.join() === D1_ORDER, `D1 positive: #148 window order ${D1_ORDER}; write (got ${pos.order.join()})`);
 const cases = [
   ['D2 wrong project', N0, { bo: { project: 'tablet' } }, 'PERSONA'],
   ['D3 wrong viewport', N0, { bo: { viewport: { width: 1180, height: 757 } } }, 'VIEWPORT'],
