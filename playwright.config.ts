@@ -255,6 +255,7 @@ export default defineConfig({
         '**/gradebook-roles/**',
         '**/roster-reports/**',
         '**/builder-authoring/**',
+        '**/public-catalog/**',
         // Signed-out specs — handled by chromium-public. The first four were
         // absent from this list while chromium-public claimed them, so ~44 test
         // executions ran twice: once authenticated, once not, with identical
