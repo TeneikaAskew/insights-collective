@@ -189,7 +189,7 @@ ok(ew.rc === 1 && ew.ls.length === 3 && ew.lines.includes('WITHHELD PC-catalog-m
 // Static: placement, config, run.sh order.
 const cat = read('e2e/public-catalog/catalog.spec.ts'); const rail = read('e2e/public-catalog/sidebar-rail.spec.ts'); const cfg = read('playwright.public-catalog.config.ts'); const runsh = read('scripts/public-catalog-fixture/run.sh');
 const a1 = cat.slice(cat.indexOf("test('A1 "), cat.indexOf("test('A2 "));
-ok((cat.match(/await shot\(/g) ?? []).length === 1 && a1.includes('await shot(page, info, CATALOG_SHOT[info.project.name]);') && a1.indexOf('await shot(') > a1.lastIndexOf('expect('), 'T1 catalog: one shot call, inside A1, after its last assertion');
+ok((cat.match(/await shot\(/g) ?? []).length === 1 && a1.includes('const p = info.project.name;') && a1.includes('else if (CATALOG_SHOT[p]) await shot(page, info, CATALOG_SHOT[p]);') && a1.indexOf('await shot(') > a1.lastIndexOf('expect('), 'T1 catalog: one shot call, inside A1, after its last assertion');
 ok((rail.match(/await shot\(/g) ?? []).length === 1 && rail.indexOf("await shot(page, info, 'PC-rail-desktop-1180x757')") > rail.lastIndexOf('expect(') && rail.indexOf("test.skip(info.project.name !== 'desktop'") < rail.indexOf('await shot('), 'T2 rail: one shot call after the desktop-only skip and after its last assertion');
 ok(/screenshot: 'off' as const/.test(cfg) && !/screenshot: '(on|only-on-failure)'/.test(cfg), 'T3 Playwright screenshot option stays off');
 const at = (s) => runsh.indexOf(s);
