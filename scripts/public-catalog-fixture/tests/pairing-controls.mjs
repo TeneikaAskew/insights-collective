@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ABOUTME: Fake-driven controls for the lane pairing producer (blog_tags carrier): every refusal branch, the step order, the
 // ABOUTME: anon-only request shape, the private proof write and the proof consumer's verdict. No psql, no network, no stack.
-import { mkdtempSync, chmodSync, statSync, readFileSync } from 'node:fs';
+import { mkdtempSync, chmodSync, openSync, fstatSync, readFileSync, closeSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { producePairing, writeProof, PairError, PAIRING_TAG_ID, PRODUCER } from '../pairing-producer.mjs';
@@ -68,7 +68,7 @@ ok(!used.w.calls.db.some((c) => c.startsWith('insert')) && used.w.calls.http.len
 const T = mkdtempSync(path.join(tmpdir(), 'pca-pair-')); chmodSync(T, 0o700);
 writeProof(T, p.proof);
 const f = path.join(T, 'stack-proof.json');
-ok((statSync(f).mode & 0o777) === 0o600 && JSON.parse(readFileSync(f, 'utf8')).stack_id === NONCE, 'W1 proof written 0600 in the private dir');
+{ const fd = openSync(f, 'r'); try { ok((fstatSync(fd).mode & 0o777) === 0o600 && JSON.parse(readFileSync(fd, 'utf8')).stack_id === NONCE, 'W1 proof written 0600 in the private dir'); } finally { closeSync(fd); } }
 let second; try { writeProof(T, p.proof); second = 'wrote'; } catch (e) { second = e.code; }
 ok(second === 'PAIR_E_PROOF_EXISTS', 'W2 a second proof write refuses (O_EXCL), never overwrites');
 const U = mkdtempSync(path.join(tmpdir(), 'pca-pair-')); chmodSync(U, 0o755);

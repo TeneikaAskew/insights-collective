@@ -9,7 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { SHOT_CORE_PINS, checkHelperPins } from '../helper-pins.mjs';
-import { PUBLIC_SHOT_PLAN, PUBLIC_SHOT_NAMES, CARRIER_ID, loadShotCore, publicShotSecrets, decidePublicShot, writePublicShot, ShotError } from '../shot-plan.mjs';
+import { PUBLIC_SHOT_PLAN, PUBLIC_SHOT_NAMES, CARRIER_ID, loadShotCore, publicShotSecrets, decidePublicShot, writePublicShot } from '../shot-plan.mjs';
 import { exportShots, loadExportCore } from '../shot-export.mjs';
 import { PUBLIC_SHOT_EXPECT } from './shot-expect.mjs';
 import { PAIRING_TAG_ID } from '../pairing-producer.mjs';
@@ -91,7 +91,6 @@ let nc = null; try { decidePublicShot('PC-other', pos.obs, secrets, core.scanPag
 
 // Private write + export, through the pinned #148 export primitives (materialized above with the rest of the core).
 const { createRequire } = await import('node:module');
-const zlib = await import('node:zlib');
 const { crc32 } = await import(pathToFileURL(path.join(coreRoot, 'scripts/gradebook-fixture/journey/shot-export.mjs')).href);
 const xcore = await loadExportCore(coreRoot);
 // Real PNGs: Chromium screenshots of a synthetic page at each name's exact viewport (full page, as the capture does).

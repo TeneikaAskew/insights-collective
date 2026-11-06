@@ -70,6 +70,17 @@ describe('public-catalog job (static)', () => {
     expect(copy).toContain('echo "screenshots refused: duplicate name"; exit 1');
     expect(copy).not.toMatch(/834x1112/); // the tablet shot is the required 768x1024 viewport, not the old 834x1112
   });
+  it('prints a fixed-line summary of the copied lane evidence only, after the copy and before the teardown', () => {
+    const i = at(/Public catalog summary/);
+    expect(i).toBeGreaterThan(at(/Copy the lane's evidence/));
+    expect(i).toBeLessThan(at(/Stop background servers/));
+    expect(S[i].if).toBe("always() && steps.pc_d1.outcome == 'success'");
+    const sum = run(/Public catalog summary/);
+    expect(sum).toContain('E="$PC_EVIDENCE/lane"');
+    expect(sum).not.toMatch(/RUNNER_TEMP|PUBLIC_ACCEPT_OUT|pc-priv|pgpass|playwright\.json|anon-probe\.json/); // never the private lane outputs
+    for (const f of ['STEPS.txt', 'playwright.exit', 'playwright-summary.txt', 'screenshots.exit', 'screenshots.txt', 'anon-probe.exit', 'anon-probe-summary.txt']) expect(sum).toContain(`show ${f} '`);
+    expect(sum).toContain(`awk -v re="$2" '$0 ~ re { print; next } { n++ }`); // only lines matching each file's fixed format are printed
+  });
   it('removes every private output, including the lane OUT, TMPDIR, pgpass dir and served copies, under always()', () => {
     const rm = run(/Remove private outputs/);
     expect(S[at(/Remove private outputs/)].if).toBe('always()');

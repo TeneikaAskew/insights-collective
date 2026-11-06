@@ -1635,6 +1635,27 @@ jobs:
             echo "screenshots copied: $(wc -w <<<"$have") of 4 fixed PNG(s), equal to the hash manifest; withheld: $(awk '/^WITHHELD /{n++} END{print n+0}' "$O/screenshots.txt")"
           fi
           ls -A "$PC_EVIDENCE/lane"
+      # The staged lane evidence is fixed-format and fixture-only (stage names and codes, project|file:line|title|status|step,
+      # SHOT/WITHHELD name lines, probe verdict lines). This prints only lines matching those formats, so the run log says which
+      # case failed without the evidence artifact. Anything else is counted, never printed.
+      - name: Public catalog summary (fixed lines only; from the copied lane evidence)
+        if: always() && steps.pc_d1.outcome == 'success'
+        run: |
+          E="$PC_EVIDENCE/lane"
+          if [ ! -d "$E" ]; then echo "no lane evidence was copied"; exit 0; fi
+          show() {
+            f="$E/$1"
+            if [ ! -f "$f" ] || [ -L "$f" ]; then echo "-- $1: absent"; return 0; fi
+            echo "-- $1"
+            awk -v re="$2" '$0 ~ re { print; next } { n++ } END { printf "   (%d other line(s) not shown)\n", n + 0 }' "$f"
+          }
+          show STEPS.txt '^(== [a-z0-9-]+|PUBLIC_CATALOG_E_[A-Z_]+|PUBLIC_SHOT_E_[A-Z_]+|PAIR_E_[A-Z_]+|exit [0-9]+)$'
+          show playwright.exit '^[0-9]+$'
+          show playwright-summary.txt '^[a-z0-9-]+[|][A-Za-z0-9./_-]+:[0-9]+[|][^|]{1,200}[|](passed|failed|timedOut|skipped|interrupted|none)([|]step=[A-Za-z0-9_]+)?$'
+          show screenshots.exit '^[0-9]+$'
+          show screenshots.txt '^(SHOT [A-Za-z0-9x-]+ [0-9a-f]{64}|WITHHELD [A-Za-z0-9x-]+ [A-Z_]+)$'
+          show anon-probe.exit '^[0-9]+$'
+          show anon-probe-summary.txt '^(PASS|FAIL|UNVERIFIED) (read|write) [A-Za-z0-9_.:=/ -]{1,200}$|^reads: [A-Za-z0-9_.:=/;, -]{1,200}$'
       - name: No Edge runtime container exists (read-only; after the lane)
         if: always() && steps.pc_prep.outcome == 'success'
         run: |

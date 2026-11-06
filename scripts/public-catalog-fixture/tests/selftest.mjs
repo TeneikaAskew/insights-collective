@@ -2,7 +2,7 @@
 // ABOUTME: Stack-free self-test for the public-catalog lane: generated seed, INSERT-only and read-only SQL shapes, run-owned
 // ABOUTME: ids, guard refusals and one positive, and spec/config shapes (no login, no mocks, empty storage). Prints PASS/FAIL.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync, chmodSync, mkdtempSync, symlinkSync, linkSync, mkdirSync, copyFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, chmodSync, mkdtempSync, symlinkSync, linkSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

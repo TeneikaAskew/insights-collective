@@ -2,7 +2,7 @@
 // ABOUTME: Controls for pw-summary.mjs: a failing test names only its deepest allowlisted step title, never a message; passing
 // ABOUTME: and skipped tests are unchanged; titles are allowlisted; the REAL runner's report shape is checked browserless.
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +25,8 @@ const withOwnRoot = (fn) => {
   }
 };
 let n = 0;
+// Fixed writer source: writes PCA_PIPE_DATA into the pipe named by its first argument (data only, never code).
+const WRITE_PIPE = "require('node:fs').writeFileSync(process.argv[1], process.env.PCA_PIPE_DATA);";
 const ok = (name, fn) => { fn(); n += 1; console.log(`ok ${n} ${name}`); };
 const SECRET = 'Expected: "Estimated time: 2.5 hours" Received: "secret page text 7e57ca7a"';
 const err = { message: SECRET, stack: SECRET };
@@ -85,9 +87,19 @@ ok('every step and teardown-check title the public-catalog specs and support use
 ok('the CLI prints the same summary for a report file path given as run.sh gives it', () => {
   const r = spawnSync(process.execPath, ['-e', `import('${path.join(ROOT, 'scripts/public-catalog-fixture/pw-summary.mjs')}')`], { encoding: 'utf8' });
   assert.equal(r.status, 0); assert.equal(r.stdout, '', 'importing does not print');
-  // The report reaches the CLI through a bash process-substitution pipe, so this control writes no file.
+  // The report reaches the CLI through a named pipe in a private temp dir (a pipe path, as run.sh's process substitution
+  // gives), so this control writes no regular file and runs no shell. A child writer feeds the pipe while the CLI reads it.
   const json = JSON.stringify(report([{ status: 'failed', error: err, steps: [{ title: 'a4_tab_reach', error: err }] }]));
-  const cli = spawnSync('bash', ['-c', 'node "$1" <(printf "%s" "$2")', 'bash', path.join(ROOT, 'scripts/public-catalog-fixture/pw-summary.mjs'), json], { encoding: 'utf8' });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pca-pws-'));
+  let cli;
+  try {
+    const fifo = path.join(dir, 'report.pipe');
+    assert.equal(spawnSync('mkfifo', ['-m', '600', fifo]).status, 0, 'mkfifo');
+    // The report travels as environment data, so the writer needs nothing from this (blocked) process once started.
+    const writer = spawn(process.execPath, ['-e', WRITE_PIPE, fifo], { stdio: 'ignore', env: { ...process.env, PCA_PIPE_DATA: json } });
+    cli = spawnSync(process.execPath, [path.join(ROOT, 'scripts/public-catalog-fixture/pw-summary.mjs'), fifo], { encoding: 'utf8', timeout: 10000 });
+    writer.kill();
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   assert.equal(cli.status, 0, cli.stderr); assert.equal(cli.stdout, 'desktop|catalog.spec.ts:113|A8 t|failed|step=a4_tab_reach\n');
 });
 console.log(`PASS pw-summary controls (${n} checks)`);

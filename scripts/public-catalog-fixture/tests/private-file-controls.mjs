@@ -27,11 +27,13 @@ const files = Object.fromEntries(Object.entries(mk).map(([k, f]) => [k, f()]));
 // The hard link makes reg nlink 2, so the regular positive gets its own fresh file.
 const fresh = path.join(T, 'fresh'); writeFileSync(fresh, json); chmodSync(fresh, 0o600); files.regular = fresh;
 
+const PROBE_PROOF = "import(process.env.PCA_PROBE_MODULE).then((m) => console.log('R ' + (m.checkStackProof(process.env.PCA_PROBE_FILE, process.env.PCA_PROBE_RUN) ?? 'null').split(':')[0]))";
+const PROBE_PASSFILE = "import(process.env.PCA_PROBE_MODULE).then((m) => console.log('R ' + ((m.checkDb({ PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres', PUBLIC_ACCEPT_DB_PASSFILE: process.env.PCA_PROBE_FILE })[0] ?? 'null').split(':').slice(0, 2).join(':'))))";
 const probe = (kind, file) => {
-  const code = kind === 'proof'
-    ? `import(${JSON.stringify(path.join(DIR, 'proof.mjs'))}).then((m) => console.log('R ' + (m.checkStackProof(${JSON.stringify(file)}, '${RUN}') ?? 'null').split(':')[0]))`
-    : `import(${JSON.stringify(path.join(DIR, 'pgconn.mjs'))}).then((m) => console.log('R ' + ((m.checkDb({ PUBLIC_ACCEPT_DB_URL: 'postgresql://postgres@127.0.0.1:54322/postgres', PUBLIC_ACCEPT_DB_PASSFILE: ${JSON.stringify(file)} })[0] ?? 'null').split(':').slice(0, 2).join(':'))))`;
-  const r = spawnSync('node', ['--input-type=module', '-e', code], { encoding: 'utf8', timeout: 3000 });
+  // Fixed probe source; the module path, file and run id reach the child only as environment data, never as code.
+  const code = kind === 'proof' ? PROBE_PROOF : PROBE_PASSFILE;
+  const env = { ...process.env, PCA_PROBE_MODULE: path.join(DIR, kind === 'proof' ? 'proof.mjs' : 'pgconn.mjs'), PCA_PROBE_FILE: file, PCA_PROBE_RUN: RUN };
+  const r = spawnSync('node', ['--input-type=module', '-e', code], { encoding: 'utf8', timeout: 3000, env });
   if (r.error?.code === 'ETIMEDOUT' || r.signal) return 'HANG';
   return (r.stdout.match(/^R (.*)$/m) ?? [null, `ERR exit ${r.status}`])[1];
 };

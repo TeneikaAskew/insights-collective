@@ -5,7 +5,7 @@
 // as #152 c74986bc); egress-test.ts is NOT imported (its browser fixture is sandbox-on, lesson-editor sealed container only).
 // If a pinned helper changes on main it is RE-PINNED here, never forked.
 import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 export const HELPER_PINS = {
@@ -42,10 +42,15 @@ export function checkHelperPins(root, pins = HELPER_PINS) {
   const errors = [];
   for (const [rel, want] of Object.entries(pins)) {
     const p = path.join(root, rel);
-    let st;
-    try { st = lstatSync(p); } catch { errors.push(`PUBLIC_CATALOG_E_HELPER_ABSENT: ${rel}`); continue; }
-    if (!st.isFile()) { errors.push(`PUBLIC_CATALOG_E_HELPER_NOT_FILE: ${rel}`); continue; }
-    if (gitBlobId(readFileSync(p)) !== want) errors.push(`PUBLIC_CATALOG_E_HELPER_DRIFT: ${rel}`);
+    // One no-follow, non-blocking descriptor: the type check and the hashed bytes come from the same open file.
+    let fd;
+    try { fd = openSync(p, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); } catch (e) {
+      errors.push(e?.code === 'ENOENT' ? `PUBLIC_CATALOG_E_HELPER_ABSENT: ${rel}` : `PUBLIC_CATALOG_E_HELPER_NOT_FILE: ${rel}`); continue;
+    }
+    try {
+      if (!fstatSync(fd).isFile()) { errors.push(`PUBLIC_CATALOG_E_HELPER_NOT_FILE: ${rel}`); continue; }
+      if (gitBlobId(readFileSync(fd)) !== want) errors.push(`PUBLIC_CATALOG_E_HELPER_DRIFT: ${rel}`);
+    } finally { closeSync(fd); }
   }
   return errors;
 }
