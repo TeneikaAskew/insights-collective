@@ -64,9 +64,11 @@ export async function shot(page: Page, info: TestInfo, name: keyof typeof PUBLIC
     watchNav: (cb: () => void) => { const on = (f: { parentFrame(): unknown }) => { if (!f.parentFrame()) cb(); }; page.on('framenavigated', on); return () => { page.off('framenavigated', on); }; },
     guard: (op: string, token: string) => page.evaluate(core.SHOT_GUARD, [op, token] as [string, string]),
     sample: () => sample(page),
-    // caret 'initial': Playwright's default caret hiding writes an inline style on every input, and the capture
-    // window's guard counts that as the page changing (MUTATED), so every shot of a page with a search box is withheld.
-    screenshot: () => page.screenshot({ fullPage: true, animations: 'disabled', caret: 'initial' }),
+    // The capture window's guard counts any DOM change as MUTATED, so the screenshot itself must change nothing:
+    // caret 'initial', because the default caret hiding writes an inline style on every input (the catalog's search box);
+    // and the viewport only (the plan's fixed size), because a full-page capture lays the page out past the viewport,
+    // which re-measures the md+ sidebar and rewrites its styles. Only the 390px shot, which has no sidebar, got through.
+    screenshot: () => page.screenshot({ fullPage: false, animations: 'disabled', caret: 'initial' }),
   };
   await settle(page);
   const { png, obs } = await core.captureShot(drv, base, randomBytes(16).toString('hex'), secrets);

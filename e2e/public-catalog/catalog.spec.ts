@@ -152,8 +152,9 @@ test.describe('anonymous catalog', () => {
       await expect(page).toHaveURL(new RegExp(`/courses/${c.id}$`));
     });
     // The detail page is loaded on demand and the router keeps the catalog on screen until it is ready, so the URL
-    // changes first while the card's own h3 (same title) is still visible. Only the detail page's h1 says it has rendered.
-    await test.step('a8_heading', async () => { await expect(page.getByRole('heading', { level: 1, name: c.title, exact: true })).toBeVisible(); });
+    // changes first while the card's own h3 (same title) is still visible. Only the detail page's h1 says it has rendered
+    // (it has two: the course header and the landing hero, so the first visible one is enough).
+    await test.step('a8_heading', async () => { await expect(page.getByRole('heading', { level: 1, name: c.title, exact: true }).first()).toBeVisible(); });
     await test.step('a8_estimate', async () => {
       await expect(async () => {
         const nodes = await estimatedTimeNodes(page.locator('main'));
