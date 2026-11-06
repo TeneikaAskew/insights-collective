@@ -246,6 +246,15 @@ export default defineConfig({
         '**/auth/**',
         '**/landing/**',
         '**/visual/**',
+        // Lane-only specs. Each runs under its own dedicated config and refuses to
+        // load without that lane's environment (lifecycle-matrix.spec.ts throws at
+        // import when LE_TARGET is unset), which aborted collection for the whole
+        // default suite. Their own configs set their own testDir, so this does not
+        // touch them.
+        '**/lesson-editor/**',
+        '**/gradebook-roles/**',
+        '**/roster-reports/**',
+        '**/builder-authoring/**',
         // Signed-out specs — handled by chromium-public. The first four were
         // absent from this list while chromium-public claimed them, so ~44 test
         // executions ran twice: once authenticated, once not, with identical
