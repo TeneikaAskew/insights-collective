@@ -39,7 +39,8 @@ on:
         # le-isolation-probe: SYNTHETIC feasibility probe only (unrun). Sealed container vs a dummy nonce endpoint; no stack.
         # lesson-editor-syn: SYNTHETIC lifecycle matrix only (unrun). Sealed lane vs an in-lane dummy page server; no stack; never E1.
         # lms-courses, lms-courses-migrated: the isolated job's LMS course specs, on the snapshot schema or with the November migrations applied locally.
-        options: [readonly-courses, lms-courses, lms-courses-migrated, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, builder-authoring, builder-authoring-k1, lesson-editor, le-isolation-probe, lesson-editor-syn]
+        # roster-reports: LOCAL-ONLY PROPOSAL (unrun). The T-15 Students/Reports persona acceptance on the same no-Edge stack.
+        options: [readonly-courses, lms-courses, lms-courses-migrated, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, roster-reports, builder-authoring, builder-authoring-k1, lesson-editor, le-isolation-probe, lesson-editor-syn]
 
 permissions: {}
 
@@ -1382,6 +1383,321 @@ jobs:
   # same owned no-Edge stack, hermetic served app and pinned headless shell as roster-reports. Every shared check, STAGE PRE,
   # the pinned launch and the D1 record come BEFORE the lane's setup personas and its local service-key HTTP. One test only
   # (--grep 'E1 save'); raw Playwright output stays private; six fixed LE-E1 lines are staged; no PNG.
+  roster-reports:
+    name: Roster/Reports persona acceptance (T-15; NEW schema, NO Edge runtime, hermetic served app; D1 record before any fixture write; read-only after seed)
+    if: inputs.specs == 'roster-reports'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      E2E_TEST_PASSWORD: local-only-e2e-password
+      E2E_INSTRUCTOR_PASSWORD: local-only-e2e-password
+      E2E_MEMBER_PASSWORD: local-only-e2e-password
+      E2E_BASE_URL: http://127.0.0.1:8080
+      E2E_ISOLATED_TARGET_REF: ''
+      CI: 'true'
+      RR_EVIDENCE: rr-evidence
+      # Reviewed constant: sha256 of scripts/local-stack/bootstrap.sh (blob aa34aa29) as reviewed. The writer refuses
+      # unless the checked-out file has exactly this digest. Never read back from the record.
+      RR_D1_BOOTSTRAP_SHA256: b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record tested commit and tree
+        run: |
+          git rev-parse HEAD HEAD^{tree} | tee tested-ids.txt
+          git log -1 --format='%H %P' >> tested-ids.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Workflow policy check (executed file; no secrets, no writes, no remote Supabase)
+        run: node scripts/ci/check-isolated-workflow.mjs --executed
+      - name: Directly invoked scripts are executable (tracked mode 100755 and a shebang; static, read-only)
+        run: node scripts/ci/check-invoked-modes.mjs .github/workflows/e2e.yml
+      - name: Mask the synthetic run password
+        run: echo "::add-mask::$E2E_TEST_PASSWORD"
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+
+      # Static, no stack. Evidence directories exist from here on, so the staging step always has its roots.
+      - name: Evidence directories and static selftests (stack-net FAKE, owned-proc LOCAL, no-Edge probes MOCKED, D1 FAKE, roster job checker, avatar fixture, roster adapter)
+        run: |
+          set -o pipefail
+          mkdir -p "$RR_EVIDENCE/checks"
+          scripts/local-stack/t09/tests/stack-net-selftest.sh | tee "$RR_EVIDENCE/checks/stack-net-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/owned-proc-selftest.sh | tee "$RR_EVIDENCE/checks/owned-proc-selftest.txt"
+          scripts/local-stack/learner-quiz/tests/noedge-probes-selftest.sh | tee "$RR_EVIDENCE/checks/noedge-probes-selftest.txt"
+          npx --no-install vitest run src/test/ci/stackOwnership.test.ts src/test/ci/checkRosterReportsJob.test.ts 2>&1 | tail -6 | tee "$RR_EVIDENCE/checks/d1-selftest.txt"
+          node scripts/served-app/tests/served-app-check-selftest.mjs | tee "$RR_EVIDENCE/checks/served-app-check-selftest.txt"
+          # Static tiers only (no browser): the pinned avatar fixture's contract and its live-binding check with a FAKE fetch.
+          node scripts/served-app/tests/avatar-fixture-selftest.mjs 2>&1 | tail -3 | tee "$RR_EVIDENCE/checks/avatar-fixture-selftest.txt"
+          node scripts/served-app/tests/avatar-live-check-selftest.mjs | tee "$RR_EVIDENCE/checks/avatar-live-check-selftest.txt"
+          npx --no-install tsx scripts/roster-reports-fixture/tests/selftest.ts | tee "$RR_EVIDENCE/checks/rr-selftest.txt"
+
+      - name: Prepare workdir (no functions are served in this job)
+        id: rr_prep
+        run: |
+          W="$RUNNER_TEMP/ic-rr"
+          scripts/local-stack/workdir.sh "$W"
+          echo "IC_WORKDIR_RR=$W" >> "$GITHUB_ENV"
+          echo "STACK_OWNERSHIP_FILE=$RUNNER_TEMP/stack-ownership.json" >> "$GITHUB_ENV"
+      - name: Create owned loopback-binding network (Docker >= 28; refuses an existing name)
+        run: node scripts/local-stack/t09/stack-net.mjs create "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-rrj" | tee "$RR_EVIDENCE/checks/net-create.txt"
+      - name: supabase start (local; no studio; edge runtime EXCLUDED; output kept private, shown only redacted on failure)
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/rr-start.log"
+          if ! npx --no-install supabase start --workdir "$IC_WORKDIR_RR" --network-id "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" -x studio,imgproxy,logflare,vector,supavisor,edge-runtime > "$LOG" 2>&1; then
+            echo "supabase start failed; redacted tail:"; tail -40 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase start ok (roster-reports); its key summary is not printed"
+      - name: Export loopback endpoints (masks registered before any value reaches the env or the log; no key files)
+        run: |
+          umask 077
+          S=
+          trap 'rc=$?; if [ -n "$S" ]; then rm -f -- "$S" "$S.err"; if [ -e "$S" ] || [ -e "$S.err" ]; then echo "private status file still present"; exit 1; fi; fi; exit $rc' EXIT
+          S=$(mktemp "$RUNNER_TEMP/status.XXXXXXXX")
+          if ! npx --no-install supabase status --workdir "$IC_WORKDIR_RR" -o env > "$S" 2> "$S.err"; then
+            echo "supabase status failed; redacted:"; scripts/local-stack/t09/stack-checks.sh redact < "$S.err"; exit 1
+          fi
+          node scripts/local-stack/t09/export-status.mjs "$S" "$GITHUB_ENV"
+      - name: Target guards
+        run: |
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/ci/check-local-target.mjs env
+      - name: Published ports loopback-only, mail to the local catcher only (before any write)
+        run: |
+          node scripts/local-stack/t09/stack-net.mjs verify "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-rrj" | tee "$RR_EVIDENCE/checks/net-verify-start.txt"
+          node scripts/local-stack/t09/stack-net.mjs listeners | tee -a "$RR_EVIDENCE/checks/net-verify-start.txt"
+          scripts/local-stack/t09/stack-checks.sh ports | tee "$RR_EVIDENCE/checks/ports-start.txt"
+          scripts/local-stack/t09/stack-checks.sh mail | tee "$RR_EVIDENCE/checks/mail.txt"
+      - name: No Edge runtime container exists (read-only; before any write)
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent before "$RR_EVIDENCE/checks/no-edge-start.txt"
+      - name: STAGE PRE (guard before any bootstrap write)
+        run: scripts/local-stack/t09/stage-pre.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/stage-pre.txt"
+      - name: Bootstrap schema snapshot
+        run: scripts/local-stack/bootstrap.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/bootstrap.txt"
+      - name: Verify identities
+        run: scripts/local-stack/verify-identities.sh "$SUPABASE_DB_URL" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/identities.txt"
+      - name: Seven reviewed migrations, pinned (NEW), guard re-verified
+        run: scripts/local-stack/t09/apply-reviewed.sh "$SUPABASE_DB_URL" NEW 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/migrations-new.txt"
+
+      - name: Build app (production build, local target) and check it
+        run: |
+          npm run build
+          node scripts/ci/check-local-target.mjs dist dist
+          # Hermetic contract selftest on THIS product build (positive derivation plus fixed-code negatives), before it is used.
+          scripts/served-app/tests/hermetic-dist-selftest.sh dist | tee "$RR_EVIDENCE/checks/hermetic-selftest.txt"
+      # Run 41474837350 (60eed54) refused at setup with first blocked entry IMAGE PRAVATAR: the home page's CommunityShowcase
+      # hotlinks i.pravatar.cc. The origin guard is NOT relaxed; the separately pinned avatar fixture (#157's, byte-identical)
+      # points those three image URLs at local SVGs on the served copy. Product source and the provider path are unchanged
+      # and the provider integration and the AvatarFallback path stay UNVERIFIED.
+      - name: Derive and verify the TEST-SERVED copy and its avatar-fixture copy (product build minus the editor CDN tag, then the pinned local avatars; NOT production bytes)
+        run: |
+          set -o pipefail
+          HERM="$RUNNER_TEMP/rr-hermetic"
+          SERVED="$RUNNER_TEMP/rr-served"
+          node scripts/served-app/hermetic-dist.mjs make dist "$HERM" | tee "$RR_EVIDENCE/checks/hermetic.txt"
+          node scripts/served-app/hermetic-dist.mjs verify dist "$HERM" | tee -a "$RR_EVIDENCE/checks/hermetic.txt"
+          node scripts/ci/check-local-target.mjs dist "$HERM" | tee -a "$RR_EVIDENCE/checks/hermetic.txt"
+          cp "$HERM/HERMETIC-PROVENANCE.json" "$RR_EVIDENCE/checks/HERMETIC-PROVENANCE.json"
+          node scripts/served-app/avatar-fixture.mjs make "$PWD/dist" "$HERM" "$SERVED" | tee "$RR_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/served-app/avatar-fixture.mjs verify "$PWD/dist" "$HERM" "$SERVED" | tee -a "$RR_EVIDENCE/checks/avatar-fixture.txt"
+          node scripts/ci/check-local-target.mjs dist "$SERVED" | tee -a "$RR_EVIDENCE/checks/avatar-fixture.txt"
+          cp "$SERVED/AVATAR-PROVENANCE.json" "$RR_EVIDENCE/checks/AVATAR-PROVENANCE.json"
+          for d in "$PWD/dist" "$HERM" "$SERVED"; do [ "$(realpath -e -- "$d")" = "$d" ] || { echo "non-canonical served path"; exit 1; }; done
+          { echo "RR_DIST=$PWD/dist"; echo "RR_HERMETIC=$HERM"; echo "RR_SERVED=$SERVED"; } >> "$GITHUB_ENV"
+      - name: Serve the TEST-SERVED copy (vite preview --outDir) and wait for it
+        run: |
+          node scripts/local-stack/learner-quiz/owned-proc.mjs start "$RUNNER_TEMP/rr-owned" preview "$RUNNER_TEMP/rr-preview.log" -- npx --no-install vite preview --outDir "$RR_SERVED" --host 127.0.0.1 --port 8080 --strictPort
+          read -r PREVIEW_PID _ < "$RUNNER_TEMP/rr-owned/preview.own"
+          deadline=$((SECONDS + 60))
+          until curl -fsS --connect-timeout 5 --max-time 10 "$E2E_BASE_URL/" -o "$RUNNER_TEMP/preview-index.html" 2>/dev/null && grep -q 'id="root"' "$RUNNER_TEMP/preview-index.html"; do
+            kill -0 "$PREVIEW_PID" 2>/dev/null || { echo "vite preview exited"; exit 1; }
+            [ "$SECONDS" -lt "$deadline" ] || { echo "preview not ready after 60s"; exit 1; }
+            sleep 2
+          done
+          cmp -s "$RUNNER_TEMP/preview-index.html" "$RR_SERVED/index.html" || { echo "preview is not serving the verified test-served copy"; exit 1; }
+          echo "preview serving the TEST-SERVED copy"
+
+      # The adapter's pinned served-app gate (scripts/served-app/served-app-check.mjs, unchanged) re-runs hermetic verify on dist
+      # and the HERMETIC copy and compares the live index bytes, on every call. The avatar fixture never changes index.html, so
+      # that index is also the served copy's; what tells the two copies apart is the live chunk and SVG binding below.
+      - name: Served-app gate receipt (hermetic verify plus live index bytes, the same checks the adapter re-runs)
+        run: |
+          set -o pipefail
+          echo "HERMETIC_SERVED_DIR=$RR_HERMETIC" >> "$GITHUB_ENV"
+          HERMETIC_SERVED_DIR="$RR_HERMETIC" node scripts/served-app/served-app-check.mjs "$E2E_BASE_URL" | tee "$RR_EVIDENCE/checks/served-app-check.txt"
+      - name: Avatar-fixture live binding (verify again, then the live index, changed chunk and fixture SVGs equal the served copy)
+        run: |
+          set -o pipefail
+          node scripts/served-app/avatar-live-check.mjs "$E2E_BASE_URL" "$RR_DIST" "$RR_HERMETIC" "$RR_SERVED" | tee "$RR_EVIDENCE/checks/avatar-live.txt"
+
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      # The ONE browser every roster-reports launch may use, pinned and exported BEFORE any D1, actor, fixture or carrier write.
+      # With PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH set, e2e/support/chromium-executable.ts returns it verbatim (no full/system
+      # fallback), and the pin module itself refuses if that variable names anything else.
+      - name: Pin the headless shell and export it for every launch (refuses before any write)
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/rr-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          [ "$(grep -c '^path=' "$R")" = 1 ] || { echo "headless shell receipt has no single path line"; exit 1; }
+          SHELL_PATH=$(sed -n 's/^path=//p' "$R")
+          case "$SHELL_PATH" in /*/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell) ;; *) echo "headless shell path has an unexpected layout"; exit 1 ;; esac
+          PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="$SHELL_PATH" node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R.bound" || { cat "$R.bound"; exit 1; }
+          cmp -s "$R" "$R.bound" || { echo "headless shell receipt differs once bound"; exit 1; }
+          tee "$RR_EVIDENCE/checks/headless-shell.txt" < "$R"
+          echo "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+          echo "GB_SHELL_PATH=$SHELL_PATH" >> "$GITHUB_ENV"
+      - name: Launch binding receipt (every config project and the setup launch resolve to the pinned shell; before any write)
+        run: |
+          set -o pipefail
+          GB_LANE=roster-reports RR_SESSION_DIR="$RUNNER_TEMP/rr-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts | tee "$RR_EVIDENCE/checks/launch-binding.txt"
+
+      # D1. Written here and nowhere else: every check above has passed on THIS job's fresh stack (owned network, loopback
+      # ports, no Edge container, STAGE PRE, snapshot identities, 7 pinned migrations, pinned hermetic served app), and no
+      # fixture, actor or carrier write has happened yet. wx: a second write in the same job refuses.
+      - name: D1 stack-ownership record (after every check above; before any fixture, actor or carrier write)
+        id: rr_d1
+        run: |
+          set -o pipefail
+          umask 077
+          have=$(sha256sum scripts/local-stack/bootstrap.sh | cut -d' ' -f1)
+          [ "$have" = "$RR_D1_BOOTSTRAP_SHA256" ] || { echo "D1 refused: scripts/local-stack/bootstrap.sh is not the reviewed file"; exit 1; }
+          # Private 0700 dir for psql passfiles and raw psql streams (removed by the always-run private-output step).
+          mkdir -m 700 "$RUNNER_TEMP/rr-priv"
+          API=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$VITE_SUPABASE_URL")
+          APP=$(node -e 'console.log(new URL(process.argv[1]).origin)' "$E2E_BASE_URL")
+          # DSN from the environment only, checked in-process; psql -w with an explicit 0600 passfile; nothing raw printed.
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/rr-priv" \
+            | node scripts/e2e/stack-ownership.mjs write "$API" "$APP" scripts/local-stack/bootstrap.sh | tee "$RR_EVIDENCE/checks/d1-write.txt"
+          # Self-check through the consumer's own entry point (same reviewed constant, fresh live read).
+          node scripts/e2e/gb-job-psql.mjs sysid "$RUNNER_TEMP/rr-priv" \
+            | node scripts/e2e/stack-ownership.mjs verify "$API" "$APP" "$RR_D1_BOOTSTRAP_SHA256" | tee -a "$RR_EVIDENCE/checks/d1-write.txt"
+
+      # Runner-owned rows from the two frozen SQL files, byte-unchanged: local-preseed.sql writes 3 synthetic users (admin,
+      # instructor, member) with profiles and roles, 5 reference courses (660e8400-...0001..0005) and 4 modules; then
+      # auth-fixtures.sql makes those 3 users sign-in-able with the run's synthetic password. No legacy e2e seed.
+      - name: Local actors and reference rows (3 synthetic users with profiles and roles, 5 reference courses, 4 modules; then auth fixtures)
+        run: |
+          set -o pipefail
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "actors refused: the pinned headless shell is not bound"; exit 1; }
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          # Same psql route as D1: no DSN or password on any argv; the password reaches psql on stdin only.
+          node scripts/e2e/gb-job-psql.mjs preseed "$RUNNER_TEMP/rr-priv" | tee "$RR_EVIDENCE/checks/actors.txt"
+          node scripts/e2e/gb-job-psql.mjs seed-auth "$RUNNER_TEMP/rr-priv" | tee -a "$RR_EVIDENCE/checks/actors.txt"
+
+      # Roster/reports adapter (scripts/roster-reports-fixture/run.sh): D1 verify with the SAME reviewed constant, seed,
+      # association nonce, witness, Playwright (11 tests), witness compare. Fixed summary lines only.
+      - name: Roster/reports adapter (run.sh)
+        run: |
+          set -o pipefail
+          # The exported shell and the roster lane binding are re-checked immediately before the adapter's first write and launch.
+          [ "$PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH" = "$GB_SHELL_PATH" ] && [ -n "$GB_SHELL_PATH" ] || { echo "adapter refused: the pinned headless shell is not bound"; exit 1; }
+          GB_LANE=roster-reports RR_SESSION_DIR="$RUNNER_TEMP/rr-launch-binding-unused" npx --no-install tsx scripts/e2e/gb-launch-binding.ts > "$RUNNER_TEMP/rr-launch-recheck.txt" || { cat "$RUNNER_TEMP/rr-launch-recheck.txt"; exit 1; }
+          scripts/roster-reports-fixture/run.sh "$RUNNER_TEMP/rr-out" 2>&1 | scripts/local-stack/t09/stack-checks.sh redact | tee "$RR_EVIDENCE/checks/roster-reports.txt"
+      # Fixed-line gate: a summary file is staged only if it is a regular, non-symlink file of at most 64 lines and 4096 bytes
+      # whose every line is an upper-case token followed by upper-case tokens or key=value pairs with a closed character set.
+      # Free text (test titles, project strings, messages) never matches, so it is refused and the file is not staged.
+      - name: Copy the adapter's evidence (exactly its four files; fixed-line grammar only)
+        if: always() && steps.rr_d1.outcome == 'success'
+        run: |
+          O="$RUNNER_TEMP/rr-out"
+          [ -d "$O" ] && [ ! -L "$O" ] || { echo "adapter produced no evidence dir"; exit 0; }
+          mkdir -p "$RR_EVIDENCE/rr"
+          rc=0
+          for f in seed.txt playwright-summary.txt witness.txt rr-private.txt; do
+            p="$O/$f"
+            if [ ! -f "$p" ] || [ -L "$p" ]; then echo "summary absent: $f"; continue; fi
+            if [ "$(wc -c < "$p")" -gt 4096 ] || [ "$(wc -l < "$p")" -gt 64 ] \
+              || LC_ALL=C grep -qvE '^[A-Z][A-Z0-9_]*( [A-Z][A-Z0-9_]*| [a-z][a-z0-9_]*=[A-Za-z0-9_.,-]{1,64})*$' "$p"; then
+              echo "summary refused (not fixed-line grammar): $f"; rc=1; continue
+            fi
+            cp -- "$p" "$RR_EVIDENCE/rr/$f"
+          done
+          ls -A "$RR_EVIDENCE/rr"
+          exit "$rc"
+
+      - name: No Edge runtime container exists (read-only; after the run)
+        if: always() && steps.rr_prep.outcome == 'success'
+        run: |
+          # stderr captured privately, never printed or staged; only a successful listing that shows this stack establishes absence
+          scripts/local-stack/learner-quiz/noedge-probes.sh absent after "$RR_EVIDENCE/checks/no-edge-end.txt"
+      - name: Stop background servers (preview)
+        if: always()
+        run: |
+          # Only the process groups recorded at launch are signalled (pid plus kernel start time); 8080 must then have no listener.
+          # An uncertain group is never signalled (owned-proc refuses it). Private outputs are removed by the NEXT step, which
+          # runs even when this one fails.
+          if [ -d "$RUNNER_TEMP/rr-owned" ]; then
+            node scripts/local-stack/learner-quiz/owned-proc.mjs stop "$RUNNER_TEMP/rr-owned" 8080 | tee "$RR_EVIDENCE/checks/owned-stop.txt"
+          else
+            echo "no owned background server was launched" | tee "$RR_EVIDENCE/checks/owned-stop.txt"
+            scripts/local-stack/learner-quiz/noedge-probes.sh port-free 8080
+          fi
+      - name: Remove private outputs (Playwright output, adapter dir, private psql dir, shell receipts, D1 record; verified)
+        if: always()
+        run: |
+          # Every path is attempted and checked; any removal failure or survivor makes this step fail after all were tried.
+          rc=0
+          for p in playwright-report-roster-reports test-results "$RUNNER_TEMP/rr-out" "$RUNNER_TEMP/rr-priv" \
+                   "$RUNNER_TEMP/stack-ownership.json" "$RUNNER_TEMP/rr-shell-receipt.txt" "$RUNNER_TEMP/rr-shell-receipt.txt.bound" "$RUNNER_TEMP/rr-launch-recheck.txt"; do
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: $p"; rc=1; fi
+          done
+          # The adapter's random private parent (run.sh: mktemp -d "$RUNNER_TEMP/rr-run.XXXXXXXXXX") is removed here too, in case its
+          # own EXIT trap never ran (killed, timed out). Only that exact name shape is matched.
+          for p in "$RUNNER_TEMP"/rr-run.??????????; do
+            [ -e "$p" ] || [ -L "$p" ] || continue
+            rm -rf -- "$p" || rc=1
+            if [ -e "$p" ] || [ -L "$p" ]; then echo "private output still present: adapter private parent"; rc=1; fi
+          done
+          if [ "$rc" -eq 0 ]; then echo "private Playwright output, adapter dir and private parent, private psql dir, shell receipts and D1 record absent" | tee "$RR_EVIDENCE/checks/private-removed.txt"; fi
+          exit "$rc"
+      - name: Stop stack (no backup)
+        if: always() && steps.rr_prep.outcome == 'success'
+        run: |
+          umask 077
+          LOG="$RUNNER_TEMP/rr-stop.log"
+          if ! npx --no-install supabase stop --workdir "$IC_WORKDIR_RR" --no-backup > "$LOG" 2>&1; then
+            echo "supabase stop failed; redacted tail:"; tail -20 "$LOG" | scripts/local-stack/t09/stack-checks.sh redact; exit 1
+          fi
+          echo "supabase stop ok (roster-reports)"
+      - name: Remove owned network (only the one this job created; absence verified)
+        if: always() && steps.rr_prep.outcome == 'success'
+        run: node scripts/local-stack/t09/stack-net.mjs remove "ic-t09-new-net-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" "$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-rrj" | tee "$RR_EVIDENCE/checks/net-remove.txt"
+      - name: Nothing left behind
+        if: always() && steps.rr_prep.outcome == 'success'
+        run: scripts/local-stack/t09/stack-checks.sh leftovers | tee "$RR_EVIDENCE/checks/leftovers.txt"
+
+      - name: Stage evidence (exact manifest, credential scan)
+        if: always()
+        id: stage
+        run: |
+          REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
+          E="$RR_EVIDENCE"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ rr-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/actors.txt" "$E/checks/roster-reports.txt" "$E/rr/seed.txt" "$E/rr/playwright-summary.txt" "$E/rr/witness.txt" "$E/rr/rr-private.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+      - name: Upload evidence (the staged manifest only)
+        if: always() && steps.stage.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: roster-reports-${{ github.run_id }}
+          retention-days: 14
+          if-no-files-found: error
+          path: rr-upload/
+
   builder-authoring:
     name: Builder authoring acceptance (WP-08 reorder/delete/create; NEW schema, NO Edge runtime, hermetic served app; D1 record before any fixture write)
     # builder-authoring-k1: the same job, adapter in its K1-only mode (T-18 copy acceptance; run.sh k1). Rapid BA-R1 stays in #168.
@@ -1464,7 +1780,7 @@ jobs:
           837dbc0ad772a01647a52ebc3ed3fe57d78f0827 scripts/builder-authoring-fixture/ba-shots.mjs
           030a386937b431c2af44209e070164750cdb7751 e2e/gradebook-roles/journey/private-dir.mjs
           8077eccfc6f6bc85cd391bc13efff071f3b9f27a scripts/gradebook-fixture/journey/private-psql.mjs
-          9fc1bd47ef41f92a069155ceafa6f78ba1f40663 scripts/e2e/gb-launch-binding.ts
+          c790112e49476fd300bbafe788d6eb58dcca8589 scripts/e2e/gb-launch-binding.ts
           b7653ec1986ed68c6e2f7a4bb96ea084e913d764 playwright.builder-authoring.config.ts
           c5379c494ca4e17de89253ebf228fc69d5b3b825 playwright.builder-authoring-k1.config.ts
           PINS

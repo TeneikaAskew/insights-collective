@@ -230,7 +230,7 @@ describe('builder-authoring job (proposal; unrun)', () => {
     ['scripts/builder-authoring-fixture/ba-shots.mjs', '837dbc0ad772a01647a52ebc3ed3fe57d78f0827'],
     ['e2e/gradebook-roles/journey/private-dir.mjs', '030a386937b431c2af44209e070164750cdb7751'],
     ['scripts/gradebook-fixture/journey/private-psql.mjs', '8077eccfc6f6bc85cd391bc13efff071f3b9f27a'],
-    ['scripts/e2e/gb-launch-binding.ts', '9fc1bd47ef41f92a069155ceafa6f78ba1f40663'],
+    ['scripts/e2e/gb-launch-binding.ts', 'c790112e49476fd300bbafe788d6eb58dcca8589'],
     ['playwright.builder-authoring.config.ts', 'b7653ec1986ed68c6e2f7a4bb96ea084e913d764'],
     ['playwright.builder-authoring-k1.config.ts', 'c5379c494ca4e17de89253ebf228fc69d5b3b825'],
   ];

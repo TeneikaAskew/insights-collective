@@ -25,7 +25,7 @@ describe('learner-quiz job', () => {
   });
 
   it('is dispatch-only, scoped to its own input, read-only, with no secrets, services or containers', () => {
-    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 'lms-courses', 'lms-courses-migrated', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'builder-authoring', 'builder-authoring-k1', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
+    expect(DOC.on.workflow_dispatch.inputs.specs.options).toEqual(['readonly-courses', 'lms-courses', 'lms-courses-migrated', 't09-runtime', 'learner-quiz', 'learner-quiz-noedge', 'gradebook-journey', 'roster-reports', 'builder-authoring', 'builder-authoring-k1', 'lesson-editor', 'le-isolation-probe', 'lesson-editor-syn']);
     expect(JOB.if).toBe("inputs.specs == 'learner-quiz'");
     expect(JOB.permissions).toEqual({ contents: 'read' });
     expect(JOB.secrets).toBeUndefined();

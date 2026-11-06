@@ -116,10 +116,19 @@ jobs:
         #                             runs the real stack-checks.sh stage-evidence on it, and removes the dir; no
         #                             network data (one exact file; approved 2026-11-02: user 19:14:49Z,
         #                             relayed by T 19:15:29Z; proposal r1.1, diff 926fcf0e)
+        #   e2e/roster-reports/actors.mjs
+        #                             roster acceptance telemetry sink (appendTelemetry, the file's only write):
+        #                             one JSON line {"rpc","actor","status"} whose values are own keys of fixed
+        #                             null-prototype enums (no body, token, header, URL or raw id), appended through
+        #                             one O_WRONLY|O_APPEND|O_NOFOLLOW|O_NONBLOCK fd (no O_CREAT) to a run.sh
+        #                             pre-created 0600 policy.jsonl under the private 0700 rr-run.XXXXXXXXXX/session
+        #                             dir, fstat-checked on the same fd, bounded; used for database reconciliation
+        #                             (one exact file; approved 2026-11-03: user 02:53:20Z, relayed by T 02:55:03Z;
+        #                             scope packet pr134/owner-review-packets/roster-actors-writer-scope/)
         #
         # mkdirSync is deliberately not matched: creating a directory puts no data on
         # disk, and matching it would only force e2e/global-setup.ts onto this list.
-        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|e2e/quiz-lifecycle/session\.fixture\.ts$|src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds|checkGradebookJourneyJob)\.test\.ts$)'
+        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|e2e/quiz-lifecycle/session\.fixture\.ts$|e2e/roster-reports/actors\.mjs$|src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds|checkGradebookJourneyJob)\.test\.ts$)'
 
         hits=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
           | grep -vE "$ALLOWED" \

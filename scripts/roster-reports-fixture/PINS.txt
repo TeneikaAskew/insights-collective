@@ -1,0 +1,15 @@
+# ABOUTME: Reviewed sha256 of every shared helper run.sh executes or the specs import, and the reviewed bootstrap constant.
+# ABOUTME: Taken from the shared composition claude/roster-reports-job-compose d39cc69f (tree d43387db). run.sh refuses on any mismatch.
+69de4cb08bc6054de86f865f2c7925d4329e2f8892d5b33958f1970a25b7d6ed  scripts/gradebook-fixture/journey/private-psql.mjs
+9315f2eeba1d40b79925535667976be270b9171f696b41a5eb9c875c028b801c  scripts/e2e/gb-job-psql.mjs
+a763b7d1f4483120a7cb7f0cbf8ca406952a234d8a305036e80c33832950bfbf  scripts/e2e/stack-ownership.mjs
+84beacb420b4f3b8ab15e217a9df8f766eee191902a7c5bf49bce0e0c466e367  e2e/gradebook-roles/local-binding.mjs
+896ed452dfbd70e1e89babe6bc1f1a8e2b7f3acc00d6d8a46c6c332b6789250a  e2e/gradebook-roles/origin-guard.mjs
+05b8fd40547bb66995f3ff2d29c6d2b6fa2466a9c67c8a44aead5d1d81bfb218  scripts/e2e/assert-safe-target.mjs
+34a3579975a6f8a26d2f147e4d2fb10fe5ba6a3e023678f504fd7876e838ac70  scripts/local-db/assert-local-dsn.mjs
+4d52e90d93bb57ccbd2016e4b65d33c282f60eb5940199e2c75f0897eb8c4920  scripts/served-app/served-app-check.mjs
+3849f86e1433c8a3d482cfec1398c34884a3d95bad971276b7dc7bd2aff75c98  scripts/served-app/hermetic-dist.mjs
+917a0d71e499710ee1e036982e30ed28fe90a0c4e1e194c52b8a52fce254a9a9  e2e/gradebook-roles/journey/private-dir.mjs
+b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715  scripts/local-stack/bootstrap.sh
+# The D1 bootstrap constant run.sh requires (the job's RR_D1_BOOTSTRAP_SHA256 must equal it; the env alone is not provenance).
+D1_BOOTSTRAP_SHA256=b41a9ed8d7b3207cb2ad4faf71ec8b7fd703a816d02ec0eb92c99a18af452715

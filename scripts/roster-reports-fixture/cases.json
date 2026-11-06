@@ -1,0 +1,8 @@
+{
+  "default": [
+    ["rr-instructor", "RR-I1"], ["rr-instructor", "RR-I2"], ["rr-instructor", "RR-I3"], ["rr-instructor", "RR-I4"],
+    ["rr-instructor", "RR-I5"], ["rr-instructor", "RR-M1"], ["rr-instructor", "RR-M2"], ["rr-admin", "RR-A1"],
+    ["rr-learner", "RR-L1"], ["rr-learner", "RR-L2"], ["rr-learner", "RR-L3"]
+  ],
+  "pendingExtra": [["rr-error-pending", "RR-P1"]]
+}
