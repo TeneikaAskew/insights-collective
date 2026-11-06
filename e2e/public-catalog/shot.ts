@@ -39,6 +39,22 @@ function stackId(): string {
   return JSON.parse(r.buf.toString('utf8')).stack_id;
 }
 
+/** Waits, before the capture window opens, until the page has gone quiet: no network for a moment, then no DOM change
+ *  for QUIET_MS (at most SETTLE_CAP_MS). It decides nothing: the window's own guard still counts every change inside it. */
+const QUIET_MS = 750;
+const SETTLE_CAP_MS = 10_000;
+async function settle(page: Page) {
+  await page.waitForLoadState('networkidle', { timeout: SETTLE_CAP_MS }).catch(() => { /* the guard still decides */ });
+  await page.evaluate(([quietMs, capMs]) => new Promise<void>((resolve) => {
+    let quiet: ReturnType<typeof setTimeout> | undefined;
+    const done = () => { obs.disconnect(); clearTimeout(quiet); clearTimeout(cap); resolve(); };
+    const obs = new MutationObserver(() => { clearTimeout(quiet); quiet = setTimeout(done, quietMs); });
+    obs.observe(document, { subtree: true, childList: true, attributes: true, characterData: true });
+    quiet = setTimeout(done, quietMs);
+    const cap = setTimeout(done, capMs);
+  }), [QUIET_MS, SETTLE_CAP_MS] as [number, number]);
+}
+
 export async function shot(page: Page, info: TestInfo, name: keyof typeof PUBLIC_SHOT_PLAN) {
   const dir = process.env.PUBLIC_ACCEPT_SHOT_DIR ?? '';
   const core = await loadShotCore(ROOT);
@@ -48,8 +64,11 @@ export async function shot(page: Page, info: TestInfo, name: keyof typeof PUBLIC
     watchNav: (cb: () => void) => { const on = (f: { parentFrame(): unknown }) => { if (!f.parentFrame()) cb(); }; page.on('framenavigated', on); return () => { page.off('framenavigated', on); }; },
     guard: (op: string, token: string) => page.evaluate(core.SHOT_GUARD, [op, token] as [string, string]),
     sample: () => sample(page),
-    screenshot: () => page.screenshot({ fullPage: true, animations: 'disabled' }),
+    // caret 'initial': Playwright's default caret hiding writes an inline style on every input, and the capture
+    // window's guard counts that as the page changing (MUTATED), so every shot of a page with a search box is withheld.
+    screenshot: () => page.screenshot({ fullPage: true, animations: 'disabled', caret: 'initial' }),
   };
+  await settle(page);
   const { png, obs } = await core.captureShot(drv, base, randomBytes(16).toString('hex'), secrets);
   writePublicShot(dir, name, png, obs, secrets, core.scanPage);
 }

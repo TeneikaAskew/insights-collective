@@ -84,9 +84,18 @@ test.describe('anonymous catalog', () => {
       await expect(page.getByRole('listbox')).toBeVisible();
     });
     await test.step('a4_arrow', async () => {
-      const focused = page.locator('[role="option"]:focus');
-      for (let i = 0; i < MENU.length && ((await focused.count()) === 0 || (await focused.innerText()).trim() !== 'Business Intelligence'); i++) {
+      // The menu moves focus a tick after each key, so each press waits for focus to land on a new option before the
+      // next one; reading focus straight after a press can see the old option and press again, overshooting.
+      const focusedName = async () => {
+        const f = page.locator('[role="option"]:focus');
+        return (await f.count()) === 1 ? (await f.innerText()).trim() : null;
+      };
+      await expect.poll(focusedName, 'an option has focus once the menu is open').not.toBeNull();
+      for (let i = 0; i < MENU.length; i++) {
+        const now = await focusedName();
+        if (now === 'Business Intelligence') break;
         await page.keyboard.press('ArrowDown');
+        await expect.poll(focusedName, 'ArrowDown moves focus to another option').not.toBe(now);
       }
       await expect(page.locator('[role="option"]:focus')).toHaveAccessibleName('Business Intelligence');
     });
@@ -94,7 +103,8 @@ test.describe('anonymous catalog', () => {
       await page.keyboard.press('Enter');
       await expect.poll(() => param(page.url())).toBe('business-intelligence');
     });
-    await test.step('a4_cards', async () => { expect(await cardTitles(page)).toEqual(['PCA BI Course']); });
+    // The router renders a URL change in a transition, so the URL can update a moment before the cards do.
+    await test.step('a4_cards', async () => { await expect.poll(() => cardTitles(page)).toEqual(['PCA BI Course']); });
     await test.step('a4_back', async () => {
       await page.goBack();
       await expect.poll(() => param(page.url())).toBe(null);
@@ -113,7 +123,7 @@ test.describe('anonymous catalog', () => {
     await categoryTrigger(page).click();
     await page.getByRole('option', { name: 'All categories (category)', exact: true }).click();
     await expect.poll(() => param(page.url())).toBe('all-categories');
-    expect(await cardTitles(page)).toEqual(['PCA Leading Space Course']);
+    await expect.poll(() => cardTitles(page)).toEqual(['PCA Leading Space Course']);
     await expect(categoryTrigger(page)).toHaveText('All categories (category)');
   });
 
@@ -141,11 +151,15 @@ test.describe('anonymous catalog', () => {
       await card(page, c.title).click();
       await expect(page).toHaveURL(new RegExp(`/courses/${c.id}$`));
     });
-    await test.step('a8_heading', async () => { await expect(page.getByRole('heading', { name: c.title }).first()).toBeVisible(); });
+    // The detail page is loaded on demand and the router keeps the catalog on screen until it is ready, so the URL
+    // changes first while the card's own h3 (same title) is still visible. Only the detail page's h1 says it has rendered.
+    await test.step('a8_heading', async () => { await expect(page.getByRole('heading', { level: 1, name: c.title, exact: true })).toBeVisible(); });
     await test.step('a8_estimate', async () => {
-      const nodes = await estimatedTimeNodes(page.locator('main'));
-      expect(nodes.length, 'at least one visible Estimated time value node').toBeGreaterThan(0);
-      expect(new Set(nodes), 'every visible value node reads the literal value').toEqual(new Set(['Estimated time: 2.5 hours']));
+      await expect(async () => {
+        const nodes = await estimatedTimeNodes(page.locator('main'));
+        expect(nodes.length, 'at least one visible Estimated time value node').toBeGreaterThan(0);
+        expect(new Set(nodes), 'every visible value node reads the literal value').toEqual(new Set(['Estimated time: 2.5 hours']));
+      }).toPass({ timeout: 10_000 });
     });
     const pub = FIXTURE_MODULES.find((m) => m.course_id === c.id && m.published)!;
     const hidden = FIXTURE_MODULES.find((m) => m.course_id === c.id && !m.published)!;
