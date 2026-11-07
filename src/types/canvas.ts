@@ -177,7 +177,7 @@ export interface ContentItemProgression {
 // Helper type for creating content
 export interface CreateContentItemInput {
   course_id: string;
-  module_id: string;
+  module_id: string | null;
   type: ContentItemType;
   title: string;
   content: string;

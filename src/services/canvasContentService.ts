@@ -65,16 +65,20 @@ export class LessonSaveRejectedError extends Error {
 
 export class CanvasContentService {
   // Content Items
-  static async getContentItems(moduleId: string): Promise<ContentItem[]> {
-    const { data, error } = await supabase
+  static async getContentItems(moduleId: string | null, courseId?: string): Promise<ContentItem[]> {
+    if (moduleId === null && !courseId) throw new Error('Course required for unassigned lessons.');
+    let query = supabase
       .from('content_items')
       .select(`
         *,
         assignment:assignments(*),
         quiz:quizzes(*, questions:quiz_questions(id, quiz_id, question_text, question_type, points, position, created_at))
-      `)
-      .eq('module_id', moduleId)
-      .order('position');
+      `);
+    query = moduleId === null ? query.eq('course_id', courseId!).is('module_id', null) : query.eq('module_id', moduleId);
+    query = query.order('position');
+    // Stable identity tie-breaker for null-module positions; copy planning can retain this order.
+    if (moduleId === null) query = query.order('id');
+    const { data, error } = await query;
 
     if (error) throw error;
 
@@ -146,12 +150,9 @@ export class CanvasContentService {
   static async createContentItem(input: CreateContentItemInput): Promise<ContentItem> {
     // Get the next position. Throw on failure — defaulting to position 0
     // on error would silently reorder the module.
-    const { data: existingItems, error: positionError } = await supabase
-      .from('content_items')
-      .select('position')
-      .eq('module_id', input.module_id)
-      .order('position', { ascending: false })
-      .limit(1);
+    let positionQuery = supabase.from('content_items').select('position').eq('course_id', input.course_id);
+    positionQuery = input.module_id === null ? positionQuery.is('module_id', null) : positionQuery.eq('module_id', input.module_id);
+    const { data: existingItems, error: positionError } = await positionQuery.order('position', { ascending: false }).limit(1);
 
     if (positionError) throw positionError;
 
@@ -368,6 +369,11 @@ export class CanvasContentService {
       p_item_ids: itemIds,
     });
     if (error) throw error;
+  }
+
+  static async reorderUnassignedContentItems(_courseId: string, _itemIds: string[]): Promise<void> {
+    // No atomic null-module reorder contract exists. Never send partial position updates.
+    throw new Error('Unassigned lesson ordering is not available; the saved order has been kept.');
   }
 
   // Reorder modules within a course. Called from CourseBuilder (:409).
