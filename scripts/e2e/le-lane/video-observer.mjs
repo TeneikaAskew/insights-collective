@@ -100,7 +100,7 @@ export function textRenderCode(box) {
 
 export async function textRenderPrecheck(browser, ledger) {
   let context = null;
-  let code = TEXT_RENDER_E;
+  let code; // assigned on every path below: the try result, or TEXT_RENDER_E from either catch
   try {
     context = await browser.newContext({ serviceWorkers: 'block' });
     attachObserver(context, ledger);
