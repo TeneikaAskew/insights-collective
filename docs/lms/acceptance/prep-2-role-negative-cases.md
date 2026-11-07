@@ -38,14 +38,14 @@ Note: step 2 is expected to FAIL on the live-equivalent snapshot because of the 
 
 ## N-C9 Reorder RPCs by foreign and anonymous callers (candidate C9, T-55) — owner: Builder (#166) with PR134 for the migration proposal
 
-Live grants confirmed on 2026-11-04 17:20 UTC: `reorder_modules` and `reorder_content_items` are SECURITY DEFINER with EXECUTE for PUBLIC, `anon`, `authenticated`, and the bodies have no caller check.
+Reorder RPC authorization (T-55): fix in draft #202, not applied. Cases 2 and 4 check it once applied.
 
 | Step | Actor | Assert |
 |---|---|---|
 | 1 | Ins | reorder sections in the builder; readback dense `position` 0..n-1 and `CourseDetail` module order after reload (also covers candidate C2, `week` vs `position`) |
-| 2 | For | `POST /rest/v1/rpc/reorder_modules {p_course_id, p_module_ids}` on Ins's course; **record the status and whether positions changed**; a 200/204 with changed positions is the live T-55 defect |
+| 2 | For | `POST /rest/v1/rpc/reorder_modules {p_course_id, p_module_ids}` on Ins's course; **record the status and whether positions changed**; expected after #202: refused, positions unchanged |
 | 3 | Anon | same call; same recording |
-| 4 | Ins | `reorder_content_items` with a permutation that omits one item and one that includes a foreign item; record whether the RPC validates the permutation |
+| 4 | Ins | `reorder_content_items` with a permutation that omits one item and one that includes a foreign item; expected after #202: both refused, positions unchanged |
 
 Outcome rule: a changed position in step 2 or 3 is filed for PR134 as a migration proposal (new version, caller and permutation checks), not patched in the test.
 

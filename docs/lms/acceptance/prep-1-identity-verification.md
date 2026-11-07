@@ -32,7 +32,7 @@ Read with one `pg_policies` / `pg_proc` / `pg_trigger` / `schema_migrations` que
 
 Both directions therefore agree: the live backend is at the recorded 20261031 state. The ledger is not an orphan-apply case here.
 
-Live grants also confirmed, for the acceptance negatives: `reorder_modules` and `reorder_content_items` are SECURITY DEFINER with EXECUTE for PUBLIC, `anon`, `authenticated` (T-55, candidate C9); `check_course_completion` is SECURITY DEFINER with EXECUTE for PUBLIC and `anon` (T-23); `course_roster_stats` is executable by `anon` although its migration grants only `authenticated` (minor drift, record only); `enforce_assessed_progression` EXECUTE is `postgres` and `service_role` only (matches `20261031120030`); every trigger on the three tables is enabled (`O`).
+Live grants also confirmed, for the acceptance negatives: reorder RPC grants recorded for T-55 / C9 (fix in draft #202, not applied); `check_course_completion` is SECURITY DEFINER with EXECUTE for PUBLIC and `anon` (T-23); `course_roster_stats` is executable by `anon` although its migration grants only `authenticated` (minor drift, record only); `enforce_assessed_progression` EXECUTE is `postgres` and `service_role` only (matches `20261031120030`); every trigger on the three tables is enabled (`O`).
 
 ## C. What the two comparisons do and do not establish (scope, timestamps, unresolved differences)
 
