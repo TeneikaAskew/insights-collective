@@ -146,7 +146,9 @@ function hermeticArgs(): string[] {
  * traffic actually goes to there — is exempted by `no_proxies_on`.
  */
 function firefoxHermeticOptions(): {
-  firefoxUserPrefs?: Record<string, unknown>;
+  // Playwright's own firefoxUserPrefs type: a flat map of primitive prefs.
+  // `unknown` here made the whole launchOptions object unassignable to LaunchOptions.
+  firefoxUserPrefs?: Record<string, string | number | boolean>;
   executablePath?: string;
 } {
   // Probed, not assumed — same reason as Chromium above: the version-stamped
