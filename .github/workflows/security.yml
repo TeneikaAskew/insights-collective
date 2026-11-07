@@ -142,7 +142,8 @@ jobs:
         #                             are detection evidence, not tamper-proof; observation starts after context
         #                             construction, and no event after the ledger is sealed is assumed, not
         #                             proven. No network response bodies are written.
-        #                             (one exact file; REVIEW CANDIDATE on source 66c6e365, not yet approved)
+        #                             (one exact file; REVIEW CANDIDATE, recomposed on main c91c8c19 from source
+        #                             66c6e365; not yet approved)
         #
         # mkdirSync is deliberately not matched: creating a directory puts no data on
         # disk, and matching it would only force e2e/global-setup.ts onto this list.
