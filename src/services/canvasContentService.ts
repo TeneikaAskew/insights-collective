@@ -63,6 +63,10 @@ export class LessonSaveRejectedError extends Error {
   }
 }
 
+// The quiz_questions columns `authenticated` may read directly. The answer key (answers, correct_answer, options)
+// and the explanation/feedback text come only through get_quiz_questions_for_authoring / _for_taking.
+export const QUIZ_QUESTION_PUBLIC_COLUMNS = 'id, quiz_id, question_text, question_type, points, position, created_at';
+
 export class CanvasContentService {
   // Content Items
   static async getContentItems(moduleId: string): Promise<ContentItem[]> {
@@ -588,11 +592,13 @@ export class CanvasContentService {
         ...question,
         position: nextPosition
       } as any)
-      .select()
+      // Key-free columns only: authenticated holds no SELECT on answers, correct_answer, explanation, feedback or
+      // options (20261107000000), so RETURNING * would be refused. The caller already has what it sent.
+      .select(QUIZ_QUESTION_PUBLIC_COLUMNS)
       .single();
 
     if (error) throw error;
-    return data as unknown as QuizQuestion;
+    return { ...question, ...(data as object) } as unknown as QuizQuestion;
   }
 
   // Submissions
