@@ -11,7 +11,7 @@ import YAML from 'yaml';
 const ROOT = path.resolve(__dirname, '../../..');
 const WF = path.join(ROOT, '.github/workflows');
 type Step = { uses?: string; run?: string; with?: Record<string, unknown> };
-type Job = { steps?: Step[] };
+type Job = { steps?: readonly Step[] };
 
 const RUNS_VITEST = /\bvitest\b|\bnpm (?:run )?test\b/;
 // Shell comment lines are ignored: security.yml's fs-write step mentions "vitest fixture" only inside # comments.
@@ -55,8 +55,8 @@ describe('full-history checkout for every job that runs vitest', () => {
     ['two checkouts', { steps: [{ uses: 'actions/checkout@v4', with: { 'fetch-depth': 0 } }, { uses: 'actions/checkout@v4' }, { run: 'npm test' }] }],
     ['no checkout', { steps: [{ run: 'npm run test:coverage -- --run' }] }],
   ] as const)('refuses: %s', (_n, job) => {
-    expect(runsVitest(job as Job)).toBe(true);
-    expect(historyProblem(job as Job)).not.toBeNull();
+    expect(runsVitest(job)).toBe(true);
+    expect(historyProblem(job)).not.toBeNull();
   });
 
   it('does not treat a job that never runs vitest as a suite runner', () => {
