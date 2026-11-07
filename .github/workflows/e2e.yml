@@ -40,7 +40,7 @@ on:
         # lesson-editor-syn: SYNTHETIC lifecycle matrix only (unrun). Sealed lane vs an in-lane dummy page server; no stack; never E1.
         # lms-courses, lms-courses-migrated: the isolated job's LMS course specs, on the snapshot schema or with the November migrations applied locally.
         # roster-reports: LOCAL-ONLY PROPOSAL (unrun). The T-15 Students/Reports persona acceptance on the same no-Edge stack.
-        options: [readonly-courses, lms-courses, lms-courses-migrated, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, public-catalog, roster-reports, builder-authoring, builder-authoring-k1, lesson-editor, le-isolation-probe, lesson-editor-syn]
+        options: [readonly-courses, lms-courses, lms-courses-migrated, t09-runtime, learner-quiz, learner-quiz-noedge, gradebook-journey, public-catalog, roster-reports, builder-authoring, builder-authoring-k1, lesson-editor, le-isolation-probe, lesson-editor-syn, lesson-editor-crash-diag]
 
 permissions: {}
 
@@ -3010,3 +3010,56 @@ jobs:
           fi
           [ "$rc" -eq 0 ] && echo "SYNTHETIC_OUTPUTS_REMOVED"
           exit "$rc"
+
+  # DIAGNOSTIC ONLY (branch claude/chromium-crash-diag; not for main). Why the pinned headless shell exits SIGTRAP inside the
+  # sealed lane: builds the exact lane image, then runs the synthetic /blank and /doc dummy pages under the lane's container
+  # security settings in variants (as is, plus host fonts, --disable-gpu) and on the host, printing the browser's own stderr.
+  # No stack, credential, fixture or secret exists in this job.
+  lesson-editor-crash-diag:
+    name: Lesson-editor lane Chromium crash diagnostic (dummy pages only)
+    if: inputs.specs == 'lesson-editor-crash-diag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+      - name: npm ci (no lifecycle scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: npm rebuild (dependency install scripts)
+        run: npm rebuild
+      - name: Runner facts
+        run: |
+          docker version --format '{{.Client.Version}} {{.Server.Version}}' || true
+          uname -r
+          cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns 2>/dev/null || true
+          fc-list 2>/dev/null | wc -l || true
+      - name: Install Chromium headless shell
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+      - name: Resolve the headless shell
+        run: |
+          set -o pipefail
+          R="$RUNNER_TEMP/diag-shell-receipt.txt"
+          node scripts/local-stack/quiz-lifecycle/headless-shell.mjs receipt > "$R" || { cat "$R"; exit 1; }
+          cat "$R"
+          echo "DIAG_SHELL_PATH=$(sed -n 's/^path=//p' "$R")" >> "$GITHUB_ENV"
+          fc-list 2>/dev/null | wc -l || true
+      - name: Build the lane image (exact image.mjs build)
+        run: node scripts/e2e/le-lane/image.mjs build "$RUNNER_TEMP/diag-lane-ctl" "$GITHUB_WORKSPACE" "$(command -v node)" "$DIAG_SHELL_PATH"
+      - name: Crash diagnostic (variants)
+        run: node scripts/e2e/le-lane/crash-diag.mjs "$RUNNER_TEMP/diag-lane-ctl" "$GITHUB_WORKSPACE" "$DIAG_SHELL_PATH"
+      - name: Remove the lane image
+        if: always()
+        run: |
+          f="$RUNNER_TEMP/diag-lane-ctl/image.id"
+          if [ -s "$f" ]; then docker image rm "$(cat "$f")" || true; fi
