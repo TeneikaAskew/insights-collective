@@ -16,10 +16,14 @@ const flat = (s: string) => s.replace(/\s+/g, ' ').trim();
 const KEY_COLUMNS = ['answers', 'correct_answer', 'explanation', 'feedback', 'options'];
 
 describe('quiz answer access migration (static)', () => {
-  it('has a unique version among migrations and sorts after every November migration', () => {
+  it('has a unique version among migrations and sorts after the migrations it replaces', () => {
     const files = readdirSync(path.join(ROOT, 'supabase/migrations')).filter((f) => f.endsWith('.sql'));
     expect(files.filter((f) => f.startsWith(NAME.slice(0, 14)))).toEqual([NAME]);
-    expect(files.filter((f) => f.startsWith('202611') && f > NAME)).toEqual([]);
+    // It must run after the column grant it repairs and the November quiz migrations whose objects it touches.
+    // Later migrations are fine, so this does not assert that it is the newest file.
+    for (const earlier of ['20260731000800', '20261101000200', '20261102000000']) {
+      expect(NAME.slice(0, 14) > earlier).toBe(true);
+    }
   });
 
   it('revokes the table-wide SELECT and grants only key-free columns to authenticated', () => {
