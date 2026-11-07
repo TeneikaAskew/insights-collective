@@ -40,8 +40,12 @@ vi.mock('@/integrations/supabase/client', async () => {
     throw new Error(`E2E_GRADEBOOK_DB=1 needs VITE_SUPABASE_URL on the loopback stack; got ${target.shown}`);
   }
   const { createClient } = await vi.importActual<typeof import('@supabase/supabase-js')>('@supabase/supabase-js');
+  // src/test/setup.ts replaces global fetch with vi.fn(); this suite needs the real one it set aside.
+  const realFetch = (globalThis as { __realFetch?: typeof fetch }).__realFetch;
+  if (typeof realFetch !== 'function') throw new Error('E2E_GRADEBOOK_DB=1 needs the real fetch kept by src/test/setup.ts');
   const client = createClient(url, process.env.VITE_SUPABASE_ANON_KEY ?? '', {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { fetch: realFetch },
   });
   const { data, error } = await client.auth.signInWithPassword({
     email: process.env.E2E_INSTRUCTOR_EMAIL || 'e2e-instructor@insightscollective.org',
