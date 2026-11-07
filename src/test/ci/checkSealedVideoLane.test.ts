@@ -2,7 +2,7 @@
 // ABOUTME: one-port bridge with E1 differential equivalence, kinds, run-lane/image dispatch, egress records, configs, fixture, supervisor, build; no job wiring (P4(a)).
 //
 // Read-only on purpose: nothing here writes a file, starts docker, a listener, a browser, a preview or a real child. The E1
-// differential tests materialize the d18757cb modules (#172 as squash-merged to main; pre-squash this was 0a075a77) from their pinned git blobs (git cat-file, read-only; test.yml checks out
+// differential tests materialize the cb3932bb modules (main's lane modules as of #200; earlier pins d18757cb, and 0a075a77 pre-squash) from their pinned git blobs (git cat-file, read-only; test.yml checks out
 // full history) and import them from data: URLs. Fakes live in memory.
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -36,7 +36,7 @@ vi.mock('../../../e2e/support/chromium-executable', () => ({ chromiumExecutableO
 
 type Obj = Record<string, any>;
 const ROOT = path.resolve(__dirname, '../../..');
-const BASE = 'd18757cb438d8835136ae7a5573bce7e56ff9f5c'; // #172's squash commit on main (was 0a075a77, dropped by the squash)
+const BASE = 'cb3932bbd1c3e0e026b52e65366f7d4caad49777'; // #200 on main, the last change to the lane modules (was d18757cb, before that 0a075a77)
 const P = '/rt/sv-private', C = '/rt/sv-ctl', R = '/w/repo';
 const V = videoPaths(P, C, R);
 const E = lanePaths(P, C, R);
@@ -79,10 +79,10 @@ async function baseModules() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------
-// One-port bridge (DESIGN r2 section 7): closed socket sets, video controls, and E1 differential equivalence vs d18757cb.
+// One-port bridge (DESIGN r2 section 7): closed socket sets, video controls, and E1 differential equivalence vs cb3932bb.
 // ---------------------------------------------------------------------------------------------------------------------------
 type BridgeMod = { createBridge: typeof createBridge; parseBridgeFinal: (t: string, n?: unknown) => unknown; SEALED_HOLD_MAX_MS: number };
-/** The d18757cb bridge.mjs, materialized read-only from its pinned blob (see baseModules). */
+/** The cb3932bb bridge.mjs, materialized read-only from its pinned blob (see baseModules). */
 const e1Bridge = async (): Promise<BridgeMod> => { expect(git('rev-parse', `${BASE}:scripts/e2e/le-lane/bridge.mjs`).trim()).toBe('fd790f4ef16552876fa7d7eb27cfb5cfeb091d38'); return (await baseModules()).bridge as BridgeMod; };
 const BC = '/rt/sv-ctl', BS = '/rt/sv-private/sock';
 /** Realistic listener fake (same model as checkLeLane.test.ts): close(cb) fires only after every accepted connection ended.
@@ -187,7 +187,7 @@ describe('bridge one-port mode: closed socket sets, video controls and E1 differ
     expect(parseBridgeFinal(JSON.parse(fin.slice(`put ${BC}/bridge-final `.length)), APP_ONLY)).toMatchObject({ closeBy: 'CEILING', app: { open: 1 } });
   });
   for (const name of Object.keys(SCENARIOS)) {
-    it(`E1 differential (${name}): the new module in its default mode leaves the same record files, event order and exit codes as d18757cb`, async () => {
+    it(`E1 differential (${name}): the new module in its default mode leaves the same record files, event order and exit codes as cb3932bb`, async () => {
       const old = await e1Bridge();
       const run = async (mod: BridgeMod) => { const h = bridgeHarness(mod, { ports: E1_PORTS, ...scenarioOpts(name) }); await SCENARIOS[name](h); return { log: h.log, exits: h.exits, ups: h.ups.map((u) => u.to), destroyed: h.ups.map((u) => u.destroyed), holds: h.holds.size }; };
       const a = await run(old);
@@ -316,7 +316,7 @@ const E1_SCENARIOS: RO[] = [
   { failPut: [E.gates] },
 ];
 
-describe('run-lane kind dispatch: E1 differential equivalence vs d18757cb, and the video kind', () => {
+describe('run-lane kind dispatch: E1 differential equivalence vs cb3932bb, and the video kind', () => {
   it('E1 differential: every scenario gives the same result, lines, docker/bridge calls and receipts as the BASE module', async () => {
     const base = (await baseModules()).runLane;
     for (const o of E1_SCENARIOS) {
@@ -369,7 +369,7 @@ describe('run-lane kind dispatch: E1 differential equivalence vs d18757cb, and t
   });
 });
 
-describe('image closure dispatch: E1 differential vs d18757cb; video closure is a strict subset (no psql, no git)', () => {
+describe('image closure dispatch: E1 differential vs cb3932bb; video closure is a strict subset (no psql, no git)', () => {
   const imageFake = () => {
     const calls: string[][] = [];
     const fsx = {
@@ -1175,14 +1175,14 @@ describe('video build: exact env, refused env files, no source maps, and the bun
 
 // P4(a) split: this source-only commit carries NO workflow wiring. The sealed-video dispatch choice and job (and their
 // job-shape controls) are a separate later change. Portable evidence: the workflow is byte-identical to main's e2e.yml at
-// the recompose base c91c8c19 (blob 9a119d5d; pre-recompose this was the #172 blob b74f5314), checked by content hash.
+// ef0c2269 (#198; blob e2e76eaa; earlier pins 9a119d5d and the #172 blob b74f5314), checked by content hash.
 describe('P4(a): no sealed-video dispatch route in this tree', () => {
-  it('e2e.yml has no sealed-video choice or job and equals the main e2e.yml blob at the recompose base', () => {
+  it('e2e.yml has no sealed-video choice or job and equals the main e2e.yml blob as of #198', () => {
     const text = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
     const wf = YAML.parse(text) as Obj;
     expect(wf.on.workflow_dispatch.inputs.specs.options).not.toContain('sealed-video');
     expect(Object.keys(wf.jobs)).not.toContain('sealed-video');
     expect(text).not.toMatch(/sealed-video|video-lane\.mjs|video-build\.mjs|playwright\.sealed-video/);
-    expect(git('hash-object', path.join(ROOT, '.github/workflows/e2e.yml')).trim()).toBe('9a119d5d4773f5b0c7629e8bcd4330ae810b49d9');
+    expect(git('hash-object', path.join(ROOT, '.github/workflows/e2e.yml')).trim()).toBe('e2e76eaa1bb29c0d5b5e20125d55c166f7db64af');
   });
 });
