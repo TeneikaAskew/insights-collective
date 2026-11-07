@@ -122,6 +122,17 @@ describe('CourseList estimated time', () => {
     expect(titles()).toHaveLength(7);
   });
 
+  it('contains absolute screen-reader labels within each card body', async () => {
+    render(<CourseList />);
+    await screen.findByText('Course A 1.94h');
+    const labels = screen.getAllByText('Estimated time:');
+    expect(labels).toHaveLength(5);
+    for (const label of labels) {
+      expect(label).toHaveClass('sr-only');
+      expect(label.closest('div.pt-9')).toHaveClass('relative');
+    }
+  });
+
   it('cards show estimated time, and never the legacy duration number', async () => {
     render(<CourseList />);
     const a = (await screen.findByText('Course A 1.94h')).closest('div.pt-9') as HTMLElement;

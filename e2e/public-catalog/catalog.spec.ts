@@ -196,4 +196,52 @@ test.describe('anonymous catalog', () => {
       expect(await estimatedTimeNodes(cardLink), `${t} featured Estimated time`).toEqual([`Estimated time: ${ESTIMATE[t]}`]);
     }
   });
+
+  test('A11 catalog keeps keyboard scrolling inside the app before and after filtering', async ({ page, net }) => {
+    await catalogRows(page, '/courses');
+    await expect(cards(page)).toHaveCount(ANON_TITLES.length);
+    const scroll = page.locator('[data-component-name="main-scroll"]');
+    const outerFits = async () => page.evaluate(() => ({
+      overflow: document.documentElement.scrollHeight - document.documentElement.clientHeight,
+      y: window.scrollY,
+    }));
+    const assertOuterFits = async () => {
+      await expect.poll(async () => (await outerFits()).overflow).toBeLessThanOrEqual(1);
+      await expect.poll(async () => (await outerFits()).y).toBe(0);
+    };
+    // Computed containment, not a class-name assertion: absolute sr-only labels
+    // must remain within their card rather than extending the outer document.
+    const labels = cards(page).locator('span.sr-only').filter({ hasText: 'Estimated time:' });
+    expect(await labels.count()).toBeGreaterThan(0);
+    expect(await labels.evaluateAll((els) => els.every((el) => {
+      const owner = (el as HTMLElement).offsetParent;
+      return owner !== null && el.closest('button')?.contains(owner);
+    }))).toBe(true);
+    await assertOuterFits();
+    // With no inner control focused, End must not scroll to a blank outer page.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('End');
+    await assertOuterFits();
+    // Focusing the final real card scrolls it into view within the app.
+    await cards(page).last().focus();
+    await expect(cards(page).last()).toBeInViewport();
+    await assertOuterFits();
+    await scroll.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await expect(page.getByRole('contentinfo')).toBeInViewport();
+    await assertOuterFits();
+    await page.getByPlaceholder('Search courses').fill('no matching synthetic course');
+    await expect(page.getByRole('heading', { name: 'No courses found' })).toBeVisible();
+    await expect(cards(page)).toHaveCount(0);
+    await assertOuterFits();
+    await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+    await expect(cards(page)).toHaveCount(ANON_TITLES.length);
+    await assertOuterFits();
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.press('End');
+    await assertOuterFits();
+    await cards(page).last().focus();
+    await expect(cards(page).last()).toBeInViewport();
+    await assertOuterFits();
+  });
+
 });
