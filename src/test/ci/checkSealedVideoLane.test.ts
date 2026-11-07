@@ -1175,14 +1175,15 @@ describe('video build: exact env, refused env files, no source maps, and the bun
 
 // P4(a) split: this source-only commit carries NO workflow wiring. The sealed-video dispatch choice and job (and their
 // job-shape controls) are a separate later change. Portable evidence: the workflow is byte-identical to main's e2e.yml at
-// ef0c2269 (#198; blob e2e76eaa; earlier pins 9a119d5d and the #172 blob b74f5314), checked by content hash.
+// ef0c2269 (#198; blob e2e76eaa; earlier pins 9a119d5d and the #172 blob b74f5314), checked by content hash. Re-pinned
+// for #203, which adds only the gradebook table range spec and the bulk handler step to the lms-courses lanes.
 describe('P4(a): no sealed-video dispatch route in this tree', () => {
-  it('e2e.yml has no sealed-video choice or job and equals the main e2e.yml blob as of #198', () => {
+  it('e2e.yml has no sealed-video choice or job and equals the pinned main e2e.yml blob (#198, re-pinned for #203)', () => {
     const text = readFileSync(path.join(ROOT, '.github/workflows/e2e.yml'), 'utf8');
     const wf = YAML.parse(text) as Obj;
     expect(wf.on.workflow_dispatch.inputs.specs.options).not.toContain('sealed-video');
     expect(Object.keys(wf.jobs)).not.toContain('sealed-video');
     expect(text).not.toMatch(/sealed-video|video-lane\.mjs|video-build\.mjs|playwright\.sealed-video/);
-    expect(git('hash-object', path.join(ROOT, '.github/workflows/e2e.yml')).trim()).toBe('e2e76eaa1bb29c0d5b5e20125d55c166f7db64af');
+    expect(git('hash-object', path.join(ROOT, '.github/workflows/e2e.yml')).trim()).toBe('752bec907cb2ed754e4e0cd0bbba349a28f3f4f2');
   });
 });
