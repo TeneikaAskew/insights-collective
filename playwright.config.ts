@@ -170,8 +170,15 @@ function firefoxHermeticOptions(): {
 
 const HERMETIC_ARGS = hermeticArgs();
 
+// Sealed-lane specs (e2e/stubbed/) run ONLY under playwright.sealed-video.config.ts inside the sealed video lane. They are
+// excluded here at config level AND in chromium-member's own testIgnore, because a project-level testIgnore REPLACES the
+// config-level one in Playwright (config.js takeFirst). Excluding them here is setup prevention: main's globalSetup and
+// webServer would otherwise run for them. The spec's own skip guard is defence in depth only.
+export const SEALED_LANE_IGNORE = '**/stubbed/**';
+
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: [SEALED_LANE_IGNORE],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -242,6 +249,7 @@ export default defineConfig({
         storageState: path.join(SESSIONS_DIR, 'member.json'),
       },
       testIgnore: [
+        SEALED_LANE_IGNORE,
         '**/admin/**',
         '**/auth/**',
         '**/landing/**',
