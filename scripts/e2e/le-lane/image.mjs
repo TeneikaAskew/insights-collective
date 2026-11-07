@@ -5,6 +5,8 @@
 //   image.mjs build   <ctl dir (absent)> <repo> <node abs path> <headless shell abs path>
 //   image.mjs cleanup <ctl dir> <repo>
 //
+// Kinds: with no `kind` this is E1, exactly as before (the CLI below is E1's only). video-lane.mjs passes the frozen kinds.mjs
+// KINDS.video table, whose closureBins (no psql, no git) replace E1's psql + TOOLS. No new import here.
 // Writers (disclosed, host-owned control dir only, never mounted): mkdir of <ctl> (0700) and the build context, copies of the
 // closure files into ctx/rootfs (COPYFILE_EXCL; the job's Node to rootfs/usr/bin/node), ctx/rootfs/etc/passwd and group,
 // ctx/Dockerfile, manifest.sha256, the build-invoked receipt, image-build.rec and image-cleanup.rec (all wx). docker writes the iidfile. Docker clients run with a sanitized environment (sanitizedEnv).
@@ -43,8 +45,10 @@ const sha = (fsx, p) => crypto.createHash('sha256').update(fsx.readFileSync(p)).
  * and the result code. Later steps read that record; they never infer a clean state from a missing or unresolved one.
  * The job's Node (`node`, the toolcache path) is copied to LANE_NODE in the rootfs; its hash goes into the manifest.
  */
-export async function buildLaneImage(d, { ctl, repo, node, shell }) {
+export async function buildLaneImage(d, { ctl, repo, node, shell, kind }) {
   const fsx = d.fs;
+  const e1 = kind === undefined;
+  if (!e1 && !(kind && Object.isFrozen(kind) && kind.name === 'video' && Array.isArray(kind.closureBins))) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false };
   const L = lanePaths('/nonexistent-p', ctl, repo);
   if (!BROWSER_PATH_RE.test(shell ?? '') || !path.isAbsolute(node ?? '') || node === LANE_NODE) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false };
   try { if (fsx.existsSync(ctl)) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false }; fsx.mkdirSync(ctl, { mode: 0o700 }); }
@@ -54,8 +58,8 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
   try {
     code = await (async () => {
       // [destination in rootfs, host source]; node is the one entry whose destination differs from its source.
-      const entries = new Map([[LANE_NODE, node], [PSQL_REAL, PSQL_REAL], ...TOOL_PATHS.map((t) => [t, t])]);
-      for (const bin of [node, shell, PSQL_REAL, ...TOOL_PATHS]) {
+      const entries = e1 ? new Map([[LANE_NODE, node], [PSQL_REAL, PSQL_REAL], ...TOOL_PATHS.map((t) => [t, t])]) : new Map([[LANE_NODE, node], ...kind.closureBins.map((t) => [t, t])]);
+      for (const bin of e1 ? [node, shell, PSQL_REAL, ...TOOL_PATHS] : [node, shell, ...kind.closureBins]) {
         const r = await x('ldd', [bin], { timeout: 30000 });
         const libs = r.ok ? parseLdd(r.stdout) : null;
         if (!libs) return 'LANE_E_IMAGE_CLOSURE';
