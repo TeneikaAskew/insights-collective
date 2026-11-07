@@ -139,7 +139,16 @@ describe('gradebook-journey job (proposal)', () => {
     expect(runOf(S[s1])).not.toMatch(/mkdir/);
     expect(runOf(S[s2])).toMatch(/assert-safe-target\.mjs --mutating[\s\S]*gb-st-priv\/mirror\.sql" \| sha256sum -c --quiet[\s\S]*storage-job\.mjs s2/);
     expect(runOf(S[s4])).toMatch(/assert-safe-target\.mjs --mutating[\s\S]*storage-job\.mjs s4 "\$RUNNER_TEMP\/gb-st-priv" "\$GITHUB_RUN_ID" "\$GITHUB_RUN_ATTEMPT"/);
-    for (const i of [s0, s1, s2, s3, s4]) expect(runOf(S[i])).not.toMatch(/SUPABASE_DB_URL|psql |STORAGE_METADATA_JSON/);   // private-psql route only; input never named in a run
+    // S4d: the N1 origin diagnostic, right after S4 whatever S4 concluded; S4 itself keeps no if and its exact command.
+    const s4d = at(/storage-job\.mjs s4d /);
+    expect([s4 + 1 === s4d, s4d < adapter]).toEqual([true, true]);
+    expect(S[s4].id).toBe('gb_s4');
+    expect(S[s4].if).toBeUndefined();
+    expect(S[s4d].id).toBe('gb_s4d');
+    expect(S[s4d].if).toBe("always() && (steps.gb_s4.outcome == 'success' || steps.gb_s4.outcome == 'failure')");
+    expect(runOf(S[s4d])).toBe('set -o pipefail\nnode scripts/e2e/assert-safe-target.mjs --mutating\nnode scripts/local-stack/storage/storage-job.mjs s4d "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4d.txt"\n');
+    expect((S[s4d] as { env?: unknown }).env).toBeUndefined();
+    for (const i of [s0, s1, s2, s3, s4, s4d]) expect(runOf(S[i])).not.toMatch(/SUPABASE_DB_URL|psql |STORAGE_METADATA_JSON/);   // private-psql route only; input never named in a run
     expect(String(S[d1].name)).toMatch(/snapshot \+ seven migrations \+ Storage composition pins 02ce9f85/);
     expect(runOf(byName(S, 'Remove private outputs'))).toMatch(/"\$RUNNER_TEMP\/gb-st-priv"/);
   });
@@ -164,17 +173,17 @@ describe('gradebook-journey job (proposal)', () => {
     const up = S.find((st) => String(st.uses ?? '').startsWith('actions/upload-artifact@') && String(st.name ?? '').startsWith('Upload evidence'))!;
     expect(up.if).toBe("always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')");
   });
-  it('requires the seven Storage/D1-composition receipts on a successful job; each missing or empty one refuses staging', () => {
+  it('requires the eight Storage/D1-composition receipts on a successful job; each missing or empty one refuses staging', () => {
     const run = runOf(S[at(/stack-checks\.sh stage-evidence \$REQ gbj-upload/)]);
     const line = run.split('\n').find((l) => l.includes('stage-evidence $REQ gbj-upload'))!;
     const expectList = [...line.split(' -- ')[0].matchAll(/"\$E\/([^"]+)"/g)].map((m) => m[1]);
-    const NEW = ['checks/storage-s0.txt', 'checks/storage-s1.txt', 'checks/storage-s2.txt', 'checks/storage-s3.txt', 'checks/d1-composition.txt', 'checks/storage-s4.txt', 'checks/storage-leakscan.txt'];
+    const NEW = ['checks/storage-s0.txt', 'checks/storage-s1.txt', 'checks/storage-s2.txt', 'checks/storage-s3.txt', 'checks/d1-composition.txt', 'checks/storage-s4.txt', 'checks/storage-s4d.txt', 'checks/storage-leakscan.txt'];
     for (const r of NEW) expect(expectList).toContain(r);
     const pos = (r: string) => expectList.indexOf(r);
     expect([pos('checks/migrations-new.txt') < pos('checks/storage-s0.txt'), pos('checks/storage-s0.txt') + 1 === pos('checks/storage-s1.txt'),
       pos('checks/storage-s3.txt') < pos('checks/d1-write.txt'),
       pos('checks/d1-write.txt') < pos('checks/d1-composition.txt'), pos('checks/actors.txt') < pos('checks/storage-s4.txt'),
-      pos('checks/storage-s4.txt') < pos('checks/journey.txt'), pos('checks/leftovers.txt') > pos('checks/storage-leakscan.txt')]).toEqual([true, true, true, true, true, true, true]);
+      pos('checks/storage-s4.txt') + 1 === pos('checks/storage-s4d.txt'), pos('checks/storage-s4d.txt') < pos('checks/journey.txt'), pos('checks/leftovers.txt') > pos('checks/storage-leakscan.txt')]).toEqual([true, true, true, true, true, true, true, true]);
     const SC = path.join(ROOT, 'scripts/local-stack/t09/stack-checks.sh');
     const stage = (mut: (dir: string) => void) => {
       const dir = mkdtempSync(path.join(tmpdir(), 'gbj-ev-'));
