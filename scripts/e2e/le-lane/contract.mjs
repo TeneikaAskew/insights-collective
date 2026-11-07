@@ -25,8 +25,19 @@ export const IMAGE_WORKDIR = '/';
 /** Closed tool list (besides node at LANE_NODE, psql and the browser directory). run.sh, stack-checks.sh redact (sed) and pin_harness (git). */
 export const TOOLS = Object.freeze(['bash', 'env', 'mktemp', 'rm', 'mkdir', 'wc', 'basename', 'dirname', 'cat', 'find', 'grep', 'sed', 'head', 'git']);
 export const TOOL_PATHS = Object.freeze(TOOLS.map((t) => `/usr/bin/${t}`));
-/** No fonts are shipped. Rendering without fonts is UNPROVED for E1 (decision recorded; nothing claims DOM rendering is unaffected). */
-export const FONTS_SHIPPED = false;
+/**
+ * Fonts ARE shipped. With none, the pinned headless shell 147.0.7727.15 aborts the whole browser (SIGTRAP) on the first page that
+ * lays out text: `FATAL:third_party/skia/src/ports/SkFontMgr_FontConfigInterface.cpp:163] Not implemented.` (diagnostic run
+ * 42383315244: /blank loads, /doc's input kills the browser; the same container with host fonts passes). That was the SIGTRAP of
+ * every E1 and synthetic lane run. The image gets the regular .ttf files of FONT_DIRS (copied, hashed into the manifest like every
+ * other file) and LANE_FONTS_CONF at LANE_FONTS_CONF_PATH, which names only /usr/share/fonts and a cache under the /tmp tmpfs.
+ */
+export const FONTS_SHIPPED = true;
+/** Closed list of host font directories (Ubuntu 24.04 runner: fonts-liberation, fonts-dejavu-core). Missing ones are skipped. */
+export const FONT_DIRS = Object.freeze(['/usr/share/fonts/truetype/liberation', '/usr/share/fonts/truetype/dejavu']);
+export const LANE_FONTS_CONF_PATH = '/etc/fonts/fonts.conf';
+export const LANE_FONTS_CONF = '<?xml version="1.0"?>\n<!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">\n<fontconfig>\n'
+  + '  <dir>/usr/share/fonts</dir>\n  <cachedir>/tmp/fontconfig</cachedir>\n</fontconfig>\n';
 
 /** Container resource bounds (proposed values; exact once reviewed). */
 export const LANE_LIMITS = Object.freeze({ NanoCpus: 2_000_000_000, Memory: 4_294_967_296, MemorySwap: 4_294_967_296, PidsLimit: 1024, ShmSize: 1_073_741_824 });
@@ -613,7 +624,7 @@ export function laneVerdict({ runLaneStarted, gatesText }) {
 // Host image records (C/image-build.rec, C/image-cleanup.rec), written once (wx) by image.mjs and read by every later step.
 // They carry docker/ldd CLIENT state across workflow steps: an unreaped client or an unknown result is never read as clean.
 
-export const IMAGE_BUILD_RESULTS = Object.freeze(['LANE_IMAGE_OK', 'LANE_E_IMAGE_INPUT', 'LANE_E_IMAGE_CLOSURE', 'LANE_E_IMAGE_MANIFEST',
+export const IMAGE_BUILD_RESULTS = Object.freeze(['LANE_IMAGE_OK', 'LANE_E_IMAGE_INPUT', 'LANE_E_IMAGE_CLOSURE', 'LANE_E_IMAGE_FONTS', 'LANE_E_IMAGE_MANIFEST',
   'LANE_E_IMAGE_BUILD', 'LANE_E_IMAGE_CONFIG', 'LANE_E_IMAGE_UNCLASSIFIED']);
 export function imageBuildRecord({ invoked, id, clientsReaped, result }) {
   return `BUILD_INVOKED ${invoked ? 'YES' : 'NO'}\nIMAGE_ID ${!invoked ? 'NONE' : id ?? 'UNKNOWN'}\nCLIENTS ${clientsReaped ? 'REAPED' : 'UNRESOLVED'}\nRESULT ${result}\nEND\n`;

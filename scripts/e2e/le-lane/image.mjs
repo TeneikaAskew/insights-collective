@@ -16,7 +16,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { makeExec } from '../le-iso/run-probe.mjs';
 import { parseLdd, BROWSER_PATH_RE } from '../le-iso/expect.mjs';
-import { IMAGE_ID, IMAGE_PATH_ENV, IMAGE_WORKDIR, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, imageFieldLines, lanePaths, laneVerdict,
+import { FONT_DIRS, IMAGE_ID, IMAGE_PATH_ENV, IMAGE_WORKDIR, LANE_FONTS_CONF, LANE_FONTS_CONF_PATH, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, imageFieldLines, lanePaths, laneVerdict,
   parseImageBuildRecord, parseImageCleanupRecord } from './contract.mjs';
 
 const NSS_DLOPEN = ['libsoftokn3.so', 'libfreeblpriv3.so', 'libnssckbi.so', 'libnssdbm3.so'];
@@ -68,6 +68,17 @@ export async function buildLaneImage(d, { ctl, repo, node, shell, kind }) {
       }
       const shellDir = path.dirname(shell);
       for (const e of fsx.readdirSync(shellDir, { withFileTypes: true })) if (e.isFile()) { const p = path.join(shellDir, e.name); if (!entries.has(p)) entries.set(p, p); }
+      // Fonts (contract.mjs FONTS_SHIPPED): without any, the headless shell aborts on the first text layout.
+      let fonts = 0;
+      for (const dir of FONT_DIRS) {
+        if (!fsx.existsSync(dir)) continue;
+        for (const e of fsx.readdirSync(dir, { withFileTypes: true })) {
+          if (!e.isFile() || !e.name.endsWith('.ttf')) continue;
+          const p = path.join(dir, e.name);
+          if (!entries.has(p)) { entries.set(p, p); fonts += 1; }
+        }
+      }
+      if (fonts === 0) return 'LANE_E_IMAGE_FONTS';
       const root = path.join(L.ctx, 'rootfs');
       const manifest = [];
       const uid = d.uid(), gid = d.gid();
@@ -87,6 +98,8 @@ export async function buildLaneImage(d, { ctl, repo, node, shell, kind }) {
         fsx.mkdirSync(path.join(root, 'tmp'), { recursive: true, mode: 0o755 });
         d.files.put(path.join(root, 'etc/passwd'), `lane:x:${uid}:${gid}::/tmp:/nonexistent\n`, 0o644);
         d.files.put(path.join(root, 'etc/group'), `lane:x:${gid}:\n`, 0o644);
+        fsx.mkdirSync(path.join(root, path.dirname(LANE_FONTS_CONF_PATH)), { recursive: true, mode: 0o755 });
+        d.files.put(path.join(root, LANE_FONTS_CONF_PATH), LANE_FONTS_CONF, 0o644);
         d.files.put(L.manifest, `${manifest.join('\n')}\n`, 0o600);
         d.files.put(path.join(L.ctx, 'Dockerfile'), `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nWORKDIR ${IMAGE_WORKDIR}\nUSER ${uid}:${gid}\n`, 0o600);
         d.files.put(path.join(ctl, 'build-invoked'), 'build-invoked\n', 0o600);
