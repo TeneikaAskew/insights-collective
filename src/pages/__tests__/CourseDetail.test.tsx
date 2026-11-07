@@ -8,8 +8,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { addEnrolledCourse } from '@/utils/idUtils';
 import CourseDetail from '@/pages/CourseDetail';
 
-const { COURSE_ID, router } = vi.hoisted(() => ({
+const { COURSE_ID, router, permissions } = vi.hoisted(() => ({
   COURSE_ID: '123e4567-e89b-12d3-a456-426614174000',
+  permissions: { canEdit: false, isAdmin: false, isInstructor: false },
   router: {
     pathname: '/courses/123e4567-e89b-12d3-a456-426614174000',
     navigate: vi.fn(),
@@ -56,7 +57,7 @@ vi.mock('@/components/course/LoginOverlayCard', () => ({ LoginOverlayCard: () =>
 // (useForums is intentionally NOT mocked: the page no longer calls it — the
 // orphaned call fired a dead query on every course view.)
 vi.mock('@/hooks/useCoursePermissions', () => ({
-  useCoursePermissions: () => ({ canEdit: false, isAdmin: false, isInstructor: false }),
+  useCoursePermissions: () => permissions,
 }));
 vi.mock('@/hooks/useCourseProgress', () => ({ useCourseProgress: () => ({ data: { percent: 0 } }) }));
 vi.mock('@/hooks/useCourseThread', () => ({
@@ -127,6 +128,7 @@ describe('CourseDetail', () => {
   beforeEach(() => {
     router.pathname = `/courses/${COURSE_ID}`;
     router.navigate.mockClear();
+    Object.assign(permissions, { canEdit: false, isAdmin: false, isInstructor: false });
     vi.mocked(addEnrolledCourse).mockClear();
     vi.mocked(useAuth).mockReturnValue(createMockAuthProvider() as any);
     mockTables(successTables());
@@ -196,6 +198,42 @@ describe('CourseDetail', () => {
     expect(screen.queryByText(/permission denied/)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 students enrolled/)).not.toBeInTheDocument();
     expect(screen.queryByText(/0 enrolled/)).not.toBeInTheDocument();
+  });
+
+  it.each([null, 0])('distinguishes unknown enrollment count from an actual zero (%s)', async (count) => {
+    mockTables({ ...successTables(), enrollments: { select: () => ({ count, data: null, error: null }) } });
+    render(<CourseDetail />);
+    await screen.findAllByText('Intro to Data Analytics');
+    if (count === null) expect(screen.queryByText(/students enrolled/)).not.toBeInTheDocument();
+    else expect(screen.getByText('0 students enrolled')).toBeInTheDocument();
+  });
+
+  it.each([false, true])('does not report RLS-hidden curriculum as empty (authenticated=%s)', async (authenticated) => {
+    vi.mocked(useAuth).mockReturnValue(createMockAuthProvider({
+      user: authenticated ? authedUser : null, isAuthenticated: authenticated,
+    }) as any);
+    render(<CourseDetail />);
+    expect(await screen.findByText('Foundations of Analytics')).toBeInTheDocument();
+    expect(screen.queryByText('0 lessons')).not.toBeInTheDocument();
+  });
+
+  it.each([0, 3])('retains a readable staff curriculum count of %s', async (count) => {
+    permissions.canEdit = true;
+    vi.mocked(useAuth).mockReturnValue(createMockAuthProvider({user: authedUser, isAuthenticated: true}) as any);
+    mockTables({...successTables(), content_items: { select: () => ({
+      data: Array.from({length: count}, (_, i) => ({id: `item-${i}`, module_id: moduleRow.id, type: 'page'})), error: null,
+    }) }});
+    render(<CourseDetail />);
+    expect(await screen.findByText(`${count} lessons`)).toBeInTheDocument();
+  });
+
+  it('does not turn a failed staff content-metadata query into zero lessons', async () => {
+    permissions.canEdit = true;
+    vi.mocked(useAuth).mockReturnValue(createMockAuthProvider({user: authedUser, isAuthenticated: true}) as any);
+    mockTables({...successTables(), content_items: { select: () => ({data: null, error: {message: 'metadata unavailable'}}) }});
+    render(<CourseDetail />);
+    expect(await screen.findByText('Foundations of Analytics')).toBeInTheDocument();
+    expect(screen.queryByText('0 lessons')).not.toBeInTheDocument();
   });
 
   it('does not mark the client as enrolled when the enrollment insert fails', async () => {
