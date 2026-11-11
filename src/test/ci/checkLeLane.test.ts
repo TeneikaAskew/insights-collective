@@ -101,11 +101,16 @@ describe('lane contract: exact create argv, environment and binds', () => {
     expect(() => lanePaths('/rt/le-private/', C, R)).toThrow();
     expect(() => lanePaths('/rt/a,b', C, R)).toThrow();
   });
-  it('ships the closed tool list with the REAL psql binary and sed, and no fonts (rendering without fonts stays unproved)', async () => {
+  it('ships the closed tool list with the REAL psql binary and sed, and fonts (the headless shell aborts on text layout without any)', async () => {
     const c = await import('../../../scripts/e2e/le-lane/contract.mjs');
     expect(TOOLS).toEqual(expect.arrayContaining(['bash', 'sed', 'git', 'grep', 'mktemp', 'env']));
     expect(PSQL_REAL).toBe('/usr/lib/postgresql/16/bin/psql');
-    expect(c.FONTS_SHIPPED).toBe(false);
+    expect(c.FONTS_SHIPPED).toBe(true);
+    expect(c.FONT_DIRS).toEqual(['/usr/share/fonts/truetype/liberation', '/usr/share/fonts/truetype/dejavu']);
+    expect(c.LANE_FONTS_CONF_PATH).toBe('/etc/fonts/fonts.conf');
+    // the config names only the shipped font root and a cache on the /tmp tmpfs (the rootfs is read-only)
+    expect([...c.LANE_FONTS_CONF.matchAll(/<(dir|cachedir)>([^<]*)</g)].map((m) => [m[1], m[2]])).toEqual([['dir', '/usr/share/fonts'], ['cachedir', '/tmp/fontconfig']]);
+    expect(c.LANE_FONTS_CONF).not.toMatch(/<include|<remote|https?:/);
     expect(IMAGE_PATH_ENV).toBe('PATH=/usr/lib/postgresql/16/bin:/usr/bin');
     expect(laneBinds(L)).toHaveLength(7);
   });
@@ -420,16 +425,18 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     expect(parseImageCleanupRecord(imageCleanupRecord({ code: 'LANE_IMAGE_REMOVED', clientsReaped: false }))?.result).toBe('UNRESOLVED');
   });
   // ---- image build: the job's Node becomes LANE_NODE; every client's state reaches the record ----
-  type BF = { lddUnreaped?: string; lddFails?: string; buildOk?: boolean; buildUnreaped?: boolean; iid?: string | null; inspectUnreaped?: boolean; inspectBad?: boolean; inspectWorkdir?: unknown; ctlExists?: boolean; putFails?: boolean };
+  const FONT_LIB = '/usr/share/fonts/truetype/liberation';
+  type BF = { noFonts?: boolean; lddUnreaped?: string; lddFails?: string; buildOk?: boolean; buildUnreaped?: boolean; iid?: string | null; inspectUnreaped?: boolean; inspectBad?: boolean; inspectWorkdir?: unknown; ctlExists?: boolean; putFails?: boolean };
   const TOOLCACHE_NODE = '/opt/hostedtoolcache/node/22.11.0/x64/bin/node';
   const buildFake = (o: BF = {}) => {
     const files = new Map<string, Buffer>([[TOOLCACHE_NODE, Buffer.from('node-bytes')], [PSQL_REAL, Buffer.from('psql')], [SHELL, Buffer.from('shell')],
-      [`${path.dirname(SHELL)}/libGLESv2.so`, Buffer.from('gl')], ['/lib/x86_64-linux-gnu/libc.so.6', Buffer.from('libc')], ...TOOLS.map((t) => [`/usr/bin/${t}`, Buffer.from(t)] as [string, Buffer])]);
+      [`${path.dirname(SHELL)}/libGLESv2.so`, Buffer.from('gl')], ['/lib/x86_64-linux-gnu/libc.so.6', Buffer.from('libc')], ...TOOLS.map((t) => [`/usr/bin/${t}`, Buffer.from(t)] as [string, Buffer]),
+      ...(o.noFonts ? [] : [[`${FONT_LIB}/LiberationSans-Regular.ttf`, Buffer.from('font-sans')], [`${FONT_LIB}/fonts.dir`, Buffer.from('not a font')]] as [string, Buffer][])]);
     const dirs = new Set<string>(o.ctlExists ? [C] : []);
     const puts = new Map<string, string>();
     const calls: string[][] = [];
     const fsx = {
-      existsSync: (p: string) => dirs.has(p) || files.has(p),
+      existsSync: (p: string) => dirs.has(p) || files.has(p) || [...files.keys()].some((f) => path.dirname(f) === p),
       mkdirSync: (p: string) => { dirs.add(p); },
       readdirSync: (p: string) => [...files.keys()].filter((f) => path.dirname(f) === p).map((f) => ({ name: path.basename(f), isFile: () => true })),
       realpathSync: (p: string) => p, statSync: () => ({ mode: 0o100755 }), chmodSync: () => {},
@@ -472,6 +479,19 @@ describe('host gate receipts (verify only; abrupt owner loss is UNRESOLVED)', ()
     expect((await build({ ctlExists: true })).code).toBe('LANE_E_IMAGE_INPUT');
     const f = buildFake();
     expect((await buildLaneImage(f.d as never, { ctl: C, repo: R, node: LANE_NODE, shell: SHELL })).code).toBe('LANE_E_IMAGE_INPUT');
+  });
+  it('build ships the .ttf files of the closed font dirs and the fixed fonts.conf, and refuses an image with no font at all', async () => {
+    const c = await import('../../../scripts/e2e/le-lane/contract.mjs');
+    const r = await build();
+    expect(r.code).toBe('LANE_IMAGE_OK');
+    const root = `${C}/ctx/rootfs`;
+    expect(r.files.get(`${root}${FONT_LIB}/LiberationSans-Regular.ttf`)?.toString()).toBe('font-sans');
+    expect(r.files.has(`${root}${FONT_LIB}/fonts.dir`)).toBe(false); // only .ttf files
+    expect(r.puts.get(L.manifest)!.split('\n')).toContain(`${createHash('sha256').update('font-sans').digest('hex')}  ${FONT_LIB}/LiberationSans-Regular.ttf`);
+    expect(r.puts.get(`${root}${c.LANE_FONTS_CONF_PATH}`)).toBe(c.LANE_FONTS_CONF);
+    const none = await build({ noFonts: true });
+    expect([none.code, none.rec]).toEqual(['LANE_E_IMAGE_FONTS', { invoked: false, id: 'NONE', clients: 'REAPED', result: 'LANE_E_IMAGE_FONTS' }]);
+    expect(none.calls.some((x) => x[0] === 'docker')).toBe(false);
   });
   it('build records every client and unknown result: an unreaped ldd, build or inspect client, or a missing iid, is never clean', async () => {
     const lddU = await build({ lddUnreaped: PSQL_REAL });

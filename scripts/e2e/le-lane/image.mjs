@@ -5,6 +5,8 @@
 //   image.mjs build   <ctl dir (absent)> <repo> <node abs path> <headless shell abs path>
 //   image.mjs cleanup <ctl dir> <repo>
 //
+// Kinds: with no `kind` this is E1, exactly as before (the CLI below is E1's only). video-lane.mjs passes the frozen kinds.mjs
+// KINDS.video table, whose closureBins (no psql, no git) replace E1's psql + TOOLS. No new import here.
 // Writers (disclosed, host-owned control dir only, never mounted): mkdir of <ctl> (0700) and the build context, copies of the
 // closure files into ctx/rootfs (COPYFILE_EXCL; the job's Node to rootfs/usr/bin/node), ctx/rootfs/etc/passwd and group,
 // ctx/Dockerfile, manifest.sha256, the build-invoked receipt, image-build.rec and image-cleanup.rec (all wx). docker writes the iidfile. Docker clients run with a sanitized environment (sanitizedEnv).
@@ -14,7 +16,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { makeExec } from '../le-iso/run-probe.mjs';
 import { parseLdd, BROWSER_PATH_RE } from '../le-iso/expect.mjs';
-import { IMAGE_ID, IMAGE_PATH_ENV, IMAGE_WORKDIR, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, imageFieldLines, lanePaths, laneVerdict,
+import { FONT_DIRS, IMAGE_ID, IMAGE_PATH_ENV, IMAGE_WORKDIR, LANE_FONTS_CONF, LANE_FONTS_CONF_PATH, LANE_NODE, PSQL_REAL, TOOL_PATHS, imageBuildRecord, imageCleanupRecord, imageConfigProblems, imageFieldLines, lanePaths, laneVerdict,
   parseImageBuildRecord, parseImageCleanupRecord } from './contract.mjs';
 
 const NSS_DLOPEN = ['libsoftokn3.so', 'libfreeblpriv3.so', 'libnssckbi.so', 'libnssdbm3.so'];
@@ -43,8 +45,10 @@ const sha = (fsx, p) => crypto.createHash('sha256').update(fsx.readFileSync(p)).
  * and the result code. Later steps read that record; they never infer a clean state from a missing or unresolved one.
  * The job's Node (`node`, the toolcache path) is copied to LANE_NODE in the rootfs; its hash goes into the manifest.
  */
-export async function buildLaneImage(d, { ctl, repo, node, shell }) {
+export async function buildLaneImage(d, { ctl, repo, node, shell, kind }) {
   const fsx = d.fs;
+  const e1 = kind === undefined;
+  if (!e1 && !(kind && Object.isFrozen(kind) && kind.name === 'video' && Array.isArray(kind.closureBins))) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false };
   const L = lanePaths('/nonexistent-p', ctl, repo);
   if (!BROWSER_PATH_RE.test(shell ?? '') || !path.isAbsolute(node ?? '') || node === LANE_NODE) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false };
   try { if (fsx.existsSync(ctl)) return { code: 'LANE_E_IMAGE_INPUT', id: null, invoked: false, clientsReaped: true, record: false }; fsx.mkdirSync(ctl, { mode: 0o700 }); }
@@ -54,8 +58,8 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
   try {
     code = await (async () => {
       // [destination in rootfs, host source]; node is the one entry whose destination differs from its source.
-      const entries = new Map([[LANE_NODE, node], [PSQL_REAL, PSQL_REAL], ...TOOL_PATHS.map((t) => [t, t])]);
-      for (const bin of [node, shell, PSQL_REAL, ...TOOL_PATHS]) {
+      const entries = e1 ? new Map([[LANE_NODE, node], [PSQL_REAL, PSQL_REAL], ...TOOL_PATHS.map((t) => [t, t])]) : new Map([[LANE_NODE, node], ...kind.closureBins.map((t) => [t, t])]);
+      for (const bin of e1 ? [node, shell, PSQL_REAL, ...TOOL_PATHS] : [node, shell, ...kind.closureBins]) {
         const r = await x('ldd', [bin], { timeout: 30000 });
         const libs = r.ok ? parseLdd(r.stdout) : null;
         if (!libs) return 'LANE_E_IMAGE_CLOSURE';
@@ -64,6 +68,17 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
       }
       const shellDir = path.dirname(shell);
       for (const e of fsx.readdirSync(shellDir, { withFileTypes: true })) if (e.isFile()) { const p = path.join(shellDir, e.name); if (!entries.has(p)) entries.set(p, p); }
+      // Fonts (contract.mjs FONTS_SHIPPED): without any, the headless shell aborts on the first text layout.
+      let fonts = 0;
+      for (const dir of FONT_DIRS) {
+        if (!fsx.existsSync(dir)) continue;
+        for (const e of fsx.readdirSync(dir, { withFileTypes: true })) {
+          if (!e.isFile() || !e.name.endsWith('.ttf')) continue;
+          const p = path.join(dir, e.name);
+          if (!entries.has(p)) { entries.set(p, p); fonts += 1; }
+        }
+      }
+      if (fonts === 0) return 'LANE_E_IMAGE_FONTS';
       const root = path.join(L.ctx, 'rootfs');
       const manifest = [];
       const uid = d.uid(), gid = d.gid();
@@ -83,6 +98,8 @@ export async function buildLaneImage(d, { ctl, repo, node, shell }) {
         fsx.mkdirSync(path.join(root, 'tmp'), { recursive: true, mode: 0o755 });
         d.files.put(path.join(root, 'etc/passwd'), `lane:x:${uid}:${gid}::/tmp:/nonexistent\n`, 0o644);
         d.files.put(path.join(root, 'etc/group'), `lane:x:${gid}:\n`, 0o644);
+        fsx.mkdirSync(path.join(root, path.dirname(LANE_FONTS_CONF_PATH)), { recursive: true, mode: 0o755 });
+        d.files.put(path.join(root, LANE_FONTS_CONF_PATH), LANE_FONTS_CONF, 0o644);
         d.files.put(L.manifest, `${manifest.join('\n')}\n`, 0o600);
         d.files.put(path.join(L.ctx, 'Dockerfile'), `FROM scratch\nCOPY rootfs/ /\nENV ${IMAGE_PATH_ENV}\nWORKDIR ${IMAGE_WORKDIR}\nUSER ${uid}:${gid}\n`, 0o600);
         d.files.put(path.join(ctl, 'build-invoked'), 'build-invoked\n', 0o600);

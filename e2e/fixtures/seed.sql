@@ -709,6 +709,132 @@ BEGIN
 END $$;
 
 
+-- Gradebook table range fixtures for e2e/instructor/gradebook-table-range.spec.ts
+-- (inline cell, browser) and src/pages/__tests__/CourseGradebook.bulk.integration.test.ts
+-- (bulk handler, isolated stack). Seven assignments on the reference course, one
+-- submission each from the shared member, so each is one gradebook cell:
+--   acdc…0001  10 points, graded 5.00: -0.004, 10.004 and an emptied cell are refused,
+--              then corrected to 9.25.
+--   acdc…0002  10 points, graded 5.00: saves the bounds 0, then 10.
+--   acdc…0003  20 points, submitted, ungraded: 10.075 is stored as 10.08.
+--   acdc…0004   0 points, submitted, ungraded: 0.01 is refused, then 0 saves.
+--   acdc…0005  10 points, graded 5.00: bulk writes 9.5.
+--   acdc…0006  10 points, graded 5.00: bulk refuses 10.004, row unchanged.
+--   acdc…0007  10 points, graded 5.00: bulk refuses an entry with no known points,
+--              row unchanged.
+-- Separate from the acce block so neither spec's writes leak into the other. Every
+-- seed resets the rows (DO UPDATE), under the fixture instructor's claims because
+-- pin_assignment_grade_columns reverts grade columns for non-staff.
+INSERT INTO public.content_items (id, course_id, module_id, type, title, content, position, published)
+VALUES
+  ('acdc1111-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Range Ten (10 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 111, true),
+  ('acdc1111-0000-0000-0000-000000000002', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Bounds Ten (10 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 112, true),
+  ('acdc1111-0000-0000-0000-000000000003', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Precision Twenty (20 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 113, true),
+  ('acdc1111-0000-0000-0000-000000000004', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Zero Point (0 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 114, true),
+  ('acdc1111-0000-0000-0000-000000000005', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Bulk Valid (10 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 115, true),
+  ('acdc1111-0000-0000-0000-000000000006', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Bulk Over (10 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 116, true),
+  ('acdc1111-0000-0000-0000-000000000007', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'assignment', 'Gradebook Bulk Unknown (10 pts)',
+   '<p>Fixture for the gradebook table range spec.</p>', 117, true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.assignments (id, course_id, module_id, content_item_id, title, description,
+                                instructions, points, submission_types, is_published)
+VALUES
+  ('acdc2222-0000-0000-0000-000000000001', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000001',
+   'Gradebook Range Ten (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000002', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000002',
+   'Gradebook Bounds Ten (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000003', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000003',
+   'Gradebook Precision Twenty (20 pts)', 'Fixture.', 'Submit any text.', 20,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000004', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000004',
+   'Gradebook Zero Point (0 pts)', 'Fixture.', 'Submit any text.', 0,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000005', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000005',
+   'Gradebook Bulk Valid (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000006', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000006',
+   'Gradebook Bulk Over (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true),
+  ('acdc2222-0000-0000-0000-000000000007', '660e8400-e29b-41d4-a716-446655440001',
+   '770e8400-e29b-41d4-a716-446655440001', 'acdc1111-0000-0000-0000-000000000007',
+   'Gradebook Bulk Unknown (10 pts)', 'Fixture.', 'Submit any text.', 10,
+   ARRAY['online_text_entry'], true)
+ON CONFLICT (id) DO UPDATE SET points = EXCLUDED.points;
+
+DO $$
+DECLARE
+  v_member_id uuid;
+  v_instructor_id uuid;
+BEGIN
+  SELECT id INTO v_member_id FROM auth.users
+   WHERE email = COALESCE(current_setting('e2e.member_email', true), 'e2e-member@insightscollective.org');
+  SELECT id INTO v_instructor_id FROM auth.users
+   WHERE email = 'e2e-instructor@insightscollective.org';
+
+  IF v_member_id IS NOT NULL AND v_instructor_id IS NOT NULL THEN
+    PERFORM set_config('request.jwt.claims',
+                       json_build_object('sub', v_instructor_id, 'role', 'authenticated')::text,
+                       true);
+
+    INSERT INTO public.assignment_submissions
+      (id, assignment_id, user_id, submitted_at, submission_type, body, workflow_state, attempt,
+       grade, graded_at, grader_comments)
+    VALUES
+      ('acdc3333-0000-0000-0000-000000000001', 'acdc2222-0000-0000-0000-000000000001', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL),
+      ('acdc3333-0000-0000-0000-000000000002', 'acdc2222-0000-0000-0000-000000000002', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL),
+      ('acdc3333-0000-0000-0000-000000000003', 'acdc2222-0000-0000-0000-000000000003', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'submitted', 1,
+       NULL, NULL, NULL),
+      ('acdc3333-0000-0000-0000-000000000004', 'acdc2222-0000-0000-0000-000000000004', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'submitted', 1,
+       NULL, NULL, NULL),
+      ('acdc3333-0000-0000-0000-000000000005', 'acdc2222-0000-0000-0000-000000000005', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL),
+      ('acdc3333-0000-0000-0000-000000000006', 'acdc2222-0000-0000-0000-000000000006', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL),
+      ('acdc3333-0000-0000-0000-000000000007', 'acdc2222-0000-0000-0000-000000000007', v_member_id,
+       now() - interval '1 day', 'online_text_entry', '<p>Fixture submission.</p>', 'graded', 1,
+       5.00, now() - interval '12 hours', NULL)
+    ON CONFLICT (id) DO UPDATE
+      SET user_id = EXCLUDED.user_id,
+          workflow_state = EXCLUDED.workflow_state,
+          grade = EXCLUDED.grade,
+          graded_at = EXCLUDED.graded_at,
+          grader_comments = EXCLUDED.grader_comments;
+
+    PERFORM set_config('request.jwt.claims', '', true);
+  END IF;
+END $$;
+
+
 -- The survey the survey specs deep-link to.
 --
 -- /survey/e2e-fixture-survey rendered "Form Not Found", and the reason was not
@@ -884,6 +1010,22 @@ BEGIN
     INTO v_ok;
   IF NOT v_ok THEN
     RAISE EXCEPTION 'E2E SEED FAILED: grade precision fixtures acce3333-... missing or not reset; grade-entry-precision.spec.ts would start from the wrong grades';
+  END IF;
+
+  -- The gradebook table range spec and the bulk integration check start from four graded-at-5
+  -- rows on 10-point assignments, two more, and two ungraded rows (20 and 0 points).
+  SELECT (SELECT count(*) FROM public.assignment_submissions
+           WHERE id IN ('acdc3333-0000-0000-0000-000000000001', 'acdc3333-0000-0000-0000-000000000002',
+                        'acdc3333-0000-0000-0000-000000000005', 'acdc3333-0000-0000-0000-000000000006',
+                        'acdc3333-0000-0000-0000-000000000007')
+             AND workflow_state = 'graded' AND grade = 5.00) = 5
+     AND (SELECT count(*) FROM public.assignment_submissions
+           WHERE id IN ('acdc3333-0000-0000-0000-000000000003', 'acdc3333-0000-0000-0000-000000000004')
+             AND workflow_state = 'submitted' AND grade IS NULL) = 2
+     AND (SELECT points FROM public.assignments WHERE id = 'acdc2222-0000-0000-0000-000000000004') = 0
+    INTO v_ok;
+  IF NOT v_ok THEN
+    RAISE EXCEPTION 'E2E SEED FAILED: gradebook range fixtures acdc3333-... missing or not reset; gradebook-table-range.spec.ts would start from the wrong grades';
   END IF;
 
   -- A quiz nobody can start is a quiz no spec can test.

@@ -13,6 +13,8 @@ const gatePattern = (): string => {
 };
 const WRITE_CALL = new RegExp(gatePattern());
 const ROSTER_ENTRY = 'e2e/roster-reports/actors\\.mjs$';
+// The sealed video lane record writer (#173 P4(a) review candidate; its own controls are in checkSealedVideoLane.test.ts).
+const SEALED_VIDEO_ENTRY = 'e2e/stubbed/sandboxed-test\\.ts$';
 
 const allowedSource = (): string => {
   const m = SECURITY.match(/^\s*ALLOWED='([^']+)'$/m);
@@ -60,9 +62,9 @@ const hitsFor = (allowed: RegExp): string[] => {
 };
 
 describe('security.yml fs-write ALLOWED list', () => {
-  it('keeps every previously reviewed entry and adds exactly one anchored roster entry', () => {
+  it('keeps every previously reviewed entry and adds exactly one anchored roster entry (and the sealed video entry after it)', () => {
     const entries = topLevelEntries(allowedSource());
-    expect(entries).toEqual([PREVIOUS[0], PREVIOUS[1], PREVIOUS[2], ROSTER_ENTRY, PREVIOUS[3]]);
+    expect(entries).toEqual([PREVIOUS[0], PREVIOUS[1], PREVIOUS[2], ROSTER_ENTRY, SEALED_VIDEO_ENTRY, PREVIOUS[3]]);
     expect(entries.filter((e) => e === ROSTER_ENTRY)).toHaveLength(1);
   });
 
