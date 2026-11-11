@@ -146,7 +146,9 @@ function hermeticArgs(): string[] {
  * traffic actually goes to there — is exempted by `no_proxies_on`.
  */
 function firefoxHermeticOptions(): {
-  firefoxUserPrefs?: Record<string, unknown>;
+  // Playwright's own firefoxUserPrefs type: a flat map of primitive prefs.
+  // `unknown` here made the whole launchOptions object unassignable to LaunchOptions.
+  firefoxUserPrefs?: Record<string, string | number | boolean>;
   executablePath?: string;
 } {
   // Probed, not assumed — same reason as Chromium above: the version-stamped
@@ -170,8 +172,15 @@ function firefoxHermeticOptions(): {
 
 const HERMETIC_ARGS = hermeticArgs();
 
+// Sealed-lane specs (e2e/stubbed/) run ONLY under playwright.sealed-video.config.ts inside the sealed video lane. They are
+// excluded here at config level AND in chromium-member's own testIgnore, because a project-level testIgnore REPLACES the
+// config-level one in Playwright (config.js takeFirst). Excluding them here is setup prevention: main's globalSetup and
+// webServer would otherwise run for them. The spec's own skip guard is defence in depth only.
+export const SEALED_LANE_IGNORE = '**/stubbed/**';
+
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: [SEALED_LANE_IGNORE],
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -242,10 +251,21 @@ export default defineConfig({
         storageState: path.join(SESSIONS_DIR, 'member.json'),
       },
       testIgnore: [
+        SEALED_LANE_IGNORE,
         '**/admin/**',
         '**/auth/**',
         '**/landing/**',
         '**/visual/**',
+        // Lane-only specs. Each runs under its own dedicated config and refuses to
+        // load without that lane's environment (lifecycle-matrix.spec.ts throws at
+        // import when LE_TARGET is unset), which aborted collection for the whole
+        // default suite. Their own configs set their own testDir, so this does not
+        // touch them.
+        '**/lesson-editor/**',
+        '**/gradebook-roles/**',
+        '**/roster-reports/**',
+        '**/builder-authoring/**',
+        '**/public-catalog/**',
         // Signed-out specs — handled by chromium-public. The first four were
         // absent from this list while chromium-public claimed them, so ~44 test
         // executions ran twice: once authenticated, once not, with identical

@@ -325,6 +325,11 @@ describe('CanvasContentService', () => {
       });
 
       expect(result.position).toBe(2);
+      // RETURNING names only the columns authenticated may read; never the key columns.
+      expect(mockSupabaseClient.from().insert().select).toHaveBeenCalledWith(
+        'id, quiz_id, question_text, question_type, points, position, created_at',
+      );
+      expect(result.question_text).toBe('New question?');
     });
   });
 

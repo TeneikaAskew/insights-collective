@@ -44,6 +44,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        # Full history: src/test/ci tests compare against named earlier commits (git show <sha>:path),
+        # e.g. gbJobHolds OLD=a283f1c and the quiz fixture seed versus 882e76d. A shallow clone lacks them.
+        fetch-depth: 0
+        persist-credentials: false
     
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
