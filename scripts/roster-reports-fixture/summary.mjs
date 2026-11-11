@@ -1,0 +1,236 @@
+#!/usr/bin/env node
+// ABOUTME: Fixed-format summaries for run.sh. Every input is read through ONE bounded handle (open, fstat, read, close).
+// ABOUTME: Output is fixed enums only (own-entry Map lookups) and computed integers; never a title, name, message or path.
+// Every line matches the job's staging grammar LINE below (UPPER tokens and lower_key=value pairs only).
+//
+// CLI:
+//   summary.mjs playwright <json> <playwright exit> <default|pending>  -> CASE lines + one PLAYWRIGHT line; exit 0 only when the
+//       (project, case) inventory equals cases.json EXACTLY (no omission, duplicate or extra) and every case passed
+//   summary.mjs witness <expected-seed> <pre> <post> <policy log>    -> WITNESS lines; exit 0 only when the pre SEED section
+//       equals the committed projection exactly, SEED and CERT sections are unchanged pre->post, and the security_events delta
+//       per actor equals the 'success' records of known actors in the sink. Unknown/malformed records: FAIL (exit 1).
+//       Failed/pending telemetry: reported separately as non-fatal, verdict INCOMPLETE (exit 4), never PASS.
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { FORBID_METHODS, FORBID_RESOURCES, KNOWN_RPCS, DIAG_ACTORS, DIAG_SCOPES, COUNT_CAP } from '../../e2e/roster-reports/request-policy.mjs';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+export const LIMIT = 8 * 1024 * 1024;
+export const LINE = /^[A-Z][A-Z0-9_]*( [A-Z][A-Z0-9_]*| [a-z][a-z0-9_]*=[A-Za-z0-9_.,-]{1,64})*$/;
+
+// Fixed output enums. Every emitted field is either one of these constants or an integer the code computed; no input
+// string is ever printed, and lookups use Map#get (own entries only), so 'constructor' and friends map to the fallback.
+const fixed = (pairs) => new Map(pairs);
+export const PROJECTS = fixed(['rr-instructor', 'rr-admin', 'rr-learner', 'rr-error-pending'].map((p) => [p, p]));
+export const CASES = fixed(['RR-I1', 'RR-I2', 'RR-I3', 'RR-I4', 'RR-I5', 'RR-M1', 'RR-M2', 'RR-A1', 'RR-L1', 'RR-L2', 'RR-L3', 'RR-P1'].map((c) => [c, c]));
+export const STATUS = fixed([['expected', 'PASS'], ['unexpected', 'FAIL'], ['skipped', 'SKIP'], ['flaky', 'FLAKY']]);
+export const SPEC_FILES = fixed(['instructor.spec.ts', 'admin.spec.ts', 'learner.spec.ts', 'mobile-keyboard.spec.ts', 'error.pending.ts', 'guarded-test.ts', 'helpers.ts', 'session-setup.ts'].map((f) => [f, f]));
+// Lane-reachable helper modules (finite basename allowlist): an error located in one of these keeps its basename instead of
+// collapsing to OTHER. Diagnostic wording only; it names where the error was raised, not why.
+export const HELPER_FILES = fixed(['origin-guard.mjs', 'request-policy.mjs', 'actors.mjs', 'expected.ts', 'console-errors.fixture.ts', 'local-binding.mjs', 'private-dir.mjs'].map((f) => [f, f]));
+// Pinned phase map: origin-guard.mjs (PINS.txt sha256 896ed452...) line 46 is `return route.fulfill({ response })`. Only that
+// exact file and line is FULFILL; any other origin-guard line is UNKNOWN. No other file gets a phase field.
+const PHASES = new Map([['origin-guard.mjs', new Map([[46, 'FULFILL']])]]);
+export const VARIANTS = fixed([['default', 'default'], ['pending', 'pending']]);
+const pick = (map, v, fallback) => (typeof v === 'string' && map.has(v) ? map.get(v) : fallback);
+const int = (v, lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : null);
+
+/**
+ * Bounded same-handle reader (pattern of scripts/e2e/stack-ownership.mjs readRecord): ONE descriptor opened with
+ * O_RDONLY|O_NOFOLLOW|O_NONBLOCK (a symlink fails at open; a FIFO opens at once and is refused by the type check);
+ * fstat on that descriptor (regular file; for private inputs also 0600, this uid, nlink 1; size <= max); read at most
+ * max+1 bytes (growth after fstat is refused); always close. Fixed SUMMARY_E_* codes only.
+ */
+export function readBounded(p, max = LIMIT, { privateFile = false } = {}) {
+  let fd;
+  try { fd = fs.openSync(p, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); }
+  catch (e) { throw new Error(e && e.code === 'ELOOP' ? 'SUMMARY_E_NOT_FILE' : 'SUMMARY_E_OPEN'); }
+  try {
+    let st;
+    try { st = fs.fstatSync(fd); } catch { throw new Error('SUMMARY_E_OPEN'); }
+    if (!st.isFile()) throw new Error('SUMMARY_E_NOT_FILE');
+    if (privateFile && ((st.mode & 0o777) !== 0o600 || st.nlink !== 1 || (typeof process.getuid === 'function' && st.uid !== process.getuid()))) throw new Error('SUMMARY_E_PRIVATE_FILE');
+    if (st.size > max) throw new Error('SUMMARY_E_TOO_LARGE');
+    const buf = Buffer.alloc(max + 1);
+    let off = 0;
+    for (;;) { const n = fs.readSync(fd, buf, off, max + 1 - off, off); if (n === 0) break; off += n; if (off > max) throw new Error('SUMMARY_E_TOO_LARGE'); }
+    return buf.subarray(0, off).toString('utf8');
+  } finally { fs.closeSync(fd); }
+}
+
+// Error category: a CLASSIFICATION of the first error message by fixed patterns, not a root cause. It is reported with
+// the first error's pinned source location (spec file from SPEC_FILES, integer line) so the phase is locatable.
+const CATEGORIES = [
+  ['ORIGIN', /requests to non-approved origins/],
+  ['POLICY', /forbidden API requests/],
+  ['TIMEOUT', /Timeout|timed out|exceeded/i],
+  ['ASSERTION', /expect\(|toHave|toEqual|toBe/],
+  // Wording-only Playwright categories, tried LAST so every message the patterns above already classify keeps its old
+  // category. They describe the error text ("disposed", "closed"); they are not a cause.
+  ['RESPONSE_DISPOSED', /Fetch response has been disposed/],
+  ['TARGET_CLOSED', /Target page, context or browser has been closed/],
+];
+// Fixed refusal codes thrown by session-setup, the test fixture, the request policy and the sink. A message whose first
+// line is '[<Name>Error: ]<CODE>[ key=value ...]' is classified as that CODE, and only the keys below are kept, each
+// validated against a fixed enum (own-key lookup) or an integer range; anything else becomes 'unknown' or is dropped.
+export const CODES = fixed(['RR_POLICY_E_FORBIDDEN', 'RR_POLICY_E_LATE_START', 'RR_SETUP_E_SESSION_DIR', 'RR_SETUP_E_NONCE', 'RR_SETUP_E_PASSWORD',
+  'RR_SETUP_E_SIGNIN', 'RR_SETUP_E_ASSOCIATION', 'RR_SETUP_E_ORIGIN', 'RR_SETUP_E_APP_API', 'RR_SETUP_E_SESSION_STATE', 'RR_TEST_E_ORIGIN',
+  'RR_SINK_E_RECORD', 'RR_SINK_E_ROOT', 'RR_SINK_E_OPEN', 'RR_SINK_E_FILE', 'RR_SINK_E_SIZE', 'RR_SINK_E_WRITE', 'RR_SINK_E_UNKNOWN'].map((c) => [c, c]));
+const ownEnum = (obj) => (v) => (Object.hasOwn(obj, v) ? obj[v] : 'unknown');
+const intIn = (lo, hi) => (v) => (/^\d{1,6}$/.test(v) && Number(v) >= lo && Number(v) <= hi ? String(Number(v)) : 'unknown');
+const RPC_FIELD = (v) => (v === 'none' ? 'none' : ownEnum(KNOWN_RPCS)(v));
+const FIELDS = [['scope', ownEnum(DIAG_SCOPES)], ['actor', ownEnum(DIAG_ACTORS)], ['count', intIn(0, COUNT_CAP)], ['distinct', intIn(0, COUNT_CAP)],
+  ['method', ownEnum(FORBID_METHODS)], ['resource', ownEnum(FORBID_RESOURCES)], ['rpc', RPC_FIELD], ['http', intIn(100, 599)]];
+const CODE_HEAD = /^(?:[A-Za-z]{0,40}Error: )?(RR_[A-Z]{1,10}_E_[A-Z_]{1,24})(?: (.*))?$/;
+export function classifyCode(msg) {
+  const m = CODE_HEAD.exec((String(msg).split('\n')[0] ?? '').slice(0, 512));
+  if (!m) return null;
+  const code = pick(CODES, m[1], 'RR_UNKNOWN_CODE');
+  const got = new Map();
+  for (const t of (m[2] ?? '').split(' ').slice(0, 16)) { const kv = /^([a-z]{1,10})=(.*)$/.exec(t); if (kv && !got.has(kv[1])) got.set(kv[1], kv[2]); }
+  const parts = [code];
+  for (const [k, check] of FIELDS) if (got.has(k)) parts.push(`${k}=${check(got.get(k))}`);
+  return parts.join(' ');
+}
+const category = (msg) => classifyCode(msg) ?? (CATEGORIES.find(([, re]) => re.test(msg)) ?? ['OTHER'])[0];
+const where = (e) => {
+  const loc = e && typeof e === 'object' ? e.location : null;
+  const base = loc && typeof loc.file === 'string' ? path.basename(loc.file) : undefined;
+  const file = pick(SPEC_FILES, base, pick(HELPER_FILES, base, 'OTHER'));
+  const line = int(loc?.line, 1, 99999);
+  const phases = PHASES.get(file);
+  const ph = phases ? ` phase=${(line !== null && phases.get(line)) || 'UNKNOWN'}` : '';
+  return ` file=${file} line=${line === null ? 'NONE' : line}${ph}`;
+};
+
+export function summarizePlaywright(report, pwExit, variant, cases) {
+  const v = pick(VARIANTS, variant, null);
+  const want = [...cases.default, ...(v === 'pending' ? cases.pendingExtra : [])].map(([p, c]) => `project=${pick(PROJECTS, p, 'OTHER')} case=${pick(CASES, c, 'UNKEYED')}`);
+  const got = [];
+  const lines = [];
+  let bad = v === null;
+  const walk = (s) => {
+    for (const spec of (Array.isArray(s?.specs) ? s.specs : [])) for (const t of (Array.isArray(spec?.tests) ? spec.tests : [])) {
+      const m = /^(RR-[A-Z]\d) /.exec(typeof spec.title === 'string' ? spec.title : '');
+      const key = `project=${pick(PROJECTS, t?.projectName, 'OTHER')} case=${pick(CASES, m ? m[1] : undefined, 'UNKEYED')}`;
+      got.push(key);
+      const st = pick(STATUS, t?.status, 'OTHER');
+      const errs = (Array.isArray(t?.results) ? t.results : []).flatMap((r) => (Array.isArray(r?.errors) ? r.errors : (r?.error ? [r.error] : [])));
+      const e = errs[0];
+      lines.push(`CASE ${st} ${key}${st === 'PASS' ? '' : ` category=${e === undefined ? 'NONE' : category(String(e?.message ?? ''))}${e === undefined ? '' : where(e)}`}`);
+      if (st !== 'PASS') bad = true;
+    }
+    for (const c of (Array.isArray(s?.suites) ? s.suites : [])) walk(c);
+  };
+  for (const s of (Array.isArray(report?.suites) ? report.suites : [])) walk(s);
+  const missing = want.filter((k) => !got.includes(k));
+  const extra = got.filter((k) => !want.includes(k));
+  const dup = got.filter((k, i) => got.indexOf(k) !== i);
+  const globalErrors = Array.isArray(report?.errors) ? report.errors.length : 0;
+  const exit = int(typeof pwExit === 'number' ? pwExit : /^\d{1,3}$/.test(String(pwExit)) ? Number(pwExit) : NaN, 0, 255);
+  if (missing.length || extra.length || dup.length || globalErrors || exit !== 0) bad = true;
+  lines.sort();
+  lines.push(`INVENTORY variant=${v ?? 'OTHER'} expected=${want.length} got=${got.length} missing=${missing.length} extra=${extra.length} duplicate=${dup.length}`);
+  for (const k of missing) lines.push(`MISSING ${k}`);
+  const g0 = globalErrors ? report.errors[0] : null;
+  lines.push(`PLAYWRIGHT exit=${exit === null ? 'X' : exit} global_errors=${globalErrors}${g0 ? ` first=${category(String(g0?.message ?? ''))}${where(g0)}` : ''} verdict=${bad ? 'FAIL' : 'PASS'}`);
+  return { ok: !bad, lines };
+}
+
+const section = (text, tag) => text.split('\n').filter((l) => l.startsWith(`${tag} `)).join('\n');
+
+export function compareWitness(expectedSeed, pre, post, policyLog) {
+  const lines = [];
+  let ok = true;
+  const seedPre = section(pre, 'SEED');
+  const seedWant = expectedSeed.split('\n').filter((l) => l.startsWith('SEED ')).join('\n');
+  const n = seedWant.split('\n').filter(Boolean).length;
+  if (n === 0) { lines.push('WITNESS SEED_PROJECTION EMPTY'); ok = false; }
+  else if (seedPre === seedWant) lines.push(`WITNESS SEED_PROJECTION MATCHES lines=${n}`);
+  else { lines.push('WITNESS SEED_PROJECTION DIFFERS'); ok = false; }
+  for (const tag of ['SEED', 'CERT']) {
+    const a = section(pre, tag); const b = section(post, tag);
+    if (a === b) lines.push(`WITNESS ${tag} UNCHANGED lines=${a.split('\n').filter(Boolean).length}`);
+    else { lines.push(`WITNESS ${tag} CHANGED`); ok = false; }
+  }
+  // Telemetry: a separate, scoped reconciliation. Not learning data, and not a whole-history claim.
+  const count = (text) => Object.fromEntries(section(text, 'TELEMETRY').split('\n').filter(Boolean).map((l) => {
+    const m = /^TELEMETRY actor=(admin|instructor|member) security_events=(\d+)$/.exec(l);
+    if (!m) throw new Error('SUMMARY_E_TELEMETRY_SHAPE');
+    return [m[1], Number(m[2])];
+  }));
+  const before = count(pre); const after = count(post);
+  // Every sink line must be exactly a canonical record. Only success by a known actor counts; anything else fails.
+  const recorded = { admin: 0, instructor: 0, member: 0 };
+  const bad = { unknown: 0, failed: 0, pending: 0, malformed: 0 };
+  const KNOWN = new Set(['admin', 'instructor', 'member']);
+  const lines2 = policyLog === '' ? [] : policyLog.split('\n');
+  if (lines2.length && lines2.pop() !== '') bad.malformed += 1; // the file must end with a newline
+  for (const l of lines2) {
+    const m = /^\{"rpc":"log_security_event","actor":"(admin|instructor|member|unknown)","status":"(success|failed|pending)"\}$/.exec(l);
+    if (!m) { bad.malformed += 1; continue; }
+    // Attribution first and independently of status: an unknown actor FAILS whether the call succeeded, failed or is
+    // pending. Only known actors reach the non-fatal (failed/pending -> INCOMPLETE) or the success count.
+    if (!KNOWN.has(m[1])) bad.unknown += 1;
+    else if (m[2] !== 'success') bad[m[2]] += 1;
+    else recorded[m[1]] += 1;
+  }
+  for (const a of ['admin', 'instructor', 'member']) {
+    if (!(a in before) || !(a in after)) { lines.push(`WITNESS TELEMETRY MISSING actor=${a}`); ok = false; continue; }
+    const delta = after[a] - before[a];
+    const match = delta === recorded[a];
+    lines.push(`WITNESS TELEMETRY ${match ? 'RECONCILED' : 'MISMATCH'} actor=${a} delta=${delta} recorded=${recorded[a]}`);
+    if (!match) ok = false;
+  }
+  // Unknown-actor or malformed records cannot be reconciled: FAIL. Failed or pending (unsettled) telemetry is product
+  // logging that did not complete: reported separately and NON-FATAL to the product, but the run then cannot claim
+  // complete preservation, so the verdict is INCOMPLETE (never PASS). Counts per actor are not event-identity proof.
+  for (const k of ['unknown', 'malformed']) if (bad[k]) { lines.push(`WITNESS TELEMETRY ${k.toUpperCase()} count=${bad[k]}`); ok = false; }
+  let incomplete = false;
+  for (const k of ['failed', 'pending']) if (bad[k]) { lines.push(`WITNESS TELEMETRY_NONFATAL ${k.toUpperCase()} count=${bad[k]}`); incomplete = true; }
+  lines.push('WITNESS TELEMETRY_PROOF scope=counts_per_actor identity=NOT_PROVEN');
+  const verdict = !ok ? 'FAIL' : incomplete ? 'INCOMPLETE' : 'PASS';
+  lines.push(`WITNESS verdict=${verdict}`);
+  return { ok: verdict === 'PASS', verdict, lines };
+}
+
+// Phase classification for the CLI: every step that can throw gets its own fixed code, so a refusal names the phase
+// (which input failed to parse, or which reducer threw) and never echoes the input, the parser message or a path.
+// Only a code in the FINITE set below passes through a boundary unchanged: the reader's own codes, the telemetry shape code
+// and the phase codes. Any other message, even one shaped like SUMMARY_E_*, is foreign and becomes the phase code (inside a
+// phase) or SUMMARY_E_INPUT (the CLI catch). Set#has matches own entries only, so 'constructor' and friends never match.
+export const OWN_CODES = new Set(['SUMMARY_E_OPEN', 'SUMMARY_E_NOT_FILE', 'SUMMARY_E_PRIVATE_FILE', 'SUMMARY_E_TOO_LARGE', 'SUMMARY_E_TELEMETRY_SHAPE',
+  'SUMMARY_E_CASES_JSON', 'SUMMARY_E_REPORT_JSON', 'SUMMARY_E_REPORT_REDUCER', 'SUMMARY_E_WITNESS_REDUCER']);
+export const ownCode = (e) => (e instanceof Error && typeof e.message === 'string' && OWN_CODES.has(e.message) ? e.message : null);
+export function phase(code, fn) {
+  try { return fn(); } catch (e) { throw new Error(ownCode(e) ?? code); }
+}
+export function playwrightSummary(casesText, reportText, pwExit, variant) {
+  const cases = phase('SUMMARY_E_CASES_JSON', () => JSON.parse(casesText));
+  const report = phase('SUMMARY_E_REPORT_JSON', () => JSON.parse(reportText));
+  return phase('SUMMARY_E_REPORT_REDUCER', () => summarizePlaywright(report, pwExit, variant, cases));
+}
+
+function main(argv) {
+  const [mode, ...a] = argv;
+  try {
+    if (mode === 'playwright' && a.length === 3 && ['default', 'pending'].includes(a[2])) {
+      const r = playwrightSummary(readBounded(path.join(HERE, 'cases.json'), 65536), readBounded(a[0], LIMIT, { privateFile: true }), a[1], a[2]);
+      console.log(r.lines.join('\n'));
+      return r.ok ? 0 : 1;
+    }
+    if (mode === 'witness' && a.length === 4) {
+      const ins = [readBounded(a[0]), readBounded(a[1], LIMIT, { privateFile: true }), readBounded(a[2], LIMIT, { privateFile: true }), readBounded(a[3], 256 * 1024, { privateFile: true })];
+      const r = phase('SUMMARY_E_WITNESS_REDUCER', () => compareWitness(...ins));
+      console.log(r.lines.join('\n'));
+      return r.verdict === 'PASS' ? 0 : r.verdict === 'INCOMPLETE' ? 4 : 1;
+    }
+    console.log('SUMMARY_E_USAGE');
+    return 2;
+  } catch (e) {
+    console.log(ownCode(e) ?? 'SUMMARY_E_INPUT');
+    return 3;
+  }
+}
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exit(main(process.argv.slice(2)));

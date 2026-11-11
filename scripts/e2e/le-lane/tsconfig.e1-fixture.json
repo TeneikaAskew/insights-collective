@@ -1,0 +1,19 @@
+{
+  "//": "Explicit type-check of the E1 worker fixture (outside tsconfig.app). Run: npx --no-install tsc -p scripts/e2e/le-lane/tsconfig.e1-fixture.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": true
+  },
+  "files": ["../../../e2e/lesson-editor/egress-test.ts"]
+}

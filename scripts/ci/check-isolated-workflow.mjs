@@ -23,6 +23,69 @@ export const ALLOWED_ROOTS = new Set(['github', 'inputs', 'runner', 'env', 'step
 export const ALLOWED_FUNCTIONS = new Set(['always', 'success', 'failure', 'cancelled', 'contains', 'startsWith', 'endsWith', 'format', 'join', 'toJSON', 'fromJSON', 'hashFiles']);
 export const ALLOWED_GITHUB_PROPS = new Set(['ref', 'sha', 'run_id', 'run_number', 'run_attempt', 'repository', 'workflow', 'event_name', 'job', 'actor', 'ref_name', 'workspace']);
 export const ALLOWED_ACTIONS = [/^actions\/checkout@v4$/, /^actions\/setup-node@v4$/, /^actions\/upload-artifact@v4$/];
+// The ONE reviewed private input (PROPOSAL, pending approval). A `secrets` root is allowed only as the WHOLE value of
+// this one env key, on this one step, of this one job, and only while every structural condition below holds: the job
+// runs in the protected environment (exact test branch, manual approval by the user, set in GitHub), its `if` is its own
+// dispatch input, and the step is byte-exact (id, name prefix, run text, a single env key; no if/uses/with/shell). At
+// runtime (--executed) that job must also be a workflow_dispatch of exactly the reviewed branch in exactly this
+// repository (a fork or another owner's copy is refused). This guard cannot attest the GitHub-side environment settings
+// (required reviewer, branch rule, admin bypass off); those stay native controls. Every other secrets use,
+// in any job, step, env, `with`, `if` or nested function, stays refused, as does `secrets: inherit`.
+export const PRIVATE_INPUT = Object.freeze({
+  job: 'gradebook-journey',
+  jobIf: "inputs.specs == 'gradebook-journey'",
+  environment: 'insights-isolated-storage',
+  ref: 'refs/heads/claude/gradebook-storage-private-input',
+  repository: 'TeneikaAskew/insights-collective',
+  stepId: 'gb_s0',
+  stepNamePrefix: 'Storage S0 private input (',
+  envName: 'STORAGE_METADATA_JSON',
+  value: '${{ secrets.STORAGE_METADATA_JSON }}',
+  run: 'set -o pipefail\nmkdir -m 700 "$RUNNER_TEMP/gb-st-priv"\nnode scripts/local-stack/storage/storage-job.mjs s0 "$RUNNER_TEMP/gb-st-priv" | tee "$GB_EVIDENCE/checks/storage-s0.txt"\n',
+});
+
+/**
+ * The allowed binding site, or null. Returns { path, problems }: path is the only place a secrets root may appear, and
+ * only when problems is empty. Any env key named like the input outside that site is a problem by itself.
+ */
+export function privateInputSite(doc) {
+  const P = PRIVATE_INPUT, problems = [];
+  const jobs = doc?.jobs && typeof doc.jobs === 'object' ? doc.jobs : {};
+  let site = null;
+  const envHas = (e) => e && typeof e === 'object' && !Array.isArray(e) && Object.prototype.hasOwnProperty.call(e, P.envName);
+  if (envHas(doc?.env)) problems.push(`private-input: ${P.envName} in workflow env`);
+  for (const [name, job] of Object.entries(jobs)) {
+    if (envHas(job?.env)) problems.push(`private-input: ${P.envName} in jobs.${name}.env`);
+    for (const [i, st] of (Array.isArray(job?.steps) ? job.steps : []).entries()) {
+      if (!envHas(st?.env)) continue;
+      const where = `jobs.${name}.steps.${i}`;
+      if (name !== P.job || site) { problems.push(`private-input: ${P.envName} at ${where} is not the one reviewed site`); continue; }
+      site = { path: `${where}.env.${P.envName}`, job, step: st };
+    }
+  }
+  if (!site) return { path: null, problems };
+  const { job, step } = site;
+  if (job.environment !== P.environment) problems.push(`private-input: jobs.${P.job}.environment must be exactly ${P.environment}`);
+  if (job.if !== P.jobIf) problems.push(`private-input: jobs.${P.job}.if must be exactly its own dispatch input`);
+  if (Object.keys(step).sort().join(',') !== 'env,id,name,run') problems.push('private-input: the step must have exactly name, id, env and run');
+  if (step.id !== P.stepId) problems.push(`private-input: the step id must be ${P.stepId}`);
+  if (typeof step.name !== 'string' || !step.name.startsWith(P.stepNamePrefix)) problems.push('private-input: the step name is not the reviewed S0 name');
+  if (step.run !== P.run) problems.push('private-input: the step run is not the reviewed S0 text');
+  if (Object.keys(step.env).length !== 1 || step.env[P.envName] !== P.value) problems.push(`private-input: the step env must be exactly ${P.envName}: ${P.value}`);
+  return { path: site.path, problems };
+}
+
+/** Runtime condition for --executed: the bound job runs only as a dispatch of the reviewed branch of this repository. */
+export function privateInputRuntime(doc, env) {
+  const site = privateInputSite(doc);
+  if (!site.path || env.GITHUB_JOB !== PRIVATE_INPUT.job) return [];
+  const p = [];
+  if (env.GITHUB_EVENT_NAME !== 'workflow_dispatch') p.push('private-input: runtime event is not workflow_dispatch');
+  if (env.GITHUB_REF !== PRIVATE_INPUT.ref) p.push(`private-input: runtime ref is not ${PRIVATE_INPUT.ref}`);
+  if (env.GITHUB_REPOSITORY !== PRIVATE_INPUT.repository) p.push(`private-input: runtime repository is not ${PRIVATE_INPUT.repository}`);
+  return p;
+}
+
 const PERMISSION_SCOPES = new Set(['actions', 'attestations', 'checks', 'contents', 'deployments', 'discussions', 'id-token', 'issues', 'models', 'packages', 'pages', 'pull-requests', 'repository-projects', 'security-events', 'statuses']);
 const RUN_RULES = [
   [/\bgit\s+(push|commit)\b/, 'commits or pushes'],
@@ -111,8 +174,11 @@ function checkPermissions(perm, where, allowEmptyOnly, problems) {
   }
 }
 
-export function checkWorkflowDoc(doc, rawText, prodRef) {
+export function checkWorkflowDoc(doc, rawText, prodRef, runtimeEnv) {
   const problems = [];
+  const site = doc && typeof doc === 'object' ? privateInputSite(doc) : { path: null, problems: [] };
+  problems.push(...site.problems);
+  if (runtimeEnv) problems.push(...privateInputRuntime(doc, runtimeEnv));
   if (prodRef && rawText.includes(prodRef)) problems.push('prod-ref: names the production project');
   if (!doc || typeof doc !== 'object') return [...problems, 'parse: not a mapping'];
   const on = doc.on;
@@ -138,7 +204,11 @@ export function checkWorkflowDoc(doc, rawText, prodRef) {
       for (const r of expressionRoots(m[1])) {
         const where = at.join('.');
         if (r.kind === 'fn') { if (!ALLOWED_FUNCTIONS.has(r.name)) problems.push(`expression: function ${r.name}() at ${where}`); continue; }
-        if (r.name === 'secrets') { problems.push(`secrets: expression at ${where}`); continue; }
+        if (r.name === 'secrets') {
+          const allowed = site.path !== null && site.problems.length === 0 && where === site.path && value === PRIVATE_INPUT.value;
+          if (!allowed) problems.push(`secrets: expression at ${where}`);
+          continue;
+        }
         if (r.name === 'vars') { problems.push(`vars: expression at ${where}`); continue; }
         if (!ALLOWED_ROOTS.has(r.name)) { problems.push(`expression: context ${r.name} at ${where}`); continue; }
         if (r.name === 'github' && !ALLOWED_GITHUB_PROPS.has(r.prop ?? '')) problems.push(`expression: github.${r.prop ?? '?'} at ${where}`);
@@ -148,12 +218,12 @@ export function checkWorkflowDoc(doc, rawText, prodRef) {
   return problems;
 }
 
-export async function checkWorkflowText(text, prodRef) {
+export async function checkWorkflowText(text, prodRef, runtimeEnv) {
   let YAML;
   try { YAML = await import('yaml'); } catch { return ['parser: the yaml package cannot be loaded']; }
   let doc;
   try { doc = YAML.parse(text, { uniqueKeys: true, schema: 'core' }); } catch (e) { return [`parse: ${e.message.split('\n')[0]}`]; }
-  return checkWorkflowDoc(doc, text, prodRef);
+  return checkWorkflowDoc(doc, text, prodRef, runtimeEnv);
 }
 
 /**
@@ -176,7 +246,8 @@ export function resolveExecutedWorkflow(env, head, exists = existsSync, isLink =
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let file = process.argv[2];
-  if (file === '--executed') {
+  const executed = file === '--executed';
+  if (executed) {
     let head = '';
     try { head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { /* reported below */ }
     const r = resolveExecutedWorkflow(process.env, head);
@@ -190,7 +261,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   catch { console.error('workflow or config.toml cannot be read'); process.exit(2); }
   const ref = (toml.match(/^\s*project_id\s*=\s*"([a-z0-9]+)"/m) || [])[1];
   if (!ref) { console.error('deny identity (project_id) not found'); process.exit(2); }
-  const problems = await checkWorkflowText(text, ref);
+  const problems = await checkWorkflowText(text, ref, executed ? process.env : undefined);
   if (problems.some((p) => p.startsWith('parser:'))) { console.error(problems.join('\n')); process.exit(2); }
   if (problems.length) { for (const p of problems) console.error(`refused: ${p}`); process.exit(1); }
   console.log('isolated workflow policy: ok');
