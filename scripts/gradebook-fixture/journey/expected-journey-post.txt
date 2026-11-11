@@ -1,0 +1,33 @@
+# UNRUN PROPOSAL. Exact journey-scope witness AFTER the browser run, every line pinned from source (no OBSERVED values).
+# <ID:name> is a run-generated UUID. tests/compare-witness.mjs binds each name from the first line it matches, requires the
+# same value everywhere it recurs, requires every bound id to be an ADDED manifest row of the named table (and no other
+# added or removed rows), requires the journey lines to equal this multiset exactly, and every HASH line to equal pre.
+# Literals cross-checked by tests/journey-selftest.mjs against ids.ts: size=329 is UPLOAD.body().length, comments_md5 is
+# md5(STORED_FEEDBACK). Learner display name "E2E Member" comes from the shared local preseed profile (not this lane's file).
+# Sources: notify_on_assignment_submission, notify_student_on_grade, audit_submission_grade, log_submission_file_access
+# (scripts/local-stack/schema/03_functions.sql), certificate issuer from composed-r5 000500/000600.
+COURSE 9b6c0000-0000-4000-8000-000000000001 published=true status=published
+ENROLL <ID:enrollment> user=e2e00000-0000-4000-8000-000000000003 completion_status=0
+PROG <ID:prog_page> user=e2e00000-0000-4000-8000-000000000003 item=9b6c0000-0000-4000-8000-000000000101 state=read
+PROG <ID:prog_assignment> user=e2e00000-0000-4000-8000-000000000003 item=9b6c0000-0000-4000-8000-000000000102 state=read
+SUB <ID:submission> user=e2e00000-0000-4000-8000-000000000003 assignment=9b6c0000-0000-4000-8000-000000000202 state=graded type=online_upload attempt=1 submitted_at=set grade=7 score=NULL comments_md5=9a5f0c21151ec69e5b6f70239e1821ed graded_at=set
+ATT <ID:attachment> submission=<ID:submission> filename=journey-essay.pdf size=329 key_in_learner_prefix=true object_exists=true
+OBJ <ID:object> bucket=course-documents owner=e2e00000-0000-4000-8000-000000000003 in_learner_prefix=true size=329 mimetype=application/pdf
+CERT <ID:certificate> user=e2e00000-0000-4000-8000-000000000003 type=completion auto_issued=true total_items=2 code_shape_ok=true issued_before_graded=true
+AUDIT #1 action=file_downloaded actor=e2e00000-0000-4000-8000-000000000002 submission=<ID:submission> student=e2e00000-0000-4000-8000-000000000003 assignment=9b6c0000-0000-4000-8000-000000000202 course=9b6c0000-0000-4000-8000-000000000001 module=9b6c0000-0000-4000-8000-000000000002 attachment=<ID:attachment> filename=journey-essay.pdf details={}
+AUDIT #2 action=grade_posted actor=e2e00000-0000-4000-8000-000000000002 submission=<ID:submission> student=e2e00000-0000-4000-8000-000000000003 assignment=9b6c0000-0000-4000-8000-000000000202 course=9b6c0000-0000-4000-8000-000000000001 module=9b6c0000-0000-4000-8000-000000000002 attachment=NULL filename=NULL details={"new_grade": 7.00, "new_workflow_state": "graded", "old_workflow_state": "submitted", "rubric_scores_changed": false, "grader_comments_changed": true}
+NOTIF user=e2e00000-0000-4000-8000-000000000002 type=assignment_submitted title=New submission: Journey essay upload message=E2E Member submitted Journey essay upload (Journey module). link=/courses/9b6c0000-0000-4000-8000-000000000001/assignments
+NOTIF user=e2e00000-0000-4000-8000-000000000003 type=assignment_graded title=Assignment graded: Journey essay upload message=Your submission was graded. link=/courses/9b6c0000-0000-4000-8000-000000000001/modules/9b6c0000-0000-4000-8000-000000000002/assignments/9b6c0000-0000-4000-8000-000000000202
+NOTIF user=e2e00000-0000-4000-8000-000000000003 type=assignment_submitted title=Submission received: Journey essay upload message=We received your work for Journey essay upload (Journey module). You will be notified when it is graded. link=/courses/9b6c0000-0000-4000-8000-000000000001/assignments
+ADDED assignment_submissions <ID:submission>
+ADDED certificates <ID:certificate>
+ADDED content_item_progressions <ID:prog_assignment>
+ADDED content_item_progressions <ID:prog_page>
+ADDED enrollments <ID:enrollment>
+ADDED storage.objects <ID:object>
+ADDED submission_attachments <ID:attachment>
+ADDED submission_audit_events <ID:audit_download>
+ADDED submission_audit_events <ID:audit_grade>
+ADDED notifications <ID:notif_staff>
+ADDED notifications <ID:notif_receipt>
+ADDED notifications <ID:notif_grade>

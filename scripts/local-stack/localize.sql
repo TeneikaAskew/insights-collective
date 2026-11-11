@@ -30,6 +30,9 @@ begin
   end loop;
   raise notice 'local-stack: % distinct vault name(s): % created, % updated', coalesce(array_length(names, 1), 0), created, updated;
 end $$;
+-- All three course buckets are private, as migration 20260413002243_make_course_buckets_private_and_fix_roles.sql made
+-- them and as src/utils/storageAssets.ts reads them (signed URLs). This line had course-images public, which the Storage
+-- S1 preflight refuses (ST_E_BUCKET_PUBLIC*), run 41532681999.
 insert into storage.buckets (id, name, public)
-values ('course-documents','course-documents', false), ('course-images','course-images', true), ('course-videos','course-videos', false)
+values ('course-documents','course-documents', false), ('course-images','course-images', false), ('course-videos','course-videos', false)
 on conflict (id) do nothing;

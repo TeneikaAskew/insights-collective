@@ -1,0 +1,28 @@
+{
+  "//": "Explicit strict type-check of the sealed video fixture, the spec that imports it, and the sealed config (outside tsconfig.app). Run: npx --no-install tsc -p scripts/e2e/le-lane/tsconfig.video-fixture.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "allowJs": true,
+    "checkJs": false,
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": true
+  },
+  "files": [
+    "../../../e2e/stubbed/sandboxed-test.ts",
+    "../../../e2e/stubbed/wp09a-video-embed.spec.ts",
+    "../../../playwright.sealed-video.config.ts"
+  ]
+}

@@ -1,0 +1,13 @@
+# composed-r5 (all 7 T-09 migrations, 20261101000600 pin): P4's learner move of own GX row 311 INTO 'graded' is pinned
+# back to 'submitted', so 311 stays submitted with no audit row. Every other line is identical to expected-post.txt.
+STATE 9b6b0000-0000-4000-8000-000000000301 grade=0 score=NULL state=graded comments_md5=<SG0b> graded_at=set attempt=1
+STATE 9b6b0000-0000-4000-8000-000000000302 grade=7 score=NULL state=graded comments_md5=<SG7> graded_at=set attempt=1
+STATE 9b6b0000-0000-4000-8000-000000000303 grade=0 score=NULL state=graded comments_md5=NULL graded_at=set attempt=1
+STATE 9b6b0000-0000-4000-8000-000000000304 grade=7 score=NULL state=graded comments_md5=NULL graded_at=set attempt=1
+STATE 9b6b0000-0000-4000-8000-000000000311 grade=NULL score=NULL state=submitted comments_md5=NULL graded_at=NULL attempt=1
+STATE 9b6b0000-0000-4000-8000-000000000312 grade=NULL score=NULL state=submitted comments_md5=NULL graded_at=NULL attempt=1
+AUDIT 9b6b0000-0000-4000-8000-000000000301 #1 action=grade_posted actor=e2e00000-0000-4000-8000-000000000002 old_grade=NULL new_grade=0 old_state=submitted new_state=graded comments_changed=true
+AUDIT 9b6b0000-0000-4000-8000-000000000301 #2 action=grade_changed actor=e2e00000-0000-4000-8000-000000000002 old_grade=0 new_grade=0 old_state=graded new_state=graded comments_changed=true
+AUDIT 9b6b0000-0000-4000-8000-000000000302 #1 action=grade_posted actor=e2e00000-0000-4000-8000-000000000002 old_grade=NULL new_grade=7 old_state=submitted new_state=graded comments_changed=true
+AUDIT 9b6b0000-0000-4000-8000-000000000303 #1 action=grade_posted actor=e2e00000-0000-4000-8000-000000000002 old_grade=NULL new_grade=0 old_state=submitted new_state=graded comments_changed=false
+AUDIT 9b6b0000-0000-4000-8000-000000000304 #1 action=grade_posted actor=e2e00000-0000-4000-8000-000000000002 old_grade=NULL new_grade=7 old_state=submitted new_state=graded comments_changed=false

@@ -1,5 +1,3 @@
-// import { supabase } from '@/integrations/supabase/client';
-// import { supabase } from '../../../integrations/supabase/client.ts';
 import { supabase, callLLMWithRetry } from './utils.ts';
 const bulletCache = new Map(); // Cache for storing bullet points by user ID
 

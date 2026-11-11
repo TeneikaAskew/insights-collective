@@ -94,10 +94,60 @@ jobs:
         #                             vitest fixture: fixed synthetic strings written
         #                             into a fresh mkdtemp directory; no network data
         #                             (one exact file, approved 2026-11-01)
+        #   e2e/quiz-lifecycle/session.fixture.ts
+        #                             explicit local-DB-to-disk evidence writer for the isolated learner-quiz
+        #                             lane. Sources: a fixed read-only SQL file (scripts/local-stack/quiz-
+        #                             lifecycle/ledger.sql, SESSION READ ONLY) scoped to one synthetic learner
+        #                             and quiz on the run-owned loopback stack, plus the fixed output of
+        #                             revoke-access.sh and a per-test egress violation count. Rows are kept
+        #                             only by a /^[AWPEGC]\t/ PREFIX filter; that is not a full grammar, and
+        #                             W rows carry DB-derived answer JSON verbatim. Output root is
+        #                             QLC_EVIDENCE_DIR (runner temp) under fixed names (ledger/<label>.tsv,
+        #                             checks/revoke-access.txt, egress.txt). Not network-response sanitization
+        #   src/test/ci/caseDiagnostics.test.ts, src/test/ci/checkLearnerAuthGate.test.ts,
+        #   src/test/ci/checkT09StageContract.test.ts, src/test/ci/gbJobHolds.test.ts
+        #                             vitest fixtures: fixed synthetic strings (fake psql/node/rm shims, fake
+        #                             fetch preload, 'fake-key', placeholder files) into fresh mkdtemp dirs; no
+        #                             network data
+        #   (the five entries above approved 2026-11-02: user 12:08:50Z, relayed by T 13:01:47Z; proposal c1059c5)
+        #   src/test/ci/checkGradebookJourneyJob.test.ts
+        #                             vitest fixture: one stage-evidence negative writes fixed synthetic receipts
+        #                             ('ok', or empty) and a placeholder tested-ids.txt into a fresh mkdtemp dir,
+        #                             runs the real stack-checks.sh stage-evidence on it, and removes the dir; no
+        #                             network data (one exact file; approved 2026-11-02: user 19:14:49Z,
+        #                             relayed by T 19:15:29Z; proposal r1.1, diff 926fcf0e)
+        #   e2e/roster-reports/actors.mjs
+        #                             roster acceptance telemetry sink (appendTelemetry, the file's only write):
+        #                             one JSON line {"rpc","actor","status"} whose values are own keys of fixed
+        #                             null-prototype enums (no body, token, header, URL or raw id), appended through
+        #                             one O_WRONLY|O_APPEND|O_NOFOLLOW|O_NONBLOCK fd (no O_CREAT) to a run.sh
+        #                             pre-created 0600 policy.jsonl under the private 0700 rr-run.XXXXXXXXXX/session
+        #                             dir, fstat-checked on the same fd, bounded; used for database reconciliation
+        #                             (one exact file; approved 2026-11-03: user 02:53:20Z, relayed by T 02:55:03Z;
+        #                             scope packet pr134/owner-review-packets/roster-actors-writer-scope/)
+        #   e2e/stubbed/sandboxed-test.ts
+        #                             sealed stubbed video lane fixture (local, unrun lane): exactly two
+        #                             writeFileSync calls per Playwright worker, flag 'wx' (exclusive, never
+        #                             overwrite) and mode 0600, at <LE_EGRESS_DIR>/<stem>.start (fixed text
+        #                             EGRESS_WORKER_START) and <stem>.end (closed grammar: a counter line and at
+        #                             most 16 REFUSED lines). The stem is egressStem(): worker and parallel index,
+        #                             pid and 16 random hex digits; nothing from the page reaches the path.
+        #                             LE_EGRESS_DIR is the lane's private output dir, created empty with mode 0700
+        #                             by video-entry.mjs; that confinement depends on the composed lane carrier.
+        #                             Browser-derived content is limited to: event-derived counts (refused,
+        #                             tests) and the closed flag; per REFUSED line, the category (method or
+        #                             websocket), a constrained method token (upper-case A-Z, 1-12 letters, else
+        #                             '-'), and the origin reduced to scheme://host[:port] or <opaque>
+        #                             (egress-records.mjs refusedLine/refusalOrigin); origins can be private. Records
+        #                             are detection evidence, not tamper-proof; observation starts after context
+        #                             construction, and no event after the ledger is sealed is assumed, not
+        #                             proven. No network response bodies are written.
+        #                             (one exact file; REVIEW CANDIDATE, recomposed on main c91c8c19 from source
+        #                             66c6e365; not yet approved)
         #
         # mkdirSync is deliberately not matched: creating a directory puts no data on
         # disk, and matching it would only force e2e/global-setup.ts onto this list.
-        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|src/test/ci/checkLocalTarget\.test\.ts$)'
+        ALLOWED='^(scripts/|e2e/fixtures/console-errors\.fixture\.ts$|e2e/quiz-lifecycle/session\.fixture\.ts$|e2e/roster-reports/actors\.mjs$|e2e/stubbed/sandboxed-test\.ts$|src/test/ci/(checkLocalTarget|caseDiagnostics|checkLearnerAuthGate|checkT09StageContract|gbJobHolds|checkGradebookJourneyJob)\.test\.ts$)'
 
         hits=$(git ls-files '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
           | grep -vE "$ALLOWED" \
@@ -257,21 +307,15 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: TruffleHog Secret Scan
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        # base/head must name two DIFFERENT commits or TruffleHog aborts with
-        # "BASE and HEAD commits are the same. TruffleHog won't scan anything."
-        # `base: default_branch` + `head: HEAD` collide on every push to main,
-        # which is what this job was doing. Diff the range the event actually
-        # describes instead: the pushed range on push, the PR range on
-        # pull_request. On the weekly schedule there is no range, so both stay
-        # empty and TruffleHog scans the full history (fetch-depth: 0 above).
-        #
-        # The first push to a new branch (develop is a push target) reports
-        # `before` as the all-zero SHA. That is nonempty, so the action would
-        # hand it to --since-commit and git would fail to resolve it; treat it
-        # as "no range" and fall through to a full scan.
-        base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && github.event.before || '' }}
-        head: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'push' && github.sha || '' }}
+    - name: Official TruffleHog action equality guard (wrapper mirrors scripts/ci/vendor/trufflehog-action.yml)
+      run: node scripts/ci/check-trufflehog-action.mjs
+    - name: TruffleHog Secret Scan (gated; exact approved exceptions only)
+      env:
+        # Range rules unchanged: the PR range on pull_request, the pushed range on push (an all-zero `before` means
+        # no base), and no range on schedule/dispatch (full history; fetch-depth: 0 above). BASE == HEAD is refused
+        # exactly as the official action refuses it (scripts/ci/vendor/trufflehog-action.yml).
+        BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || (github.event_name == 'push' && github.event.before != '0000000000000000000000000000000000000000') && github.event.before || '' }}
+        HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.event_name == 'push' && github.sha || '' }}
+      # The wrapper keeps raw scanner output in a private 0700 dir under RUNNER_TEMP, gates it, prints counts and
+      # identity digests only, and removes the dir on every exit path. Nothing is uploaded.
+      run: bash scripts/ci/trufflehog-scan.sh

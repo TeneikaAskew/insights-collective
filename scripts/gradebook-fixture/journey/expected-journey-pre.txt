@@ -1,0 +1,2 @@
+# UNRUN PROPOSAL. Exact journey-scope witness BEFORE the browser run (after seed-journey.sql): the draft shell and nothing else.
+COURSE 9b6c0000-0000-4000-8000-000000000001 published=false status=draft

@@ -41,7 +41,9 @@ describe('publishPatch', () => {
   it('unpublish sets published=false and status=draft', () => {
     expect(publishPatch(false)).toEqual({ published: false, status: 'draft' });
   });
-  it('catalog filters on the same column RLS uses', () => {
+  // This only pins the constant's value. That the catalog actually FILTERS on it (and not on the legacy status mirror)
+  // is proven by the query-aware contract in src/pages/__tests__/CourseList.test.tsx.
+  it('PUBLISHED_COLUMN names the published column', () => {
     expect(PUBLISHED_COLUMN).toBe('published');
   });
 });
