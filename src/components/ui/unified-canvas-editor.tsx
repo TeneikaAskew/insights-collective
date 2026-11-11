@@ -12,7 +12,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
+import { CompatibleTableCell as TableCell } from './extensions/compatible-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -163,7 +163,8 @@ export function UnifiedCanvasEditor({
           levels: [1, 2, 3, 4, 5, 6],
         },
       }),
-      TextStyle,
+      // Preserve inherited nested-span styles from the previously used v3 extension.
+      TextStyle.configure({ mergeNestedSpanStyles: true }),
       Color,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
