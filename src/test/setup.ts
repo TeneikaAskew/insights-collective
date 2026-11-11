@@ -68,7 +68,9 @@ const localStorageMock = {
 };
 global.localStorage = localStorageMock as any;
 
-// Mock fetch
+// Mock fetch. The real one is kept for opt-in integration suites that talk to the local stack
+// (CourseGradebook.bulk.integration.test.tsx); unit tests only ever see the mock.
+(globalThis as { __realFetch?: typeof fetch }).__realFetch = globalThis.fetch;
 global.fetch = vi.fn();
 
 // Mock useAuth module globally with all exports

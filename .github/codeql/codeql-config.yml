@@ -47,6 +47,18 @@ query-filters:
   # JSON stays DB-derived), plus fixed script output and counts, under
   # QLC_EVIDENCE_DIR. It is not network-response sanitization.
   #
+  # It also allows one exact local test writer, e2e/stubbed/sandboxed-test.ts (sealed
+  # stubbed video lane, review candidate): two exclusive ('wx') mode-0600 records per
+  # Playwright worker under the lane's private LE_EGRESS_DIR, at fixed-grammar names
+  # with no page-derived path part. Browser-derived content is limited to event-derived
+  # counts (refused, tests) and a closed flag, and per refused non-GET/HEAD request or
+  # WebSocket: its category, a constrained method token (A-Z, 1-12 letters, else '-')
+  # and its origin reduced to scheme://host[:port] or <opaque>, which can be private;
+  # no response body is written. The records are detection
+  # evidence, not tamper-proof, and their confinement depends on the composed lane
+  # carrier. It is listed because the gate matches every write call, not because this
+  # exclusion was widened for it.
+  #
   # None of these adds a query suppression; the query filter below is unchanged and
   # remains reviewed debt.
   #
@@ -55,8 +67,9 @@ query-filters:
   # reviewed locations" step in security.yml keeps the set closed: it enumerates
   # every tracked source file, subtracts its ALLOWED list (scripts/, the
   # console-errors fixture, the six fixture-only test files, the local-DB
-  # evidence writer above and the roster telemetry sink e2e/roster-reports/actors.mjs,
-  # which writes only fixed enum values), and fails
+  # evidence writer and the sealed-video record writer above, and the roster
+  # telemetry sink e2e/roster-reports/actors.mjs, which writes only fixed enum
+  # values), and fails
   # the build on any other write call. That gate limits where writes may appear; it
   # does not make this repo-wide exclusion safe, which remains reviewed debt.
   # Remove that step and this exclusion stops being narrow.

@@ -243,7 +243,15 @@ jobs:
             e2e/courses/course-learn.spec.ts e2e/courses/course-progress.spec.ts e2e/courses/course-certificate.spec.ts \
             e2e/evidence/frontend-evidence.spec.ts \
             --project=chromium-instructor e2e/courses/course-builder.spec.ts e2e/courses/course-gradebook.spec.ts \
-            e2e/instructor/grade-entry-precision.spec.ts
+            e2e/instructor/grade-entry-precision.spec.ts e2e/instructor/gradebook-table-range.spec.ts
+
+      # Bulk grading has no UI: the page's own bulk handler, driven against this same seeded loopback stack. The test
+      # refuses any non-loopback VITE_SUPABASE_URL or SUPABASE_DB_URL itself, and skips without E2E_GRADEBOOK_DB=1.
+      - name: Gradebook bulk handler against the isolated stack
+        if: inputs.specs == 'lms-courses' || inputs.specs == 'lms-courses-migrated'
+        env:
+          E2E_GRADEBOOK_DB: '1'
+        run: npx --no-install vitest run src/pages/__tests__/CourseGradebook.bulk.integration.test.tsx
 
       - name: Upload evidence
         if: always()
@@ -1269,10 +1277,22 @@ jobs:
       # instructor SELECT, owner DELETE; negatives from the pinned semantics; O1 is an EMULATION (mirrored policies dropped
       # inside its own rolled-back transaction). After each: run-owned residue 0 and the S3 catalog again.
       - name: Storage S4 SQL policy probes (after the actors, before the adapter; every case rolls back)
+        id: gb_s4
         run: |
           set -o pipefail
           node scripts/e2e/assert-safe-target.mjs --mutating
           node scripts/local-stack/storage/storage-job.mjs s4 "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4.txt"
+
+      # S4d: one N1 owner-DELETE exception-origin diagnostic, whatever S4 concluded (S4 and its verdict are unchanged).
+      # Same N1 body, expectation and rolled-back transaction; only a fixed category word leaves the session; residue and
+      # the catalog are re-checked; a producer failure or an invalid diagnostic fails this step. Not a fix, not a cause proof.
+      - name: Storage S4d N1 exception-origin diagnostic (fixed category only; rolls back; after S4 whatever its result)
+        id: gb_s4d
+        if: always() && (steps.gb_s4.outcome == 'success' || steps.gb_s4.outcome == 'failure')
+        run: |
+          set -o pipefail
+          node scripts/e2e/assert-safe-target.mjs --mutating
+          node scripts/local-stack/storage/storage-job.mjs s4d "$RUNNER_TEMP/gb-st-priv" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" | tee "$GB_EVIDENCE/checks/storage-s4d.txt"
 
       # Gradebook-owned adapter, unchanged: pins, guards, D1 verify (live sysid + its own reviewed constant), served-app gate,
       # composed-r5, private dirs, pairing carrier, seed, witness, the five journey projects, witness, compare, 5-file inventory.
@@ -1369,7 +1389,7 @@ jobs:
         run: |
           REQ=""; [ "${{ job.status }}" = success ] && REQ=--require-all
           E="$GB_EVIDENCE"
-          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/storage-s0.txt" "$E/checks/storage-s1.txt" "$E/checks/storage-s2.txt" "$E/checks/storage-s3.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/d1-composition.txt" "$E/checks/actors.txt" "$E/checks/storage-s4.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/storage-leakscan.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
+          scripts/local-stack/t09/stack-checks.sh stage-evidence $REQ gbj-upload "$E/checks/net-create.txt" "$E/checks/net-verify-start.txt" "$E/checks/ports-start.txt" "$E/checks/mail.txt" "$E/checks/no-edge-start.txt" "$E/checks/stage-pre.txt" "$E/checks/bootstrap.txt" "$E/checks/identities.txt" "$E/checks/migrations-new.txt" "$E/checks/storage-s0.txt" "$E/checks/storage-s1.txt" "$E/checks/storage-s2.txt" "$E/checks/storage-s3.txt" "$E/checks/hermetic.txt" "$E/checks/HERMETIC-PROVENANCE.json" "$E/checks/avatar-fixture.txt" "$E/checks/AVATAR-PROVENANCE.json" "$E/checks/served-app-check.txt" "$E/checks/avatar-live.txt" "$E/checks/headless-shell.txt" "$E/checks/launch-binding.txt" "$E/checks/d1-write.txt" "$E/checks/d1-composition.txt" "$E/checks/actors.txt" "$E/checks/storage-s4.txt" "$E/checks/storage-s4d.txt" "$E/checks/journey.txt" "$E/journey/compare.txt" "$E/journey/composition.txt" "$E/journey/pairing.txt" "$E/journey/playwright-summary.txt" "$E/journey/screenshots.txt" "$E/journey/seed.txt" "$E/checks/no-edge-end.txt" "$E/checks/owned-stop.txt" "$E/checks/storage-leakscan.txt" "$E/checks/private-removed.txt" "$E/checks/net-remove.txt" "$E/checks/leftovers.txt" -- tested-ids.txt "$E"
       - name: Upload evidence (the staged manifest only; after a leak tripwire PASS whenever S0 started)
         if: always() && steps.stage.outcome == 'success' && (steps.gb_s0.outcome == 'skipped' || steps.gb_leak.outcome == 'success')
         uses: actions/upload-artifact@v4
