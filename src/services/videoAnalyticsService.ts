@@ -314,7 +314,7 @@ class VideoAnalyticsService {
     batchId: string,
     deltas: EngagementDeltas
   ): Promise<ApplyDeltasResult | null> {
-    const { data, error } = await supabase.rpc('apply_video_engagement_batch', {
+    const { data, error } = await (supabase.rpc.bind(supabase) as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>)('apply_video_engagement_batch', {
       p_content_item_id: contentItemId,
       p_batch_id: batchId,
       p_watch_time_delta: wholeDelta(deltas.watchTimeDelta),
