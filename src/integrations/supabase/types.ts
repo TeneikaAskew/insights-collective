@@ -5965,27 +5965,6 @@ export type Database = {
       }
     }
     Functions: {
-      apply_video_engagement_batch: {
-        Args: {
-          p_batch_id: string
-          p_completion_percentage?: number | null
-          p_content_item_id: string
-          p_last_position?: number | null
-          p_pause_count_delta?: number
-          p_play_count_delta?: number
-          p_playback_speed?: number | null
-          p_seek_count_delta?: number
-          p_video_duration?: number | null
-          p_watch_time_delta?: number
-        }
-        Returns: {
-          outcome: string
-          pause_count: number
-          play_count: number
-          seek_count: number
-          watch_time: number
-        }[]
-      }
       admin_user_role_counts: {
         Args: never
         Returns: {
