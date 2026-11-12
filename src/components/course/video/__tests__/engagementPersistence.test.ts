@@ -1,10 +1,10 @@
 // ABOUTME: Contract tests: WatchReporter + the real videoAnalyticsService over an in-memory video_analytics fake.
-// ABOUTME: Covers first-row creation, commit-then-reject retries and overlapping same-key writers (review R2/R3).
+// ABOUTME: Runs with the idempotent batch RPC deployed and, as the fallback, with it missing (compare-and-set).
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 type Row = Record<string, any>;
-type Op = { kind: 'select' | 'insert' | 'update'; values?: Row };
+type Op = { kind: 'select' | 'insert' | 'update' | 'rpc'; values?: Row };
 
 /**
  * Minimal PostgREST-shaped fake of the one table, with the semantics that
@@ -18,6 +18,11 @@ const db = vi.hoisted(() => {
     before: null as null | ((op: Op) => Promise<void> | void),
     /** Return an error AFTER the operation committed (a lost response). */
     failAfterCommit: null as null | ((op: Op) => boolean),
+    /** Whether apply_video_engagement_batch exists (migration 20261112000000 applied). */
+    rpcDeployed: true,
+    /** The server's batch ledger: `${user}:${batch}`. */
+    batches: new Set<string>(),
+    rpcCalls: 0,
   };
   return state;
 });
@@ -76,8 +81,38 @@ vi.mock('@/integrations/supabase/client', () => {
     return b;
   }
 
+  /** Same semantics as apply_video_engagement_batch: ledger insert + atomic upsert in one step. */
+  async function rpc(name: string, args: Row) {
+    if (name !== 'apply_video_engagement_batch') throw new Error(`unexpected rpc ${name}`);
+    db.rpcCalls += 1;
+    if (!db.rpcDeployed) return { data: null, error: { code: 'PGRST202', message: 'Could not find the function' } };
+    const op: Op = { kind: 'rpc', values: args };
+    if (db.before) await db.before(op);
+    const user = 'u1'; // auth.uid() of the caller in these tests
+    const key = `${user}:${args.p_batch_id}`;
+    let row = db.rows.find((r) => r.user_id === user && r.content_item_id === args.p_content_item_id);
+    let outcome = 'already-applied';
+    if (!db.batches.has(key)) {
+      db.batches.add(key);
+      outcome = 'applied';
+      if (!row) {
+        row = { user_id: user, content_item_id: args.p_content_item_id, watch_time: 0, play_count: 0, pause_count: 0, seek_count: 0 };
+        db.rows.push(row);
+      }
+      row.watch_time += args.p_watch_time_delta;
+      row.play_count += args.p_play_count_delta;
+      row.pause_count += args.p_pause_count_delta;
+      row.seek_count += args.p_seek_count_delta;
+      if (args.p_last_position !== null) row.last_position = args.p_last_position;
+    }
+    if (db.failAfterCommit?.(op)) return { data: null, error: { message: 'Failed to fetch (response lost after commit)' } };
+    const { watch_time, play_count, pause_count, seek_count } = row ?? {};
+    return { data: [{ outcome, watch_time, play_count, pause_count, seek_count }], error: null };
+  }
+
   return {
     supabase: {
+      rpc,
       from: () => ({
         select: (c = '*') => builder('select').select(c),
         insert: (values: Row) => builder('insert', values),
@@ -115,9 +150,80 @@ beforeEach(() => {
   db.rows = [];
   db.before = null;
   db.failAfterCommit = null;
+  db.batches = new Set();
+  db.rpcCalls = 0;
+  // A fresh service instance per test, so the "RPC missing" fallback flag does not leak between tests.
+  (videoAnalyticsService as unknown as { batchRpcUnavailable: boolean }).batchRpcUnavailable = false;
 });
 
-describe('engagement persistence contract (default service)', () => {
+/** An existing row, seeded directly so the R3 controls do not depend on the create path. */
+const seedRow = (watch_time: number) =>
+  db.rows.push({ user_id: 'u1', content_item_id: 'v1', watch_time, play_count: 1, pause_count: 1, seek_count: 0 });
+
+describe('engagement persistence contract (idempotent batch RPC deployed)', () => {
+  beforeEach(() => { db.rpcDeployed = true; });
+
+  it('creates an absent row holding exactly the first batch, through the RPC only', async () => {
+    const { reporter, watch } = reporterFor('u1', 'v1');
+    watch(0, 10);
+    await reporter.dispose();
+    expect(row()).toMatchObject({ watch_time: 10, play_count: 1, pause_count: 1, seek_count: 0, last_position: 10 });
+    expect(db.rpcCalls).toBe(1);
+  });
+
+  it('a lost-response batch retried with the same id is applied once', async () => {
+    seedRow(5);
+    const second = reporterFor('u1', 'v1');
+    let lose = true;
+    db.failAfterCommit = (op) => op.kind === 'rpc' && lose && !(lose = false);
+    second.watch(5, 7);
+    await vi.waitFor(() => expect(second.statuses).toContain('error'));
+    expect(row()).toMatchObject({ watch_time: 12 });
+    await second.reporter.dispose();
+    expect(row()).toMatchObject({ watch_time: 12, play_count: 2, pause_count: 2 });
+    expect(second.reporter.currentStatus).toBe('saved');
+  });
+
+  it('FIXED (was the disclosed limit): a lost-response batch changed by another writer before the retry is not applied twice', async () => {
+    const first = reporterFor('u1', 'v1');
+    let lose = true;
+    db.failAfterCommit = (op) => op.kind === 'rpc' && lose && !(lose = false);
+    first.watch(0, 5);
+    await vi.waitFor(() => expect(first.statuses).toContain('error'));
+    db.failAfterCommit = null;
+    const other = reporterFor('u1', 'v1');
+    other.watch(0, 3);
+    await other.reporter.dispose();
+    await first.reporter.dispose();
+    expect(row()!.watch_time).toBe(5 + 3);
+    expect(first.reporter.currentStatus).toBe('saved');
+  });
+
+  it('two overlapping writers both land', async () => {
+    seedRow(1);
+    const a = reporterFor('u1', 'v1');
+    const b = reporterFor('u1', 'v1');
+    a.watch(1, 10);
+    b.watch(1, 20);
+    await Promise.all([a.reporter.dispose(), b.reporter.dispose()]);
+    expect(row()).toMatchObject({ watch_time: 1 + 10 + 20, play_count: 3, pause_count: 3 });
+  });
+});
+
+describe('engagement persistence contract (RPC not deployed: compare-and-set fallback)', () => {
+  beforeEach(() => { db.rpcDeployed = false; });
+
+  it('falls back after one missing-function answer and does not ask again', async () => {
+    const first = reporterFor('u1', 'v1');
+    first.watch(0, 4);
+    await first.reporter.dispose();
+    const second = reporterFor('u1', 'v1');
+    second.watch(4, 2);
+    await second.reporter.dispose();
+    expect(row()).toMatchObject({ watch_time: 6, pause_count: 2 });
+    expect(db.rpcCalls).toBe(1);
+  });
+
   it('R2: an absent row is created holding exactly the first batch (one play, not two)', async () => {
     const { reporter, watch } = reporterFor('u1', 'v1');
     watch(0, 10);
@@ -129,10 +235,6 @@ describe('engagement persistence contract (default service)', () => {
     const created = await videoAnalyticsService.getOrCreateAnalytics('u1', 'v1');
     expect(created).toMatchObject({ play_count: 1, watch_time: 0 });
   });
-
-  /** An existing row, seeded directly so the R3 controls do not depend on the R2 create path. */
-  const seedRow = (watch_time: number) =>
-    db.rows.push({ user_id: 'u1', content_item_id: 'v1', watch_time, play_count: 1, pause_count: 1, seek_count: 0 });
 
   it('R3: a write that committed but whose response was lost is not applied twice on retry', async () => {
     seedRow(5);
@@ -190,10 +292,8 @@ describe('engagement persistence contract (default service)', () => {
     expect(row()).toMatchObject({ watch_time: 10, pause_count: 2 });
   });
 
-  // Pin of a disclosed limitation, NOT a control.
-  it('DISCLOSED LIMIT: a lost-response write that another writer changes before the retry IS applied twice', async () => {
-    // Pins the residual risk named in applyEngagementDeltas. An atomic increment alone would not remove it;
-    // that needs durable idempotency/dedup or equivalent reconciliation (out of scope).
+  // Pin of the fallback's disclosed limitation, NOT a control. The RPC path above removes it.
+  it('DISCLOSED LIMIT (fallback only): a lost-response write that another writer changes before the retry IS applied twice', async () => {
     const first = reporterFor('u1', 'v1');
     let lose = true;
     db.failAfterCommit = (op) => op.kind === 'insert' && lose && !(lose = false);

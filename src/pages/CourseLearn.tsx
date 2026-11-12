@@ -792,6 +792,7 @@ const CourseLearn = () => {
               actionBasePath={`/courses/${course.id}/modules/${selected.module.id}`}
               hideFooter
               discussionsEnabled={course.settings?.discussions?.enabled !== false}
+              watchUserId={user?.id ?? null}
             />
 
             <div className="mt-10 flex justify-center">

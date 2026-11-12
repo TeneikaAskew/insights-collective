@@ -17,7 +17,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
-import Video from './extensions/video-extension';
+import Video, { type VideoWatchTracking } from './extensions/video-extension';
 import { Button } from '@/components/ui/button';
 import { 
   Bold, 
@@ -108,6 +108,12 @@ export interface UnifiedCanvasEditorProps {
    */
   courseId?: string;
   readOnly?: boolean;
+  /**
+   * Read-only only: the learner and lesson whose watch progress the lesson's
+   * first playable video reports. Read once when the editor is created, so
+   * remount (key) the editor when it changes.
+   */
+  videoWatchTracking?: VideoWatchTracking | null;
 }
 
 const fontSizes = [
@@ -138,7 +144,8 @@ export function UnifiedCanvasEditor({
   showAdvancedFeatures = true,
   onFileUpload,
   courseId,
-  readOnly = false
+  readOnly = false,
+  videoWatchTracking = null,
 }: UnifiedCanvasEditorProps) {
   const [linkUrl, setLinkUrl] = useState('');
   const [linkText, setLinkText] = useState('');
@@ -189,6 +196,7 @@ export function UnifiedCanvasEditor({
         HTMLAttributes: {
           class: 'w-full',
         },
+        watchTracking: readOnly ? videoWatchTracking : null,
       }),
       Placeholder.configure({
         placeholder: placeholder || 'Start writing your content...',
