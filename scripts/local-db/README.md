@@ -60,7 +60,7 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     applied: 01 51/54 → 54/54, 02 14/16 → 16/16, 03 8/14 → 14/14, 04 8/17 → 17/17, 05 6/17 → 17/17,
     06 9/15 → 15/15, 07 14/23 → 23/23, 08 19/35 → 35/35, 09 10/21 → 21/21.
   - `13_unassigned_lesson_access.sql`: unassigned lessons (`content_items.module_id` NULL, #184/#185) under the live
-    policies, using the builder's own read: owner and admin create, read, rename and delete; an assigned co-instructor
+    policies, using the builder's own read: the owner creates, reads, renames and deletes; an admin creates and reads; an assigned co-instructor
     reads only; other instructors, students and anon get nothing; the reorder RPC cannot reach them; deleting a section
     leaves them. No migration involved. Run on 2026-11-12 on the snapshot with the November migrations: 22/22. `[current]`
     checks pin existing behaviour (co-instructors cannot write; a published unassigned lesson is API-readable by
