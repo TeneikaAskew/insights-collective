@@ -15,23 +15,28 @@ export function publishPatch(next: boolean): { published: boolean; status: 'publ
 }
 
 interface ReadinessItem { published?: boolean | null }
-interface ReadinessModule { published?: boolean | null; items?: ReadinessItem[] }
+interface ReadinessModule { unassigned?: boolean; published?: boolean | null; items?: ReadinessItem[] }
 interface ReadinessCourse { title?: string | null }
 
 /** Reasons a course cannot be published yet. Empty array = ready. */
 export function publishReadinessIssues(course: ReadinessCourse, modules: ReadinessModule[]): string[] {
   const issues: string[] = [];
   if (!course.title || !course.title.trim()) issues.push('Give the course a title.');
-  if (modules.length === 0) {
+  const assignedModules = modules.filter((m) => !m.unassigned);
+  if (assignedModules.length === 0 && modules.some((m) => m.unassigned && m.items?.length)) {
+    issues.push('Unassigned lessons are preserved, but students can only see lessons in published sections. Add a section with a published lesson before publishing this course.');
+    return issues;
+  }
+  if (assignedModules.length === 0) {
     issues.push('Add at least one section to the curriculum.');
     return issues;
   }
-  const items = modules.flatMap((m) => m.items || []);
+  const items = assignedModules.flatMap((m) => m.items || []);
   if (items.length === 0) {
     issues.push('Add at least one lesson to a section.');
     return issues;
   }
-  const visible = modules.some(
+  const visible = assignedModules.some(
     (m) => m.published !== false && (m.items || []).some((i) => i.published === true),
   );
   if (!visible) {

@@ -571,3 +571,56 @@ describe('CanvasContentService', () => {
     });
   });
 });
+
+
+describe('unassigned lesson service scope', () => {
+  it('requires a course and uses IS NULL alongside course scope when loading', async () => {
+    await expect(CanvasContentService.getContentItems(null)).rejects.toThrow('Course required');
+    const b = getQueryBuilder();
+    b.order.mockReset().mockReturnValueOnce(b).mockResolvedValueOnce({ data: [], error: null });
+    await CanvasContentService.getContentItems(null, 'course-a');
+    expect(b.order.mock.calls).toEqual([['position'], ['id']]);
+    expect(b.eq).toHaveBeenCalledWith('course_id', 'course-a');
+    expect(b.is).toHaveBeenCalledWith('module_id', null);
+  });
+
+  it.each([null, 'module-a'])('scopes position lookup and preserves association %s when creating', async (moduleId) => {
+    const b = getQueryBuilder();
+    b.limit.mockResolvedValue({ data: [{ position: 7 }], error: null });
+    b.single.mockResolvedValue({ data: { id: 'new-item', module_id: moduleId, position: 8 }, error: null });
+    await CanvasContentService.createContentItem({
+      course_id: 'course-a', module_id: moduleId, type: 'page', title: 'Synthetic lesson', content: 'Preserved text',
+    });
+    expect(b.eq).toHaveBeenCalledWith('course_id', 'course-a');
+    if (moduleId === null) {
+      expect(b.is).toHaveBeenCalledWith('module_id', null);
+      expect(b.eq).not.toHaveBeenCalledWith('module_id', null);
+    } else {
+      expect(b.eq).toHaveBeenCalledWith('module_id', moduleId);
+      expect(b.is).not.toHaveBeenCalled();
+    }
+    expect(b.insert).toHaveBeenCalledExactlyOnceWith({
+      course_id: 'course-a', module_id: moduleId, type: 'page', title: 'Synthetic lesson',
+      content: 'Preserved text', position: 8, settings: {}, published: false,
+    });
+    expect(b.update).not.toHaveBeenCalled();
+    expect(b.delete).not.toHaveBeenCalled();
+  });
+
+  it('refuses unassigned creation if the scoped position lookup fails', async () => {
+    const b = getQueryBuilder();
+    b.limit.mockResolvedValue(supabaseError('synthetic position failure'));
+    await expect(CanvasContentService.createContentItem({
+      course_id: 'course-a', module_id: null, type: 'page', title: 'Synthetic lesson', content: '',
+    })).rejects.toMatchObject({ message: 'synthetic position failure' });
+    expect(b.insert).not.toHaveBeenCalled();
+  });
+
+  it('refuses initial and retry reorder attempts before any write or reconciliation read', async () => {
+      const from = vi.mocked(mockSupabaseClient.from); const rpc = vi.mocked(mockSupabaseClient.rpc);
+      from.mockClear(); rpc.mockClear();
+      await expect(CanvasContentService.reorderUnassignedContentItems('one', ['c', 'a', 'b'])).rejects.toThrow('saved order has been kept');
+      await expect(CanvasContentService.reorderUnassignedContentItems('one', ['b', 'c', 'a'])).rejects.toThrow('saved order has been kept');
+      expect(from).not.toHaveBeenCalled(); expect(rpc).not.toHaveBeenCalled();
+  });
+});
