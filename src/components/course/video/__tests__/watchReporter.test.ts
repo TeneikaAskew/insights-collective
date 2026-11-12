@@ -200,7 +200,27 @@ describe('WatchReporter', () => {
     reporter.record({ type: 'pause', position: 3 });
     await vi.waitFor(() => expect(reporter.currentStatus).toBe('error'));
     await reporter.flush();
-    expect(options).toEqual([{}, { expectTarget: target }]);
+    const [first, retry] = options as Array<{ batchId: string; expectTarget?: unknown }>;
+    expect(first).toEqual({ batchId: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    // The retry is the identical batch: same durable id, plus what the lost write tried to store.
+    expect(retry).toEqual({ batchId: first.batchId, expectTarget: target });
     expect(reporter.currentStatus).toBe('saved');
+  });
+
+  it('gives each new batch its own id', async () => {
+    let t = 0;
+    const ids: string[] = [];
+    const { sink } = dualSink(async (_u, _c, _d, o) => { ids.push((o as { batchId: string }).batchId); });
+    const reporter = new WatchReporter({ userId: 'u', contentItemId: 'c', sink, now: () => t });
+    reporter.record({ type: 'play', position: 0 });
+    t += 1000; reporter.record({ type: 'timeupdate', position: 1 });
+    reporter.record({ type: 'pause', position: 1 });
+    await reporter.flush();
+    reporter.record({ type: 'play', position: 1 });
+    t += 1000; reporter.record({ type: 'timeupdate', position: 2 });
+    reporter.record({ type: 'pause', position: 2 });
+    await reporter.flush();
+    expect(ids).toHaveLength(2);
+    expect(ids[0]).not.toBe(ids[1]);
   });
 });

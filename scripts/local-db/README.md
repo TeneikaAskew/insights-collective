@@ -59,6 +59,9 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
     reachable target); `07_narrow_reads.sql` is the behavioural test of `20261102000000`. Baseline / all eight
     applied: 01 51/54 → 54/54, 02 14/16 → 16/16, 03 8/14 → 14/14, 04 8/17 → 17/17, 05 6/17 → 17/17,
     06 9/15 → 15/15, 07 14/23 → 23/23, 08 19/35 → 35/35, 09 10/21 → 21/21.
+  - `12_video_engagement_batches.sql`: `20261112000000` (idempotent `apply_video_engagement_batch`) and `20261112000100`
+    (course-scoped instructor reads of `video_analytics`). Run on 2026-11-12 on a loopback PostgreSQL 16 built from the
+    snapshot with the November migrations applied: 5/19 without the two migrations, 19/19 with them; 01 to 11 stay OK.
   - `13_unassigned_lesson_access.sql`: unassigned lessons (`content_items.module_id` NULL, #184/#185) under the live
     policies, using the builder's own read: the owner creates, reads, renames and deletes; an admin creates and reads; an assigned co-instructor
     reads only; other instructors, students and anon get nothing; the reorder RPC cannot reach them; deleting a section

@@ -1,5 +1,5 @@
 // ABOUTME: YouTube/Vimeo frame that reports watch progress (play/pause/seek/ended/progress) to analytics.
-// ABOUTME: Source-only producer: not mounted by LessonViewer/CourseLearn; never marks completion.
+// ABOUTME: Mounted by VideoNodeView for the first playable video of a learner lesson; never marks completion.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';

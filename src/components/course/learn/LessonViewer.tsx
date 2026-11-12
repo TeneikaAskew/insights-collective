@@ -45,6 +45,11 @@ export interface LessonViewerProps {
    * Defaults to true so a course created before the setting existed keeps them.
    */
   discussionsEnabled?: boolean;
+  /**
+   * Signed-in learner whose watch progress the lesson's first playable video
+   * reports (video_analytics). Omitted or null: videos play untracked.
+   */
+  watchUserId?: string | null;
 }
 
 export function LessonViewer({
@@ -57,6 +62,7 @@ export function LessonViewer({
   actionBasePath,
   hideFooter = false,
   discussionsEnabled = true,
+  watchUserId = null,
 }: LessonViewerProps) {
   const navigate = useNavigate();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -150,11 +156,13 @@ export function LessonViewer({
         {(item.type === 'page' || item.type === 'assignment' || item.type === 'quiz') && item.content && (
           <div className="prose prose-lg max-w-none">
             <UnifiedCanvasEditor
-              key={item.id}
+              // The tracking identity is read when the editor is created.
+              key={`${item.id}:${watchUserId ?? ''}`}
               content={item.content}
               onChange={() => {}}
               readOnly={true}
               minHeight="auto"
+              videoWatchTracking={watchUserId ? { userId: watchUserId, contentItemId: item.id } : null}
             />
           </div>
         )}
