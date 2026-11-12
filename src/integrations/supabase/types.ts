@@ -5871,6 +5871,35 @@ export type Database = {
           },
         ]
       }
+      video_engagement_batches: {
+        Row: {
+          applied_at: string
+          batch_id: string
+          content_item_id: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string
+          batch_id: string
+          content_item_id: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string
+          batch_id?: string
+          content_item_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_engagement_batches_content_item_id_fkey"
+            columns: ["content_item_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       audit_db_columns: {
@@ -5972,6 +6001,27 @@ export type Database = {
           instructors: number
           students: number
           total: number
+        }[]
+      }
+      apply_video_engagement_batch: {
+        Args: {
+          p_batch_id: string
+          p_completion_percentage?: number
+          p_content_item_id: string
+          p_last_position?: number
+          p_pause_count_delta?: number
+          p_play_count_delta?: number
+          p_playback_speed?: number
+          p_seek_count_delta?: number
+          p_video_duration?: number
+          p_watch_time_delta?: number
+        }
+        Returns: {
+          outcome: string
+          pause_count: number
+          play_count: number
+          seek_count: number
+          watch_time: number
         }[]
       }
       audit_invariants: {
