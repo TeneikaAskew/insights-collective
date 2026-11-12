@@ -425,6 +425,7 @@ const CourseDetail = () => {
         const moduleIds = baseModules.map((m: any) => m.id).filter(Boolean);
 
         let contentItemsByModule: Record<string, any[]> = {};
+        let contentMetadataAvailable = false;
         if (moduleIds.length > 0) {
           const { data: contentItemsData, error: contentItemsError } = await supabase
             .from('content_items')
@@ -434,6 +435,7 @@ const CourseDetail = () => {
           if (contentItemsError) {
             logger.warn('Failed to load content items (continuing without them):', contentItemsError);
           } else {
+            contentMetadataAvailable = Array.isArray(contentItemsData);
             contentItemsByModule = (contentItemsData || []).reduce((acc: Record<string, any[]>, item: any) => {
               if (!item.module_id) return acc;
               if (!acc[item.module_id]) acc[item.module_id] = [];
@@ -457,6 +459,11 @@ const CourseDetail = () => {
             lessons: textBlocks,
             assignments: assignmentBlocks,
             quizzes: quizBlocks,
+            // RLS can return an empty list to a viewer without curriculum
+            // access. Only staff with course-edit access display this count.
+            contentCount: contentMetadataAvailable
+              ? textBlocks.length + assignmentBlocks.length + quizBlocks.length
+              : null,
             completionStatus: 0 // Will be updated with actual progress data later
           };
         });
@@ -493,7 +500,7 @@ const CourseDetail = () => {
           },
           // Undefined, not 0, when the count could not be read — the three
           // "N enrolled" lines below omit themselves rather than claim zero.
-          enrollmentCount: enrollCountError ? undefined : realEnrollCount ?? 0,
+          enrollmentCount: enrollCountError ? undefined : realEnrollCount ?? undefined,
           modules: processedModules,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
@@ -1320,8 +1327,7 @@ const CourseDetail = () => {
                   ) : (
                     <div className="space-y-3">
                       {(modules as any[]).map((m: any, idx: number) => {
-                        const lessonCount =
-                          (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
+                        const lessonCount = canEdit ? m.contentCount : null;
                         return (
                           <Link
                             key={m.id}
@@ -1339,9 +1345,11 @@ const CourseDetail = () => {
                                 </p>
                               )}
                             </div>
-                            <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                              {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
-                            </span>
+                            {lessonCount != null && (
+                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
+                                {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                              </span>
+                            )}
                           </Link>
                         );
                       })}
@@ -1403,8 +1411,7 @@ const CourseDetail = () => {
                   ) : (
                     <div className="space-y-3">
                       {(modules as any[]).map((m: any, idx: number) => {
-                        const lessonCount =
-                          (m.lessons?.length || 0) + (m.assignments?.length || 0) + (m.quizzes?.length || 0);
+                        const lessonCount = canEdit ? m.contentCount : null;
                         return (
                           <div key={m.id} className="border border-border rounded-lg bg-card overflow-hidden">
                             <div className="flex items-center justify-between px-5 py-4">
@@ -1419,9 +1426,11 @@ const CourseDetail = () => {
                                   </p>
                                 )}
                               </div>
-                              <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
-                                {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
-                              </span>
+                              {lessonCount != null && (
+                                <span className="text-xs text-muted-foreground whitespace-nowrap ml-4">
+                                  {lessonCount} {lessonCount === 1 ? 'lesson' : 'lessons'}
+                                </span>
+                              )}
                             </div>
                           </div>
                         );

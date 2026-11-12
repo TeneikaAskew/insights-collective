@@ -96,6 +96,15 @@ describe('useCourseData', () => {
     expect(mockToast).not.toHaveBeenCalled();
   });
 
+  it('preserves a successful enrollment count of zero', async () => {
+    stubCourseQuery({ data: makeCourseRow(), error: null }, { count: 0, error: null });
+    const { result } = renderHook(() => useCourseData(COURSE_ID));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.course?.enrollmentCount).toBe(0);
+    expect(result.current.error).toBeNull();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
   it('sets an error when the course is not found', async () => {
     stubCourseQuery({ data: null, error: null });
 
@@ -124,18 +133,29 @@ describe('useCourseData', () => {
     );
   });
 
-  it('sets error state when the enrollment count query fails (regression)', async () => {
+  it.each(['42501', 'PGRST000'])('keeps the public course when optional enrollment count fails (%s)', async (code) => {
     stubCourseQuery(
       { data: makeCourseRow(), error: null },
-      { count: null, error: { message: 'count failed', code: 'PGRST000' } }
+      { count: null, error: { message: 'count unavailable', code } }
     );
 
     const { result } = renderHook(() => useCourseData(COURSE_ID));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.course).toBeNull();
-    expect(result.current.error).toBe('count failed');
+    expect(result.current.course?.title).toBe('Intro to Data Analytics');
+    expect(result.current.course?.enrollmentCount).toBeUndefined();
+    expect(result.current.error).toBeNull();
+    expect(mockToast).not.toHaveBeenCalled();
+  });
+
+  it('keeps a missing optional count unknown rather than inventing zero', async () => {
+    stubCourseQuery({ data: makeCourseRow(), error: null }, { count: null, error: null });
+    const { result } = renderHook(() => useCourseData(COURSE_ID));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.course?.enrollmentCount).toBeUndefined();
+    expect(result.current.course?.title).toBe('Intro to Data Analytics');
+    expect(mockToast).not.toHaveBeenCalled();
   });
 
   it('skips fetching for a missing or "new" courseId', async () => {

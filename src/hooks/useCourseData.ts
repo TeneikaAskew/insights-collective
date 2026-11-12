@@ -104,11 +104,12 @@ export function useCourseData(courseId?: string) {
           .eq('course_id', courseId);
 
         if (countError) {
-          logger.error('Enrollment count fetch error:', countError);
-          throw countError;
+          // Public course data is still usable when this optional, protected
+          // metadata is unavailable. Do not turn a missing count into zero.
+          logger.warn('Enrollment count unavailable for this viewer:', countError);
         }
 
-        transformedCourse.enrollmentCount = count || 0;
+        transformedCourse.enrollmentCount = countError ? undefined : count ?? undefined;
 
         // Set the course data
         setCourse(transformedCourse);

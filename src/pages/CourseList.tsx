@@ -279,7 +279,7 @@ const CourseList = () => {
                       </div>
                     </div>
                     {/* Body */}
-                    <div className="pt-9 px-6 pb-6">
+                    <div className="relative pt-9 px-6 pb-6">
                       <h3 className="font-display text-xl text-foreground mb-1 line-clamp-2 leading-snug">
                         {course.title}
                       </h3>
