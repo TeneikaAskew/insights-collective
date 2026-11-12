@@ -46,6 +46,82 @@ export interface VideoEngagementUpdate {
   incrementSeekCount?: boolean;
 }
 
+/**
+ * Additive engagement batch from a producer: whole seconds and counts gained
+ * since its last confirmed write, plus the latest scalar readings.
+ */
+export interface EngagementDeltas {
+  watchTimeDelta?: number;
+  playCountDelta?: number;
+  pauseCountDelta?: number;
+  seekCountDelta?: number;
+  lastPosition?: number;
+  videoDuration?: number;
+  playbackSpeed?: number;
+  completionPercentage?: number;
+}
+
+/** The additive columns of one video_analytics row. */
+export interface EngagementTotals {
+  watch_time: number;
+  play_count: number;
+  pause_count: number;
+  seek_count: number;
+}
+
+export interface ApplyDeltasOptions {
+  /**
+   * The totals an earlier attempt of THIS SAME batch tried to write when that
+   * attempt's outcome is unknown (EngagementWriteUncertainError). If the row
+   * now holds exactly these totals, the batch is reported as already applied
+   * and nothing is written.
+   */
+  expectTarget?: EngagementTotals | null;
+  /** Compare-and-set rounds before giving up on a row that keeps changing. */
+  maxAttempts?: number;
+}
+
+export interface ApplyDeltasResult {
+  outcome: 'applied' | 'already-applied';
+  totals: EngagementTotals;
+}
+
+/** A write was sent and may or may not have been committed. */
+export class EngagementWriteUncertainError extends Error {
+  readonly attemptedTarget: EngagementTotals;
+  readonly reason: unknown;
+  constructor(attemptedTarget: EngagementTotals, reason: unknown) {
+    super('Video engagement write outcome is unknown');
+    this.name = 'EngagementWriteUncertainError';
+    this.attemptedTarget = attemptedTarget;
+    this.reason = reason;
+  }
+}
+
+/** Every compare-and-set round lost (row kept changing, or the update matched no row). Nothing was written. */
+export class EngagementConflictError extends Error {
+  constructor() {
+    super('Video engagement row changed or could not be updated; nothing was written');
+    this.name = 'EngagementConflictError';
+  }
+}
+
+const TOTAL_KEYS = ['watch_time', 'play_count', 'pause_count', 'seek_count'] as const;
+const TOTAL_COLUMNS = 'watch_time, play_count, pause_count, seek_count' as const;
+
+/** A positive finite number floored to a whole unit, else 0. */
+const wholeDelta = (n: number | undefined): number =>
+  typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+
+const totalsOf = (row: Record<string, unknown>): EngagementTotals => ({
+  watch_time: Number(row.watch_time ?? 0),
+  play_count: Number(row.play_count ?? 0),
+  pause_count: Number(row.pause_count ?? 0),
+  seek_count: Number(row.seek_count ?? 0),
+});
+
+const sameTotals = (a: EngagementTotals, b: EngagementTotals) => TOTAL_KEYS.every((k) => a[k] === b[k]);
+
 class VideoAnalyticsService {
   /**
    * Get or create video analytics record for a user and content item
@@ -171,6 +247,94 @@ class VideoAnalyticsService {
       logger.error('Error updating video engagement', error);
       throw error;
     }
+  }
+
+  /**
+   * Add a producer's batch to the row with compare-and-set instead of a blind
+   * read-then-write, so concurrent writers for the same user and video (two
+   * players, a remount, two tabs) cannot overwrite each other's increments:
+   * the update only matches if the additive columns still hold what was read,
+   * otherwise it re-reads and tries again.
+   *
+   * - An absent row is created holding exactly this batch (no implicit first
+   *   play; getOrCreateAnalytics keeps its legacy play_count 1 for its callers).
+   * - A read failure throws as is: nothing was written, so a plain retry is safe.
+   * - A failed insert/update throws EngagementWriteUncertainError carrying the
+   *   totals it tried to write. Retrying the same batch with that as
+   *   expectTarget skips the write when the row already holds it.
+   *
+   * Not covered: an uncertain write that DID commit and was then changed again
+   * by another writer before the retry is applied twice. A server-side atomic
+   * increment alone would not remove this (a blind retry would still add the
+   * batch again); it needs a durable idempotency/dedup contract or equivalent
+   * reconciliation, which is out of scope here. completion_percentage is passed
+   * through only when given (the table auto-completes at >= 90 on UPDATE).
+   */
+  async applyEngagementDeltas(
+    userId: string,
+    contentItemId: string,
+    deltas: EngagementDeltas,
+    options: ApplyDeltasOptions = {}
+  ): Promise<ApplyDeltasResult> {
+    const maxAttempts = Math.max(1, options.maxAttempts ?? 3);
+    const add: EngagementTotals = {
+      watch_time: wholeDelta(deltas.watchTimeDelta),
+      play_count: wholeDelta(deltas.playCountDelta),
+      pause_count: wholeDelta(deltas.pauseCountDelta),
+      seek_count: wholeDelta(deltas.seekCountDelta),
+    };
+    const fields: Record<string, number> = {};
+    if (deltas.lastPosition !== undefined) fields.last_position = Math.max(0, Math.floor(deltas.lastPosition));
+    if (deltas.videoDuration !== undefined) fields.video_duration = Math.round(deltas.videoDuration);
+    if (deltas.playbackSpeed !== undefined) fields.playback_speed = deltas.playbackSpeed;
+    if (deltas.completionPercentage !== undefined) {
+      fields.completion_percentage = Math.min(100, Math.max(0, Math.floor(deltas.completionPercentage)));
+    }
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const { data: row, error: readError } = await supabase
+        .from('video_analytics')
+        .select(TOTAL_COLUMNS)
+        .eq('user_id', userId)
+        .eq('content_item_id', contentItemId)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      const base = row ? totalsOf(row as Record<string, unknown>) : null;
+      if (options.expectTarget && base && sameTotals(base, options.expectTarget)) {
+        return { outcome: 'already-applied', totals: base };
+      }
+      const target: EngagementTotals = {
+        watch_time: (base?.watch_time ?? 0) + add.watch_time,
+        play_count: (base?.play_count ?? 0) + add.play_count,
+        pause_count: (base?.pause_count ?? 0) + add.pause_count,
+        seek_count: (base?.seek_count ?? 0) + add.seek_count,
+      };
+
+      if (!row) {
+        const { error } = await supabase
+          .from('video_analytics')
+          .insert({ user_id: userId, content_item_id: contentItemId, ...target, ...fields });
+        if (!error) return { outcome: 'applied', totals: target };
+        if ((error as { code?: string }).code === '23505') continue; // created concurrently: re-read
+        throw new EngagementWriteUncertainError(target, error);
+      }
+
+      let update = supabase
+        .from('video_analytics')
+        .update({ ...target, ...fields, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('content_item_id', contentItemId);
+      for (const key of TOTAL_KEYS) {
+        const seen = (row as Record<string, unknown>)[key];
+        update = seen === null || seen === undefined ? update.is(key, null) : update.eq(key, seen as number);
+      }
+      const { data: written, error: writeError } = await update.select(TOTAL_COLUMNS);
+      if (writeError) throw new EngagementWriteUncertainError(target, writeError);
+      if (Array.isArray(written) && written.length === 1) return { outcome: 'applied', totals: target };
+      // Matched no row: another writer changed it after the read. Re-read and retry.
+    }
+    throw new EngagementConflictError();
   }
 
   /**
