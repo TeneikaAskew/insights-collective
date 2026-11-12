@@ -62,6 +62,12 @@ Why a snapshot and not a migration replay: the base tables (`courses`, `profiles
   - `12_video_engagement_batches.sql`: `20261112000000` (idempotent `apply_video_engagement_batch`) and `20261112000100`
     (course-scoped instructor reads of `video_analytics`). Run on 2026-11-12 on a loopback PostgreSQL 16 built from the
     snapshot with the November migrations applied: 5/19 without the two migrations, 19/19 with them; 01 to 11 stay OK.
+  - `13_unassigned_lesson_access.sql`: unassigned lessons (`content_items.module_id` NULL, #184/#185) under the live
+    policies, using the builder's own read: the owner creates, reads, renames and deletes; an admin creates and reads; an assigned co-instructor
+    reads only; other instructors, students and anon get nothing; the reorder RPC cannot reach them; deleting a section
+    leaves them. No migration involved. Run on 2026-11-12 on the snapshot with the November migrations: 22/22. `[current]`
+    checks pin existing behaviour (co-instructors cannot write; a published unassigned lesson is API-readable by
+    enrolled students although the learner page never lists it).
 - `scripts/local-db/local-preseed.sql` supplies the rows `e2e/fixtures/seed.sql` assumes already
   exist in production (reference course, modules, the three `e2e-*` accounts) so the seed can be
   rehearsed offline: `psql <url> -f scripts/local-db/local-preseed.sql` then
