@@ -38,5 +38,7 @@ export interface BuilderCourse {
 export type BuilderView = 'setup' | 'curriculum' | 'lesson' | 'placeholder';
 
 export interface BuilderModule extends Module {
+  /** UI grouping for null-module lessons, never a persisted module. */
+  unassigned?: boolean;
   items: ContentItem[];
 }

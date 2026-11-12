@@ -83,6 +83,7 @@ function table(name: string) {
     filters.push([col, v]);
     return b;
   });
+  b.is = b.eq;
   for (const m of ['order', 'in', 'limit', 'update']) b[m] = vi.fn(() => b);
   const run = () => {
     if (name === 'courses') {
@@ -374,5 +375,46 @@ describe('T-54 delete: a delete that removed no row keeps the item', () => {
     fireEvent.click(screen.getByText('delete section m2'));
     await waitFor(() => expect(sectionOrder()).toBe('m1,m3'));
     expect(toastSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('reconciled unassigned group and reorder controls', () => {
+  const group = 'unassigned:course-1';
+  async function withUnassigned() {
+    items.set('loose', { ...items.get('a')!, id: 'loose', module_id: null, title: 'Loose', position: 9 });
+    renderBuilder();
+    await waitFor(() => expect(sectionOrder()).toBe(`m1,m2,m3,${group}`));
+  }
+  it.each([false, true])('excludes the synthetic group and retains it after failed reorder (reload fails: %s)', async failedReload => {
+    await withUnassigned();
+    const before = { ...items.get('loose')! };
+    const sends: string[][] = [];
+    failModuleRead = failedReload;
+    rpcBehaviour = async (_name,args) => { sends.push(args.p_module_ids); return {data:null,error:{message:'synthetic failure'}}; };
+    fireEvent.click(screen.getByText('reverse sections'));
+    await waitFor(() => expect(lastToast()?.title).toBe('Sections not reordered'));
+    expect(sends).toEqual([['m3','m2','m1']]);
+    expect(sectionOrder()).toBe(`m1,m2,m3,${group}`);
+    expect(items.get('loose')).toEqual(before);
+  });
+  it('keeps the synthetic group after queued failure/success and never sends its id', async () => {
+    await withUnassigned(); deferRpc();
+    fireEvent.click(screen.getByText('swap first sections'));
+    fireEvent.click(screen.getByText('reverse sections'));
+    expect(pending.map(p=>p.key)).toEqual(['m2,m1,m3']);
+    await drive({'m2,m1,m3':'fail','m3,m1,m2':'ok'},['m2,m1,m3','m3,m1,m2']);
+    await waitFor(() => expect(sectionOrder()).toBe(`m3,m1,m2,${group}`));
+    expect(serverSections()).toBe('m3,m1,m2');
+    expect(items.get('loose')?.module_id).toBeNull();
+  });
+  it('blocks synthetic lesson reorder before transport and preserves zero-row delete handling', async () => {
+    await withUnassigned();
+    const rpc = vi.fn(async()=>({data:null,error:null})); rpcBehaviour=rpc;
+    fireEvent.click(screen.getByText(`reverse lessons ${group}`));
+    expect(rpc).not.toHaveBeenCalled(); expect(lastToast()?.title).toBe('Saved order kept');
+    fireEvent.click(screen.getByText('delete lesson loose'));
+    await waitFor(() => expect(lastToast()?.title).toBe('Lesson not deleted'));
+    expect(items.has('loose')).toBe(true);
+    expect(screen.getByTestId(`lesson-order-${group}`).textContent).toBe('loose');
   });
 });

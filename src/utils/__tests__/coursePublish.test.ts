@@ -86,3 +86,17 @@ describe('publishReadinessIssues', () => {
     expect(publishReadinessIssues({ title: 'A' }, [{ published: true, items: [{ published: true }] }])).toEqual([]);
   });
 });
+
+
+describe('unassigned lessons match student curriculum readiness', () => {
+  it.each([false, true])('does not treat an unassigned display group as a delivered section (published=%s)', (published) => {
+    expect(publishReadinessIssues({ title: 'A' }, [{ unassigned: true, published, items: [{ published: true }] }])).toEqual([
+      'Unassigned lessons are preserved, but students can only see lessons in published sections. Add a section with a published lesson before publishing this course.',
+    ]);
+  });
+  it('allows a mixed course only when a real published section has published content', () => {
+    const loose = { unassigned: true, published: true, items: [{ published: true }] };
+    expect(publishReadinessIssues({ title: 'A' }, [loose, { published: true, items: [] }])).not.toEqual([]);
+    expect(publishReadinessIssues({ title: 'A' }, [loose, { published: true, items: [{ published: true }] }])).toEqual([]);
+  });
+});
