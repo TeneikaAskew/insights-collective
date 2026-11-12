@@ -79,6 +79,14 @@ export interface ApplyDeltasOptions {
   expectTarget?: EngagementTotals | null;
   /** Compare-and-set rounds before giving up on a row that keeps changing. */
   maxAttempts?: number;
+  /**
+   * Durable id of this batch, reused unchanged on every retry. When given, the
+   * batch is applied by apply_video_engagement_batch, which records the id in
+   * the same transaction as the increment, so a retry of a batch that did
+   * commit is never applied twice. Without it (or before that function is
+   * deployed) the compare-and-set path below is used.
+   */
+  batchId?: string;
 }
 
 export interface ApplyDeltasResult {
@@ -122,7 +130,15 @@ const totalsOf = (row: Record<string, unknown>): EngagementTotals => ({
 
 const sameTotals = (a: EngagementTotals, b: EngagementTotals) => TOTAL_KEYS.every((k) => a[k] === b[k]);
 
+/** PostgREST/Postgres codes for "this function does not exist (yet)". */
+const isMissingFunction = (error: unknown): boolean => {
+  const code = (error as { code?: string } | null)?.code;
+  return code === 'PGRST202' || code === '42883';
+};
+
 class VideoAnalyticsService {
+  /** Set once the idempotent RPC is found missing, so later batches go straight to compare-and-set. */
+  private batchRpcUnavailable = false;
   /**
    * Get or create video analytics record for a user and content item
    */
@@ -263,18 +279,77 @@ class VideoAnalyticsService {
    *   totals it tried to write. Retrying the same batch with that as
    *   expectTarget skips the write when the row already holds it.
    *
-   * Not covered: an uncertain write that DID commit and was then changed again
-   * by another writer before the retry is applied twice. A server-side atomic
-   * increment alone would not remove this (a blind retry would still add the
-   * batch again); it needs a durable idempotency/dedup contract or equivalent
-   * reconciliation, which is out of scope here. completion_percentage is passed
-   * through only when given (the table auto-completes at >= 90 on UPDATE).
+   * With options.batchId the batch goes through apply_video_engagement_batch
+   * instead, which removes both gaps below; the compare-and-set path remains
+   * only for callers without a batch id and until that function is deployed.
+   *
+   * Compare-and-set gaps: an uncertain write that DID commit and was then
+   * changed again by another writer before the retry is applied twice, and a
+   * row that coincidentally holds the attempted totals is taken as applied.
+   * completion_percentage is passed through only when given (the table
+   * auto-completes at >= 90 on UPDATE).
    */
   async applyEngagementDeltas(
     userId: string,
     contentItemId: string,
     deltas: EngagementDeltas,
     options: ApplyDeltasOptions = {}
+  ): Promise<ApplyDeltasResult> {
+    if (options.batchId && !this.batchRpcUnavailable) {
+      const viaRpc = await this.applyBatchViaRpc(contentItemId, options.batchId, deltas);
+      if (viaRpc) return viaRpc;
+    }
+    return this.applyWithCompareAndSet(userId, contentItemId, deltas, options);
+  }
+
+  /**
+   * Idempotent path (migration 20261112000000). The row owner is auth.uid()
+   * on the server; the userId argument is not sent. Any error is thrown as is:
+   * the caller retries the identical batch with the same batchId, which the
+   * server applies at most once. Returns null only when the function is not
+   * deployed yet, so the caller can fall back to compare-and-set.
+   */
+  private async applyBatchViaRpc(
+    contentItemId: string,
+    batchId: string,
+    deltas: EngagementDeltas
+  ): Promise<ApplyDeltasResult | null> {
+    const { data, error } = await supabase.rpc('apply_video_engagement_batch', {
+      p_content_item_id: contentItemId,
+      p_batch_id: batchId,
+      p_watch_time_delta: wholeDelta(deltas.watchTimeDelta),
+      p_play_count_delta: wholeDelta(deltas.playCountDelta),
+      p_pause_count_delta: wholeDelta(deltas.pauseCountDelta),
+      p_seek_count_delta: wholeDelta(deltas.seekCountDelta),
+      p_last_position: deltas.lastPosition !== undefined ? Math.max(0, Math.floor(deltas.lastPosition)) : null,
+      p_video_duration: deltas.videoDuration !== undefined ? Math.round(deltas.videoDuration) : null,
+      p_playback_speed: deltas.playbackSpeed ?? null,
+      p_completion_percentage:
+        deltas.completionPercentage !== undefined
+          ? Math.min(100, Math.max(0, Math.floor(deltas.completionPercentage)))
+          : null,
+    });
+    if (error) {
+      if (isMissingFunction(error)) {
+        this.batchRpcUnavailable = true;
+        logger.warn('apply_video_engagement_batch is not deployed; using compare-and-set');
+        return null;
+      }
+      throw error;
+    }
+    const row = (Array.isArray(data) ? data[0] : data) as (EngagementTotals & { outcome?: string }) | undefined;
+    if (!row) throw new Error('apply_video_engagement_batch returned no row');
+    return {
+      outcome: row.outcome === 'already-applied' ? 'already-applied' : 'applied',
+      totals: totalsOf(row as unknown as Record<string, unknown>),
+    };
+  }
+
+  private async applyWithCompareAndSet(
+    userId: string,
+    contentItemId: string,
+    deltas: EngagementDeltas,
+    options: ApplyDeltasOptions
   ): Promise<ApplyDeltasResult> {
     const maxAttempts = Math.max(1, options.maxAttempts ?? 3);
     const add: EngagementTotals = {

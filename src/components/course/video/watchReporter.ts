@@ -43,8 +43,21 @@ function attemptedTargetOf(error: unknown): EngagementTotals | null {
   return null;
 }
 
+/** A fresh durable id for one batch; a retry reuses it unchanged. */
+function newBatchId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 interface Batch {
   deltas: EngagementDeltas;
+  /** Sent with every attempt of this batch so the server applies it at most once. */
+  batchId: string;
   /** Set after a write whose outcome is unknown; lets the service skip it if it did commit. */
   expectTarget: EngagementTotals | null;
 }
@@ -59,10 +72,11 @@ interface Batch {
  * next pause/ended, the next progress tick after flushIntervalMs, a page hide,
  * retry(), or dispose(). There is no timer.
  *
- * What this does NOT guarantee: an uncertain write that committed and was
- * then changed by another writer before the retry is applied twice; see
- * applyEngagementDeltas. An atomic increment alone would not fix that; it
- * needs durable idempotency/dedup or equivalent reconciliation (out of scope).
+ * Each batch carries a batchId that every retry reuses, and the service's
+ * idempotent path (apply_video_engagement_batch) applies a batch id at most
+ * once, so a retry of a write that did commit is never added twice. Only if
+ * that function is not deployed does the service fall back to compare-and-set,
+ * which keeps its documented uncertain-retry gap.
  */
 export class WatchReporter {
   readonly tracker: WatchProgressTracker;
@@ -136,14 +150,16 @@ export class WatchReporter {
     if (!batch) {
       const deltas = this.pendingUpdate();
       if (!deltas) return Promise.resolve();
-      batch = { deltas, expectTarget: null };
+      batch = { deltas, batchId: newBatchId(), expectTarget: null };
     }
     const attempt = batch;
 
     this.lastFlushAt = this.now();
     this.setStatus('saving');
     const { userId, contentItemId, sink } = this.opts;
-    const options: ApplyDeltasOptions = attempt.expectTarget ? { expectTarget: attempt.expectTarget } : {};
+    const options: ApplyDeltasOptions = attempt.expectTarget
+      ? { batchId: attempt.batchId, expectTarget: attempt.expectTarget }
+      : { batchId: attempt.batchId };
     this.inFlight = sink
       .applyEngagementDeltas(userId, contentItemId, attempt.deltas, options)
       .then(() => {
@@ -155,7 +171,11 @@ export class WatchReporter {
       .catch((error) => {
         const target = attemptedTargetOf(error);
         // An uncertain write may have committed: remember what it tried to write so the retry can be skipped.
-        this.retryBatch = { deltas: attempt.deltas, expectTarget: target ?? attempt.expectTarget };
+        this.retryBatch = {
+          deltas: attempt.deltas,
+          batchId: attempt.batchId,
+          expectTarget: target ?? attempt.expectTarget,
+        };
         this.setStatus('error', error);
       })
       .finally(() => {
