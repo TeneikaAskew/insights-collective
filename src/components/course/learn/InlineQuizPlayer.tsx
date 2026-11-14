@@ -68,6 +68,29 @@ const AUTOSAVE_DELAY_MS = 2000;
  */
 const quizWorkQueues = new Map<string, Promise<void>>();
 const finalizingAttempts = new Set<string>();
+// Submit intent must be visible before its pending start resolves. Keep this separate
+// from the write queue: start/answer work must not wait on the submit that needs it.
+const quizSubmitIntents = new Map<string, Set<Promise<void>>>();
+
+function registerSubmitIntent(key: string): () => void {
+  let resolve!: () => void;
+  const intent = new Promise<void>(done => { resolve = done; });
+  const intents = quizSubmitIntents.get(key) ?? new Set<Promise<void>>();
+  intents.add(intent);
+  quizSubmitIntents.set(key, intents);
+  return () => {
+    intents.delete(intent);
+    if (intents.size === 0 && quizSubmitIntents.get(key) === intents) quizSubmitIntents.delete(key);
+    resolve();
+  };
+}
+
+async function waitForQuizSettlement(key: string): Promise<void> {
+  do {
+    await Promise.all([pendingQuizWork(key), ...(quizSubmitIntents.get(key) ?? [])]);
+    // Work or another intent may have been appended while the captured work ran.
+  } while (quizWorkQueues.has(key) || quizSubmitIntents.has(key));
+}
 
 function pendingQuizWork(key: string): Promise<void> {
   return quizWorkQueues.get(key) ?? Promise.resolve();
@@ -321,7 +344,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       setLoaded(false);
       // A previous session of this quiz may still be writing answers or
       // finalizing; read only after that work has landed.
-      await pendingQuizWork(`${user.id}:${quiz.id}`);
+      await waitForQuizSettlement(`${user.id}:${quiz.id}`);
       if (cancelled) return;
       const { data, error } = await supabase
         .from('quiz_submissions')
@@ -750,6 +773,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
     if (submittingRef.current || finalizeUncertainRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
+    const releaseSubmitIntent = registerSubmitIntent(workKey);
     let active: Submission | null = null;
     let releaseFinalization: () => void = () => {};
     try {
@@ -800,6 +824,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         });
       }
       releaseFinalization();
+      releaseSubmitIntent();
       await recordProgress(active.id);
     } catch (error: any) {
       logger.error('Failed to submit inline quiz', error);
@@ -824,6 +849,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
         await writeAnswersNow(active.id);
       }
       releaseFinalization();
+      releaseSubmitIntent();
       if (!readError && row && row.workflow_state === 'complete' && row.finished_at) {
         await acceptFinalized(row);
         return;
@@ -846,6 +872,7 @@ function InlineQuizPlayerSession({ item, quiz, onCompleted }: InlineQuizPlayerPr
       }
     } finally {
       releaseFinalization();
+      releaseSubmitIntent();
       submittingRef.current = false;
       if (aliveRef.current) setSubmitting(false);
     }

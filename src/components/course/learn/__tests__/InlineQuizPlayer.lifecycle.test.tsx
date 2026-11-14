@@ -351,6 +351,99 @@ describe('InlineQuizPlayer lifecycle', () => {
     expect(server.calls.startRpc).toEqual(['qa']);
   });
 
+  it.each([false, true])('issue176: returning during pending start waits for submit settlement (score fails=%s)', async failScore => {
+    const server = createQuizServer({ quizzes: [serverQuiz('qa', 1)] });
+    server.install();
+    const start = gate();
+    const scoring = gate();
+    const scoreEntered = vi.fn();
+    server.hooks.beforeStart = () => start.promise;
+    server.hooks.beforeScore = () => { scoreEntered(); return scoring.promise; };
+    server.hooks.failScore = failScore;
+    const first = render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'False' }));
+    fireEvent.click(screen.getByRole('button', { name: /submit quiz/i }));
+    first.unmount();
+    render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    try {
+      await act(async () => start.release());
+      await waitFor(() => expect(scoreEntered).toHaveBeenCalledTimes(1));
+      // No returning read is allowed between start and submit settlement.
+      expect.soft(server.calls.latestLookups).toEqual(['qa']);
+    } finally {
+      await act(async () => { start.release(); scoring.release(); });
+    }
+    if (failScore) {
+      await screen.findByTestId('quiz-player-active');
+      expect(await screen.findByRole('radio', { name: 'Four' })).toBeChecked();
+      expect(server.submissions[0].workflow_state).toBe('pending_review');
+    } else {
+      await screen.findByTestId('quiz-player-review');
+      expect(server.submissions[0]).toMatchObject({ workflow_state: 'complete', score: 2 });
+    }
+    expect(server.calls.startRpc).toEqual(['qa']);
+    expect(server.calls.score).toHaveLength(1);
+    expect(server.submissions).toHaveLength(1);
+  });
+
+  it('issue176: a refused pending start releases remounts without blocking another quiz', async () => {
+    const server = createQuizServer({ quizzes: [serverQuiz('qa', 1), serverQuiz('qb', 1)] });
+    server.install();
+    const start = gate();
+    server.hooks.beforeStart = () => start.promise;
+    server.hooks.failStart = 'Start refused';
+    const first = render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    fireEvent.click(await screen.findByRole('radio', { name: 'False' }));
+    fireEvent.click(screen.getByRole('button', { name: /submit quiz/i }));
+    first.unmount();
+    try {
+      const other = render(<InlineQuizPlayer item={itemFor('qb')} quiz={makeQuiz('qb', 1)} />);
+      await screen.findByText('qb: What is 2+2?');
+      other.unmount();
+      render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} />);
+    } finally {
+      await act(async () => start.release());
+    }
+    await screen.findByTestId('quiz-player-active');
+    expect(server.calls.startRpc).toEqual(['qa']);
+    expect(server.calls.score).toHaveLength(0);
+    expect(server.submissions).toHaveLength(0);
+  });
+
+  it('issue176: a remount waits for scoring but not the finalized attempt progress callback', async () => {
+    const server = createQuizServer({ quizzes: [serverQuiz('qa', 1)] });
+    server.install();
+    const scoring = gate();
+    const progress = gate();
+    const scoreEntered = vi.fn();
+    const onCompleted = vi.fn(() => progress.promise);
+    server.hooks.beforeScore = () => { scoreEntered(); return scoring.promise; };
+    const first = render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} onCompleted={onCompleted} />);
+    try {
+      fireEvent.click(await screen.findByRole('radio', { name: 'Four' }));
+      fireEvent.click(screen.getByRole('button', { name: /next/i }));
+      fireEvent.click(await screen.findByRole('radio', { name: 'False' }));
+      fireEvent.click(screen.getByRole('button', { name: /submit quiz/i }));
+      await waitFor(() => expect(scoreEntered).toHaveBeenCalledTimes(1));
+      first.unmount();
+      render(<InlineQuizPlayer item={itemFor('qa')} quiz={makeQuiz('qa', 1)} onCompleted={onCompleted} />);
+      expect(server.calls.latestLookups).toEqual(['qa']);
+      await act(async () => scoring.release());
+      await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1));
+      // Progress is still held: the returning session may show the server-finalized result.
+      await screen.findByTestId('quiz-player-review');
+      expect(server.submissions[0]).toMatchObject({ workflow_state: 'complete', score: 2 });
+      expect(server.calls.startRpc).toEqual(['qa']);
+      expect(server.calls.score).toHaveLength(1);
+    } finally {
+      await act(async () => { scoring.release(); progress.release(); });
+    }
+  });
+
   it('a failed submit from a session the learner left writes its answers before a returning session reads them', async () => {
     const server = createQuizServer({ quizzes: [serverQuiz('qa', 2), serverQuiz('qb', 1)] });
     server.install();
