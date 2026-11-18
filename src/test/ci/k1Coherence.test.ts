@@ -19,7 +19,7 @@ describe('K1 cross-read coherence', () => {
     expect(rows).toEqual(before);
   });
   it('accepts differently ordered read rows', () => {
-    const rows = fixture(); const second = { ...rows.itemsByCourse[0], id: 'second', title: 'Second', position: 1 };
+    const rows = fixture(); const second: (typeof rows.itemsByCourse)[number] = { ...rows.itemsByCourse[0], id: 'second', title: 'Second', position: 1 };
     rows.itemsByCourse.push(second); rows.itemsByModule.unshift(structuredClone(second));
     expect(storedOutlineProblems(rows, [['Section', 0, [...expected[0][2], ['Second', 'text', 1, second.content]]]])).toEqual([]);
   });
