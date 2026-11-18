@@ -132,7 +132,7 @@ export function buildGradebook(input: {
       ...input.quizzes.map((q) => ({ ...q, type: 'quiz' as const })),
     ]) {
       const c = cells[gradebookCellKey(student.id, item.type, item.id)];
-      if (c && isNum(c.pointsEarned)) {
+      if (c?.status === 'graded' && isNum(c.pointsEarned)) {
         earned += c.pointsEarned;
         possible += c.pointsPossible ?? 0;
         gradedCount += 1;
