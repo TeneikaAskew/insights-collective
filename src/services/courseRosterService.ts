@@ -37,7 +37,7 @@ export type RosterSort = 'enrolled_desc' | 'enrolled_asc' | 'progress_desc' | 'p
 /** Learners with no progress this many days after enrolling are flagged. */
 export const NOT_STARTED_DAYS = 7;
 
-/** Rows per request. Must not exceed the PostgREST max-rows cap, or pages are silently short. */
+/** Maximum rows requested per page; the server may return a smaller positive page. */
 export const PAGE_SIZE = 1000;
 
 /** Ids per `in` filter, so request URLs stay bounded for large courses. */
@@ -102,18 +102,19 @@ export function computeLearnerProgress(
 type Res<T> = { data: T[] | null; error: { message: string } | null };
 
 /**
- * Reads every page, in a stable order the caller sets, until a page comes back
- * shorter than PAGE_SIZE. Throws on any page's error, including the last.
- * Limit: a server cap below PAGE_SIZE would end paging early and is not detected.
+ * Reads in the stable order the caller sets until an empty page. Advance by
+ * rows actually returned so a lower positive server cap cannot skip rows.
+ * Throws on every page error. Offset reads are not a concurrent snapshot.
  */
 export async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T>>): Promise<T[]> {
   const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  for (let from = 0; ;) {
     const { data, error } = await page(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const chunk = data ?? [];
+    if (chunk.length === 0) return rows;
     rows.push(...chunk);
-    if (chunk.length < PAGE_SIZE) return rows;
+    from += chunk.length;
   }
 }
 
