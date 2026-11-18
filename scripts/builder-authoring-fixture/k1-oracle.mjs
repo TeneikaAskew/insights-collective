@@ -4,6 +4,7 @@
 // expected: [[section title, position, [[lesson title, type, position, content], ...]], ...] in stored order.
 // Every returned row must be accounted for: no extra or missing section, no extra or missing lesson, no lesson outside the
 // course's sections, no lesson on the course's sections that belongs to another course, no duplicate id.
+import { isDeepStrictEqual } from 'node:util';
 import { K1_PROBLEMS } from './codes.mjs';
 
 const W = Object.freeze(Object.fromEntries(K1_PROBLEMS.map((w) => [w, w])));
@@ -26,9 +27,12 @@ export function storedOutlineProblems(rows, expected) {
   if (new Set(ids).size !== ids.length || new Set(itemsByModule.map((i) => i.id)).size !== itemsByModule.length) out.push(W.DUPLICATE_ID);
   const modIds = new Set(mods.map((m) => m.id));
   if (itemsByCourse.some((i) => !modIds.has(i.module_id))) out.push(W.ORPHAN);
-  const courseItemIds = new Set(itemsByCourse.map((i) => i.id));
+  const courseItems = new Map(itemsByCourse.map((i) => [i.id, i]));
+  // Both reads must agree on the projected stored fields, not only membership.
+  const storedFields = ['id', 'course_id', 'module_id', 'title', 'type', 'position', 'content'];
+  const sameStoredItem = (a, b) => b && storedFields.every((field) => isDeepStrictEqual(a[field], b[field]));
   const course = mods[0]?.course_id;
-  if (itemsByModule.some((i) => !courseItemIds.has(i.id) || i.course_id !== course) || itemsByCourse.some((i) => !itemsByModule.some((j) => j.id === i.id))
+  if (itemsByModule.some((i) => !sameStoredItem(i, courseItems.get(i.id)) || i.course_id !== course) || itemsByCourse.some((i) => !itemsByModule.some((j) => j.id === i.id))
     || mods.some((m) => m.course_id !== course)) out.push(W.LINK);
   const outline = [...mods].sort(byPlace).map((m) => [m.title, m.position,
     itemsByCourse.filter((i) => i.module_id === m.id).sort(byPlace).map((i) => [i.title, i.type, i.position, i.content])]);
