@@ -106,7 +106,7 @@ type Res<T> = { data: T[] | null; error: { message: string } | null };
  * shorter than PAGE_SIZE. Throws on any page's error, including the last.
  * Limit: a server cap below PAGE_SIZE would end paging early and is not detected.
  */
-async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T>>): Promise<T[]> {
+export async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T>>): Promise<T[]> {
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await page(from, from + PAGE_SIZE - 1);
@@ -118,7 +118,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<Res<T
 }
 
 /** Splits ids into ID_CHUNK-sized `in` lists and pages each one. Chunks run in order. */
-async function fetchAllByIds<T>(
+export async function fetchAllByIds<T>(
   ids: string[],
   page: (chunk: string[], from: number, to: number) => PromiseLike<Res<T>>,
 ): Promise<T[]> {
