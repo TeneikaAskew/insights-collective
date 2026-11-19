@@ -467,6 +467,25 @@ describe('courseCalendarService', () => {
   });
 
   describe('updateCalendarEvent', () => {
+    it.each([{}, { end_date: undefined }])('preserves end time when a partial update omits it: %j', async (optional) => {
+      const builder = createBuilder({ data: { id: 'e1', end_time: '17:00:00' }, error: null });
+      mockTables({ events: builder });
+      const updates = { title: 'Renamed', ...optional };
+      const before = { ...updates };
+      await courseCalendarService.updateCalendarEvent('e1', updates);
+      expect(builder.update).toHaveBeenCalledTimes(1);
+      expect(builder.update.mock.calls[0][0]).not.toHaveProperty('end_time');
+      expect(builder.eq).toHaveBeenCalledWith('id', 'e1');
+      expect(updates).toEqual(before);
+    });
+
+    it('allows an explicit empty end date to clear the end time', async () => {
+      const builder = createBuilder({ data: { id: 'e1', end_time: null }, error: null });
+      mockTables({ events: builder });
+      await courseCalendarService.updateCalendarEvent('e1', { end_date: '' });
+      expect(builder.update.mock.calls[0][0]).toHaveProperty('end_time', null);
+    });
+
     it('updates the event and returns the row', async () => {
       const updated = { id: 'e1', title: 'Renamed' };
       const builder = createBuilder({ data: updated, error: null });
