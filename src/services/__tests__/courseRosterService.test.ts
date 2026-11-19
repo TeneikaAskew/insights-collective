@@ -107,7 +107,8 @@ describe('fetchCourseRoster progress source (T-15)', () => {
     expect(learners).toHaveLength(40);
     expect(learners.every((l) => l.progress === 100)).toBe(true);
     const pages = h.db.calls.filter((c) => c.table === 'content_item_progressions');
-    expect(pages.length).toBe(2);
+    expect(pages.length).toBe(3);
+    expect(pages[2].range).toEqual([1200, 1200 + PAGE_SIZE - 1]);
     expect(pages[0].range).toEqual([0, PAGE_SIZE - 1]);
   });
 

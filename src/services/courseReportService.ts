@@ -2,7 +2,7 @@
 // ABOUTME: Reuses courseRosterService and the gradebook model so numbers match the Students tab and gradebook.
 
 import { supabase } from '@/integrations/supabase/client';
-import { averageProgress, fetchCourseRosterData, isComplete, type RosterLearner } from '@/services/courseRosterService';
+import { averageProgress, fetchAll, fetchAllByIds, fetchCourseRosterData, isComplete, type RosterLearner } from '@/services/courseRosterService';
 import { isProgressionDone } from '@/utils/progressionStates';
 import {
   buildGradebook,
@@ -113,11 +113,6 @@ export function computeCourseReport(input: CourseReportInput): CourseReport {
   };
 }
 
-const must = <T,>(res: { data: T | null; error: { message: string } | null }): T => {
-  if (res.error) throw new Error(res.error.message);
-  return (res.data ?? []) as T;
-};
-
 /**
  * Every query is filtered to this course's ids, and RLS decides what comes back.
  * Throws on any failure so the tab shows an error, never partial zeros.
@@ -128,25 +123,26 @@ export async function fetchCourseReport(courseId: string): Promise<CourseReport>
   const { learners, modules, items, progressions } = await fetchCourseRosterData(courseId);
 
   const [assignments, quizzes] = await Promise.all([
-    supabase.from('assignments').select('id, title, points').eq('course_id', courseId).then(must<ReportGradeItem[]>),
-    supabase
-      .from('quizzes')
-      .select('id, title, points_possible, content_items!inner(course_id)')
-      .eq('content_items.course_id', courseId)
-      .then(must<Array<{ id: string; title: string | null; points_possible: number | null }>>),
+    fetchAll<ReportGradeItem>((from, to) =>
+      supabase.from('assignments').select('id, title, points').eq('course_id', courseId)
+        .order('id').range(from, to)),
+    fetchAll<{ id: string; title: string | null; points_possible: number | null }>((from, to) =>
+      supabase.from('quizzes')
+        .select('id, title, points_possible, content_items!inner(course_id)')
+        .eq('content_items.course_id', courseId).order('id').range(from, to)),
   ]);
 
   const aIds = assignments.map((a) => a.id);
   const qIds = quizzes.map((q) => q.id);
-  const empty = Promise.resolve([] as never[]);
-
   const [assignmentSubmissions, quizSubmissions] = await Promise.all([
-    aIds.length
-      ? supabase.from('assignment_submissions').select('id, user_id, assignment_id, grade, workflow_state, attempt, submitted_at').in('assignment_id', aIds).then(must<RawAssignmentSubmission[]>)
-      : empty,
-    qIds.length
-      ? supabase.from('quiz_submissions').select('id, user_id, quiz_id, score, kept_score, attempt, workflow_state').in('quiz_id', qIds).then(must<RawQuizSubmission[]>)
-      : empty,
+    fetchAllByIds<RawAssignmentSubmission>(aIds, (ids, from, to) =>
+      supabase.from('assignment_submissions')
+        .select('id, user_id, assignment_id, grade, workflow_state, attempt, submitted_at')
+        .in('assignment_id', ids).order('id').range(from, to)),
+    fetchAllByIds<RawQuizSubmission>(qIds, (ids, from, to) =>
+      supabase.from('quiz_submissions')
+        .select('id, user_id, quiz_id, score, kept_score, attempt, workflow_state')
+        .in('quiz_id', ids).order('id').range(from, to)),
   ]);
 
   return computeCourseReport({
