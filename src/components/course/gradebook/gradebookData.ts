@@ -1,6 +1,10 @@
 // ABOUTME: Single normalized grade model for /courses/:id/gradebook — cells, totals and the CSV export
 // ABOUTME: all read from here so the table and the download can never disagree (0 vs missing, latest attempt).
 
+// Internal UI/model identity only; persisted item and submission IDs stay unchanged.
+export const gradebookCellKey = (studentId: string, itemType: 'assignment' | 'quiz', itemId: string): string =>
+  JSON.stringify([studentId, itemType, itemId]);
+
 export type CellStatus = 'graded' | 'submitted' | 'missing';
 
 export interface GradebookStudent { id: string; full_name: string; email?: string }
@@ -89,7 +93,7 @@ export function buildGradebook(input: {
       const earned = toNum(s?.grade);
       const possible = toNum(a.points);
       const submitted = !!s && s.workflow_state !== 'unsubmitted' && (s.workflow_state != null || !!s.submitted_at);
-      cells[`${student.id}-${a.id}`] = {
+      cells[gradebookCellKey(student.id, 'assignment', a.id)] = {
         studentId: student.id,
         itemId: a.id,
         itemType: 'assignment',
@@ -105,7 +109,7 @@ export function buildGradebook(input: {
       const qs = quizAttempts.get(`${student.id}-${q.id}`);
       const earned = toNum(qs?.kept_score ?? qs?.score);
       const possible = toNum(q.points);
-      cells[`${student.id}-${q.id}`] = {
+      cells[gradebookCellKey(student.id, 'quiz', q.id)] = {
         studentId: student.id,
         itemId: q.id,
         itemType: 'quiz',
@@ -123,9 +127,12 @@ export function buildGradebook(input: {
   const totals: Record<string, StudentTotal> = {};
   for (const student of input.students) {
     let earned = 0, possible = 0, gradedCount = 0;
-    for (const item of [...input.assignments, ...input.quizzes]) {
-      const c = cells[`${student.id}-${item.id}`];
-      if (c && isNum(c.pointsEarned)) {
+    for (const item of [
+      ...input.assignments.map((a) => ({ ...a, type: 'assignment' as const })),
+      ...input.quizzes.map((q) => ({ ...q, type: 'quiz' as const })),
+    ]) {
+      const c = cells[gradebookCellKey(student.id, item.type, item.id)];
+      if (c?.status === 'graded' && isNum(c.pointsEarned)) {
         earned += c.pointsEarned;
         possible += c.pointsPossible ?? 0;
         gradedCount += 1;
@@ -169,7 +176,7 @@ export function buildGradebookCsvRows(
   for (const s of students) {
     const row: unknown[] = [s.id, s.full_name, s.email || ''];
     for (const i of items) {
-      const c = model.cells[`${s.id}-${i.id}`];
+      const c = model.cells[gradebookCellKey(s.id, i.type, i.id)];
       row.push(c?.pointsEarned, c?.pointsPossible, c?.status ?? 'missing');
     }
     const t = model.totals[s.id];

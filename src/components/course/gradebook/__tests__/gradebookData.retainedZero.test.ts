@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGradebook, buildGradebookCsvRows } from '../gradebookData';
+import { gradebookCellKey, buildGradebook, buildGradebookCsvRows } from '../gradebookData';
 
 function input() {
   return {
@@ -21,9 +21,9 @@ describe('retained zero gradebook contract', () => {
     if (reverse) data.quizSubmissions.reverse();
     const before = structuredClone(data);
     const model = buildGradebook(data);
-    expect(model.cells['s1-q1']).toMatchObject({ submissionId: 'retained-zero', attempt: 2, pointsEarned: 0, status: 'graded', percentage: 0 });
+    expect(model.cells[gradebookCellKey('s1', 'quiz', 'q1')]).toMatchObject({ submissionId: 'retained-zero', attempt: 2, pointsEarned: 0, status: 'graded', percentage: 0 });
     expect(model.totals.s1).toEqual({ earned: 0, possible: 10, percentage: 0, gradedCount: 1 });
-    expect(model.cells['s2-q1']).toMatchObject({ submissionId: 'other-student', pointsEarned: 7, percentage: 70 });
+    expect(model.cells[gradebookCellKey('s2', 'quiz', 'q1')]).toMatchObject({ submissionId: 'other-student', pointsEarned: 7, percentage: 70 });
     expect(model.totals.s2).toEqual({ earned: 7, possible: 10, percentage: 70, gradedCount: 1 });
     const rows = buildGradebookCsvRows(data.students, [{ ...data.quizzes[0], type: 'quiz' }], model);
     expect(rows.slice(1)).toEqual([
