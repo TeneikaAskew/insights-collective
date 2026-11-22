@@ -43,7 +43,7 @@ import {
 import { Grade, AssignmentSubmission, EnhancedAssignment } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { assignmentPointsPossible, parseGradeInput } from '@/lib/assignmentGrading';
-import { buildGradebook, buildGradebookCsvRows, toCsv, type NormalizedCell, type RawQuizSubmission } from './gradebookData';
+import { gradebookCellKey, buildGradebook, buildGradebookCsvRows, toCsv, type NormalizedCell, type RawQuizSubmission } from './gradebookData';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Tooltip,
@@ -158,12 +158,12 @@ export const Gradebook: React.FC<GradebookProps> = ({
     assignmentPointsPossible(assignments.find(a => a.id === itemId) as any) ?? 100;
 
   const handleGradeChange = (studentId: string, itemId: string, value: string) => {
-    const key = `${studentId}-${itemId}`;
+    const key = gradebookCellKey(studentId, 'assignment', itemId);
     setTempGrades(prev => ({ ...prev, [key]: value }));
   };
 
   const handleGradeSave = async (studentId: string, itemId: string, itemType: 'assignment' | 'quiz') => {
-    const key = `${studentId}-${itemId}`;
+    const key = gradebookCellKey(studentId, itemType, itemId);
     const raw = tempGrades[key];
     const cell = gradeData[key];
 
@@ -459,7 +459,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
                     </TableCell>
                     
                     {assignments.map(assignment => {
-                      const key = `${student.id}-${assignment.id}`;
+                      const key = gradebookCellKey(student.id, 'assignment', assignment.id);
                       const cell = gradeData[key];
                       const isEditing = editingCell === key;
                       const tempGrade = tempGrades[key];
@@ -522,7 +522,7 @@ export const Gradebook: React.FC<GradebookProps> = ({
                     })}
                     
                     {quizzes.map(quiz => {
-                      const key = `${student.id}-${quiz.id}`;
+                      const key = gradebookCellKey(student.id, 'quiz', quiz.id);
                       const cell = gradeData[key];
 
                       return (

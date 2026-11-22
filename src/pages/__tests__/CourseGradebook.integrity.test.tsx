@@ -24,9 +24,11 @@ vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: toastMock, dismi
 
 function tb(data: unknown) {
   const b: any = {};
+  let range: [number, number] | undefined;
+  b.range = vi.fn((from: number, to: number) => { range = [from, to]; return b; });
   for (const m of ['select', 'eq', 'in', 'order', 'limit', 'update']) b[m] = vi.fn(() => b);
   b.single = vi.fn().mockResolvedValue({ data: Array.isArray(data) ? data[0] : data, error: null });
-  b.then = (f: any, r: any) => Promise.resolve({ data, error: null }).then(f, r);
+  b.then = (f: any, r: any) => Promise.resolve({ data: range && Array.isArray(data) ? data.slice(range[0], range[1] + 1) : data, error: null }).then(f, r);
   return b;
 }
 const tables: Record<string, unknown> = {
