@@ -8,7 +8,7 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { assertGradeSaved, assignmentPointsPossible, parseGradeInput } from '@/lib/assignmentGrading';
-import { useAssignments } from '@/hooks/useAssignments';
+import { fetchGradebookStudents, fetchGradebookAssignments, fetchGradebookQuizzes, fetchGradebookAssignmentSubmissions, fetchGradebookQuizSubmissions } from '@/services/courseGradebookService';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -109,35 +109,8 @@ const CourseGradebook = () => {
     error: studentsError,
     refetch: refetchStudents,
   } = useQuery({
-    queryKey: ['course-students', courseId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('enrollments')
-        .select('user_id')
-        .eq('course_id', courseId);
-
-      if (error) throw new Error(error.message);
-
-      if (!data || data.length === 0) {
-        return [];
-      }
-
-      // Get profiles for enrolled users
-      const userIds = data.map(e => e.user_id).filter(Boolean);
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .in('id', userIds);
-
-      if (profileError) throw new Error(profileError.message);
-
-      return profiles?.map(profile => ({
-        id: profile.id,
-        full_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-        email: '', // Email not available in profiles for gradebook
-        avatar_url: profile.avatar_url
-      })) || [];
-    },
+    queryKey: ['course-students', courseId, 'gradebook-all'],
+    queryFn: () => fetchGradebookStudents(courseId!),
     enabled: !!courseId && canEdit,
   });
 
@@ -147,7 +120,11 @@ const CourseGradebook = () => {
     isLoading: assignmentsLoading,
     error: assignmentsError,
     refetch: refetchAssignments,
-  } = useAssignments(courseId);
+  } = useQuery({
+    queryKey: ['assignments', courseId, 'gradebook-all'],
+    queryFn: () => fetchGradebookAssignments(courseId!),
+    enabled: !!courseId,
+  });
 
   // Get quizzes
   const {
@@ -156,20 +133,8 @@ const CourseGradebook = () => {
     error: quizzesError,
     refetch: refetchQuizzes,
   } = useQuery({
-    queryKey: ['course-quizzes', courseId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('quizzes')
-        .select(`
-          *,
-          content_items!inner(course_id)
-        `)
-        .eq('content_items.course_id', courseId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
+    queryKey: ['course-quizzes', courseId, 'gradebook-all'],
+    queryFn: () => fetchGradebookQuizzes(courseId!),
     enabled: !!courseId,
   });
 
@@ -180,19 +145,8 @@ const CourseGradebook = () => {
     error: submissionsError,
     refetch: refetchSubmissions,
   } = useQuery({
-    queryKey: ['course-submissions', courseId],
-    queryFn: async () => {
-      const assignmentIds = assignments.map(a => a.id);
-      if (assignmentIds.length === 0) return [];
-
-      const { data, error } = await supabase
-        .from('assignment_submissions')
-        .select('*')
-        .in('assignment_id', assignmentIds);
-
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
+    queryKey: ['course-submissions', courseId, 'gradebook-all'],
+    queryFn: () => fetchGradebookAssignmentSubmissions(assignments.map(a => a.id)),
     enabled: !!courseId && canEdit && assignments.length > 0,
   });
 
@@ -204,19 +158,8 @@ const CourseGradebook = () => {
     error: quizSubmissionsError,
     refetch: refetchQuizSubmissions,
   } = useQuery({
-    queryKey: ['course-quiz-submissions', courseId],
-    queryFn: async () => {
-      const quizIds = quizzes.map(q => q.id);
-      if (quizIds.length === 0) return [];
-
-      const { data, error } = await supabase
-        .from('quiz_submissions')
-        .select('*')
-        .in('quiz_id', quizIds);
-
-      if (error) throw new Error(error.message);
-      return data || [];
-    },
+    queryKey: ['course-quiz-submissions', courseId, 'gradebook-all'],
+    queryFn: () => fetchGradebookQuizSubmissions(quizzes.map(q => q.id)),
     enabled: !!courseId && canEdit && quizzes.length > 0,
   });
 

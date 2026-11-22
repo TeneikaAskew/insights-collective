@@ -8,7 +8,7 @@ import {
   toStoredGrade,
   parseGradeInput,
 } from '../assignmentGrading';
-import { buildGradebook, buildGradebookCsvRows } from '@/components/course/gradebook/gradebookData';
+import { gradebookCellKey, buildGradebook, buildGradebookCsvRows } from '@/components/course/gradebook/gradebookData';
 
 describe('assignmentPointsPossible', () => {
   it('reads the real points column', () => {
@@ -79,8 +79,8 @@ describe('10-point assignment: totals and CSV agree with the per-cell grades', (
   const model = buildGradebook({ students, assignments: items, quizzes: [], assignmentSubmissions: subs, quizSubmissions: [] });
 
   it('scores against 10, not 100', () => {
-    expect(model.cells['s0-a1']).toMatchObject({ pointsEarned: 0, pointsPossible: 10, percentage: 0, status: 'graded' });
-    expect(model.cells['s7-a1']).toMatchObject({ pointsEarned: 7, pointsPossible: 10, percentage: 70 });
+    expect(model.cells[gradebookCellKey('s0', 'assignment', 'a1')]).toMatchObject({ pointsEarned: 0, pointsPossible: 10, percentage: 0, status: 'graded' });
+    expect(model.cells[gradebookCellKey('s7', 'assignment', 'a1')]).toMatchObject({ pointsEarned: 7, pointsPossible: 10, percentage: 70 });
     expect(model.totals.s0).toMatchObject({ earned: 0, possible: 10, percentage: 0 });
     expect(model.totals.s7).toMatchObject({ earned: 14, possible: 20, percentage: 70 });
   });
