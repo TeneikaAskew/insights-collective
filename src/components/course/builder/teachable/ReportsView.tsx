@@ -125,7 +125,7 @@ export function ReportsView({ courseId, courseTitle }: ReportsViewProps) {
             ) : (
               <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Kpi label="Graded" value={String(data.work.graded)} definition="Has a score." />
-                <Kpi label="Needs grading" value={String(data.work.awaitingGrading)} definition="Submitted, no score yet." />
+                <Kpi label="Needs grading" value={String(data.work.awaitingGrading)} definition="Submitted work awaiting final grading; provisional scores may exist." />
                 <Kpi label="Not submitted" value={String(data.work.notSubmitted)} definition="No submission from the learner." />
               </dl>
             )}

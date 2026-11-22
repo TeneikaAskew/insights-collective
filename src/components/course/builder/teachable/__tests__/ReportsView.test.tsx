@@ -60,6 +60,15 @@ describe('ReportsView headline metrics (T-15)', () => {
     expect(screen.getAllByText(/unknown: no published lessons/i)).toHaveLength(2);
   });
 
+  it('describes pending-review work without claiming it has no provisional score', async () => {
+    state.db.tables.quizzes = [{ id: 'q1', points_possible: 10, 'content_items.course_id': 'c1' }];
+    state.db.tables.quiz_submissions = [{ id: 'qs1', user_id: 'u1', quiz_id: 'q1', score: 4, workflow_state: 'pending_review', attempt: 1 }];
+    render(<ReportsView courseId="c1" courseTitle="Data 101" />);
+    await screen.findByText('Needs grading');
+    expect(kpi(/^Needs grading$/)).toHaveTextContent('Submitted work awaiting final grading; provisional scores may exist.');
+    expect(screen.queryByText('Submitted, no score yet.')).not.toBeInTheDocument();
+  });
+
   it('shows an error, not zeros, when a read fails', async () => {
     state.db.failTables = { content_item_progressions: 'denied' };
     render(<ReportsView courseId="c1" courseTitle="Data 101" />);
