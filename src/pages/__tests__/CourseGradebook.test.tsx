@@ -63,6 +63,8 @@ type TableResult = { data: unknown; error: { message: string; code?: string } | 
 function tableBuilder(result: TableResult | 'pending', updateResult?: TableResult) {
   const builder: any = {};
   let wroteUpdate = false;
+  let range: [number, number] | undefined;
+  builder.range = vi.fn((from: number, to: number) => { range = [from, to]; return builder; });
   for (const m of [
     'select', 'insert', 'delete', 'upsert',
     'eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'in', 'is', 'not', 'or',
@@ -72,6 +74,7 @@ function tableBuilder(result: TableResult | 'pending', updateResult?: TableResul
   }
   builder.update = vi.fn(() => {
     wroteUpdate = true;
+    range = undefined;
     return builder;
   });
   if (result === 'pending') {
@@ -79,7 +82,11 @@ function tableBuilder(result: TableResult | 'pending', updateResult?: TableResul
     builder.maybeSingle = vi.fn(() => new Promise(() => undefined));
     builder.then = () => undefined;
   } else {
-    const pick = () => (wroteUpdate && updateResult ? updateResult : result);
+    const pick = () => {
+      const value = wroteUpdate && updateResult ? updateResult : result;
+      return range && Array.isArray(value.data)
+        ? { ...value, data: value.data.slice(range[0], range[1] + 1) } : value;
+    };
     builder.single = vi.fn(() =>
       Promise.resolve(pick()).then((r) => ({
         data: Array.isArray(r.data) ? r.data[0] ?? null : r.data,
@@ -279,6 +286,27 @@ describe('CourseGradebook', () => {
     expect(
       screen.queryByText('No students are enrolled in this course yet.'),
     ).not.toBeInTheDocument();
+  });
+
+  it('hides partial totals when the terminal quiz-submission page fails', async () => {
+    const tables = successTables();
+    const builder = tables.quiz_submissions;
+    const originalThen = builder.then;
+    let from = 0;
+    const originalRange = builder.range;
+    builder.range = vi.fn((start: number, end: number) => {
+      from = start;
+      return originalRange(start, end);
+    });
+    builder.then = (resolve: any, reject: any) => from > 0
+      ? Promise.resolve({ data: null, error: { message: 'terminal quiz refusal' } }).then(resolve, reject)
+      : originalThen(resolve, reject);
+    wireTables(tables);
+    render(<CourseGradebook />);
+    expect(await screen.findByText('Failed to load the gradebook')).toBeInTheDocument();
+    expect(screen.getByText('terminal quiz refusal')).toBeInTheDocument();
+    expect(screen.queryByText('Gradebook')).not.toBeInTheDocument();
+    expect(gradebookPropsRef.current).toBeNull();
   });
 
   it('saves a grade to assignment_submissions with only real columns and toasts success', async () => {

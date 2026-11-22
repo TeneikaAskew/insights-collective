@@ -365,12 +365,12 @@ ok('oracle negatives: orphan extra row, extra section, row from another course o
   assert.deepEqual(p((r) => { r.itemsByCourse.push(orphan); }), ['ITEM_COUNT', 'ORPHAN', 'LINK']);
   assert.deepEqual(p((r) => { r.mods.push({ id: mid(9), course_id: C, title: 'Extra', position: 2 }); }), ['MODULE_COUNT', 'OUTLINE']);
   assert.deepEqual(p((r) => { r.itemsByModule.push({ ...orphan, course_id: 'other', module_id: mid(0) }); }), ['ITEM_COUNT', 'LINK']);
-  assert.deepEqual(p((r) => { r.itemsByCourse[1].id = r.itemsByCourse[0].id; r.itemsByModule[1].id = r.itemsByModule[0].id; }), ['DUPLICATE_ID']);
-  assert.deepEqual(p((r) => { r.itemsByCourse[0].content = ''; }), ['OUTLINE'], 'content lost after reload');
-  assert.deepEqual(p((r) => { r.itemsByCourse[0].content += ' '; }), ['OUTLINE'], 'not byte-equal');
-  assert.deepEqual(p((r) => { r.itemsByCourse[1].type = 'page'; }), ['OUTLINE']);
+  assert.deepEqual(p((r) => { r.itemsByCourse[1].id = r.itemsByCourse[0].id; r.itemsByModule[1].id = r.itemsByModule[0].id; }), ['DUPLICATE_ID', 'LINK']);
+  assert.deepEqual(p((r) => { r.itemsByCourse[0].content = ''; }), ['LINK', 'OUTLINE'], 'content lost after reload');
+  assert.deepEqual(p((r) => { r.itemsByCourse[0].content += ' '; }), ['LINK', 'OUTLINE'], 'not byte-equal');
+  assert.deepEqual(p((r) => { r.itemsByCourse[1].type = 'page'; }), ['LINK', 'OUTLINE']);
   assert.deepEqual(p((r) => { r.mods[0].position = 1; r.mods[1].position = 0; }), ['OUTLINE'], 'swapped sections');
-  assert.deepEqual(p((r) => { r.itemsByCourse[1].position = 2; }), ['OUTLINE'], 'not dense');
+  assert.deepEqual(p((r) => { r.itemsByCourse[1].position = 2; }), ['LINK', 'OUTLINE'], 'not dense');
   assert.deepEqual(p((r) => { r.itemsByCourse.pop(); }), ['ITEM_COUNT', 'LINK', 'OUTLINE'], 'a lost lesson');
   assert.deepEqual(storedOutlineProblems({ mods: null, itemsByCourse: [], itemsByModule: [] }, EXPECTED), ['READ']);
   assert.equal(k1Error(['ORPHAN']).message, 'BA_K1_E_ORPHAN');
