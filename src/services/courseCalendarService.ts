@@ -376,7 +376,8 @@ export const courseCalendarService = {
         date: updates.start_date,
         // The events table has end_time, NOT end_date — writing end_date
         // made every update 400.
-        end_time: this.toClockTime(updates.end_date),
+        // Omitted fields in a partial update must not clear stored values.
+        ...(updates.end_date !== undefined ? { end_time: this.toClockTime(updates.end_date) } : {}),
         location: updates.location,
       })
       .eq('id', eventId)
