@@ -63,7 +63,6 @@ export function TrackedVideoPlayer({
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const reporterRef = useRef<WatchReporter | null>(null);
   const [status, setStatus] = useState<ReportStatus>('idle');
-  const [loaded, setLoaded] = useState(false);
 
   const resolved = useMemo(() => {
     const embed = resolveEmbed(src);
@@ -80,9 +79,14 @@ export function TrackedVideoPlayer({
 
   const tracking = Boolean(resolved && userId && contentItemId);
 
-  useEffect(() => {
-    setLoaded(false);
-  }, [resolved?.frameSrc]);
+  const frameSrc = resolved?.frameSrc;
+  const [readiness, setReadiness] = useState({ frameSrc, generation: 0, loaded: false });
+  // Reset during render so no committed effect can inherit another source's readiness.
+  // A generation key also gives A→B→A distinct windows for late-event rejection.
+  if (readiness.frameSrc !== frameSrc) {
+    setReadiness({ frameSrc, generation: readiness.generation + 1, loaded: false });
+  }
+  const loaded = readiness.frameSrc === frameSrc && readiness.loaded;
 
   // A status belongs to one video and one identity.
   useEffect(() => {
@@ -144,6 +148,7 @@ export function TrackedVideoPlayer({
     >
       <div className="relative w-full overflow-hidden rounded-md bg-muted" style={{ aspectRatio: '16 / 9' }}>
         <iframe
+          key={readiness.generation}
           ref={frameRef}
           src={resolved.frameSrc}
           title={name}
@@ -151,7 +156,13 @@ export function TrackedVideoPlayer({
           allow={FRAME_ALLOW}
           allowFullScreen={allowFullscreen}
           referrerPolicy="strict-origin-when-cross-origin"
-          onLoad={() => setLoaded(true)}
+          onLoad={(event) => {
+            if (event.currentTarget !== frameRef.current) return;
+            const generation = readiness.generation;
+            setReadiness(current => current.generation === generation
+              ? { ...current, loaded: true }
+              : current);
+          }}
         />
       </div>
       <div role="status" aria-live="polite" className={status === 'error' ? 'mt-2 flex flex-wrap items-center gap-2' : 'sr-only'}>
