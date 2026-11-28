@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from 'react';
+import CourseCatalogBoundary from '@/components/routing/CourseCatalogBoundary';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useParams, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from 'next-themes';
@@ -320,9 +321,9 @@ function App() {
                     <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
                      {/* Course & Learning Routes - Canvas/Blackboard Style */}
-                     <Route path="/courses" element={<CourseList />} />
+                     <Route path="/courses" element={<CourseCatalogBoundary><CourseList /></CourseCatalogBoundary>} />
                      {/* Legacy route for backward compatibility with PageVisibilityContext */}
-                     <Route path="/course-list" element={<CourseList />} />
+                     <Route path="/course-list" element={<CourseCatalogBoundary><CourseList /></CourseCatalogBoundary>} />
                      <Route path="/course-management" element={<CourseManagementDashboard />} />
                      
                      {/* Redirect singular /course to plural /courses */}
